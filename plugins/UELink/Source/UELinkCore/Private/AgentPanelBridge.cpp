@@ -74,6 +74,18 @@ void FAgentPanelBridge::RemoveOp(const FString& Name)
 	Ops.Remove(Name);
 }
 
+void FAgentPanelBridge::PublishEvent(const FString& Topic, const TSharedRef<FJsonObject>& Event)
+{
+	// 主题和操作名同一套前缀规则：没有前缀的主题会和 UELink 自己的 log / tests / liveCoding 混在一起
+	int32 Dot = INDEX_NONE;
+	if (!Topic.FindChar(TEXT('.'), Dot) || Dot <= 0 || Dot == Topic.Len() - 1)
+	{
+		UE_LOG(LogAgentPanelBridge, Warning, TEXT("UELink：推送事件的主题要带「前缀.」：%s"), *Topic);
+		return;
+	}
+	EventDelegate.Broadcast(Topic, Event);
+}
+
 TArray<TSharedPtr<FJsonValue>> FAgentPanelBridge::ExtensionsJson() const
 {
 	TArray<TSharedPtr<FJsonValue>> Arr;

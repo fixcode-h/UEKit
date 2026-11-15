@@ -16,15 +16,15 @@ UEKit 是放进 UE 项目 `Plugins/` 的插件合集。Agent 面板的 UE 页可
 
 | 插件 | 类型 | 引擎 | 说明 |
 | --- | --- | --- | --- |
-| `plugins/UELink` | 基础 | 5.4+ | 让本机工具连上 UE 进程（HTTP `/rpc` + 推送通道），Agent 面板和 UEToVS 都用它。协议见 [docs/protocol.md](docs/protocol.md)，**改协议先改这份文档** |
+| `plugins/UELink` | 基础 | 5.4+ | 让 Agent 面板连上 UE 进程（HTTP `/rpc` + 推送通道），其他插件也通过它和面板通信。协议见 [docs/protocol.md](docs/protocol.md)，**改协议先改这份文档** |
 | `plugins/AssetForge` | 扩展 | 5.8 | 用 JSON 配置管理资产：导入、导出、演练、同步状态、属性差异。见 [docs/asset-forge.md](docs/asset-forge.md) |
 | `plugins/GameTest` | 扩展 | 5.8 | 用 JSON 场景跑游戏测试、录制回放。见 [docs/game-test.md](docs/game-test.md) |
 
 ### 谁在用这些插件
 
 - **Agent 面板的 UE 插件**（`fixcode-h/agent-plugins` 的 `ue/`）：走 HTTP `/rpc`，负责安装 / 卸载、网页界面（AssetForge 页、GameTest 页），并把能力做成 MCP 工具（`ue_*`、`ue_forge`、`ue_gametest`）交给 Agent。**所有 UE 侧能力都经 UELink 到面板，再由面板给 Agent**，扩展插件不直接面向 Agent。
-- **UEToVS**（`fixcode-h/UEToVS`，VS 扩展）：走 UELink 的推送通道（TCP，一行一个 JSON），只读不装：UELink 由面板安装，UEToVS 检测不到时提示去面板装。
-- 两个客户端都按 `catalog.json` 查新版本。改了操作名、参数、返回格式，要同时在协议文档里写清楚，并去客户端那边跟上（面板工具的说明、`useWhen` / `avoidWhen`）。
+- **UEToVS 不连 UE**（0.7.0 起）：它只管 VS 里的代码体验和给 Agent 的代码信息，日志、Live Coding、测试结果都不经过它。推送通道里那几条旧的一次性命令（`openAsset`、`liveCoding`、`runTests`）是给旧版 UEToVS 留的，新功能不要再往那边加。
+- 面板按 `catalog.json` 查新版本。改了操作名、参数、返回格式，要同时在协议文档里写清楚，并去面板那边跟上（工具的说明、`useWhen` / `avoidWhen`）。
 
 ### 目录
 
@@ -65,7 +65,7 @@ dist/                   出包产物（已忽略）
 - **引擎版本差异只写在 `<插件>Compat.h`**：用 UE 自带的 `ENGINE_MAJOR_VERSION` / `ENGINE_MINOR_VERSION` 或 `UE_VERSION_NEWER_THAN` / `UE_VERSION_OLDER_THAN` 定义成插件自己的宏或内联函数；Build.cs 里用 `Target.Version`。业务代码不直接判断版本（`check.mjs` 会拦）。只支持一个引擎版本的插件（如 5.8 的扩展）也照样留一个 Compat 头，以后要降版本时只改这一处。
 - **可选依赖拆成单独模块**：CommonUI、GAS、EnhancedInput、UnLua 这类不一定每个项目都开的插件，放进 `<插件><依赖>` 模块，`.uplugin` 里依赖标 `Optional`，没有时整块不编；主模块只认接口（注册表、委托），不 include 可选模块的头。
 - **UnLua 是可选的**：`UELinkCore.Build.cs` 扫项目里 UnLua 的头文件选接口（用户的 UnLua 可能是二次开发过的分支），不要假设官方 UnLua 的接口。
-- **项目侧接口不随手改名**：UELink 的类名 `FAgentPanel*`、`UAgentPanel*`、头文件名、commandlet 名 `-run=AgentPanel`、元数据 `meta=(AgentPanel)` 是项目代码在用的接口，改名要先在协议文档里写好迁移办法，并且两个客户端都跟上。
+- **项目侧接口不随手改名**：UELink 的类名 `FAgentPanel*`、`UAgentPanel*`、头文件名、commandlet 名 `-run=AgentPanel`、元数据 `meta=(AgentPanel)` 是项目代码在用的接口，改名要先在协议文档里写好迁移办法，并且面板跟上。
 - **不带某个项目的东西**：插件代码、默认配置、注释、测试里不出现具体游戏项目的名字、路径和资产（原项目前缀 `Tk`、`/Game/某项目/...` 之类）。默认目录用通用的 `Config/<插件>`；依赖项目资产的测试在资产不存在时跳过，不失败。`check.mjs` 会拦 `Tk` 前缀。
 - **线程**：所有操作都在游戏线程上执行；推送通道的套接字是非阻塞的，客户端卡住不能卡编辑器。超过几百毫秒的操作（批量导入、跑测试场景）马上返回作业号，每帧做一点，客户端用 `<前缀>.job` 查进度、`<前缀>.stop` 取消，进度变化走推送事件，不让客户端轮询。
 - **Shipping 不加载**：UELink 的 `UELinkCore` 在 Shipping 下不加载，扩展插件同样不进 Shipping（模块类型用 Editor / UncookedOnly / DeveloperTool，或 `TargetDenyList` 拦 Shipping）。

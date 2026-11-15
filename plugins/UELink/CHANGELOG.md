@@ -8,6 +8,7 @@
 
 ### 新功能
 - **扩展插件接口** — UEKit 里的扩展插件（AssetForge、GameTest）把自己的操作挂到 UELink 的 `/rpc` 上（带前缀，如 `forge.import`、`gt.run`），共用令牌和只听本机；名片和 `/info` 多了 `extensions`，列出这个进程里加载了哪些扩展、什么版本
+- **扩展推送事件** — 扩展可以经推送通道推实时状态（作业进度、录制到的一步），客户端订阅 `forge.job` 这类主题即可，不用轮询；`features` 里多了 `extEvents`
 - **版本差异宏公开** — `UELinkCompat.h` 挪到 UELinkCore 的 Public，扩展插件直接用（宏改名为 `UELINK_JSON_KEY` 等）
 
 ### 注意

@@ -1,6 +1,8 @@
 # UELink 协议与安装约定
 
-给客户端（Agent 面板的 UE 插件、UEToVS）看：怎么找到 UE 进程、怎么调用、怎么订阅、怎么查更新和安装。**改协议先改这份文档。**
+给客户端（Agent 面板的 UE 插件）看：怎么找到 UE 进程、怎么调用、怎么订阅、怎么查更新和安装。**改协议先改这份文档。**
+
+> UEToVS 0.7.0 起不再连 UE（日志、Live Coding、测试结果不经过 VS）。下面推送通道里的一次性命令和 `tests` / `liveCoding` 主题是给旧版 UEToVS 留的，面板用 HTTP 的 `tests.*`、`livecoding.*` 和扩展事件。
 
 ## 1. 名片：找到 UE 进程
 
@@ -126,7 +128,7 @@
    ```json
    { "version": "2.0.0", "by": "agent-panel|uetovs", "source": "github|bundled|mirror", "mode": "local|vcs|files", "at": "2026-11-14T02:00:00Z" }
    ```
-   `files` = 只复制文件、版本管理留给用户（UEToVS 不问版本管理，自己装时写这个）。另一个客户端升级时沿用同样的 `mode`。这个文件不进发布的源码包。
+   `files` = 只复制文件、版本管理留给用户（旧版 UEToVS 自己装时写这个）。另一个客户端升级时沿用同样的 `mode`。这个文件不进发布的源码包。
 8. 装完提示**需要完整编译一次**（Live Coding 不够）。
 
 ## 6. 扩展插件
@@ -139,5 +141,6 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
   ```
   这是**这个进程里实际加载了**的扩展和版本；装了新版还没重编时，和项目 `Plugins/` 里磁盘上的版本不同。
 - 操作用 `AddExtensionOp("前缀.名字", 处理函数)` 登记：名字必须带前缀（AssetForge 用 `forge.`，GameTest 用 `gt.`），和已有操作重名时拒绝。客户端调用方式和 UELink 自己的操作完全一样。
-- 长任务（批量导入、跑测试场景）马上返回作业号，客户端用 `forge.job` / `gt.job` 查进度。
+- 长任务（批量导入、跑测试场景）马上返回作业号，客户端用 `forge.job` / `gt.job` 查进度和最终结果。
+- **推送事件**（2.2 起，`features` 里有 `extEvents`）：扩展用 `FAgentPanelBridge::Get().PublishEvent("前缀.主题", 事件)` 推实时状态（在游戏线程调用）。客户端在推送通道订阅时把主题写进 `topics`（如 `["log","forge.job","gt.record"]`），收到的事件行是 `{"event":"forge.job", ...事件字段}`。没人订阅时扩展推事件几乎没有开销。事件只是实时提示，客户端中途连上会漏掉之前的，最终结果以 `*.job` 为准。
 - 扩展各自的操作列表见 `docs/asset-forge.md`、`docs/game-test.md`。
