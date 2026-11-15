@@ -4,6 +4,7 @@
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelBlueprintComps.h"
 #include "AgentPanelOutliner.h"
+#include "AgentPanelAssetTree.h"
 #include "AgentPanelGMLibrary.h"
 #include "AgentPanelLog.h"
 #include "AgentPanelLuaOps.h"
@@ -38,6 +39,25 @@
 #include "UnrealClient.h"
 
 using namespace AgentPanel;
+
+// 按名字或 /Script 路径找类；assets 和 assets.children（AgentPanelAssetTree.cpp）共用
+UClass* AgentPanel::FindClassByName(const FString& Name)
+{
+	if (Name.IsEmpty())
+	{
+		return nullptr;
+	}
+	if (Name.StartsWith(TEXT("/")))
+	{
+		return FindObject<UClass>(nullptr, *Name);
+	}
+	UClass* C = FindFirstObject<UClass>(*Name, EFindFirstObjectOptions::NativeFirst);
+	if (!C && !Name.EndsWith(TEXT("_C")))
+	{
+		C = FindFirstObject<UClass>(*(Name + TEXT("_C")), EFindFirstObjectOptions::None);
+	}
+	return C;
+}
 
 namespace
 {
@@ -152,24 +172,6 @@ namespace
 		O->SetBoolField(TEXT("server"), F->HasAnyFunctionFlags(FUNC_NetServer));
 		O->SetArrayField(TEXT("params"), ParamsOf(F));
 		return O;
-	}
-
-	UClass* FindClassByName(const FString& Name)
-	{
-		if (Name.IsEmpty())
-		{
-			return nullptr;
-		}
-		if (Name.StartsWith(TEXT("/")))
-		{
-			return FindObject<UClass>(nullptr, *Name);
-		}
-		UClass* C = FindFirstObject<UClass>(*Name, EFindFirstObjectOptions::NativeFirst);
-		if (!C && !Name.EndsWith(TEXT("_C")))
-		{
-			C = FindFirstObject<UClass>(*(Name + TEXT("_C")), EFindFirstObjectOptions::None);
-		}
-		return C;
 	}
 
 	FViewport* GameViewport(UWorld* World)
@@ -1412,5 +1414,6 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 	AgentPanelRegisterLuaOps(*this);
 	RegisterUmgOps(*this);
 	RegisterOutlinerOps(*this);
+	RegisterAssetTreeOps(*this);
 	RegisterPerfOps(*this);
 }

@@ -49,7 +49,7 @@
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status` |
@@ -63,6 +63,16 @@
 - `outliner {"world"?, "limit"?}` → `{"world", "total", "items": [{"path", "name", "class", "label"?, "folder"?, "parent"?, "player"?}]}`：世界里全部 Actor，`parent` 是挂接的父 Actor，`folder` 是大纲文件夹（编辑器里才有）。
 - `objects.children {"path"?, "world"?, "limit"?}` → `{"items": [{"path", "name", "class", "more"}], "total"?}`：`path` 为空时给根（GameInstance、世界、引擎），否则给它下一层（外层是它）的对象；不含 Actor、组件、关卡、反射对象和类默认对象。`more` 表示还能往下展开。
 - 推送事件 `uelink.outliner` `{"worlds": [世界 id], "all": bool}`：编辑器里 Actor 增删、挂接、换文件夹、关卡列表变了时推，最多每 0.5 秒一次，不带数据，客户端收到后重读 `outliner`。
+
+2.3.0 起的资源文件夹树（照 Content Browser，点开一个文件夹才读下一层；只读资源注册表、不加载资源，编辑器、后台编辑器、`-game` 里都能用）：
+
+- `assets.children {"path", "class"?, "limit"?}` → `{"path", "folders": [{"name", "path", "count"?}], "items": [{"name", "path", "class"}], "more"?, "loading"?}`。
+  - `path` 为 `/`（或空）时给挂载根：`/Game`（`name` 为 `Content`）、内容目录在项目里的挂载点（项目插件）、`/Engine`，`items` 为空。
+  - 其他路径给这一层：`folders` 是子文件夹（不含世界分区的 `__External*` 目录），`items` 是这一层的资源（不含重定向器），`path` 是对象路径（`/Game/A/B.B`，和 `assets` 一致），`class` 是类名短名。都按名字排序（不分大小写），文件夹在前。`count` 目前不给（每个子文件夹单独数要扫全树），客户端按可选字段处理。
+  - `class` 按类筛这一层的资源（含子类，类名写法和 `assets` 一样）；文件夹不受筛选影响。`limit` 默认 500、最多 2000，文件夹加资源超过时截断并回 `"more": true`。
+  - `loading: true` 表示资源注册表还在扫盘（编辑器刚启动），结果可能不全，稍后重读。
+  - 什么时候用：网页资源页的文件夹树逐层展开；要按名字搜全项目还是用 `assets`。
+  - 旧版本（2.2 及以前）没有这个操作：`GET /info` 的 `ops` 里没有 `assets.children`（直接调会回「这个进程不支持 assets.children」），客户端改走磁盘兜底（自己列项目 `Content/` 和插件 `Content/` 目录下的 `.uasset` / `.umap`）。
 
 2.0.0 新加的三个：
 
