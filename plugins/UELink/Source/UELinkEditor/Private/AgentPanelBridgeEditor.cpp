@@ -371,12 +371,17 @@ public:
 		RegisterTextifyOps();
 		RegisterStreamOps();
 		// 推送通道等引擎初始化完再起（和运行时模块的 HTTP 服务同一时机）；commandlet、游戏进程里 Start 自己会跳过
-		PostInit = UELINK_EDITOR_POST_ENGINE_INIT.AddLambda([]() { FUELinkStream::Get().Start(); });
+		PostInit = UELINK_EDITOR_POST_ENGINE_INIT.AddLambda([]()
+		{
+			FUELinkStream::Get().Start();
+			StartOutlinerPush();
+		});
 	}
 
 	virtual void ShutdownModule() override
 	{
 		UELINK_EDITOR_POST_ENGINE_INIT.Remove(PostInit);
+		StopOutlinerPush();
 		FUELinkStream::Get().Stop();
 	}
 

@@ -3,6 +3,7 @@
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelBlueprintComps.h"
+#include "AgentPanelOutliner.h"
 #include "AgentPanelGMLibrary.h"
 #include "AgentPanelLog.h"
 #include "AgentPanelLuaOps.h"
@@ -1410,5 +1411,6 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 	// ---------- Lua（项目里有 UnLua 才编进来，见 AgentPanelLua.cpp） ----------
 	AgentPanelRegisterLuaOps(*this);
 	RegisterUmgOps(*this);
+	RegisterOutlinerOps(*this);
 	RegisterPerfOps(*this);
 }

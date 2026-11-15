@@ -10,6 +10,7 @@
 - **扩展插件接口** — UEKit 里的扩展插件（AssetForge、GameTest）把自己的操作挂到 UELink 的 `/rpc` 上（带前缀，如 `forge.import`、`gt.run`），共用令牌和只听本机；名片和 `/info` 多了 `extensions`，列出这个进程里加载了哪些扩展、什么版本
 - **扩展推送事件** — 扩展可以经推送通道推实时状态（作业进度、录制到的一步），客户端订阅 `forge.job` 这类主题即可，不用轮询；`features` 里多了 `extEvents`
 - **蓝图资源的组件树** — `components` 传蓝图资源时，除了 C++ 组件也列出蓝图里加的组件（含父蓝图的），按挂接关系给出父组件，Agent 面板资源页据此画组件树、点组件改它的默认值
+- **世界大纲和 UObject 树** — 新操作 `outliner`（一个世界的全部 Actor：名字、类、文件夹、挂接）和 `objects.children`（按外层一层层列非 Actor 对象），只给名字和层级不读属性；Actor 增删、挂接变化时推 `uelink.outliner` 事件，客户端不用轮询
 - **版本差异宏公开** — `UELinkCompat.h` 挪到 UELinkCore 的 Public，扩展插件直接用（宏改名为 `UELINK_JSON_KEY` 等）
 
 ### 注意

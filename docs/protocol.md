@@ -47,7 +47,7 @@
 | 分组 | 操作 |
 | --- | --- |
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run` |
-| 对象和属性 | `actors`、`objects`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
+| 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
 | 资源 | `assets`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
@@ -57,6 +57,12 @@
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
+
+2.2.0 起的世界大纲和 UObject 树（只给名字和层级，属性点了再用 `props` 读）：
+
+- `outliner {"world"?, "limit"?}` → `{"world", "total", "items": [{"path", "name", "class", "label"?, "folder"?, "parent"?, "player"?}]}`：世界里全部 Actor，`parent` 是挂接的父 Actor，`folder` 是大纲文件夹（编辑器里才有）。
+- `objects.children {"path"?, "world"?, "limit"?}` → `{"items": [{"path", "name", "class", "more"}], "total"?}`：`path` 为空时给根（GameInstance、世界、引擎），否则给它下一层（外层是它）的对象；不含 Actor、组件、关卡、反射对象和类默认对象。`more` 表示还能往下展开。
+- 推送事件 `uelink.outliner` `{"worlds": [世界 id], "all": bool}`：编辑器里 Actor 增删、挂接、换文件夹、关卡列表变了时推，最多每 0.5 秒一次，不带数据，客户端收到后重读 `outliner`。
 
 2.0.0 新加的三个：
 
