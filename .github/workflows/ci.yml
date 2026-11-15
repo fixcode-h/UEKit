@@ -1,0 +1,44 @@
+# 推到 dev 和拉取请求：检查、出包（不发布）。UE 的 C++ 在这里编不了，要在本地完整编译验证。
+name: 检查
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 检查（版本号、模块、编译产物、扩展规则）
+        run: node scripts/check.mjs
+      - name: 出包（附更新说明）
+        run: node scripts/package.mjs
+      - name: 合到 main 的拉取请求：改了的插件版本号要比已发布的新
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch origin main --depth=1
+          bad=0
+          for dir in dist/*/; do
+            name=$(basename "$dir")
+            version=$(node -p "require('./$dir/manifest.json').version")
+            if git diff --quiet origin/main HEAD -- "plugins/$name"; then continue; fi
+            if gh release view "$name-v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::error::$name $version 已经发布过：改了 plugins/$name 要在它的 CHANGELOG.md 最上面加新版本节，并升 .uplugin 和版本宏"
+              bad=1
+            fi
+          done
+          exit $bad
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uekit-packages
+          path: dist/

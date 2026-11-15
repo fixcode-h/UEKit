@@ -1,0 +1,54 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0.0-beta.1",
+  "FriendlyName": "GameTest",
+  "Description": "用 JSON 场景跑游戏测试：控件选择器、点击输入、等待断言、截图，支持录制回放。界面在 Agent 面板的 UE 页，经 UELink 通信。",
+  "Category": "Testing",
+  "CreatedBy": "fixcode-h",
+  "CreatedByURL": "https://github.com/fixcode-h/UEKit",
+  "DocsURL": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
+  "EngineVersion": "5.8.0",
+  "CanContainContent": false,
+  "Installed": false,
+  "EnabledByDefault": true,
+  "Modules": [
+    {
+      "Name": "GameTest",
+      "Type": "Runtime",
+      "LoadingPhase": "PostEngineInit",
+      "TargetDenyList": ["Shipping"]
+    },
+    {
+      "Name": "GameTestCommonUI",
+      "Type": "Runtime",
+      "LoadingPhase": "PostEngineInit",
+      "TargetDenyList": ["Shipping"]
+    },
+    {
+      "Name": "GameTestGAS",
+      "Type": "Runtime",
+      "LoadingPhase": "PostEngineInit",
+      "TargetDenyList": ["Shipping"]
+    },
+    {
+      "Name": "GameTestEnhancedInput",
+      "Type": "Runtime",
+      "LoadingPhase": "PostEngineInit",
+      "TargetDenyList": ["Shipping"]
+    },
+    {
+      "Name": "GameTestTests",
+      "Type": "UncookedOnly",
+      "LoadingPhase": "PostEngineInit",
+      "TargetAllowList": ["Editor"]
+    }
+  ],
+  "Plugins": [
+    { "Name": "UELink", "Enabled": true },
+    { "Name": "CQTest", "Enabled": true },
+    { "Name": "CommonUI", "Enabled": true, "Optional": true },
+    { "Name": "GameplayAbilities", "Enabled": true, "Optional": true },
+    { "Name": "EnhancedInput", "Enabled": true, "Optional": true }
+  ]
+}

@@ -1,0 +1,92 @@
+# 发布：推到 main 时自动跑；也可以在 Actions 页手动运行（选插件、选「只打包不发布」）。
+# 每个插件按 CHANGELOG 最上面的版本发：标签 <插件>-v<版本> 还没有就打包、发 Release；
+# Release 说明 = 这一版的 CHANGELOG 节 + 上一版以来改了这个插件目录的提交（scripts/lib.mjs 的 releaseNotes）。
+# 已经发过的版本：包的内容一样就跳过；不一样也不覆盖（同一个版本号两份内容，客户端查更新查不出来），只出警告提醒升版本号。
+# 只有 UELink 的正式版设成 Latest；其他插件、预发布都不抢 Latest。发完把清单并进 catalog.json 提交回 main。
+name: 发布
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 要打包的插件
+        type: choice
+        default: all
+        options: [all, UELink, AssetForge, GameTest]
+      publish:
+        description: 发布到 Release（不勾时只打包，产物挂在这次运行上）
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 检查
+        run: node scripts/check.mjs --plugin "${{ inputs.plugin || 'all' }}"
+      - name: 出包
+        run: node scripts/package.mjs --plugin "${{ inputs.plugin || 'all' }}"
+      - name: 只打包：上传产物
+        if: github.event_name == 'workflow_dispatch' && !inputs.publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: uekit-packages
+          path: dist/
+      - name: 发到 Release
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          published=()
+          for dir in dist/*/; do
+            name=$(basename "$dir")
+            version=$(node -p "require('./$dir/manifest.json').version")
+            tag="$name-v$version"
+            asset="$name-$version-src.zip"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              old=""
+              if gh release download "$tag" -p "$asset" -D ".old/$name" --clobber >/dev/null 2>&1; then
+                old=$(sha256sum ".old/$name/$asset" | cut -d' ' -f1)
+              fi
+              new=$(sha256sum "$dir/$asset" | cut -d' ' -f1)
+              if [ "$old" = "$new" ]; then
+                echo "$tag 已发布，内容没变，跳过"
+              else
+                echo "::warning::$tag 已发布但源码变了，Release 没有覆盖；要发布这次改动请升 $name 的版本号并在它的 CHANGELOG.md 加新版本节"
+              fi
+              continue
+            fi
+            flags=(--latest=false)
+            case "$version" in
+              *-*) flags=(--prerelease --latest=false) ;;
+              *) [ "$name" = "UELink" ] && flags=(--latest) ;;
+            esac
+            gh release create "$tag" "$dir/$asset" "$dir/manifest.json" "$dir/SHA256SUMS" \
+              --target "$GITHUB_SHA" --title "$name $version" --notes-file "$dir/notes.md" "${flags[@]}"
+            published+=("$dir/manifest.json")
+            echo "已发布 $tag"
+          done
+          if [ ${#published[@]} -gt 0 ]; then
+            node scripts/catalog.mjs "${published[@]}"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add catalog.json
+            git commit -m "内部：插件目录更新（$(printf '%s ' "${published[@]}" | sed 's#dist/##g; s#/manifest.json##g')）"
+            git push origin HEAD:main
+          fi

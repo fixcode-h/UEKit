@@ -1,0 +1,36 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0.0-beta.1",
+  "FriendlyName": "AssetForge",
+  "Description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等资产：导入、导出、演练、同步状态、属性差异。界面在 Agent 面板的 UE 页，经 UELink 通信。",
+  "Category": "Developer Tools",
+  "CreatedBy": "fixcode-h",
+  "CreatedByURL": "https://github.com/fixcode-h/UEKit",
+  "DocsURL": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
+  "EngineVersion": "5.8.0",
+  "CanContainContent": false,
+  "Installed": false,
+  "EnabledByDefault": true,
+  "Modules": [
+    {
+      "Name": "AssetForge",
+      "Type": "Editor",
+      "LoadingPhase": "PostEngineInit"
+    },
+    {
+      "Name": "AssetForgeTests",
+      "Type": "UncookedOnly",
+      "LoadingPhase": "PostEngineInit",
+      "TargetAllowList": ["Editor"]
+    }
+  ],
+  "Plugins": [
+    { "Name": "UELink", "Enabled": true },
+    { "Name": "StateTree", "Enabled": true },
+    { "Name": "PropertyBindingUtils", "Enabled": true },
+    { "Name": "Niagara", "Enabled": true },
+    { "Name": "DataValidation", "Enabled": true },
+    { "Name": "CQTest", "Enabled": true }
+  ]
+}
