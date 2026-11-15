@@ -1,0 +1,13 @@
+{
+  "displayName": "UELink",
+  "kind": "base",
+  "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
+  "versionHeader": { "file": "Source/UELinkCore/Public/UELinkVersion.h", "macro": "UELINK_VERSION" },
+  "engineMin": "5.4",
+  "engineTested": ["5.4", "5.5", "5.6", "5.7", "5.8"],
+  "requires": {},
+  "enginePlugins": [],
+  "optionalPlugins": ["UnLua"],
+  "replaces": ["AgentPanelBridge", "UEToVSLink"],
+  "panelTools": ["ue_status", "ue_console", "ue_gm", "ue_find", "ue_get", "ue_set", "ue_call", "ue_asset", "ue_blueprint", "ue_log", "ue_screenshot", "ue_editor", "ue_perf"]
+}
