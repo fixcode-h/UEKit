@@ -23,14 +23,18 @@ struct FGameTestWidgetNode;
 class GAMETEST_API GameTestSnapshot
 {
 public:
-	static void CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTestWidgetNode>>& OutScreens);
+	/**
+	 * `bInLight`：只要结构（名字、类、文字、状态、列表条目），不导出每个控件自己的属性。
+	 * 选择器解析每帧都可能跑（回放的自动等待），属性导出是这里最贵的一块，只有快照要 props 时才需要。
+	 */
+	static void CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTestWidgetNode>>& OutScreens, bool bInLight = false);
 
 	/**
 	 * 单个控件子树（含它自己）。
 	 * @param InIsScreenRoot true 表示这是"屏根"（本身是 UUserWidget）：此时展开它自己的控件树；
 	 *                       false 时遇到 UUserWidget 只记引用不展开（子界面自成一棵屏）。
 	 */
-	static TSharedPtr<FGameTestWidgetNode> CaptureSubtree(UWidget* InWidget, const FString& InPath, bool InIsScreenRoot);
+	static TSharedPtr<FGameTestWidgetNode> CaptureSubtree(UWidget* InWidget, const FString& InPath, bool InIsScreenRoot, bool bInLight = false);
 
 	/** 屏清单 + 控件树 → JSON。`props` 打开时额外带上"声明在自己类上"的属性。 */
 	static TSharedPtr<FJsonObject> ScreensToJson(

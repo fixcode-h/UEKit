@@ -6,6 +6,7 @@
 #include "Core/GameTestWorld.h"
 #include "Input/GameTestInput.h"
 #include "Observe/GameTestActor.h"
+#include "Observe/GameTestWidgetNode.h"
 
 #include "Dom/JsonObject.h"
 #include "Engine/World.h"
@@ -13,6 +14,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
+#include "Components/Widget.h"
+#include "Widgets/SWidget.h"
 
 namespace GameTestHandlers
 {
@@ -71,9 +74,32 @@ namespace GameTestHandlers
 			return StepFailed;
 		}
 
+		// 给了 target：键盘事件发给这个控件（输入框里的回车、退格、方向键），否则发给游戏视口。
+		TSharedPtr<SWidget> Focus;
+		if (!InContext.Step->Target.IsEmpty())
+		{
+			TSharedPtr<FGameTestWidgetNode> Node;
+			FString ResolveError;
+			if (!TryResolveStepTarget(InContext, Node, ResolveError))
+			{
+				InContext.Message = ResolveError;
+				return StepFailed;
+			}
+			Focus = Node->Slate.Pin();
+			if (!Focus.IsValid() && Node->Widget.IsValid())
+			{
+				Focus = Node->Widget->GetCachedWidget();
+			}
+			if (!Focus.IsValid())
+			{
+				InContext.Message = FString::Printf(TEXT("%s 还没建出 Slate 控件，按键没处发"), *Node->Path);
+				return StepFailed;
+			}
+		}
+
 		const FKey Key(*KeyName);
 		FString Error;
-		if (!GameTestInput::SendKey(Key, /*bInDown=*/!bRelease, Error))
+		if (!GameTestInput::SendKeyTo(Key, /*bInDown=*/!bRelease, Focus, Error))
 		{
 			InContext.Message = Error;
 			return StepFailed;
@@ -91,15 +117,16 @@ namespace GameTestHandlers
 		// tap：按下后隔一帧再松开——同一帧里按下又松开，有的 trigger（Pressed / Tap）看不到这次按键。
 		const FKey HeldKey = Key;
 		const uint64 PressedFrame = GFrameCounter;
+		const TWeakPtr<SWidget> FocusWeak = Focus;
 		InContext.Message = FString::Printf(TEXT("已按下并松开 %s"), *Key.GetFName().ToString());
-		InContext.PendingPredicate = [HeldKey, PressedFrame](double)
+		InContext.PendingPredicate = [HeldKey, PressedFrame, FocusWeak](double)
 		{
 			if (GFrameCounter <= PressedFrame + 1)
 			{
 				return false;
 			}
 			FString Ignored;
-			GameTestInput::SendKey(HeldKey, /*bInDown=*/false, Ignored);
+			GameTestInput::SendKeyTo(HeldKey, /*bInDown=*/false, FocusWeak.Pin(), Ignored);
 			return true;
 		};
 		return StepPending;

@@ -38,7 +38,17 @@ class GAMETEST_API GameTestScenario
 {
 public:
 	/** 当前支持的场景格式版本；场景里写更高的版本会被明确拒绝。 */
-	static constexpr int32 SupportedSchemaVersion = 1;
+	/**
+	 * 当前支持的场景格式版本；场景里写更高的版本会被明确拒绝。
+	 * 2：click / type 默认走真实输入（指针、按键），旧的按控件类的代码级操作要写 `via: "code"`。
+	 */
+	static constexpr int32 SupportedSchemaVersion = 2;
+
+	/**
+	 * 旧版本场景的兼容：schemaVersion 1 的 click / type 当时是代码级操作，没写 via 的补上 `via: "code"`，
+	 * 行为和以前一样。只改内存里的步骤，不改文件。
+	 */
+	static void ApplyLegacyDefaults(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& InOutSteps);
 
 	/** 场景文件的 kind 取值。 */
 	static const TCHAR* GetKind()

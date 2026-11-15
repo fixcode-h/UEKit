@@ -58,6 +58,28 @@ bool GameTestScenario::Validate(const TSharedPtr<FJsonObject>& InJson, TArray<FS
 	return OutErrors.Num() == 0;
 }
 
+void GameTestScenario::ApplyLegacyDefaults(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& InOutSteps)
+{
+	int32 SchemaVersion = 0;
+	if (!InJson.IsValid() || !GameTestJson::TryGetInt(*InJson, TEXT("schemaVersion"), SchemaVersion) || SchemaVersion >= 2)
+	{
+		return;
+	}
+
+	for (const TSharedPtr<FJsonObject>& Step : InOutSteps)
+	{
+		FString Action;
+		if (!Step.IsValid() || !GameTestJson::TryGetString(*Step, TEXT("action"), Action) || Step->HasField(TEXT("via")))
+		{
+			continue;
+		}
+		if (Action == TEXT("click") || Action == TEXT("type"))
+		{
+			Step->SetStringField(TEXT("via"), TEXT("code"));
+		}
+	}
+}
+
 bool GameTestScenario::CollectSteps(
 	const TSharedPtr<FJsonObject>& InJson,
 	TArray<TSharedPtr<FJsonObject>>& OutSteps,

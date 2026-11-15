@@ -161,6 +161,29 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 
 		IFileManager::Get().DeleteDirectory(*RootDir, /*RequireExists=*/false, /*Tree=*/true);
 	}
+
+	TEST_METHOD(LegacyDefaults_OldClickAndTypeUseCode)
+	{
+		const TSharedPtr<FJsonObject> Json = ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"x","steps":[{"action":"click","target":"A:B"},{"action":"type","target":"A:C","text":"1"},{"action":"click","target":"A:D","via":"pointer"},{"action":"ping"}]})"));
+		TArray<TSharedPtr<FJsonObject>> Steps;
+		TArray<FString> Errors;
+		ASSERT_THAT(IsTrue(GameTestScenario::CollectSteps(Json, Steps, Errors), FString::Join(Errors, TEXT("；"))));
+		GameTestScenario::ApplyLegacyDefaults(Json, Steps);
+		ASSERT_THAT(IsTrue(Steps[0]->GetStringField(TEXT("via")) == TEXT("code"), TEXT("旧场景的 click 走旧行为")));
+		ASSERT_THAT(IsTrue(Steps[1]->GetStringField(TEXT("via")) == TEXT("code"), TEXT("旧场景的 type 走旧行为")));
+		ASSERT_THAT(IsTrue(Steps[2]->GetStringField(TEXT("via")) == TEXT("pointer"), TEXT("写了 via 的不动")));
+		ASSERT_THAT(IsFalse(Steps[3]->HasField(TEXT("via")), TEXT("别的动作不加 via")));
+	}
+
+	TEST_METHOD(LegacyDefaults_NewSchemaUntouched)
+	{
+		const TSharedPtr<FJsonObject> Json = ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":2,"name":"x","steps":[{"action":"click","target":"A:B"}]})"));
+		TArray<TSharedPtr<FJsonObject>> Steps;
+		TArray<FString> Errors;
+		ASSERT_THAT(IsTrue(GameTestScenario::CollectSteps(Json, Steps, Errors), FString::Join(Errors, TEXT("；"))));
+		GameTestScenario::ApplyLegacyDefaults(Json, Steps);
+		ASSERT_THAT(IsFalse(Steps[0]->HasField(TEXT("via")), TEXT("格式 2 的 click 默认真实点击")));
+	}
 };
 
 #endif	// WITH_AUTOMATION_WORKER

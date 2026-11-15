@@ -72,6 +72,20 @@ namespace GameTestHandlers
 {
 	EGameTestStepStatus HandleClick(FGameTestStepContext& InContext)
 	{
+		// 默认真实指针（等可操作、移光标、按下松开，不认控件类）；`via: "code"` 才走下面按类的代码级点击，
+		// schemaVersion 1 的旧场景在加载时补上 via=code，行为不变。
+		FString Via;
+		GameTestJson::TryGetString(*InContext.Step->Params, TEXT("via"), Via);
+		if (Via.IsEmpty() || Via.Equals(TEXT("pointer"), ESearchCase::IgnoreCase))
+		{
+			return HandleClickPointer(InContext);
+		}
+		if (!Via.Equals(TEXT("code"), ESearchCase::IgnoreCase))
+		{
+			InContext.Message = FString::Printf(TEXT("via 只能是 pointer（默认，真实指针）或 code（代码级点击），收到 '%s'"), *Via);
+			return StepFailed;
+		}
+
 		TSharedPtr<FGameTestWidgetNode> Node;
 		FString Error;
 		if (!TryResolveStepTarget(InContext, Node, Error))
@@ -91,6 +105,19 @@ namespace GameTestHandlers
 
 	EGameTestStepStatus HandleType(FGameTestStepContext& InContext)
 	{
+		// 默认按真实按键打字（给焦点、逐字发字符）；`via: "code"` 才按控件类直接 SetText。
+		FString Via;
+		GameTestJson::TryGetString(*InContext.Step->Params, TEXT("via"), Via);
+		if (Via.IsEmpty() || Via.Equals(TEXT("keys"), ESearchCase::IgnoreCase))
+		{
+			return HandleTypeKeys(InContext);
+		}
+		if (!Via.Equals(TEXT("code"), ESearchCase::IgnoreCase))
+		{
+			InContext.Message = FString::Printf(TEXT("via 只能是 keys（默认，真实按键）或 code（直接写文本），收到 '%s'"), *Via);
+			return StepFailed;
+		}
+
 		FString Text;
 		if (!GameTestJson::TryGetString(*InContext.Step->Params, TEXT("text"), Text))
 		{

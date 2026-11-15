@@ -1,0 +1,455 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#include "Observe/GameTestSelectorWriter.h"
+
+#include "Core/GameTestWorld.h"
+#include "Observe/GameTestSelector.h"
+#include "Observe/GameTestSlate.h"
+#include "Observe/GameTestSnapshot.h"
+#include "Observe/GameTestWidgetNode.h"
+
+#include "Blueprint/IUserListEntry.h"
+#include "Blueprint/IUserObjectListEntry.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Blueprint/WidgetTree.h"
+#include "Components/ListView.h"
+#include "Components/PanelWidget.h"
+#include "Components/Widget.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Widgets/SWidget.h"
+
+namespace GameTestSelectorWriterDetail
+{
+	/** 一层套一层的 WBP 写到这么深还没到顶，说明父子关系绕成了环（不该发生），直接放弃。 */
+	constexpr int32 MaxDepth = 16;
+
+	/** 找 Id 类属性时最多看这么多条目：再多就只用序号，录制时不为一次点击导出几千个数据项。 */
+	constexpr int32 MaxItemsForProperty = 200;
+
+	double Round3(double InValue)
+	{
+		return FMath::RoundToDouble(InValue * 1000.0) / 1000.0;
+	}
+
+	/** 控件所在的 WBP：沿 Outer 找到 UWidgetTree，它的 Outer 就是那个 UUserWidget。 */
+	UUserWidget* GetTreeOwner(const UWidget& InWidget)
+	{
+		const UWidgetTree* Tree = Cast<UWidgetTree>(InWidget.GetOuter());
+		return Tree != nullptr ? Cast<UUserWidget>(Tree->GetOuter()) : nullptr;
+	}
+
+	/**
+	 * 这个控件是不是在所在 WBP 的设计器里建的（名字存在资源里，稳定）。
+	 * 不能只看 Outer：`CreateWidget(this, …)` 建的控件、列表条目的 Outer 也是父 WBP 的 WidgetTree。
+	 * 所以查 WBP 生成类里的控件树原型（含父类的），名字在里面才算设计的。
+	 */
+	bool IsDesigned(const UWidget& InWidget)
+	{
+		const UUserWidget* Owner = GetTreeOwner(InWidget);
+		if (Owner == nullptr)
+		{
+			return false;
+		}
+		for (const UClass* Class = Owner->GetClass(); Class != nullptr; Class = Class->GetSuperClass())
+		{
+			const UWidgetBlueprintGeneratedClass* Generated = Cast<UWidgetBlueprintGeneratedClass>(Class);
+			const UWidgetTree* Archetype = Generated != nullptr ? Generated->GetWidgetTreeArchetype() : nullptr;
+			if (Archetype != nullptr && Archetype->FindWidget(InWidget.GetFName()) != nullptr)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 运行时生成、名字不稳定：名字就是「类名_序号」，又不是在 WBP 设计器里建的（CreateWidget、Lua 里 new 出来再 AddChild）。
+	 * 设计器里的控件哪怕叫 `Button_42` 也是稳定的（存在资源里），照用名字。
+	 */
+	bool HasUnstableName(const UWidget& InWidget)
+	{
+		const FName Name = InWidget.GetFName();
+		return Name.GetNumber() > 0
+			&& Name.GetPlainNameString().Equals(InWidget.GetClass()->GetName(), ESearchCase::IgnoreCase)
+			&& !IsDesigned(InWidget);
+	}
+
+	/** `InRoot` 是不是 `InOwner` 自己控件树的根：不是的话，它只是 Outer 挂在 Owner 下面（运行时建的弹窗、列表条目）。 */
+	bool IsTreeRootOf(const UUserWidget* InOwner, const UWidget* InRoot)
+	{
+		return InOwner != nullptr && InOwner->WidgetTree != nullptr && InOwner->WidgetTree->RootWidget == InRoot;
+	}
+
+	/** 一个路径段：名字，名字不稳定时 `#类名#同类序号`（序号按父面板里的顺序，和快照一致）。 */
+	FString SegmentFor(const UWidget& InWidget)
+	{
+		if (!HasUnstableName(InWidget))
+		{
+			return InWidget.GetFName().ToString();
+		}
+
+		const FString ClassName = GameTestSnapshot::FriendlyClassName(InWidget.GetClass());
+		int32 SameClassIndex = 0;
+		if (const UPanelWidget* Parent = InWidget.GetParent())
+		{
+			for (int32 Index = 0; Index < Parent->GetChildrenCount(); ++Index)
+			{
+				const UWidget* Sibling = Parent->GetChildAt(Index);
+				if (Sibling == &InWidget)
+				{
+					break;
+				}
+				if (Sibling != nullptr && GameTestSnapshot::FriendlyClassName(Sibling->GetClass()) == ClassName)
+				{
+					++SameClassIndex;
+				}
+			}
+		}
+		return FString::Printf(TEXT("#%s#%d"), *ClassName, SameClassIndex);
+	}
+
+	/** 控件 → 它所在控件树的根，以及从根到它的路径段。 */
+	UWidget* WalkToRoot(UWidget& InWidget, TArray<FString>& OutSegments)
+	{
+		TArray<UWidget*> Chain;
+		UWidget* Current = &InWidget;
+		for (int32 Guard = 0; Current != nullptr && Guard < 256; ++Guard)
+		{
+			Chain.Add(Current);
+			UWidget* Parent = Current->GetParent();
+			if (Parent == nullptr)
+			{
+				break;
+			}
+			Current = Parent;
+		}
+
+		OutSegments.Reset();
+		for (int32 Index = Chain.Num() - 1; Index >= 0; --Index)
+		{
+			OutSegments.Add(SegmentFor(*Chain[Index]));
+		}
+		return Chain.Last();
+	}
+
+	/** 列表条目 → 它在列表里的位置写法：唯一的 Id 类属性优先，没有就用序号。 */
+	FString EntryBracket(UListView& InList, const UObject* InItem)
+	{
+		const TArray<UObject*>& Items = InList.GetListItems();
+		const int32 Index = Items.IndexOfByKey(InItem);
+		if (Index == INDEX_NONE)
+		{
+			return FString();
+		}
+
+		if (Items.Num() <= MaxItemsForProperty)
+		{
+			const TSharedPtr<FJsonObject> Mine = GameTestSnapshot::DumpProperties(InItem);
+			if (Mine.IsValid())
+			{
+				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Mine->Values)
+				{
+					const bool bIdLike = Pair.Key.Equals(TEXT("id"), ESearchCase::IgnoreCase) || Pair.Key.Equals(TEXT("key"), ESearchCase::IgnoreCase)
+						|| Pair.Key.Equals(TEXT("guid"), ESearchCase::IgnoreCase) || Pair.Key.EndsWith(TEXT("Id"), ESearchCase::CaseSensitive)
+						|| Pair.Key.EndsWith(TEXT("ID"), ESearchCase::CaseSensitive);
+					if (!bIdLike || !Pair.Value.IsValid() || (Pair.Value->Type != EJson::String && Pair.Value->Type != EJson::Number))
+					{
+						continue;
+					}
+
+					// 值里有方括号、`>` 的写不进选择器（会被当成下一层），跳过。
+					const FString Value = Pair.Value->AsString();
+					if (Value.IsEmpty() || Value.Contains(TEXT("[")) || Value.Contains(TEXT("]")) || Value.Contains(TEXT(">")))
+					{
+						continue;
+					}
+
+					int32 SameValue = 0;
+					for (const UObject* Other : Items)
+					{
+						const TSharedPtr<FJsonObject> OtherProps = GameTestSnapshot::DumpProperties(Other);
+						const TSharedPtr<FJsonValue> OtherValue = OtherProps.IsValid() ? OtherProps->TryGetField(Pair.Key) : nullptr;
+						if (OtherValue.IsValid() && OtherValue->AsString() == Value)
+						{
+							++SameValue;
+						}
+					}
+					if (SameValue == 1)
+					{
+						return FString::Printf(TEXT("[%s=%s]"), *Pair.Key, *Value);
+					}
+				}
+			}
+		}
+		return FString::Printf(TEXT("[%d]"), Index);
+	}
+
+	/** 列表条目控件 → 它所在的列表（不是条目时返回 nullptr）。 */
+	UListView* GetOwningList(UUserWidget& InEntry, const UObject*& OutItem)
+	{
+		TScriptInterface<IUserListEntry> ListEntry;
+		ListEntry.SetObject(&InEntry);
+		UListView* List = Cast<UListView>(UUserListEntryLibrary::GetOwningListView(ListEntry));
+		if (List == nullptr)
+		{
+			return nullptr;
+		}
+		TScriptInterface<IUserObjectListEntry> ObjectEntry;
+		ObjectEntry.SetObject(&InEntry);
+		OutItem = UUserObjectListEntryLibrary::GetListItemObject(ObjectEntry);
+		return OutItem != nullptr ? List : nullptr;
+	}
+
+	/** 写出能解析到 `InWidget` 的选择器（递归：所在的 WBP 先写出来）。 */
+	bool Describe(UWidget& InWidget, int32 InDepth, FString& OutTarget, FString& OutError)
+	{
+		if (InDepth > MaxDepth)
+		{
+			OutError = TEXT("WBP 嵌套太深（父子关系可能绕成了环）");
+			return false;
+		}
+
+		TArray<FString> Segments;
+		UWidget* Root = WalkToRoot(InWidget, Segments);
+		UUserWidget* Owner = GetTreeOwner(*Root);
+		if (!IsTreeRootOf(Owner, Root))
+		{
+			// Outer 挂在别的 WBP 下面，但不在它的控件树里（列表条目、CreateWidget(this) 建的弹窗）：当独立的 WBP 看。
+			Owner = nullptr;
+		}
+
+		if (Owner == nullptr)
+		{
+			// 根不在任何 WBP 的控件树里：它自己是一个独立的 WBP——顶层屏，或者列表条目。
+			UUserWidget* Standalone = Cast<UUserWidget>(Root);
+			if (Standalone == nullptr || Root != &InWidget)
+			{
+				OutError = FString::Printf(TEXT("%s 不在任何 WBP 的控件树里，写不出选择器"), *InWidget.GetName());
+				return false;
+			}
+
+			const UObject* Item = nullptr;
+			if (UListView* List = GetOwningList(*Standalone, Item))
+			{
+				FString ListTarget;
+				if (!Describe(*List, InDepth + 1, ListTarget, OutError))
+				{
+					return false;
+				}
+				const FString Bracket = EntryBracket(*List, Item);
+				if (Bracket.IsEmpty())
+				{
+					OutError = TEXT("条目的数据项不在列表里（列表刚刷新？）");
+					return false;
+				}
+				OutTarget = ListTarget + Bracket;
+				return true;
+			}
+
+			OutTarget = GameTestSnapshot::FriendlyClassName(Standalone->GetClass()) + TEXT(":.");
+			return true;
+		}
+
+		const FString Relative = FString::Join(Segments, TEXT("/"));
+		if (GameTestSelectorWriter::IsTopLevel(*Owner))
+		{
+			OutTarget = GameTestSnapshot::FriendlyClassName(Owner->GetClass()) + TEXT(":") + Relative;
+			return true;
+		}
+
+		// 所在的 WBP 是嵌套实例或列表条目：先写出它，再用 `>` 进去。
+		FString OwnerTarget;
+		if (!Describe(*Owner, InDepth + 1, OwnerTarget, OutError))
+		{
+			return false;
+		}
+		OutTarget = OwnerTarget + TEXT(">") + Relative;
+		return true;
+	}
+
+	/** 用回放同一套解析核对：唯一、指回同一个控件。 */
+	bool Verify(const FString& InTarget, const UWidget* InWidget, const TSharedPtr<SWidget>& InSlate, FString& OutError)
+	{
+		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
+		GameTestSnapshot::CaptureScreens(GameTestWorld::FindGameWorld(), Screens, /*bInLight=*/true);
+		TSharedPtr<FGameTestWidgetNode> Node;
+		if (!GameTestSelector::ResolveText(Screens, InTarget, Node, OutError) || !Node.IsValid())
+		{
+			return false;
+		}
+		const bool bSame = InWidget != nullptr ? Node->Widget.Get() == InWidget : Node->Slate.Pin() == InSlate;
+		if (!bSame)
+		{
+			OutError = FString::Printf(TEXT("解析到的是 %s，不是录到的那个控件"), *Node->Path);
+		}
+		return bSame;
+	}
+
+	TSharedPtr<FJsonObject> MakeHint(const UWidget* InWidget, const TSharedPtr<SWidget>& InSlate)
+	{
+		const TSharedPtr<FJsonObject> Hint = MakeShared<FJsonObject>();
+		if (InWidget != nullptr)
+		{
+			const UUserWidget* AssetOwner = Cast<UUserWidget>(InWidget);
+			if (AssetOwner == nullptr)
+			{
+				AssetOwner = InWidget->GetTypedOuter<UUserWidget>();
+			}
+			if (AssetOwner != nullptr)
+			{
+				Hint->SetStringField(TEXT("asset"), GameTestSlate::GetAssetPath(*AssetOwner));
+			}
+			Hint->SetStringField(TEXT("class"), GameTestSnapshot::FriendlyClassName(InWidget->GetClass()));
+		}
+		else if (InSlate.IsValid())
+		{
+			Hint->SetStringField(TEXT("class"), InSlate->GetTypeAsString());
+		}
+
+		const FString Text = GameTestSlate::CollectText(InSlate, 40);
+		if (!Text.IsEmpty())
+		{
+			Hint->SetStringField(TEXT("text"), Text);
+		}
+
+		// 在视口里的位置（归一化）：面板上显示、解析失败时按位置找候选。
+		const TSharedPtr<SWidget> Viewport = GameTestSlate::GetGameViewportWidget();
+		if (InSlate.IsValid() && Viewport.IsValid())
+		{
+			const FGeometry& ViewGeometry = Viewport->GetCachedGeometry();
+			const FGeometry& Geometry = InSlate->GetCachedGeometry();
+			const FVector2D ViewPos = FVector2D(ViewGeometry.GetAbsolutePosition());
+			const FVector2D ViewSize = FVector2D(ViewGeometry.GetAbsoluteSize());
+			const FVector2D Pos = FVector2D(Geometry.GetAbsolutePosition());
+			const FVector2D Size = FVector2D(Geometry.GetAbsoluteSize());
+			if (ViewSize.X >= 1.0 && ViewSize.Y >= 1.0 && Size.X >= 1.0 && Size.Y >= 1.0)
+			{
+				TArray<TSharedPtr<FJsonValue>> Rect;
+				Rect.Add(MakeShared<FJsonValueNumber>(Round3((Pos.X - ViewPos.X) / ViewSize.X)));
+				Rect.Add(MakeShared<FJsonValueNumber>(Round3((Pos.Y - ViewPos.Y) / ViewSize.Y)));
+				Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.X / ViewSize.X)));
+				Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.Y / ViewSize.Y)));
+				Hint->SetArrayField(TEXT("rect"), Rect);
+			}
+		}
+		return Hint;
+	}
+
+	/** Slate 类型名去掉模板参数：`STableRow<TSharedPtr<FString>>` → `STableRow`。 */
+	FString ShortSlateType(const SWidget& InWidget)
+	{
+		FString Type = InWidget.GetTypeAsString();
+		int32 Angle = INDEX_NONE;
+		if (Type.FindChar(TEXT('<'), Angle))
+		{
+			Type = Type.Left(Angle);
+		}
+		return Type;
+	}
+}
+
+bool GameTestSelectorWriter::IsTopLevel(const UWidget& InWidget)
+{
+	// 顶层屏：没有父面板、不是哪个 WBP 控件树的根（嵌套实例）、也不是列表条目。
+	// 不看 Outer：WBP 里 CreateWidget(this) 建的弹窗 Outer 是创建者的 WidgetTree，但它是独立的一屏。
+	if (InWidget.GetParent() != nullptr)
+	{
+		return false;
+	}
+	const UUserWidget* UserWidget = Cast<UUserWidget>(&InWidget);
+	if (UserWidget == nullptr || GameTestSelectorWriterDetail::IsTreeRootOf(GameTestSelectorWriterDetail::GetTreeOwner(InWidget), &InWidget))
+	{
+		return false;
+	}
+	const UObject* Item = nullptr;
+	return GameTestSelectorWriterDetail::GetOwningList(*const_cast<UUserWidget*>(UserWidget), Item) == nullptr;
+}
+
+bool GameTestSelectorWriter::Write(UWidget& InWidget, FGameTestWrittenTarget& OutTarget, FString& OutError)
+{
+	OutTarget = FGameTestWrittenTarget();
+	if (!GameTestSelectorWriterDetail::Describe(InWidget, 0, OutTarget.Target, OutError))
+	{
+		return false;
+	}
+
+	const TSharedPtr<SWidget> Slate = InWidget.GetCachedWidget();
+	OutTarget.Hint = GameTestSelectorWriterDetail::MakeHint(&InWidget, Slate);
+
+	FString VerifyError;
+	OutTarget.bVerified = GameTestSelectorWriterDetail::Verify(OutTarget.Target, &InWidget, Slate, VerifyError);
+	if (!OutTarget.bVerified)
+	{
+		OutTarget.Hint->SetStringField(TEXT("ambiguous"), VerifyError);
+	}
+	return true;
+}
+
+bool GameTestSelectorWriter::WriteSlate(const TSharedRef<SWidget>& InWidget, FGameTestWrittenTarget& OutTarget, FString& OutError)
+{
+	OutTarget = FGameTestWrittenTarget();
+
+	// 锚点：往上最近的 UMG 控件（下拉框本身）；弹出层在子窗口里时往上走不到 UMG，就不挂锚点。
+	FString Anchor;
+	if (UWidget* Owner = GameTestSlate::FindOwningWidget(InWidget->GetParentWidget()))
+	{
+		FString AnchorError;
+		if (GameTestSelectorWriterDetail::Describe(*Owner, 0, Anchor, AnchorError))
+		{
+			Anchor += TEXT(">>");
+		}
+		else
+		{
+			Anchor = TEXT(">>");
+		}
+	}
+	else
+	{
+		Anchor = TEXT(">>");
+	}
+
+	FString Segment = GameTestSelectorWriterDetail::ShortSlateType(*InWidget);
+	const FString Text = GameTestSlate::CollectText(InWidget, 40);
+	if (!Text.IsEmpty() && !Text.Contains(TEXT("[")) && !Text.Contains(TEXT("]")) && !Text.Contains(TEXT("/")))
+	{
+		Segment += FString::Printf(TEXT("[text=%s]"), *Text);
+	}
+
+	OutTarget.Hint = GameTestSelectorWriterDetail::MakeHint(nullptr, InWidget);
+
+	// 先不带序号试；不唯一再从 0 往上加序号，直到指回同一个控件。
+	FString VerifyError;
+	OutTarget.Target = Anchor + Segment;
+	OutTarget.bVerified = GameTestSelectorWriterDetail::Verify(OutTarget.Target, nullptr, InWidget, VerifyError);
+	for (int32 Index = 0; !OutTarget.bVerified && Index < 20; ++Index)
+	{
+		const FString Candidate = FString::Printf(TEXT("%s%s[%d]"), *Anchor, *Segment, Index);
+		FString CandidateError;
+		if (GameTestSelectorWriterDetail::Verify(Candidate, nullptr, InWidget, CandidateError))
+		{
+			OutTarget.Target = Candidate;
+			OutTarget.bVerified = true;
+		}
+	}
+	if (!OutTarget.bVerified)
+	{
+		OutTarget.Hint->SetStringField(TEXT("ambiguous"), VerifyError);
+	}
+	return true;
+}
+
+bool GameTestSelectorWriter::ToLocalPoint(const SWidget& InWidget, const FVector2D& InScreenPosition, FVector2D& OutPoint)
+{
+	const FGeometry& Geometry = InWidget.GetCachedGeometry();
+	const FVector2D Size = FVector2D(Geometry.GetLocalSize());
+	if (Size.X < 1.0 || Size.Y < 1.0)
+	{
+		return false;
+	}
+	const FVector2D Local = FVector2D(Geometry.AbsoluteToLocal(InScreenPosition));
+	OutPoint.X = GameTestSelectorWriterDetail::Round3(FMath::Clamp(Local.X / Size.X, 0.0, 1.0));
+	OutPoint.Y = GameTestSelectorWriterDetail::Round3(FMath::Clamp(Local.Y / Size.Y, 0.0, 1.0));
+	return true;
+}

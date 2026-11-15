@@ -227,7 +227,7 @@ TSharedPtr<FJsonObject> GameTestSnapshot::DumpProperties(const UObject* InObject
 	return GameTestJson::ParseObjectFromText(Dumped, ParseError);
 }
 
-TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidget, const FString& InPath, bool InIsScreenRoot)
+TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidget, const FString& InPath, bool InIsScreenRoot, bool bInLight)
 {
 	if (InWidget == nullptr)
 	{
@@ -261,7 +261,10 @@ TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidg
 	}
 
 	FillState(*InWidget, *Node);
-	FillDeclaredProperties(*InWidget, *Node);
+	if (!bInLight)
+	{
+		FillDeclaredProperties(*InWidget, *Node);
+	}
 
 	if (const UUserWidget* UserWidget = Cast<UUserWidget>(InWidget))
 	{
@@ -281,7 +284,7 @@ TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidg
 		{
 			if (UWidget* TreeRoot = Tree->RootWidget)
 			{
-				if (const TSharedPtr<FGameTestWidgetNode> Child = CaptureSubtree(TreeRoot, Node->Path, /*InIsScreenRoot=*/false))
+				if (const TSharedPtr<FGameTestWidgetNode> Child = CaptureSubtree(TreeRoot, Node->Path, /*InIsScreenRoot=*/false, bInLight))
 				{
 					Node->Children.Add(Child);
 				}
@@ -297,7 +300,7 @@ TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidg
 		Node->Children.Reserve(ChildCount);
 		for (int32 Index = 0; Index < ChildCount; ++Index)
 		{
-			if (const TSharedPtr<FGameTestWidgetNode> Child = CaptureSubtree(Panel->GetChildAt(Index), Node->Path, /*InIsScreenRoot=*/false))
+			if (const TSharedPtr<FGameTestWidgetNode> Child = CaptureSubtree(Panel->GetChildAt(Index), Node->Path, /*InIsScreenRoot=*/false, bInLight))
 			{
 				Node->Children.Add(Child);
 			}
@@ -307,7 +310,7 @@ TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidg
 	return Node;
 }
 
-void GameTestSnapshot::CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTestWidgetNode>>& OutScreens)
+void GameTestSnapshot::CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTestWidgetNode>>& OutScreens, bool bInLight)
 {
 	OutScreens.Reset();
 	if (InWorld == nullptr)
@@ -334,7 +337,7 @@ void GameTestSnapshot::CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTe
 			continue;
 		}
 
-		if (const TSharedPtr<FGameTestWidgetNode> Screen = CaptureSubtree(Widget, FString(), /*InIsScreenRoot=*/true))
+		if (const TSharedPtr<FGameTestWidgetNode> Screen = CaptureSubtree(Widget, FString(), /*InIsScreenRoot=*/true, bInLight))
 		{
 			OutScreens.Add(Screen);
 		}

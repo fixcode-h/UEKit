@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 class FJsonObject;
+class SWidget;
 class UWidget;
 
 /** 列表条目的数据项（ListView 的 `GetListItems()` 一项）。 */
@@ -57,6 +58,12 @@ struct GAMETEST_API FGameTestWidgetNode
 	TArray<TSharedPtr<FGameTestListItem>> Items;
 
 	TWeakObjectPtr<UWidget> Widget;
+
+	/**
+	 * 纯 Slate 控件（选择器 `>>` 段命中的下拉项、菜单行）：没有 UMG 对象，`Widget` 为空，只有它。
+	 * UMG 节点不填，要 Slate 控件时用 `Widget->GetCachedWidget()`。
+	 */
+	TWeakPtr<SWidget> Slate;
 
 	/** 深度优先查找（含自身）。 */
 	TSharedPtr<FGameTestWidgetNode> FindByPath(const FString& InPath) const;

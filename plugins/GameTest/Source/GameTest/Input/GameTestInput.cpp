@@ -78,6 +78,11 @@ bool GameTestInput::MoveCursor(UWorld& InWorld, const FVector2D& InNormalizedPoi
 
 bool GameTestInput::SendKey(const FKey& InKey, bool bInDown, FString& OutMessage)
 {
+	return SendKeyTo(InKey, bInDown, nullptr, OutMessage);
+}
+
+bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<SWidget>& InFocus, FString& OutMessage)
+{
 	if (!FSlateApplication::IsInitialized())
 	{
 		OutMessage = TEXT("Slate 未初始化，发不了按键（-nullrhi 下没有输入系统）");
@@ -119,8 +124,16 @@ bool GameTestInput::SendKey(const FKey& InKey, bool bInDown, FString& OutMessage
 	}
 	else
 	{
-		// 键盘事件发给有焦点的控件：先把焦点交给游戏视口，编辑器里才不会落到别的面板上。
-		App.SetAllUserFocusToGameViewport();
+		// 键盘事件发给有焦点的控件：给了目标就交给目标（输入框里的回车、退格），否则交给游戏视口，
+		// 编辑器里才不会落到别的面板上。
+		if (InFocus.IsValid())
+		{
+			App.SetUserFocus(0, InFocus, EFocusCause::SetDirectly);
+		}
+		else
+		{
+			App.SetAllUserFocusToGameViewport();
+		}
 
 		const FKeyEvent Event(InKey, App.GetModifierKeys(), /*InUserIndex=*/0, /*bInIsRepeat=*/false, /*InCharacterCode=*/0, /*InKeyCode=*/0);
 		if (bInDown)
@@ -143,6 +156,93 @@ bool GameTestInput::SendKey(const FKey& InKey, bool bInDown, FString& OutMessage
 	}
 
 	OutMessage = FString::Printf(TEXT("已%s %s"), bInDown ? TEXT("按下") : TEXT("松开"), *InKey.GetFName().ToString());
+	return true;
+}
+
+bool GameTestInput::MovePointerTo(const FVector2D& InScreenPosition, FString& OutMessage)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		OutMessage = TEXT("Slate 未初始化，移不了光标（-nullrhi 下没有真实光标）");
+		return false;
+	}
+
+	FSlateApplication& App = FSlateApplication::Get();
+	const FSyntheticScope Scope;
+	const FVector2D LastPosition = App.GetCursorPos();
+	App.SetCursorPos(InScreenPosition);
+
+	// 只调 SetCursorPos 要等下一帧 Slate 合成移动才更新悬停；这里直接发一次移动，按下时悬停已经对了。
+	const FPointerEvent Move(
+		FSlateApplicationBase::CursorPointerIndex, InScreenPosition, LastPosition, App.GetPressedMouseButtons(),
+		EKeys::Invalid, 0.0f, App.GetModifierKeys());
+	App.ProcessMouseMoveEvent(Move);
+
+	OutMessage = FString::Printf(TEXT("光标移到屏幕 (%.0f, %.0f)"), InScreenPosition.X, InScreenPosition.Y);
+	return true;
+}
+
+bool GameTestInput::SendWheel(float InDelta, FString& OutMessage)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		OutMessage = TEXT("Slate 未初始化，发不了滚轮");
+		return false;
+	}
+
+	FSlateApplication& App = FSlateApplication::Get();
+	const FSyntheticScope Scope;
+	const FVector2D Position = App.GetCursorPos();
+	const FPointerEvent Wheel(
+		FSlateApplicationBase::CursorPointerIndex, Position, Position, App.GetPressedMouseButtons(),
+		EKeys::Invalid, InDelta, App.GetModifierKeys());
+	App.ProcessMouseWheelOrGestureEvent(Wheel, nullptr);
+
+	OutMessage = FString::Printf(TEXT("在 (%.0f, %.0f) 滚动 %.1f"), Position.X, Position.Y, InDelta);
+	return true;
+}
+
+bool GameTestInput::SendCharacters(const FString& InText, FString& OutMessage)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		OutMessage = TEXT("Slate 未初始化，发不了字符");
+		return false;
+	}
+
+	FSlateApplication& App = FSlateApplication::Get();
+	const FSyntheticScope Scope;
+	for (const TCHAR Character : InText)
+	{
+		const FCharacterEvent Event(Character, App.GetModifierKeys(), /*InUserIndex=*/0, /*bInIsRepeat=*/false);
+		App.ProcessKeyCharEvent(Event);
+	}
+
+	OutMessage = FString::Printf(TEXT("输入 %d 个字符"), InText.Len());
+	return true;
+}
+
+bool GameTestInput::SendSelectAll(FString& OutMessage)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		OutMessage = TEXT("Slate 未初始化，发不了按键");
+		return false;
+	}
+
+	FSlateApplication& App = FSlateApplication::Get();
+	const FSyntheticScope Scope;
+	// 文本框按事件里的修饰键判断快捷键，所以只要事件带上 Ctrl，不用真去按下 Ctrl 键。
+	const FModifierKeysState Control(
+		/*bInIsLeftShiftDown=*/false, /*bInIsRightShiftDown=*/false,
+		/*bInIsLeftControlDown=*/true, /*bInIsRightControlDown=*/false,
+		/*bInIsLeftAltDown=*/false, /*bInIsRightAltDown=*/false,
+		/*bInIsLeftCommandDown=*/false, /*bInIsRightCommandDown=*/false,
+		/*bInAreCapsLocked=*/false);
+	App.ProcessKeyDownEvent(FKeyEvent(EKeys::A, Control, /*InUserIndex=*/0, /*bInIsRepeat=*/false, /*InCharacterCode=*/0, /*InKeyCode=*/0));
+	App.ProcessKeyUpEvent(FKeyEvent(EKeys::A, Control, /*InUserIndex=*/0, /*bInIsRepeat=*/false, /*InCharacterCode=*/0, /*InKeyCode=*/0));
+
+	OutMessage = TEXT("全选");
 	return true;
 }
 

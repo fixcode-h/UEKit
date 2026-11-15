@@ -105,11 +105,17 @@ namespace
 			{ TEXT("wait"), TEXT("until,seconds,target,actor,tag,point,radius"), false, false,
 				TEXT("跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）"),
 				&GameTestHandlers::HandleWait },
-			{ TEXT("click"), TEXT(""), true, false,
-				TEXT("代码级点击：按钮走 Slate ExecuteOnClick，复选走 Slate 状态回调，菜单锚走开合"),
+			{ TEXT("click"), TEXT("via,at,button"), true, false,
+				TEXT("点击控件：默认真实指针——先等控件出现、可见、可用、位置稳定、点击点没被挡住，再把光标移过去按下松开，不认控件类（按钮、自定义 WBP、Lua 绑的事件都一样）；点完核对接住按下的是不是目标，不是就失败。at=[x,y] 控件内位置（默认中心），button 默认 LeftMouseButton；via=code 走旧的代码级点击（按钮 OnClicked、复选状态回调、菜单锚开合，不受遮挡影响）"),
 				&GameTestHandlers::HandleClick },
-			{ TEXT("type"), TEXT("text,commit"), true, false,
-				TEXT("输入框写文本；commit=true 才广播 OnTextCommitted（游戏逻辑多半绑在提交上）"),
+			{ TEXT("drag"), TEXT("at,toTarget,toAt,by,button"), true, false,
+				TEXT("拖动：从控件内 at 处按下，分几帧移到 toTarget 控件的 toAt 处（或按视口归一化位移 by=[dx,dy]）再松开；起点同 click 一样先等可操作"),
+				&GameTestHandlers::HandleDrag },
+			{ TEXT("wheel"), TEXT("delta,at"), false, false,
+				TEXT("滚轮：给 target 时先等控件可操作、把光标移到控件上再滚；不给时在光标当前位置滚。delta 正数向上"),
+				&GameTestHandlers::HandleWheel },
+			{ TEXT("type"), TEXT("text,commit,via,append"), true, false,
+				TEXT("在输入框里打字：默认真实按键——把键盘焦点给控件，先全选（append=true 时不全选、接着原文字打），逐字发字符，commit=true 时再按回车；via=code 直接写文本并广播 OnTextChanged / OnTextCommitted"),
 				&GameTestHandlers::HandleType },
 			{ TEXT("select"), TEXT("index,property,equals,add"), true, false,
 				TEXT("列表族（ListView / TileView / TreeView）选中条目：按索引、或按数据项属性匹配（属性名大小写不敏感）；TreeView 的匹配范围是根条目"),
@@ -130,7 +136,7 @@ namespace
 				TEXT("把光标移到视口内归一化坐标（0–1），用于驱动直读鼠标位置的游戏逻辑（如瞄准）；移动的是真实光标"),
 				&GameTestHandlers::HandleInputCursor },
 			{ TEXT("key"), TEXT("key,phase"), false, false,
-				TEXT("按键：键盘键或鼠标键（UE 的键名，如 W、SpaceBar、LeftMouseButton），走 Slate 输入入口，和真实按键同一条路；phase=tap（默认，按下隔一帧松开）/ press / release；鼠标键在光标当前位置按（先 input.cursor）。录制生成的场景用它回放"),
+				TEXT("按键：键盘键或鼠标键（UE 的键名，如 W、SpaceBar、LeftMouseButton），走 Slate 输入入口，和真实按键同一条路；phase=tap（默认，按下隔一帧松开）/ press / release；鼠标键在光标当前位置按（先 input.cursor）；给 target 时键盘事件发给这个控件（输入框里的回车、退格），否则发给游戏视口"),
 				&GameTestHandlers::HandleKey },
 			{ TEXT("actor.get"), TEXT("class,tag,client,locallyControlled"), false, false,
 				TEXT("在游戏世界里按 class 或 tag 找 actor（唯一命中），回报对象路径、位置、朝向与速度；多客户端会话可用 client（\"server\" 或 0 起序号）寻址世界、locallyControlled 区分本端与远端"),
@@ -200,6 +206,8 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("note"),
 		TEXT("timeoutMs"),
 		TEXT("onFail"),
+		// 录制写的线索（资源路径、类、文字、位置）：只给人看和解析失败时找候选，执行时不读。
+		TEXT("hint"),
 	};
 	return Common;
 }
@@ -325,7 +333,7 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 {
 	const TSharedPtr<FJsonObject> Root = MakeShared<FJsonObject>();
 	Root->SetStringField(TEXT("note"),
-		TEXT("target 写法：'屏名:路径' 或 '路径'（全局搜索）或 '@句柄'；路径段可以是 名字 / #类名 / #类名#序号 / text=子串 / *"));
+		TEXT("target 写法：'屏名:路径' 或 '路径'（全局搜索）或 '@句柄'；屏名可写 WBP 类名或资源路径；路径段可以是 名字 / #类名 / #类名#序号 / text=子串 / * / .. / .（屏本身）/ 列表[序号] / 列表[属性=值]；'A>B' 进入嵌套的 WBP 实例，'A>>类型[text=子串]' 找纯 Slate 控件（下拉项），'>>…' 在游戏窗口里找"));
 
 	const TSharedPtr<FJsonObject> Common = MakeShared<FJsonObject>();
 	Common->SetStringField(TEXT("action"), TEXT("必填：动作名"));

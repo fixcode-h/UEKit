@@ -57,6 +57,24 @@ struct FGameTestStepContext
 	 * 否则调用方只知道"没等到"。为 nullptr 时不拼。
 	 */
 	TSharedPtr<FString> PendingProgress;
+
+	/**
+	 * 跨帧步骤**中途就确定失败**时（例：点下去接住的不是目标控件）由谓词写进这里再返回 true：
+	 * 执行器看到非空就判失败、用这句话当消息，不用干等到超时。
+	 */
+	TSharedPtr<FString> PendingFailure;
+
+	/**
+	 * 跨帧步骤结束时（完成、失败、超时、取消都算）执行器调一次：用来收拾半路留下的状态，
+	 * 例如真实点击按下后超时，鼠标键不能一直按着，后面的步骤会在「左键按住」下跑。
+	 */
+	TFunction<void()> PendingCleanup;
+
+	/**
+	 * 动作自己的默认超时（毫秒）：步骤没写 `timeoutMs` 时用它代替全局的单步默认超时。
+	 * UI 动作的自动等待用较短的默认值（项目设置「UI 等待超时」），不必等满一分钟才知道界面没出来。
+	 */
+	int32 DefaultTimeoutMs = 0;
 };
 
 using FGameTestHandler = EGameTestStepStatus (*)(FGameTestStepContext&);
@@ -191,6 +209,12 @@ private:
 
 	/** 当前跨帧步骤的进度描述（谓词每帧更新，超时消息里拼出去）。 */
 	TSharedPtr<FString> PendingProgress;
+
+	/** 当前跨帧步骤的提前失败原因（谓词写，非空即判失败）。 */
+	TSharedPtr<FString> PendingFailure;
+
+	/** 当前跨帧步骤结束时的收尾（见 FGameTestStepContext::PendingCleanup）。 */
+	TFunction<void()> PendingCleanup;
 
 	FGameTestOnFinished OnFinished;
 

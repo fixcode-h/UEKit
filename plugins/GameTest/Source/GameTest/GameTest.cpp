@@ -5,7 +5,9 @@
 #include "Core/GameTestAction.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunner.h"
+#include "Input/GameTestHandlerWatch.h"
 #include "Integration/GameTestRpc.h"
+#include "Observe/GameTestInspect.h"
 #include "Record/GameTestRecorder.h"
 #include "AgentPanelBridge.h"
 #include "GameTestCompat.h"
@@ -20,6 +22,8 @@ void FGameTestModule::StartupModule()
 {
 	// 对外只走 UELink：登记扩展（名片里能看到版本），操作挂到它的 /rpc 上。
 	FAgentPanelBridge::Get().RegisterExtension(TEXT("GameTest"), GAMETEST_VERSION);
+	// 处理者监听常开：录制、回放核对点没点到、gt.inspect 的「最近一次被谁接住」都要它，平时只记一个弱指针，开销可以忽略。
+	GameTestHandlerWatch::Start();
 	GameTestRpc::Register();
 	RegisterConsoleCommands();
 }
@@ -28,6 +32,7 @@ void FGameTestModule::ShutdownModule()
 {
 	UnregisterConsoleCommands();
 	FGameTestRecorder::Get().Shutdown();
+	GameTestHandlerWatch::Stop();
 	GameTestRpc::Unregister();
 	FAgentPanelBridge::Get().UnregisterExtension(TEXT("GameTest"));
 }
@@ -92,6 +97,24 @@ namespace
 			*GameTestJson::ToCompactString(Subsystem != nullptr ? Subsystem->BuildHealthJson() : MakeShared<FJsonObject>()));
 	}
 
+	/** `GameTest.Inspect [x y]`：光标（或视口归一化坐标）下是哪个控件、选择器怎么写，打印到日志。 */
+	void HandleInspectCommand(const TArray<FString>& InArgs)
+	{
+		TOptional<FVector2D> Point;
+		if (InArgs.Num() >= 2)
+		{
+			Point = FVector2D(FCString::Atod(*InArgs[0]), FCString::Atod(*InArgs[1]));
+		}
+		TSharedPtr<FJsonObject> Result;
+		FString Error;
+		if (!GameTestInspect::Inspect(Point, Result, Error))
+		{
+			UE_LOG(LogGameTest, Warning, TEXT("GameTest.Inspect：%s"), *Error);
+			return;
+		}
+		UE_LOG(LogGameTest, Display, TEXT("GameTest.Inspect => %s"), *GameTestJson::ToCompactString(Result));
+	}
+
 	void HandleActionsCommand(const TArray<FString>& InArgs)
 	{
 		for (const FGameTestActionInfo& Info : GameTestActions::GetAll())
@@ -123,6 +146,11 @@ void FGameTestModule::RegisterConsoleCommands()
 		TEXT("GameTest.Actions"),
 		TEXT("列出全部可用动作"),
 		FConsoleCommandWithArgsDelegate::CreateStatic(&HandleActionsCommand)));
+
+	ConsoleCommands.Add(Console.RegisterConsoleCommand(
+		TEXT("GameTest.Inspect"),
+		TEXT("看光标下是哪个控件、选择器怎么写：GameTest.Inspect [x y]（视口归一化坐标，可省）"),
+		FConsoleCommandWithArgsDelegate::CreateStatic(&HandleInspectCommand)));
 }
 
 void FGameTestModule::UnregisterConsoleCommands()

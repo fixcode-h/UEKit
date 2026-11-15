@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 struct FKey;
+class SWidget;
 class UWorld;
 
 /**
@@ -40,6 +41,27 @@ public:
 	 * 按下而没松开的键记在账上，run 收尾时 `ReleaseHeldKeys` 全部松开，不留卡住的键。
 	 */
 	static bool SendKey(const FKey& InKey, bool bInDown, FString& OutMessage);
+
+	/**
+	 * 同 `SendKey`，但键盘事件发给 `InFocus`（先把用户 0 的焦点交给它）：回放「在输入框里按回车 / 退格」用。
+	 * `InFocus` 为空时和 `SendKey` 一样交给游戏视口。
+	 */
+	static bool SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<SWidget>& InFocus, FString& OutMessage);
+
+	/**
+	 * 把光标移到**屏幕绝对坐标**并发一次鼠标移动：Slate 据此更新悬停（按钮松开时要「还悬停在上面」才算点击）。
+	 * 回放点控件用它：控件的位置每次都按选择器现找，不用录下来的坐标。
+	 */
+	static bool MovePointerTo(const FVector2D& InScreenPosition, FString& OutMessage);
+
+	/** 在光标当前位置滚一次滚轮（正数向上）。 */
+	static bool SendWheel(float InDelta, FString& OutMessage);
+
+	/** 逐字发字符事件（`KeyChar`），和真实打字同一条路；发给当前有键盘焦点的控件。 */
+	static bool SendCharacters(const FString& InText, FString& OutMessage);
+
+	/** Ctrl+A 全选（输入框替换文本前用）。 */
+	static bool SendSelectAll(FString& OutMessage);
 
 	/** 松开本次 run 里按下还没松开的键（run 收尾时调）。 */
 	static void ReleaseHeldKeys();
