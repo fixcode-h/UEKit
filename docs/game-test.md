@@ -18,7 +18,7 @@
 
 ## 场景文件
 
-放在场景根目录（默认 `Config/GameTest`，项目设置 → 插件 → Game Test），子目录随意，录制生成的在 `recorded/`。
+放在场景根目录（默认 `Docs/GameTest`，项目设置 → 插件 → Game Test），子目录随意，录制生成的在 `recorded/`。
 
 ```json
 {

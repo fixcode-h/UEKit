@@ -8,7 +8,7 @@ UAssetForgeSettings::UAssetForgeSettings()
 {
 	CategoryName = TEXT("Plugins");
 	SectionName = TEXT("Asset Forge");
-	ConfigRoot.Path = TEXT("Config/AssetForge");
+	ConfigRoot.Path = TEXT("Docs/AssetForge");
 	UnmanagedScanRoots.Add(TEXT("/Game"));
 }
 
@@ -22,7 +22,7 @@ FString UAssetForgeSettings::ResolveConfigRootDir() const
 	FString Root = ConfigRoot.Path.TrimStartAndEnd();
 	if (Root.IsEmpty())
 	{
-		Root = TEXT("Config/AssetForge");
+		Root = TEXT("Docs/AssetForge");
 	}
 
 	if (FPaths::IsRelative(Root))

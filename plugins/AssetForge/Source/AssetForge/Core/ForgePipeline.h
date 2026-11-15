@@ -14,7 +14,7 @@
  */
 namespace ForgePipeline
 {
-	/** 配置根目录（磁盘绝对路径）：来自项目设置 `UAssetForgeSettings::ConfigRoot`，默认 `Config/AssetForge`。 */
+	/** 配置根目录（磁盘绝对路径）：来自项目设置 `UAssetForgeSettings::ConfigRoot`，默认 `Docs/AssetForge`。 */
 	ASSETFORGE_API FString GetConfigRootDir();
 
 	/** 某个 kind 的配置子目录，如 `umg-widget` → `<配置根>/umg`。 */

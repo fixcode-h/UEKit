@@ -567,7 +567,7 @@ TSharedPtr<FJsonObject> UGameTestSubsystem::BuildActionsJson() const
 TSharedPtr<FJsonObject> UGameTestSubsystem::BuildScenariosJson() const
 {
 	const UGameTestSettings* Settings = GetDefault<UGameTestSettings>();
-	const FString RelativeRoot = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Config/GameTest");
+	const FString RelativeRoot = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Docs/GameTest");
 	const FString RootDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / RelativeRoot);
 
 	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();

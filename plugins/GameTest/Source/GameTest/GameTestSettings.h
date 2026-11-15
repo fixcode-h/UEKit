@@ -26,7 +26,7 @@ public:
 
 	/** 场景 JSON 的根目录（相对项目根）；录制生成的场景也存这里。 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "场景根目录"))
-	FString ScenarioRootDir = TEXT("Config/GameTest");
+	FString ScenarioRootDir = TEXT("Docs/GameTest");
 
 	/** 截图与报告的根目录（相对项目 Saved 目录）。 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "产物根目录"))

@@ -149,7 +149,7 @@ namespace
 
 FString GetConfigRootDir()
 {
-	// 由项目设置决定（默认 `Config/AssetForge`），不写死在代码里。
+	// 由项目设置决定（默认 `Docs/AssetForge`），不写死在代码里。
 	return GetDefault<UAssetForgeSettings>()->ResolveConfigRootDir();
 }
 
@@ -161,7 +161,7 @@ FString GetKindConfigDir(const FString& InKind)
 
 FString MakeDefaultConfigPath(const FString& InAssetPath, const FString& InKind)
 {
-	// `/Game/UI/Framework/WBP_UIRoot` → `<项目>/Config/AssetForge/umg/UI/Framework/WBP_UIRoot.json`
+	// `/Game/UI/Framework/WBP_UIRoot` → `<项目>/Docs/AssetForge/umg/UI/Framework/WBP_UIRoot.json`
 	FString RelativePath = FPackageName::ObjectPathToPackageName(InAssetPath);
 	RelativePath.RemoveFromStart(TEXT("/Game/"));
 	RelativePath.RemoveFromStart(TEXT("/"));

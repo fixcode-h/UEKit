@@ -14,7 +14,7 @@
 
 ### 改进
 - **通信交给 UELink** — 去掉自己开的 HTTP 服务（原来没有令牌），操作挂在 UELink 的 `/rpc` 上（`forge.*`），共用令牌、只听本机
-- **默认配置目录改成 `Config/AssetForge`** — 可在项目设置 → 插件 → Asset Forge 里改
+- **默认配置目录改成 `Docs/AssetForge`** — JSON 配置是给人看和改的文件，放项目的 Docs 下，不和 UE 的 ini 混在 Config 里。原来的配置挪过去即可，也可以在项目设置 → 插件 → Asset Forge 里改回原来的目录
 - **同步清单挪到 `Saved/AssetForge/state.json`** — 它记的是本机资产文件的修改时间，不该进版本管理；原来配置根下的 `_forge-state.json` 第一次运行时自动复制过来
 - **右键菜单「在 Agent 面板中显示」** — 代替原来的「在 Asset Forge 中显示」，面板开着时跳到对应的配置
 - **去掉原项目的名字** — 类名、日志、示例里的 `Tk` 前缀和项目路径都换成通用的；依赖项目资产的自动化测试在资产不存在时跳过

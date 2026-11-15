@@ -77,7 +77,7 @@ namespace
 	FString ScenarioRootDir()
 	{
 		const UGameTestSettings* Settings = GetDefault<UGameTestSettings>();
-		const FString Relative = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Config/GameTest");
+		const FString Relative = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Docs/GameTest");
 		return FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / Relative);
 	}
 
