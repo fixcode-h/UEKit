@@ -146,6 +146,7 @@ private:
 	TSharedPtr<FJsonObject> JobSnapshot;
 	int32 LastSnapshotStepCount = -1;
 	bool LastSnapshotBusy = false;
+	FString LastSnapshotRunId;
 
 	FThreadSafeCounter RunCounter;
 

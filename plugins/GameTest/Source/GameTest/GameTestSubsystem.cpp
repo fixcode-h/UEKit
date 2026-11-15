@@ -199,12 +199,15 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 
 	// job 快照在"步骤数变了"或"忙碌状态变了"时刷新：读方和推送拿到的是一份自洽的报告，
 	// 游戏线程也不用每帧序列化。只看步骤数会漏掉"最后一步完成、run 收尾"那次状态翻转。
+	// 还要看 runId：gt.run 里会立刻推进一次，第一步就失败的 run 在两次 Tick 之间已经开始又结束，
+	// 忙碌状态没变过；步骤数又碰巧和上一次 run 一样时，不看 runId 就永远不推「结束」，面板一直显示运行中。
 	const FGameTestReport& Report = Runner->GetReport();
 	const bool bBusy = Runner->IsBusy();
-	if (Report.Steps.Num() != LastSnapshotStepCount || bBusy != LastSnapshotBusy)
+	if (Report.Steps.Num() != LastSnapshotStepCount || bBusy != LastSnapshotBusy || CurrentRunId != LastSnapshotRunId)
 	{
 		LastSnapshotStepCount = Report.Steps.Num();
 		LastSnapshotBusy = bBusy;
+		LastSnapshotRunId = CurrentRunId;
 
 		const TSharedPtr<FJsonObject> Snapshot = Report.ToJson();
 		Snapshot->SetBoolField(TEXT("busy"), bBusy);

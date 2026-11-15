@@ -82,7 +82,7 @@ namespace
 				TEXT("编辑器就绪门禁：等资产加载完、没有模态框，之后才允许动编辑器"),
 				&GameTestHandlers::HandleEditorEnsure },
 			{ TEXT("pie.start"), TEXT("map,width,height,netMode,players"), false, true,
-				TEXT("启动 PIE（默认新窗口 + 固定分辨率）；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来"),
+				TEXT("启动 PIE（默认新窗口 + 固定分辨率）；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来；PIE 已经在跑同一张地图（单人）时沿用当前会话"),
 				&GameTestHandlers::HandlePieStart },
 			{ TEXT("pie.stop"), TEXT(""), false, true,
 				TEXT("退出 PIE。请求只是入队，用 wait until=pieStopped 等它真的结束"),
