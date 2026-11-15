@@ -28,6 +28,10 @@ class GAMETEST_API FGameTestRecorder
 public:
 	static FGameTestRecorder& Get();
 
+	FGameTestRecorder();
+	/** FPendingEdit 只在 .cpp 里定义，析构必须放在 .cpp，否则 TUniquePtr 删除不完整类型。 */
+	~FGameTestRecorder();
+
 	/**
 	 * 开始录制。`InName` 是场景名（也用来起文件名）。
 	 * `bInStartPie`：编辑器里 PIE 正在跑时，在开头加一条 `pie.start`（同一张地图），回放时自己把游戏拉起来。

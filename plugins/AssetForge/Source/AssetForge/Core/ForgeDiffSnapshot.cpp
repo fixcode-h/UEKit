@@ -183,10 +183,13 @@ namespace ForgeDiffSnapshot
 		ForgePropertyCodec::ExportStructDelta(Struct, Before, After, BeforeJson, Diagnostics, TEXT("props"));
 
 		TArray<FString> Keys;
-		AfterJson->Values.GetKeys(Keys);
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : BeforeJson->Values)
+		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : AfterJson->Values)
 		{
-			Keys.AddUnique(Pair.Key);
+			Keys.AddUnique(FString(Pair.Key.ToView()));
+		}
+		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : BeforeJson->Values)
+		{
+			Keys.AddUnique(FString(Pair.Key.ToView()));
 		}
 		Keys.Sort();
 

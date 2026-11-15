@@ -161,6 +161,3 @@ bool GameTestInjection::IsInjecting(UWorld& InWorld, const UInputAction& InActio
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = FindInputSubsystem(InWorld, Error);
 	return Subsystem != nullptr && Subsystem->HasContinuousInputInjectionForAction(&InAction);
 }
-
-
-}

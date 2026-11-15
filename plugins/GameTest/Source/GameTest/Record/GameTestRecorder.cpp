@@ -238,6 +238,10 @@ struct FGameTestRecorder::FPendingEdit
 	FString Initial;
 };
 
+FGameTestRecorder::FGameTestRecorder() = default;
+
+FGameTestRecorder::~FGameTestRecorder() = default;
+
 FGameTestRecorder& FGameTestRecorder::Get()
 {
 	static FGameTestRecorder Instance;
