@@ -45,6 +45,9 @@ public:
 	 */
 	static bool Probe(UWidget& InWidget, const FVector2D& InPoint, FResult& OutResult, FString& OutError);
 
+	/** 同上，直接对 Slate 控件探（纯 Slate 目标、回放的「没被挡住」检查用）。 */
+	static bool ProbeSlate(const TSharedRef<SWidget>& InSlateWidget, const FVector2D& InPoint, FResult& OutResult, FString& OutError);
+
 	/**
 	 * 把 Slate 控件反查成"属于哪个 UMG 控件"的可读描述——报告里的"遮挡者是谁"靠它。
 	 * 引擎没有 UMG→Slate 的反向映射，只能在 UMG 对象里比对 `GetCachedWidget()` 的指针；查不到返回空串。

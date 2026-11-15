@@ -43,6 +43,13 @@ public:
 	int32 DefaultStepTimeoutMs = 60000;
 
 	/**
+	 * UI 动作（click / drag / wheel / type）自动等待控件可操作的默认超时（毫秒）；步骤自己的 timeoutMs 优先。
+	 * 比单步默认超时短：界面一般几秒内就出来，等满一分钟才报「没找到」太慢。
+	 */
+	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "UI 等待超时(ms)", ClampMin = "500"))
+	int32 UiWaitTimeoutMs = 10000;
+
+	/**
 	 * 每步**成功之后**的间隔（毫秒）：让刚被操作的那个控件在游戏窗口里亮够、看得清。
 	 * 0 = 不停顿（跑批量回归时设它）；默认 1000 是"看着像演示"的速度。失败不延迟——失败要立刻停在现场。
 	 */

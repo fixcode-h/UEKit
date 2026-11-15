@@ -2,44 +2,34 @@
 
 #include "Observe/GameTestHitTest.h"
 
+#include "Observe/GameTestSlate.h"
+
 #include "Application/SlateApplicationBase.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Widget.h"
 #include "Input/HittestGrid.h"
 #include "Layout/ArrangedWidget.h"
 #include "Layout/WidgetPath.h"
-#include "UObject/UObjectIterator.h"
 #include "Widgets/SWidget.h"
 #include "Widgets/SWindow.h"
 
 FString GameTestHitTest::DescribeOwningWidget(const SWidget& InSlateWidget)
 {
-	// 引擎没有 UMG → Slate 的反向映射（UWidget 是单向生成 Slate），只能在 UMG 对象里按指针比对。
-	// probe 是低频动作，这个线性扫描不值得再建索引。
-	for (TObjectIterator<UWidget> Iterator; Iterator; ++Iterator)
+	// 先查 Slate 控件上的反射元数据（UMG 建控件时挂的），查不到才在 UMG 对象里按指针比对（GameTestSlate 里有退路）。
+	// 回放的自动等待每帧都会探一次，逐个线性扫描会很慢。
+	const UWidget* Widget = GameTestSlate::FindSourceWidget(InSlateWidget);
+	if (Widget == nullptr)
 	{
-		UWidget* Widget = *Iterator;
-		if (!IsValid(Widget) || Widget->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
-		{
-			continue;
-		}
-
-		const TSharedPtr<SWidget> Cached = Widget->GetCachedWidget();
-		if (!Cached.IsValid() || Cached.Get() != &InSlateWidget)
-		{
-			continue;
-		}
-
-		if (const UUserWidget* Owner = Widget->GetTypedOuter<UUserWidget>())
-		{
-			return FString::Printf(TEXT("%s(%s)@%s"),
-				*Widget->GetClass()->GetName(), *Widget->GetFName().ToString(), *Owner->GetClass()->GetName());
-		}
-
-		return FString::Printf(TEXT("%s(%s)"), *Widget->GetClass()->GetName(), *Widget->GetFName().ToString());
+		return FString();
 	}
 
-	return FString();
+	if (const UUserWidget* Owner = Widget->GetTypedOuter<UUserWidget>())
+	{
+		return FString::Printf(TEXT("%s(%s)@%s"),
+			*Widget->GetClass()->GetName(), *Widget->GetFName().ToString(), *Owner->GetClass()->GetName());
+	}
+
+	return FString::Printf(TEXT("%s(%s)"), *Widget->GetClass()->GetName(), *Widget->GetFName().ToString());
 }
 
 bool GameTestHitTest::Probe(UWidget& InWidget, const FVector2D& InPoint, FResult& OutResult, FString& OutError)
@@ -54,13 +44,21 @@ bool GameTestHitTest::Probe(UWidget& InWidget, const FVector2D& InPoint, FResult
 		return false;
 	}
 
-	// 与快照取几何同一条链（Observe/GameTestSnapshot.cpp 的 bHasGeometry 判据一致）。
-	const FGeometry& Geometry = InWidget.GetCachedGeometry();
+	return ProbeSlate(SlateWidget.ToSharedRef(), InPoint, OutResult, OutError);
+}
+
+bool GameTestHitTest::ProbeSlate(const TSharedRef<SWidget>& InSlateWidget, const FVector2D& InPoint, FResult& OutResult, FString& OutError)
+{
+	OutResult = FResult();
+	const TSharedPtr<SWidget> SlateWidget = InSlateWidget;
+
+	// 与快照取几何同一条链（Observe/GameTestSnapshot.cpp 的 bHasGeometry 判据一致：UWidget::GetCachedGeometry 就是它的 Slate 控件的）。
+	const FGeometry& Geometry = SlateWidget->GetCachedGeometry();
 	const UE::Slate::FDeprecateVector2DResult LocalSize = Geometry.GetLocalSize();
 	if (LocalSize.X < 1.0 || LocalSize.Y < 1.0)
 	{
 		OutError = FString::Printf(TEXT("%s 的几何无效（Collapsed、从未布局，或还没刷过一帧）"),
-			*InWidget.GetFName().ToString());
+			*SlateWidget->GetTypeAsString());
 		return false;
 	}
 
@@ -74,7 +72,7 @@ bool GameTestHitTest::Probe(UWidget& InWidget, const FVector2D& InPoint, FResult
 	const TSharedPtr<SWindow> Window = FSlateApplicationBase::Get().FindWidgetWindow(SlateWidget.ToSharedRef());
 	if (!Window.IsValid())
 	{
-		OutError = FString::Printf(TEXT("%s 不在任何窗口里（界面挂上视口了吗）"), *InWidget.GetFName().ToString());
+		OutError = FString::Printf(TEXT("%s 不在任何窗口里（界面挂上视口了吗）"), *SlateWidget->GetTypeAsString());
 		return false;
 	}
 

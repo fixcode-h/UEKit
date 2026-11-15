@@ -6,6 +6,7 @@
 #include "Core/GameTestHooks.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestScenario.h"
+#include "Observe/GameTestInspect.h"
 #include "Record/GameTestRecorder.h"
 #include "Shot/GameTestShot.h"
 #include "GameTestSettings.h"
@@ -235,6 +236,7 @@ namespace
 			return false;
 		}
 
+		GameTestScenario::ApplyLegacyDefaults(Scenario, OutSteps);
 		OutName = GameTestScenario::GetName(Scenario, FPaths::GetBaseFilename(InRelativePath));
 		OutRevision = GameTestScenario::GetRevision(Scenario);
 		OutStepDelayMs = -1;
@@ -400,7 +402,7 @@ namespace
 
 	bool RecordStart(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
-		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Error))
+		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
 		}
@@ -432,6 +434,22 @@ namespace
 	{
 		const int32 Last = FMath::Clamp(Int(Args, TEXT("last"), 10), 0, 50);
 		Out = Capped(FGameTestRecorder::Get().DescribeStatus(Last), TEXT("record"), DefaultMaxChars);
+		return true;
+	}
+
+	bool Inspect(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		TOptional<FVector2D> Point;
+		if (Args.IsValid() && Args->HasField(TEXT("x")) && Args->HasField(TEXT("y")))
+		{
+			Point = FVector2D(Args->GetNumberField(TEXT("x")), Args->GetNumberField(TEXT("y")));
+		}
+		TSharedPtr<FJsonObject> Result;
+		if (!GameTestInspect::Inspect(Point, Result, Error))
+		{
+			return false;
+		}
+		Out = Capped(Result, TEXT("inspect"), DefaultMaxChars);
 		return true;
 	}
 
@@ -483,6 +501,7 @@ void Register()
 	Add(TEXT("gt.record.mark"), &RecordMark);
 	Add(TEXT("gt.record.stop"), &RecordStop);
 	Add(TEXT("gt.record.status"), &RecordStatus);
+	Add(TEXT("gt.inspect"), &Inspect);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)

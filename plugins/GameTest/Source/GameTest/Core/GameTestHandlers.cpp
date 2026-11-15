@@ -67,9 +67,10 @@ namespace GameTestHandlers
 			return false;
 		}
 
+		// 只要结构不要属性：回放的自动等待每帧都会走到这里，属性导出是最贵的一块。
 		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
-		GameTestSnapshot::CaptureScreens(World, Screens);
-		if (Screens.Num() == 0)
+		GameTestSnapshot::CaptureScreens(World, Screens, /*bInLight=*/true);
+		if (Screens.Num() == 0 && !InTarget.StartsWith(TEXT(">>")))
 		{
 			OutMessage = TEXT("世界里没有挂在视口上的 UMG（用 widget.add 造一个靶子，或确认界面真的被打开了）");
 			return false;

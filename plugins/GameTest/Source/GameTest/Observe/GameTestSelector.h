@@ -13,7 +13,13 @@ struct FGameTestWidgetNode;
  * - `@句柄`            —— 引用之前 `find` 捕获的控件（绕过重解析）
  * - `屏名:路径`        —— 先按屏名（类名或控件名，忽略大小写）挑屏，再走路径
  * - `路径`             —— 不写屏名：在所有屏里找，多屏命中即歧义
- * - 路径段：`名字` / `#类名` / `#类名#序号` / `text=子串` / `*`（任一子节点）/ `..`（任一后代）
+ * - 路径段：`名字` / `#类名` / `#类名#序号` / `text=子串` / `*`（任一子节点）/ `..`（任一后代）/ `.`（就是这个屏本身）
+ * - `列表名[序号]`、`列表名[属性=值]` —— ListView 的某个条目（条目控件，只认已经生成出来的）
+ * - `A>B`              —— A 落在一个嵌套的 WBP 实例上（或列表条目上），B 从**这个实例自己的**控件树根开始走
+ * - `A>>Slate段`       —— 在 A 的 Slate 子树里找纯 Slate 控件（下拉项、菜单行）；段写法 `类型[text=子串][序号]`，
+ *                         多段用 `/` 分隔，每段在上一段的任意深度里找
+ * - `>>Slate段`        —— 不挂在 UMG 上：在游戏窗口和它弹出的子窗口里找
+ * - 屏名可以写 WBP 类名（去掉 _C）、控件名，或资源路径（`/Game/UI/WBP_Main`）
  *
  * 解析失败一律**当作错误**并带上候选清单——不做"取第一个匹配"这种静默行为。
  * 整棵树是唯一的搜索空间：与快照共用同一份模型，AI 看到的与点到的是同一个控件。
@@ -27,7 +33,14 @@ public:
 		FString Handle;
 		bool bAnyScreen = false;
 		FString Screen;
+		/** 第一段路径（屏内）。 */
 		TArray<FString> Segments;
+		/** `>` 之后每进一层嵌套 WBP 的路径。 */
+		TArray<TArray<FString>> NestedHops;
+		/** `>>` 之后的 Slate 段。 */
+		TArray<FString> SlateSegments;
+		/** 整个目标以 `>>` 开头：不经 UMG，直接在游戏窗口里找 Slate 控件。 */
+		bool bSlateOnly = false;
 	};
 
 	static bool Parse(const FString& InText, FParsed& OutParsed, FString& OutError);

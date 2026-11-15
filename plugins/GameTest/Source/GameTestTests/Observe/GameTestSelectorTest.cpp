@@ -192,6 +192,47 @@ TEST_CLASS_WITH_FLAGS(GameTestSelectorTest, "GameTest.Selector",
 		ASSERT_THAT(IsFalse(GameTestSelector::ResolveText(Screens, TEXT("WBP_NoSuchScreen:Root"), Node, Error)));
 		ASSERT_THAT(IsTrue(Error.Contains(TEXT("WBP_MainMenu")), *Error));
 	}
+
+	TEST_METHOD(Parse_SplitsNestedHopsAndSlateSegments)
+	{
+		GameTestSelector::FParsed Parsed;
+		FString Error;
+		ASSERT_THAT(IsTrue(GameTestSelector::Parse(TEXT("WBP_Shop:Root/ItemList[3]>Root/BtnBuy>>SButton[text=确定]"), Parsed, Error), *Error));
+		ASSERT_THAT(IsTrue(Parsed.Screen == TEXT("WBP_Shop"), *Parsed.Screen));
+		ASSERT_THAT(IsTrue(FString::Join(Parsed.Segments, TEXT("/")) == TEXT("Root/ItemList[3]"), *FString::Join(Parsed.Segments, TEXT("/"))));
+		ASSERT_THAT(AreEqual(1, Parsed.NestedHops.Num(), TEXT("> 之后应有一层嵌套")));
+		ASSERT_THAT(IsTrue(FString::Join(Parsed.NestedHops[0], TEXT("/")) == TEXT("Root/BtnBuy"), TEXT("嵌套层的路径")));
+		ASSERT_THAT(AreEqual(1, Parsed.SlateSegments.Num(), TEXT(">> 之后应有一段 Slate")));
+		ASSERT_THAT(IsFalse(Parsed.bSlateOnly, TEXT("有 UMG 锚点时不是纯 Slate")));
+	}
+
+	TEST_METHOD(Parse_LeadingDoubleArrowIsSlateOnly)
+	{
+		GameTestSelector::FParsed Parsed;
+		FString Error;
+		ASSERT_THAT(IsTrue(GameTestSelector::Parse(TEXT(">>STableRow[text=简单]"), Parsed, Error), *Error));
+		ASSERT_THAT(IsTrue(Parsed.bSlateOnly, TEXT(">> 开头应是纯 Slate")));
+	}
+
+	TEST_METHOD(Parse_TextSegmentWithColonKeepsWholeText)
+	{
+		GameTestSelector::FParsed Parsed;
+		FString Error;
+		// 冒号出现在 text= 之后时不是屏名分隔符。
+		ASSERT_THAT(IsTrue(GameTestSelector::Parse(TEXT("text=时间:10"), Parsed, Error), *Error));
+		ASSERT_THAT(IsTrue(Parsed.bAnyScreen, TEXT("没有屏名")));
+	}
+
+	TEST_METHOD(Resolve_DotSegmentIsScreenItself)
+	{
+		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
+		BuildTestScreens(Screens);
+
+		TSharedPtr<FGameTestWidgetNode> Node;
+		FString Error;
+		ASSERT_THAT(IsTrue(GameTestSelector::ResolveText(Screens, TEXT("WBP_HUD:."), Node, Error), *Error));
+		ASSERT_THAT(IsTrue(Node->Name == TEXT("WBP_HUD_C"), *Node->Name));
+	}
 };
 
 #endif	// WITH_AUTOMATION_WORKER

@@ -107,6 +107,12 @@ namespace GameTestHandlers
 	EGameTestStepStatus HandleWidgetAdd(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleWidgetRemove(FGameTestStepContext& InContext);
 
+	// 真实指针的 UI 动作（Operate/GameTestHandlersPointer.cpp）：不认控件类，等可操作后发真实输入
+	EGameTestStepStatus HandleClickPointer(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleDrag(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleWheel(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleTypeKeys(FGameTestStepContext& InContext);
+
 	// 游戏内：光标与 actor（Input/GameTestHandlersInput.cpp）；技能和输入注入在可选模块里
 	EGameTestStepStatus HandleInputCursor(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleKey(FGameTestStepContext& InContext);

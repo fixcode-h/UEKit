@@ -88,10 +88,17 @@ void FGameTestRunner::Tick(double InNowSeconds)
 	{
 		if (PendingPredicate.IsSet() && PendingPredicate(InNowSeconds))
 		{
-			CompleteCurrentStep(EGameTestStepStatus::Succeeded,
-				FString::Printf(TEXT("%s（已完成，用时 %.0f ms）"),
-					*CurrentRecord.Message, (InNowSeconds - CurrentRecord.StartedAt) * 1000.0),
-				InNowSeconds);
+			if (PendingFailure.IsValid() && !PendingFailure->IsEmpty())
+			{
+				CompleteCurrentStep(EGameTestStepStatus::Failed, *PendingFailure, InNowSeconds);
+			}
+			else
+			{
+				CompleteCurrentStep(EGameTestStepStatus::Succeeded,
+					FString::Printf(TEXT("%s（已完成，用时 %.0f ms）"),
+						*CurrentRecord.Message, (InNowSeconds - CurrentRecord.StartedAt) * 1000.0),
+					InNowSeconds);
+			}
 		}
 		else if (InNowSeconds >= StepDeadline)
 		{
@@ -126,6 +133,7 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	CurrentRecord.Step.TimeoutMs = TimeoutMs;
 	StepDeadline = InNowSeconds + TimeoutMs / 1000.0;
 	PendingPredicate = nullptr;
+	PendingFailure.Reset();
 
 	FGameTestStepContext Context;
 	Context.Step = &CurrentRecord.Step;
@@ -167,6 +175,15 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 
 		PendingPredicate = MoveTemp(Context.PendingPredicate);
 		PendingProgress = Context.PendingProgress;
+		PendingFailure = Context.PendingFailure;
+		PendingCleanup = MoveTemp(Context.PendingCleanup);
+
+		// 步骤没写 timeoutMs、动作又给了自己的默认值：按动作的来（UI 自动等待默认短一些）。
+		if (Step.TimeoutMs <= 0 && Context.DefaultTimeoutMs > 0)
+		{
+			CurrentRecord.Step.TimeoutMs = Context.DefaultTimeoutMs;
+			StepDeadline = InNowSeconds + Context.DefaultTimeoutMs / 1000.0;
+		}
 		bStepInFlight = true;
 		return;
 	}
@@ -205,6 +222,13 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 
 	bStepInFlight = false;
 	PendingPredicate = nullptr;
+	if (PendingCleanup)
+	{
+		// 先挪出来再调：收尾里发的输入不该再碰到执行器的这个成员。
+		const TFunction<void()> Cleanup = MoveTemp(PendingCleanup);
+		PendingCleanup = nullptr;
+		Cleanup();
+	}
 	++CurrentIndex;
 
 	if (bStopAfterFailure)
