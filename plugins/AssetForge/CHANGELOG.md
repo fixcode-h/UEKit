@@ -2,6 +2,11 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.0.0-beta.2
+
+### Bug 修复
+- **UE 5.8 下编译不过** — 属性差异里收集键名时把 `FJsonObject::Values` 当成 `FString` 键的表来用，5.8 的键已经是 `UE::FSharedString`，`GetKeys` 找不到匹配的重载。改成逐项取键名
+
 ## v1.0.0-beta.1
 
 > 从原项目的 TkAssetForge 搬进 UEKit 后的第一版，只支持 UE 5.8。还没在本地用 UE 编译过，先发预发布（客户端查更新只认正式版）。
