@@ -51,7 +51,7 @@
 | `ping` | — | 主模块 | 通道连通性检查：回显世界、PIE 与编辑器状态，不改变任何东西 |
 | `mark` | `text` | 主模块 | 只把一句说明写进报告，不做任何操作（给 AI 写自己的判断） |
 | `editor.ensure` | `assetsLoaded`, `noModal` | 主模块（仅编辑器） | 编辑器就绪门禁：等资产加载完、没有模态框，之后才允许动编辑器 |
-| `pie.start` | `map`, `width`, `height`, `netMode`, `players` | 主模块（仅编辑器） | 启动 PIE（默认新窗口 + 固定分辨率）；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来 |
+| `pie.start` | `map`, `width`, `height`, `netMode`, `players` | 主模块（仅编辑器） | 启动 PIE（默认新窗口 + 固定分辨率）；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来；PIE 已经在跑同一张地图（单人）时沿用当前会话，不报错 |
 | `pie.stop` | — | 主模块（仅编辑器） | 退出 PIE。请求只是入队，用 wait until=pieStopped 等它真的结束 |
 | `level.load` | `map` | 主模块（仅编辑器） | 在编辑器里加载关卡（PIE 之前切换起始地图用它） |
 | `widget.add` | `class`, `zOrder` | 主模块 | 按类路径创建 UUserWidget 并加进视口——测试靶子不必依赖真实游戏流程 |

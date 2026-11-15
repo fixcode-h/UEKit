@@ -58,6 +58,21 @@ namespace GameTestHandlers
 			return StepFailed;
 		}
 
+		// PIE 已经在跑同一张地图（单人）时沿用它：录制时 PIE 开着，录出来的场景第一步就是 pie.start，
+		// 用户常常是在 PIE 还开着时直接点回放，这时报「先 pie.stop」会让整场在第一步就失败。
+		// 换地图、开监听服务器这类和当前会话对不上的请求照旧报错，不悄悄用错的会话跑。
+		const bool bPlainRequest = Request.Players <= 1 && !Request.NetMode.Equals(TEXT("listenServer"), ESearchCase::IgnoreCase);
+		if (bPlainRequest && GameTestEditor::IsPieRunning()
+			&& (Request.Map.IsEmpty() || Request.Map.Equals(GameTestEditor::GetEditorLevelPath(), ESearchCase::IgnoreCase)))
+		{
+			InContext.PendingPredicate = [](double)
+			{
+				return GameTestWorld::AreAllGameWorldsPlayable();
+			};
+			InContext.Message = TEXT("PIE 已经在跑同一张地图，沿用当前会话（要从头开始请先 pie.stop）");
+			return StepPending;
+		}
+
 		UObject* KeepAlive = nullptr;
 		FString Message;
 		if (!GameTestEditor::StartPIE(Request, KeepAlive, Message))
