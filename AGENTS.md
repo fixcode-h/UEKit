@@ -68,7 +68,7 @@ dist/                   出包产物（已忽略）
 - **项目侧接口不随手改名**：UELink 的类名 `FAgentPanel*`、`UAgentPanel*`、头文件名、commandlet 名 `-run=AgentPanel`、元数据 `meta=(AgentPanel)` 是项目代码在用的接口，改名要先在协议文档里写好迁移办法，并且面板跟上。
 - **不带某个项目的东西**：插件代码、默认配置、注释、测试里不出现具体游戏项目的名字、路径和资产（原项目前缀 `Tk`、`/Game/某项目/...` 之类）。JSON 配置、场景这类给人看和改的文件跟着项目的文档根走（和 Agent 面板的约定一致：项目外层同级有 `ProjectDoc/docs` 就放 `ProjectDoc/docs/<插件>`，否则放项目里的 `docs/<插件>`），不放 UE 的 Config；设置项留空表示自动，填了按填的；依赖项目资产的测试在资产不存在时跳过，不失败。`check.mjs` 会拦 `Tk` 前缀。
 - **线程**：所有操作都在游戏线程上执行；推送通道的套接字是非阻塞的，客户端卡住不能卡编辑器。超过几百毫秒的操作（批量导入、跑测试场景）马上返回作业号，每帧做一点，客户端用 `<前缀>.job` 查进度、`<前缀>.stop` 取消，进度变化走推送事件，不让客户端轮询。
-- **Shipping 不加载**：UELink 的 `UELinkCore` 在 Shipping 下不加载，扩展插件同样不进 Shipping（模块类型用 Editor / UncookedOnly / DeveloperTool，或 `TargetDenyList` 拦 Shipping）。
+- **Shipping 不加载**：UELink 的 `UELinkCore` 在 Shipping 下不加载，扩展插件同样不进 Shipping（模块类型用 Editor / UncookedOnly / DeveloperTool，或 `TargetConfigurationDenyList` 拦 Shipping；`TargetDenyList` 只能填 Game、Editor 这类目标类型，写 Shipping 会让 UBT 直接报错，`check.mjs` 会拦）。
 - **凭据不进仓库**：令牌、密码、API key 不写进代码、测试、文档和提交说明。临时文件只放 `.tmp/`（已忽略）或系统临时目录，用完清理。
 - 注释用中文，写「为什么」。文件一律 UTF-8 不带 BOM（`check.mjs` 会拦）。
 

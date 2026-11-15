@@ -2,6 +2,11 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.0.0-beta.2
+
+### Bug 修复
+- **装上后整个项目编译不过** — `.uplugin` 里把配置名 `Shipping` 写进了 `TargetDenyList`（那里只能填 Game、Editor 这类目标类型），UnrealBuildTool 一读到就报「'Shipping' is not a valid TargetType」直接失败。改成 `TargetConfigurationDenyList`，Shipping 包照样不带 GameTest
+
 ## v1.0.0-beta.1
 
 > 从原项目的 TkGameTest 搬进 UEKit 后的第一版，只支持 UE 5.8。还没在本地用 UE 编译过，先发预发布（客户端查更新只认正式版）。

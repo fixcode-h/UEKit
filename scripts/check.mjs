@@ -51,6 +51,17 @@ for (const p of plugins) {
     if (!new RegExp(`public\\s+class\\s+${name}\\s*:\\s*ModuleRules`).test(readFileSync(path.join(p.dir, buildCs), 'utf8')))
       fail(`${name}.Build.cs 的类名不是 ${name}`)
   }
+  // UBT 读 .uplugin 时这几个列表填错一个值整个项目就编不过（例如把配置名 Shipping 写进 TargetDenyList）
+  const TARGET_TYPES = ['Game', 'Server', 'Client', 'Editor', 'Program']
+  const CONFIGS = ['Debug', 'DebugGame', 'Development', 'Shipping', 'Test']
+  for (const m of up.Modules ?? []) {
+    for (const key of ['TargetAllowList', 'TargetDenyList'])
+      for (const v of m[key] ?? [])
+        if (!TARGET_TYPES.includes(v)) fail(`模块 ${m.Name} 的 ${key} 里「${v}」不是目标类型（只能是 ${TARGET_TYPES.join('、')}）`)
+    for (const key of ['TargetConfigurationAllowList', 'TargetConfigurationDenyList'])
+      for (const v of m[key] ?? [])
+        if (!CONFIGS.includes(v)) fail(`模块 ${m.Name} 的 ${key} 里「${v}」不是编译配置（只能是 ${CONFIGS.join('、')}）`)
+  }
   for (const rel of rels) {
     const m = rel.match(/^Source\/([^/]+)\//)
     if (m && !moduleNames.includes(m[1])) fail(`Source/${m[1]} 不在 .uplugin 的 Modules 里`)
