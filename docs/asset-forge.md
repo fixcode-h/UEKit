@@ -10,7 +10,7 @@
 
 ## 配置
 
-- 配置根默认 `Docs/AssetForge`（项目设置 → 插件 → Asset Forge），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
+- 配置根默认跟着项目的文档根：项目外层同级有 `ProjectDoc/docs`（P4 / SVN 项目的文档常放在项目外）就是 `ProjectDoc/docs/AssetForge`，否则是项目里的 `docs/AssetForge`。要换就在项目设置 → 插件 → Asset Forge 里指定（相对项目根，`../` 可以指到项目外，也接受绝对路径），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
 - 文件格式：`{ "kind", "schemaVersion": 1, "revision", "asset", "parent"?, "root": { "class", "name", "props", "slot"?, "children"? } }`，属性名用 UE 属性名原样。允许 `//` 注释。
 - 同步清单在 `Saved/AssetForge/state.json`（本机状态，不进版本管理）：记每份配置的内容哈希和导入时资产文件的修改时间，用来快速判定状态。
 

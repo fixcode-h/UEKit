@@ -147,9 +147,7 @@ namespace
 
 	FString GetScenarioRootDir()
 	{
-		const UGameTestSettings* Settings = GetDefault<UGameTestSettings>();
-		const FString Relative = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Docs/GameTest");
-		return FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / Relative);
+		return UGameTestSettings::ResolveScenarioRootDir();
 	}
 
 	/** 控件树里每个建出了 Slate 控件的节点，按 Slate 控件指针建索引（光标命中的是 Slate 控件）。 */

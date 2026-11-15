@@ -566,9 +566,14 @@ TSharedPtr<FJsonObject> UGameTestSubsystem::BuildActionsJson() const
 
 TSharedPtr<FJsonObject> UGameTestSubsystem::BuildScenariosJson() const
 {
-	const UGameTestSettings* Settings = GetDefault<UGameTestSettings>();
-	const FString RelativeRoot = Settings != nullptr ? Settings->ScenarioRootDir : TEXT("Docs/GameTest");
-	const FString RootDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / RelativeRoot);
+	const FString RootDir = UGameTestSettings::ResolveScenarioRootDir();
+	// rootDir 给人看：在项目里就写相对项目的路径，在项目外（ProjectDoc）就写绝对路径
+	FString RelativeRoot = RootDir;
+	FPaths::MakePathRelativeTo(RelativeRoot, *FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()));
+	if (RelativeRoot.StartsWith(TEXT("..")))
+	{
+		RelativeRoot = RootDir;
+	}
 
 	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
 	Json->SetStringField(TEXT("rootDir"), RelativeRoot);

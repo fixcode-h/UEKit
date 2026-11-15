@@ -82,7 +82,7 @@ struct ASSETFORGE_API FForgeNode
 	/** 控件名（= UWidget 的 FName），同一父节点下必须唯一。 */
 	FString Name;
 
-	/** 可选的配置文件引用（相对配置根 `Docs/AssetForge/` 的路径）；与 Props.WidgetType 二选一。 */
+	/** 可选的配置文件引用（相对配置根的路径）；与 Props.WidgetType 二选一。 */
 	FString Ref;
 
 	/** 通用属性（键 = UE 属性名原样）。 */

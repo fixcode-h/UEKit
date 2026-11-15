@@ -24,9 +24,15 @@ public:
 	virtual FName GetCategoryName() const override;
 	//~ End UDeveloperSettings interface
 
-	/** 场景 JSON 的根目录（相对项目根）；录制生成的场景也存这里。 */
+	/**
+	 * 场景 JSON 的根目录（相对项目根，也接受绝对路径）；录制生成的场景也存这里。
+	 * 留空自动：项目外层同级有 ProjectDoc/docs 时用 ProjectDoc/docs/GameTest（P4 / SVN 项目的文档在项目外），否则用项目里的 docs/GameTest。
+	 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "场景根目录"))
-	FString ScenarioRootDir = TEXT("Docs/GameTest");
+	FString ScenarioRootDir;
+
+	/** 实际用的场景根目录（绝对路径）：设置了就按设置，没设置按上面的自动规则 */
+	static FString ResolveScenarioRootDir();
 
 	/** 截图与报告的根目录（相对项目 Saved 目录）。 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "产物根目录"))

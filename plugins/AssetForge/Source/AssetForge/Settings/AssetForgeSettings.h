@@ -25,7 +25,7 @@ public:
 	virtual FName GetCategoryName() const override;
 
 	/**
-	 * 配置根目录：相对项目根（也接受绝对路径）。默认 `Docs/AssetForge`。
+	 * 配置根目录：相对项目根（也接受绝对路径）。留空自动：项目外层同级有 `ProjectDoc/docs` 时用 `ProjectDoc/docs/AssetForge`（P4 / SVN 项目的文档在项目外），否则用项目里的 `docs/AssetForge`。
 	 * 各 kind 的配置在它下面的子目录里（`umg/`、`data/`……，见 kind 登记表）。
 	 * 同步清单不放这里：它记的是本机资产文件的修改时间，放在 `Saved/AssetForge/state.json`（不进版本管理）。
 	 */
