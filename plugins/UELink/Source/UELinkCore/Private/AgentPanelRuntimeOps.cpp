@@ -2,6 +2,7 @@
 // 日志、截图。编辑器专用的（资源写入保存、PIE、Live Coding、编辑器视口截图）在编辑器模块里登记。
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
+#include "AgentPanelBlueprintComps.h"
 #include "AgentPanelGMLibrary.h"
 #include "AgentPanelLog.h"
 #include "AgentPanelLuaOps.h"
@@ -587,6 +588,12 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 			}
 			O->SetStringField(TEXT("created"), Created);
 			Items.Add(Obj(O));
+		}
+		// 蓝图资源（类默认值）：CDO 上只有 C++ 组件，补上蓝图组件列表里的（2.2.0 起）。scs 告诉网页已经补过，旧桥接没有它时网页自己用 bp.outline 补
+		if (Act->HasAnyFlags(RF_ClassDefaultObject))
+		{
+			AddBlueprintComponents(Act, Items);
+			Out->SetBoolField(TEXT("scs"), true);
 		}
 		Out->SetArrayField(TEXT("items"), Items);
 		return true;

@@ -55,6 +55,9 @@
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec` |
 
+`components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
+2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
+
 2.0.0 新加的三个：
 
 - `livecoding` → `{"started": true}`；已经在编译时 `{"started": false, "message": "already compiling"}`。结果用下面的 `livecoding.status` 查。
