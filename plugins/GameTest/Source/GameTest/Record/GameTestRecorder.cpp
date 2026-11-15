@@ -128,18 +128,20 @@ namespace
 		return Step;
 	}
 
-	/** 场景名 → 文件名：只留字母数字和 `-_`，中文名也能落成合法文件名。 */
+	/** 场景名 → 文件名：去掉文件名里不能用的字符，空白换成 `-`；中文名照留，文件名和场景名对得上。 */
 	FString ToFileStem(const FString& InName)
 	{
 		FString Stem;
 		for (const TCHAR Char : InName)
 		{
-			Stem.AppendChar(FChar::IsAlnum(Char) && Char < 128 ? FChar::ToLower(Char) : (Char == TEXT('_') ? Char : TEXT('-')));
+			const bool bInvalid = FCString::Strchr(TEXT("\\/:*?\"<>|"), Char) != nullptr || Char < 32;
+			Stem.AppendChar(bInvalid || FChar::IsWhitespace(Char) ? TEXT('-') : Char);
 		}
 		while (Stem.ReplaceInline(TEXT("--"), TEXT("-")) > 0)
 		{
 		}
 		Stem.TrimCharInline(TEXT('-'), nullptr);
+		Stem.TrimCharInline(TEXT('.'), nullptr);
 		return Stem.IsEmpty() ? FString::Printf(TEXT("recording-%s"), *FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"))) : Stem;
 	}
 
