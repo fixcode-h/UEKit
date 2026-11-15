@@ -1,0 +1,422 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#include "Core/ForgePipeline.h"
+#include "AssetForge.h"
+
+#include "Core/ForgeAssetHealth.h"
+#include "Core/ForgeDoc.h"
+#include "Core/ForgeJsonText.h"
+#include "Registry/ForgeKindRegistry.h"
+#include "Settings/AssetForgeSettings.h"
+
+#include "Misc/PackageName.h"
+#include "Misc/Paths.h"
+#include "UObject/UObjectGlobals.h"
+
+namespace ForgePipeline
+{
+
+namespace
+{
+	const TCHAR* const FieldSucceeded = TEXT("succeeded");
+	const TCHAR* const FieldDryRun = TEXT("dryRun");
+	const TCHAR* const FieldSourcePath = TEXT("sourcePath");
+	const TCHAR* const FieldAssetPath = TEXT("assetPath");
+	const TCHAR* const FieldCreated = TEXT("created");
+	const TCHAR* const FieldUpdated = TEXT("updated");
+	const TCHAR* const FieldDeleted = TEXT("deleted");
+	const TCHAR* const FieldActions = TEXT("actions");
+	const TCHAR* const FieldDiagnostics = TEXT("diagnostics");
+	const TCHAR* const FieldSeverity = TEXT("severity");
+	const TCHAR* const FieldFieldPath = TEXT("fieldPath");
+	const TCHAR* const FieldMessage = TEXT("message");
+
+	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, TSet<FString>& InVisiting, FForgeReport& OutReport);
+
+	/** 包名 → 对象路径（`/Game/A/B` → `/Game/A/B.B`），已带对象名的原样返回。 */
+	FString AsObjectPath(const FString& InAssetPath)
+	{
+		if (InAssetPath.IsEmpty() || InAssetPath.Contains(TEXT(".")))
+		{
+			return InAssetPath;
+		}
+		return InAssetPath + TEXT(".") + FPackageName::GetShortName(InAssetPath);
+	}
+
+	/**
+	 * 把节点上的 `ref` 解析成 `class`。
+	 *
+	 * 嵌套子界面在 UMG 里不是「一个 UserWidget 控件 + 指向某个类的属性」——`UUserWidget`
+	 * 根本没有这样的属性。**子界面的生成类本身就是那个控件的类**，所以 ref 要做的事只有一件：
+	 * 读出被引用配置的目标资产，加生成类后缀 `_C`，写进 class。
+	 */
+	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, TSet<FString>& InVisiting, FForgeReport& OutReport)
+	{
+		if (!InOutNode.Ref.IsEmpty())
+		{
+			// 两个来源冲突时报错而不是挑一个：挑错的那次会静默建出一个「没有界面的 UserWidget」，
+			// 导入还报成功——这种错必须在解析阶段拦住。
+			if (!InOutNode.ClassName.IsEmpty())
+			{
+				OutReport.AddError(
+					FString::Printf(TEXT("%s.ref"), *InNodePath),
+					FString::Printf(
+						TEXT("节点 `%s` 同时指定了 class 与 ref；类名由 ref 推导，两者只能留一个"),
+						*InOutNode.Name));
+				return false;
+			}
+
+			const FString RefPath = ResolveConfigPath(InOutNode.Ref);
+			if (!FPaths::FileExists(RefPath))
+			{
+				OutReport.AddError(
+					FString::Printf(TEXT("%s.ref"), *InNodePath),
+					FString::Printf(TEXT("引用的配置不存在：%s"), *RefPath));
+				return false;
+			}
+
+			if (InVisiting.Contains(RefPath))
+			{
+				OutReport.AddError(
+					FString::Printf(TEXT("%s.ref"), *InNodePath),
+					FString::Printf(TEXT("配置引用形成环：%s"), *InOutNode.Ref));
+				return false;
+			}
+
+			InVisiting.Add(RefPath);
+			{
+				FForgeDocument Referenced;
+				FForgeReport ReferenceReport;
+				if (!LoadDocument(RefPath, Referenced, ReferenceReport))
+				{
+					OutReport.AddError(
+						FString::Printf(TEXT("%s.ref"), *InNodePath),
+						FString::Printf(TEXT("引用的配置无法解析：%s"), *InOutNode.Ref));
+					return false;
+				}
+
+				// 生成类的完整对象路径是 `/包路径/资产名.资产名_C`——只在末尾拼 `_C` 得到的是
+				// `/包路径/资产名_C`，那不是任何对象的名字，LoadClass 找不到它。
+				const FString AssetName = FPaths::GetBaseFilename(Referenced.Asset);
+				InOutNode.ClassName = FString::Printf(TEXT("%s.%s_C"), *Referenced.Asset, *AssetName);
+			}
+			InVisiting.Remove(RefPath);
+		}
+
+		bool bOk = true;
+		for (FForgeNode& Child : InOutNode.Children)
+		{
+			const FString ChildPath = InNodePath.IsEmpty()
+				? Child.Name
+				: FString::Printf(TEXT("%s/%s"), *InNodePath, *Child.Name);
+			bOk &= ResolveRefs(Child, ChildPath, InVisiting, OutReport);
+		}
+
+		return bOk;
+	}
+
+	const TCHAR* SeverityToString(EForgeSeverity InSeverity)
+	{
+		switch (InSeverity)
+		{
+		case EForgeSeverity::Error:
+			return TEXT("error");
+		case EForgeSeverity::Warning:
+			return TEXT("warning");
+		default:
+			return TEXT("info");
+		}
+	}
+
+	const TCHAR* ActionToString(EForgeAction InAction)
+	{
+		switch (InAction)
+		{
+		case EForgeAction::Create:
+			return TEXT("create");
+		case EForgeAction::Update:
+			return TEXT("update");
+		case EForgeAction::Delete:
+			return TEXT("delete");
+		case EForgeAction::Reorder:
+			return TEXT("reorder");
+		default:
+			return TEXT("unchanged");
+		}
+	}
+
+}
+
+FString GetConfigRootDir()
+{
+	// 由项目设置决定（默认 `Config/AssetForge`），不写死在代码里。
+	return GetDefault<UAssetForgeSettings>()->ResolveConfigRootDir();
+}
+
+FString GetKindConfigDir(const FString& InKind)
+{
+	// kind 名带横线（`umg-widget`），目录用短名——短名在登记表里。
+	return FPaths::Combine(GetConfigRootDir(), ForgeKindRegistry::GetConfigDirName(InKind));
+}
+
+FString MakeDefaultConfigPath(const FString& InAssetPath, const FString& InKind)
+{
+	// `/Game/UI/Framework/WBP_UIRoot` → `<项目>/Config/AssetForge/umg/UI/Framework/WBP_UIRoot.json`
+	FString RelativePath = FPackageName::ObjectPathToPackageName(InAssetPath);
+	RelativePath.RemoveFromStart(TEXT("/Game/"));
+	RelativePath.RemoveFromStart(TEXT("/"));
+
+	return FPaths::Combine(GetKindConfigDir(InKind), RelativePath + TEXT(".json"));
+}
+
+FString ResolveConfigPath(const FString& InConfigPath)
+{
+	if (InConfigPath.IsEmpty() || !FPaths::IsRelative(InConfigPath))
+	{
+		return InConfigPath;
+	}
+
+	const FString ProjectRelative = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(FPaths::ProjectDir(), InConfigPath));
+	if (FPaths::FileExists(ProjectRelative))
+	{
+		return ProjectRelative;
+	}
+
+	const FString ConfigRelative = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(GetConfigRootDir(), InConfigPath));
+	if (FPaths::FileExists(ConfigRelative))
+	{
+		return ConfigRelative;
+	}
+
+	// 两者都不存在时返回项目相对路径：报错信息里带上它比带引擎目录更有用。
+	return ProjectRelative;
+}
+
+namespace
+{
+	/** 文件和文本两条入口共用：字段校验、schema 版本门禁、ref 解析（ref 按 InConfigPath 所在目录找）。 */
+	bool ParseLoadedDocument(const TSharedPtr<FJsonObject>& InJson, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
+	{
+		TArray<FForgeDiagnostic> Diagnostics;
+		const bool bParsed = ForgeDoc::Parse(InJson, InConfigPath, OutDocument, Diagnostics);
+		OutReport.Diagnostics.Append(MoveTemp(Diagnostics));
+		if (!bParsed)
+		{
+			return false;
+		}
+
+		TSet<FString> Visiting;
+		Visiting.Add(FPaths::ConvertRelativePathToFull(InConfigPath));
+		return ResolveRefs(OutDocument.Root, TEXT("root"), Visiting, OutReport);
+	}
+}
+
+bool LoadDocument(const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
+{
+	OutReport.SourcePath = InConfigPath;
+
+	TSharedPtr<FJsonObject> Json;
+	FString Error;
+	if (!ForgeJsonText::LoadObject(InConfigPath, Json, Error))
+	{
+		OutReport.AddError(FString(), Error);
+		return false;
+	}
+	return ParseLoadedDocument(Json, InConfigPath, OutDocument, OutReport);
+}
+
+bool LoadDocumentFromText(const FString& InText, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
+{
+	OutReport.SourcePath = InConfigPath;
+
+	TSharedPtr<FJsonObject> Json;
+	FString Error;
+	if (!ForgeJsonText::ParseObject(ForgeJsonText::StripComments(InText), Json, Error))
+	{
+		OutReport.AddError(FString(), Error);
+		return false;
+	}
+	return ParseLoadedDocument(Json, InConfigPath, OutDocument, OutReport);
+}
+
+bool SaveDocument(const FString& InConfigPath, const FForgeDocument& InDocument, FForgeReport& OutReport)
+{
+	OutReport.SourcePath = InConfigPath;
+
+	FString Error;
+	if (!ForgeJsonText::SaveObject(InConfigPath, ForgeDoc::ToJson(InDocument), Error))
+	{
+		OutReport.AddError(FString(), Error);
+		return false;
+	}
+
+	return true;
+}
+
+bool Import(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport)
+{
+	OutReport.bDryRun = bDryRun;
+	OutReport.SourcePath = InDocument.SourcePath;
+	OutReport.AssetPath = InDocument.Asset;
+
+	bool bSucceeded = false;
+
+	if (const ForgeKindRegistry::FForgeKindInfo* Info = ForgeKindRegistry::Find(InDocument.Kind))
+	{
+		bSucceeded = Info->Import(InDocument, bDryRun, OutReport);
+	}
+	else
+	{
+		OutReport.AddError(
+			TEXT("kind"),
+			FString::Printf(
+				TEXT("不支持的资产种类 `%s`；配置里的 `kind` 要写已接入的类型之一"),
+				*InDocument.Kind));
+	}
+
+	// 导入成功 ≠ 资产可用：把资产自己的报错（蓝图编译、材质编译）收进报告——
+	// 「写进去了但坏了」按失败处理。
+	if (bSucceeded && !bDryRun)
+	{
+		if (UObject* ImportedAsset = LoadObject<UObject>(nullptr, *AsObjectPath(InDocument.Asset)))
+		{
+			const int32 DiagnosticsBefore = OutReport.Diagnostics.Num();
+			ForgeAssetHealth::CheckAsset(ImportedAsset, OutReport.Diagnostics);
+
+			for (int32 Index = DiagnosticsBefore; Index < OutReport.Diagnostics.Num(); ++Index)
+			{
+				const FForgeDiagnostic& Diagnostic = OutReport.Diagnostics[Index];
+				if (Diagnostic.Severity == EForgeSeverity::Error)
+				{
+					bSucceeded = false;
+				}
+				UE_LOG(LogAssetForge, Warning, TEXT("[资产健康] %s：%s"), *Diagnostic.FieldPath, *Diagnostic.Message);
+			}
+		}
+	}
+
+	// 清单记录不在这里做：它属于「一次用户操作」的语义，由 ForgeService 统一处理
+	// （单元测试直接调 Import 时也就不会污染项目清单）。
+	OutReport.bSucceeded = bSucceeded && !OutReport.HasErrors();
+	return OutReport.bSucceeded;
+}
+
+bool Export(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
+{
+	OutReport.AssetPath = InAssetPath;
+
+	UObject* Asset = LoadObject<UObject>(nullptr, *AsObjectPath(InAssetPath));
+	if (Asset == nullptr)
+	{
+		OutReport.AddError(TEXT("asset"), FString::Printf(TEXT("找不到资产：%s"), *InAssetPath));
+		return false;
+	}
+
+	// 类型判定只有一份（登记表）：Actor / 对象蓝图的分流也在表里。
+	const FString Kind = ForgeKindRegistry::ClassifyAsset(Asset);
+	if (const ForgeKindRegistry::FForgeKindInfo* Info = ForgeKindRegistry::Find(Kind))
+	{
+		const bool bOk = Info->Export(InAssetPath, OutDocument, OutReport);
+		OutReport.bSucceeded = bOk && !OutReport.HasErrors();
+		return OutReport.bSucceeded;
+	}
+
+	OutReport.AddError(
+		TEXT("asset"),
+		FString::Printf(
+			TEXT("暂不支持导出 `%s`（%s）：这类资产还没有对应的处理器"),
+			*Asset->GetClass()->GetName(),
+			*InAssetPath));
+	return false;
+}
+
+TSharedPtr<FJsonObject> ReportToJson(const FForgeReport& InReport)
+{
+	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
+	Json->SetBoolField(FieldSucceeded, InReport.bSucceeded);
+	Json->SetBoolField(FieldDryRun, InReport.bDryRun);
+	Json->SetStringField(FieldSourcePath, InReport.SourcePath);
+	Json->SetStringField(FieldAssetPath, InReport.AssetPath);
+	Json->SetNumberField(FieldCreated, InReport.Created);
+	Json->SetNumberField(FieldUpdated, InReport.Updated);
+	Json->SetNumberField(FieldDeleted, InReport.Deleted);
+
+	TArray<TSharedPtr<FJsonValue>> Actions;
+	Actions.Reserve(InReport.Actions.Num());
+	for (const FForgePlanEntry& Entry : InReport.Actions)
+	{
+		const TSharedPtr<FJsonObject> ActionJson = MakeShared<FJsonObject>();
+		ActionJson->SetStringField(TEXT("action"), ActionToString(Entry.Action));
+		ActionJson->SetStringField(TEXT("nodePath"), Entry.NodePath);
+		ActionJson->SetStringField(TEXT("nodeName"), Entry.NodeName);
+		if (!Entry.Detail.IsEmpty())
+		{
+			ActionJson->SetStringField(TEXT("detail"), Entry.Detail);
+		}
+		Actions.Add(MakeShared<FJsonValueObject>(ActionJson));
+	}
+	Json->SetArrayField(FieldActions, Actions);
+
+	TArray<TSharedPtr<FJsonValue>> Diagnostics;
+	Diagnostics.Reserve(InReport.Diagnostics.Num());
+	for (const FForgeDiagnostic& Diagnostic : InReport.Diagnostics)
+	{
+		const TSharedPtr<FJsonObject> DiagnosticJson = MakeShared<FJsonObject>();
+		DiagnosticJson->SetStringField(FieldSeverity, SeverityToString(Diagnostic.Severity));
+		DiagnosticJson->SetStringField(FieldFieldPath, Diagnostic.FieldPath);
+		DiagnosticJson->SetStringField(FieldMessage, Diagnostic.Message);
+		Diagnostics.Add(MakeShared<FJsonValueObject>(DiagnosticJson));
+	}
+	Json->SetArrayField(FieldDiagnostics, Diagnostics);
+
+	return Json;
+}
+
+FString ReportToText(const FForgeReport& InReport)
+{
+	TArray<FString> Lines;
+	Lines.Add(FString::Printf(
+		TEXT("%s%s  %s"),
+		InReport.bSucceeded ? TEXT("[成功]") : TEXT("[失败]"),
+		InReport.bDryRun ? TEXT(" (dry-run)") : TEXT(""),
+		*InReport.AssetPath));
+	Lines.Add(FString::Printf(
+		TEXT("  创建 %d，更新 %d，删除 %d"),
+		InReport.Created,
+		InReport.Updated,
+		InReport.Deleted));
+
+	for (const FForgePlanEntry& Entry : InReport.Actions)
+	{
+		Lines.Add(FString::Printf(
+			TEXT("    %-8s %s%s"),
+			ActionToString(Entry.Action),
+			*Entry.NodePath,
+			Entry.Detail.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("  (%s)"), *Entry.Detail)));
+	}
+
+	for (const FForgeDiagnostic& Diagnostic : InReport.Diagnostics)
+	{
+		Lines.Add(FString::Printf(
+			TEXT("    [%s] %s: %s"),
+			SeverityToString(Diagnostic.Severity),
+			Diagnostic.FieldPath.IsEmpty() ? TEXT("<文件>") : *Diagnostic.FieldPath,
+			*Diagnostic.Message));
+	}
+
+	return FString::Join(Lines, TEXT("\n"));
+}
+
+const TCHAR* ActionToId(const EForgeAction InAction)
+{
+	return ActionToString(InAction);
+}
+
+const TCHAR* SeverityToId(const EForgeSeverity InSeverity)
+{
+	return SeverityToString(InSeverity);
+}
+
+} // namespace ForgePipeline
