@@ -7,6 +7,7 @@
 #include "AssetForgeVersion.h"
 #include "Integration/AssetForgeAssetMenu.h"
 #include "Integration/ForgeOps.h"
+#include "Service/ForgeSamples.h"
 
 DEFINE_LOG_CATEGORY(LogAssetForge);
 
@@ -17,6 +18,9 @@ void FAssetForgeModule::StartupModule()
 	// 后台编辑器（-run=AgentPanel）里也登记：面板可以不开编辑器界面就批量导入
 	FAgentPanelBridge::Get().RegisterExtension(TEXT("AssetForge"), ASSETFORGE_VERSION);
 	ForgeOps::Register();
+
+	// 插件自带的示例测试界面：配置装进配置根 Test/，配套场景装进 GameTest 场景根（项目设置里可关）
+	ForgeSamples::Install();
 
 	// 右键菜单只在有界面的编辑器里有意义
 	if (!IsRunningCommandlet())

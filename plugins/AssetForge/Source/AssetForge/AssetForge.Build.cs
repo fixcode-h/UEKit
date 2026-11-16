@@ -78,6 +78,8 @@ public class AssetForge : ModuleRules
 			"MovieSceneTracks",
 			// GameplayTags：状态树的状态标签与事件（状态树依赖见下面的 bWithStateTree）。
 			"GameplayTags",
+			// Projects：IPluginManager 找插件自己的目录，安装插件自带的示例（Service/ForgeSamples.cpp）。
+			"Projects",
 		});
 
 		// 状态树只在 UE 5.8 上编：它依赖 5.6 才有的 PropertyBindingUtils，5.4 的状态树绑定接口差别太大。
