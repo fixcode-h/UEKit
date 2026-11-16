@@ -2,6 +2,18 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.4.0-beta.1
+
+> 还没在本地用 UE 完整编译验证过，先发预发布。几个并行的工作包都往这一节加条目，不另开版本号。
+
+### 新功能
+- **Lua 改完能验** — 新操作 `lua.check`（只编译不执行，单独的 Lua 环境里查，不开游戏也能查语法）、`lua.reload`（重载模块：项目用 `FAgentPanelLua::SetReloader` 接自己的热重载，没接时用 require 兜底并把新函数换进旧模块表，已绑定的对象也会用上）、`lua.modules`（已加载的模块、对应文件、绑定对象数、文件改过还没重载）、`lua.errors`（Lua 报错按「消息 + 出错位置」归并，带次数、首末时间、调用栈；项目调 `FAgentPanelLua::CaptureError` 时还有出错那一帧的局部变量），有新报错时推 `uelink.luaErrors` 事件
+- **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）
+
+### 注意
+- 装好后要在本地完整编译一次（Live Coding 不够）
+- UnLua 二次开发版的热重载和报错入口桥接不猜，按需在项目模块里调 `SetReloader` / `CaptureError` 接上，见 `docs/protocol.md`
+
 ## v2.3.1-beta.1
 
 > 还没在本地用 UE 完整编译验证过，先发预发布。
