@@ -36,6 +36,16 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = "AssetForge", meta = (DisplayName = "未纳管资产扫描根"))
 	TArray<FString> UnmanagedScanRoots;
 
+	/**
+	 * 编辑器启动时把插件自带的示例（`Plugins/AssetForge/docs/AssetForge/Test`：多页面测试界面的配置、配套的 GameTest 场景）
+	 * 装进配置根的 `Test/` 和 GameTest 场景根的 `AssetForgeSample/`。只补缺的、只更新没被改过的，删掉的不会再装回来。
+	 */
+	UPROPERTY(EditAnywhere, config, Category = "AssetForge", meta = (DisplayName = "安装示例测试界面"))
+	bool bInstallSamples = true;
+
 	/** 配置根的磁盘绝对路径（已规范化、正斜杠，不带结尾斜杠）。 */
 	FString ResolveConfigRootDir() const;
+
+	/** 项目的文档根（`ProjectDoc/docs` 或项目里的 `docs`），和 GameTest、Agent 面板同一个约定。 */
+	static FString ResolveDocsRootDir();
 };

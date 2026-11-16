@@ -62,6 +62,15 @@
 | `forge.changed` | 右键菜单导入 / 导出之后 | `source`、`count`：面板重新拉列表 |
 | `forge.reveal` | 右键菜单「在 Agent 面板中显示」 | `asset`、`kind`：面板跳到这一项 |
 
+## 示例测试界面
+
+插件目录的 `docs/AssetForge/Test/` 带一套多页面 UMG 界面（给 GameTest 录制练手），编辑器启动时 `Service/ForgeSamples.cpp` 把它装进配置根的 `Test/`，其中 `_GameTest/` 的场景另装进 GameTest 场景根的 `AssetForgeSample/`（项目开了 GameTest 才装）。只补缺的、只更新上次装进去以后没被改过的，装过的文件哈希记在 `Saved/AssetForge/samples.json`，删掉的不再装回来；项目设置「安装示例测试界面」可关。
+
+- 界面 `umg/WBP_ForgeSample.json` 的父类 `ForgeSampleScreen`、地图 `map/Map_ForgeSample.json` 的 GameMode `ForgeSampleGameMode` 都在测试模块 `AssetForgeTests/Sample/`（UncookedOnly，只在编辑器和 PIE 里有），所以示例资产不能打进包。
+- 跳页按控件名约定（`Go_`、`Back`、`Open_` / `Close_`、`Pick_`、`Submit_`，`__` 后缀只为不重名），细节见 `docs/AssetForge/Test/README.md`。
+- 配置由仓库根的 `docs/asset-forge-sample/gen.mjs` 生成（控件名和场景里的选择器路径一起算），改界面改脚本再生成。
+- 控制台命令 `AssetForge.Sample`：在当前游戏世界打开 / 关掉示例界面。
+
 ## 其他入口
 
 - **内容浏览器右键菜单**：从配置导入、导出到配置、在 Agent 面板中显示。

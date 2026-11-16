@@ -1,0 +1,87 @@
+{
+  "kind": "gametest-scenario",
+  "schemaVersion": 2,
+  "name": "AssetForge 示例界面：跳页、弹窗、返回",
+  "_note": "配套 AssetForge 示例测试界面（先在 AssetForge 页导入 Test/ 下的两份配置）。手动录制：打开 Map_ForgeSample → PIE → 在 GameTest 页点录制。",
+  "revision": 1,
+  "tags": ["sample","assetforge"],
+  "stepDelayMs": 300,
+  "steps": [
+    {"action":"pie.start","map":"/Game/AgentTest/AssetForge/Map_ForgeSample"},
+    {"action":"wait","until":"widget","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","note":"等示例界面出来（GameMode 进图就加进视口）"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"首页"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/Pages/Page_Home/Hero/HeroCol/HeroBtns/Go_Page_Shop__Hero","note":"首页大图上的「去商店」"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"商店"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Shop/ShopList/ShopRow_Gem/ShopRowBox_Gem/Open_Popup_Buy__Gem",
+      "note": "买红宝石"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Popup_Buy","visible":true},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Popup_Buy/CardSize_Buy/Card_Buy/CardCol_Buy/Popup_Buy_Subject","textContains":"红宝石"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Popup_Buy/CardSize_Buy/Card_Buy/CardCol_Buy/CardBtns_Buy/Open_Popup_Help__Buy",
+      "note": "弹窗上再弹一层说明"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Popup_Help","visible":true},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Back","note":"返回先关最上面的弹窗"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Popup_Buy","visible":true},
+    {"action":"click","target":"WBP_ForgeSample:Root/Popup_Buy/CardSize_Buy/Card_Buy/CardCol_Buy/CardBtns_Buy/Close_Popup_Buy__Ok"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/StatusChip/Status","textContains":"关闭"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/SideWidth/SideBg/SideCol/Go_Page_Settings__Nav"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/Pages/Page_Settings/SetHead/Go_Tab_Video"},
+    {
+      "action": "set",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Settings/SetCard/SettingsTabs/Tab_Video/Row_Quality/Ctl_Quality/Quality",
+      "option": "极高"
+    },
+    {
+      "action": "assert",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Settings/SetCard/SettingsTabs/Tab_Video/Row_Quality/Quality_Value",
+      "text": "极高"
+    },
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/SideWidth/SideBg/SideCol/Go_Page_Profile__Nav"},
+    {
+      "action": "type",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Profile/ProfileForm/ProfileFormCol/Field_PlayerName/FieldRow_PlayerName/PlayerName",
+      "text": "Tester01"
+    },
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Profile/ProfileForm/ProfileFormCol/Field_PlayerName/FieldRow_PlayerName/Submit_PlayerName"
+    },
+    {
+      "action": "assert",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Profile/ProfileForm/ProfileFormCol/Field_PlayerName/EchoRow_PlayerName/PlayerName_Echo",
+      "text": "Tester01"
+    },
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Back"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"设置"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/SideWidth/SideBg/SideCol/Go_Page_Tasks__Nav"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/Pages/Page_Tasks/TaskHead/Go_Tab_Weekly"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Tasks/TaskTabs/Tab_Weekly/TaskRow_Weekly1/TaskBox_Weekly1/Go_Page_TaskDetail__Weekly1",
+      "note": "从任务列表进详情页（侧栏里没有这一页）"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"任务详情"},
+    {
+      "action": "assert",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_TaskDetail/TaskDetailCard/TaskDetailCol/Page_TaskDetail_Subject",
+      "textContains": "熔火之心"
+    },
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_TaskDetail/TaskDetailCard/TaskDetailCol/TaskDetailBtns/Go_Page_Shop__Task"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"商店"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Back"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"任务详情"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Back"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"任务"},
+    {"action":"screenshot","name":"forge-sample-tasks"},
+    {"action":"pie.stop"},
+    {"action":"wait","until":"pieStopped"}
+  ]
+}

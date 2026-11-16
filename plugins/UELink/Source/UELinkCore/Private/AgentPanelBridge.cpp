@@ -488,6 +488,7 @@ public:
 	virtual void ShutdownModule() override
 	{
 		UELINK_POST_ENGINE_INIT.Remove(PostInit);
+		AgentPanelUnregisterEmmyValues();
 		FAgentPanelBridge::Get().Stop();
 	}
 

@@ -1,0 +1,8 @@
+{
+  "//": "示例测试地图：只有世界设置，GameMode 进图就显示 WBP_ForgeSample。项目的默认世界设置类不是 WorldSettings 时，把 root.class 换成项目用的那个类。",
+  "kind": "map",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Map_ForgeSample",
+  "root": {"class":"/Script/Engine.WorldSettings","name":"WorldSettings","props":{"DefaultGameMode":"/Script/AssetForgeTests.ForgeSampleGameMode"}}
+}

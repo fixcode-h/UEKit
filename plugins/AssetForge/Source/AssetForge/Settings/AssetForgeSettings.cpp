@@ -34,6 +34,11 @@ FName UAssetForgeSettings::GetCategoryName() const
 	return TEXT("Plugins");
 }
 
+FString UAssetForgeSettings::ResolveDocsRootDir()
+{
+	return ResolveDocsRoot();
+}
+
 FString UAssetForgeSettings::ResolveConfigRootDir() const
 {
 	FString Root = ConfigRoot.Path.TrimStartAndEnd();
