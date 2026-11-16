@@ -1,6 +1,7 @@
 #include "AgentPanelOutliner.h"
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
+#include "UELinkCompat.h"
 
 #include "Components/ActorComponent.h"
 #include "Engine/Engine.h"
@@ -38,7 +39,7 @@ namespace AgentPanel
 			{
 				bAny = ShowInObjectTree(Inner);
 				return !bAny;
-			}, false);
+			}, UELINK_OUTER_NESTED(false));
 			return bAny;
 		}
 
@@ -133,7 +134,7 @@ namespace AgentPanel
 				return false;
 			}
 			TArray<UObject*> Inner;
-			GetObjectsWithOuter(Parent, Inner, false);
+			GetObjectsWithOuter(Parent, Inner, UELINK_OUTER_NESTED(false));
 			Inner.RemoveAll([](const UObject* O) { return !ShowInObjectTree(O); });
 			Inner.Sort([](const UObject& L, const UObject& R)
 			{
