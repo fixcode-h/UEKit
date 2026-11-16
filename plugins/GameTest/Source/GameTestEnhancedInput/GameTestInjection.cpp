@@ -3,6 +3,7 @@
 #include "GameTestInjection.h"
 
 #include "Core/GameTestWorld.h"
+#include "GameTestCompat.h"
 
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
@@ -38,6 +39,39 @@ namespace
 			OutError = TEXT("本地玩家上没有 EnhancedInput 子系统（项目的输入栈不是 EnhancedInput？）");
 		}
 		return Subsystem;
+	}
+
+#if !GAMETEST_HAS_INJECTION_QUERY
+	/** 没有引擎查询接口的版本（5.4）：自己记每个子系统上哪些动作正在持续注入，键用弱引用，PIE 结束对象没了自然失效 */
+	TMap<TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem>, TSet<TWeakObjectPtr<const UInputAction>>>& InjectedActions()
+	{
+		static TMap<TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem>, TSet<TWeakObjectPtr<const UInputAction>>> Map;
+		return Map;
+	}
+#endif
+
+	bool HasInjection(UEnhancedInputLocalPlayerSubsystem& InSubsystem, const UInputAction& InAction)
+	{
+#if GAMETEST_HAS_INJECTION_QUERY
+		return InSubsystem.HasContinuousInputInjectionForAction(&InAction);
+#else
+		const TSet<TWeakObjectPtr<const UInputAction>>* Actions = InjectedActions().Find(&InSubsystem);
+		return Actions != nullptr && Actions->Contains(&InAction);
+#endif
+	}
+
+	void MarkInjection(UEnhancedInputLocalPlayerSubsystem& InSubsystem, const UInputAction& InAction, bool bInjecting)
+	{
+#if !GAMETEST_HAS_INJECTION_QUERY
+		if (bInjecting)
+		{
+			InjectedActions().FindOrAdd(&InSubsystem).Add(&InAction);
+		}
+		else if (TSet<TWeakObjectPtr<const UInputAction>>* Actions = InjectedActions().Find(&InSubsystem))
+		{
+			Actions->Remove(&InAction);
+		}
+#endif
 	}
 
 	/** 把标量注入值填进该动作 ValueType 的各分量。 */
@@ -127,6 +161,7 @@ bool GameTestInjection::StartInjection(UWorld& InWorld, const UInputAction& InAc
 	}
 
 	Subsystem->StartContinuousInputInjectionForAction(&InAction, MakeInjectionValue(InAction, InValue), TArray<UInputModifier*>(), TArray<UInputTrigger*>());
+	MarkInjection(*Subsystem, InAction, true);
 
 	OutMessage = FString::Printf(TEXT("已开始持续注入 %s（值 %.3f，每 tick 重发）"), *InAction.GetName(), InValue);
 	return true;
@@ -144,13 +179,14 @@ bool GameTestInjection::StopInjection(UWorld& InWorld, const UInputAction& InAct
 
 	// 对没在注入的动作停一次是静默无操作（引擎的 Remove），所以先查再停：
 	// "我明明没注入却报成功"会让 AI 误判自己刚才那步输入生效过。
-	if (!Subsystem->HasContinuousInputInjectionForAction(&InAction))
+	if (!HasInjection(*Subsystem, InAction))
 	{
 		OutMessage = FString::Printf(TEXT("%s 当前没有在注入（先 input.start 再停）"), *InAction.GetName());
 		return false;
 	}
 
 	Subsystem->StopContinuousInputInjectionForAction(&InAction);
+	MarkInjection(*Subsystem, InAction, false);
 	OutMessage = FString::Printf(TEXT("已停止注入 %s"), *InAction.GetName());
 	return true;
 }
@@ -159,5 +195,5 @@ bool GameTestInjection::IsInjecting(UWorld& InWorld, const UInputAction& InActio
 {
 	FString Error;
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = FindInputSubsystem(InWorld, Error);
-	return Subsystem != nullptr && Subsystem->HasContinuousInputInjectionForAction(&InAction);
+	return Subsystem != nullptr && HasInjection(*Subsystem, InAction);
 }
