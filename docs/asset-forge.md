@@ -1,6 +1,6 @@
 # AssetForge
 
-用 JSON 配置管理 UE 资产：配置是唯一真源，导入把配置写成资产，导出把资产写回配置。只支持 UE 5.8，依赖 UELink 2.2 起的扩展接口。界面在 Agent 面板 UE 页的「AssetForge」页，Agent 通过面板的 `ue_forge` 工具用同一套操作。
+用 JSON 配置管理 UE 资产：配置是唯一真源，导入把配置写成资产，导出把资产写回配置。支持 UE 5.4 和 5.8（以 5.4 为基准，版本差异收在 `AssetForgeCompat.h`）；状态树（`state-tree`）依赖 5.6 才有的 PropertyBindingUtils，只在 5.8 上编，5.4 上没有这一类。5.4 上要 UELink 2.4.0-beta.2 起（之前的版本在 5.4 上编不过）。界面在 Agent 面板 UE 页的「AssetForge」页，Agent 通过面板的 `ue_forge` 工具用同一套操作。
 
 ## 支持的资产
 
@@ -69,5 +69,5 @@
 
 ## 限制
 
-- 云端编不了 C++：每一版都要在本地 UE 5.8 完整编译验证，没验证过的版本号带 `-beta.N`。
+- 云端编不了 C++：每一版都要在本地 UE 5.4 和 5.8 各完整编译一次验证，没验证过的版本号带 `-beta.N`。
 - 自动化测试（`AssetForge.*`）里依赖项目资产的用例，在 `/Game/AssetForgeTest/` 下没有对应资产时跳过，见 `Source/AssetForgeTests/ForgeTestAssets.h`。

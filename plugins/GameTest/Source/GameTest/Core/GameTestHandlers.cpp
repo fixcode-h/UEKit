@@ -4,6 +4,7 @@
 
 #include "Core/GameTestJson.h"
 #include "Core/GameTestWorld.h"
+#include "Observe/GameTestHintPick.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -24,7 +25,9 @@ namespace GameTestHandlers
 		const FString& InTarget,
 		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutMessage)
+		FString& OutMessage,
+		const FJsonObject* InHint,
+		FString* OutPickNote)
 	{
 		if (InTarget.IsEmpty())
 		{
@@ -76,14 +79,42 @@ namespace GameTestHandlers
 			return false;
 		}
 
-		return GameTestSelector::ResolveText(Screens, InTarget, OutNode, OutMessage);
+		TArray<TSharedPtr<FGameTestWidgetNode>> Ambiguous;
+		if (GameTestSelector::ResolveText(Screens, InTarget, OutNode, OutMessage, InHint != nullptr ? &Ambiguous : nullptr))
+		{
+			return true;
+		}
+		if (InHint == nullptr || Ambiguous.Num() < 2)
+		{
+			return false;
+		}
+
+		// 同一个 WBP 的几个实例都命中：按录制线索挑回录的那一个；挑不出就照旧算没找到（回放接着等，超时报原因）。
+		FString Note;
+		FString Why;
+		if (GameTestHintPick::Pick(Ambiguous, *InHint, OutNode, Note, Why))
+		{
+			if (OutPickNote != nullptr)
+			{
+				*OutPickNote = Note;
+			}
+			return true;
+		}
+		OutMessage = FString::Printf(TEXT("%s；按录制线索也挑不出：%s"), *OutMessage, *Why);
+		return false;
 	}
 
 	bool TryResolveStepTarget(FGameTestStepContext& InContext, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError)
 	{
-		if (!TryResolveTarget(InContext.Step->Target, InContext.Handles, OutNode, OutError))
+		FString PickNote;
+		if (!TryResolveTarget(InContext.Step->Target, InContext.Handles, OutNode, OutError,
+				GameTestHintPick::GetHint(InContext.Step->Params), &PickNote))
 		{
 			return false;
+		}
+		if (!PickNote.IsEmpty() && InContext.Payload.IsValid())
+		{
+			InContext.Payload->SetStringField(TEXT("picked"), PickNote);
 		}
 
 		InContext.TouchedWidget = OutNode->Widget;

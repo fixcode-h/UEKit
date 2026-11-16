@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/ForgeDoc.h"
+#include "AssetForgeCompat.h"
 
 namespace ForgeDoc
 {
@@ -126,9 +127,9 @@ bool ParseNode(
 	// 未识别的字段收进 Extra：通用层只保证不丢，由各 kind 自己解释。
 	if (const TSharedPtr<FJsonObject> Extra = MakeShared<FJsonObject>(); Extra.IsValid())
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+		for (const auto& Pair : InJson->Values)
 		{
-			const FString KeyString(Pair.Key.ToView());
+			const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 			if (KeyString != FieldClass
 				&& KeyString != FieldName
 				&& KeyString != FieldRef
@@ -191,9 +192,9 @@ TSharedPtr<FJsonObject> NodeToJson(const FForgeNode& InNode)
 
 	if (InNode.Extra.IsValid())
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InNode.Extra->Values)
+		for (const auto& Pair : InNode.Extra->Values)
 		{
-			const FString KeyString(Pair.Key.ToView());
+			const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 			if (!Json->HasField(KeyString))
 			{
 				Json->SetField(KeyString, Pair.Value);
@@ -266,10 +267,10 @@ bool Parse(
 
 	// 未识别字段原样留着：回写时不丢信息，也便于将来加字段时向前兼容。
 	const TSharedPtr<FJsonObject> Extra = MakeShared<FJsonObject>();
-	for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+	for (const auto& Pair : InJson->Values)
 	{
 		// UE 5.8 的 FJsonObject::Values 以 UE::FSharedString 为键，跨到 FString 才能比较与写回。
-		const FString KeyString(Pair.Key.ToView());
+		const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 		if (KeyString != FieldKind
 			&& KeyString != FieldSchemaVersion
 			&& KeyString != FieldRevision
@@ -305,9 +306,9 @@ TSharedPtr<FJsonObject> ToJson(const FForgeDocument& InDocument)
 
 	if (InDocument.Extra.IsValid())
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InDocument.Extra->Values)
+		for (const auto& Pair : InDocument.Extra->Values)
 		{
-			const FString KeyString(Pair.Key.ToView());
+			const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 			if (!Json->HasField(KeyString))
 			{
 				Json->SetField(KeyString, Pair.Value);

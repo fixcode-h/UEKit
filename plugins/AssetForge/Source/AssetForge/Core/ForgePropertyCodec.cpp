@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/ForgePropertyCodec.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeJsonText.h"
 
@@ -166,9 +167,9 @@ void ValidateProperties(
 		return;
 	}
 
-	for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+	for (const auto& Pair : InJson->Values)
 	{
-		const FString KeyString(Pair.Key.ToView());
+		const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 		const FString PropertyPath = FString::Printf(TEXT("%s.%s"), *InFieldPath, *KeyString);
 
 		FProperty* Property = FindCodecProperty(InStruct, KeyString);
@@ -226,9 +227,9 @@ void PruneDefaults(const UStruct* InStruct, const TSharedPtr<FJsonObject>& InOut
 	// **不递归进结构体**：导出方向对结构体是整体导出的，不做结构体内部的 delta——
 	// 递归删成员反而会造出一份与导出形态对不上的配置。
 	TArray<FString> FieldsToRemove;
-	for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InOutJson->Values)
+	for (const auto& Pair : InOutJson->Values)
 	{
-		const FString KeyString(Pair.Key.ToView());
+		const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 
 		FProperty* Property = FindCodecProperty(InStruct, KeyString);
 		if (Property == nullptr)
@@ -608,9 +609,9 @@ void ImportStructProperties(
 		return;
 	}
 
-	for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+	for (const auto& Pair : InJson->Values)
 	{
-		const FString KeyString(Pair.Key.ToView());
+		const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 
 		// `_ClassName` 是 Instanced 对象数组**元素**的元数据（见 ImportInstancedObjectArray），
 		// 不是属性名——它在元素那一层就被消费掉了，落到这里说明写错了位置。

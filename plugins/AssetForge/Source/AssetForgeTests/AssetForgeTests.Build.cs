@@ -23,7 +23,12 @@ public class AssetForgeTests : ModuleRules
 		// StateTree 族：state-tree 的用例要构造内存态资产（UStateTree / EditorData / State）
 		// 与可绑定结构描述符。刻意不依赖 GameplayStateTree——那是默认禁用的运行时组件插件，
 		// 测试不该为一个 schema 把它绑进项目的插件集合（用 StateTreeModule 的 schema 类路径即可）。
-		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "UMG", "Json", "JsonUtilities", "CQTest", "StateTreeModule", "StateTreeEditorModule", "PropertyBindingUtils" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "UMG", "Json", "JsonUtilities", "CQTest" });
+		// 状态树只在 UE 5.8 上编（和 AssetForge.Build.cs 同一个判断，用例按 ASSETFORGE_WITH_STATETREE 跳过）
+		if (Target.Version.MajorVersion > 5 || (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion >= 8))
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "StateTreeModule", "StateTreeEditorModule", "PropertyBindingUtils" });
+		}
 
 		// 与其它模块同理：UBT 不会自动把模块根加进 include 路径。
 		PublicIncludePaths.Add(ModuleDirectory);

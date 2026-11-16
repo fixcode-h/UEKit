@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Material/MaterialGraphCodec.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeJsonText.h"
 #include "Core/ForgePropertyCodec.h"
@@ -453,9 +454,9 @@ bool ParseGraph(
 
 	if (const TSharedPtr<FJsonObject>* InputsObject = nullptr; InExtra->TryGetObjectField(FieldInputs, InputsObject))
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : (*InputsObject)->Values)
+		for (const auto& Pair : (*InputsObject)->Values)
 		{
-			const FString Key(Pair.Key.ToView());
+			const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 			const FString LinkPath = JoinPath(InputsPath, Key);
 
 			const int32 Property = ResolveMaterialProperty(Key);
@@ -551,9 +552,9 @@ bool ParseGraph(
 
 			if (const TSharedPtr<FJsonObject>* NodeInputs = nullptr; (*NodeObject)->TryGetObjectField(FieldInputs, NodeInputs))
 			{
-				for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : (*NodeInputs)->Values)
+				for (const auto& Pair : (*NodeInputs)->Values)
 				{
-					const FString PinName(Pair.Key.ToView());
+					const FString PinName(ASSETFORGE_JSON_KEY(Pair.Key));
 					const FString LinkPath = JoinPath(JoinPath(NodePath, FieldInputs), PinName);
 
 					FMaterialLink Link;
@@ -569,9 +570,9 @@ bool ParseGraph(
 
 			// 认不出的键只警告：通用层（ForgeNode::Extra）的立场是「保留不丢」，
 			// 但在这个自己解析的层级上，多半是笔误，说出来比默默忽略好。
-			for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : (*NodeObject)->Values)
+			for (const auto& Pair : (*NodeObject)->Values)
 			{
-				const FString Key(Pair.Key.ToView());
+				const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 				if (Key != TEXT("name") && Key != TEXT("class") && Key != TEXT("props") && Key != FieldInputs)
 				{
 					OutDiagnostics.Emplace(
@@ -781,7 +782,7 @@ void CanonicalizeNames(FMaterialGraph& InOutGraph)
 
 	while (Pending.Num() > 0)
 	{
-		const TPair<FString, FString> Current = Pending.Pop(EAllowShrinking::No);
+		const TPair<FString, FString> Current = Pending.Pop();
 		const int32* NodeIndex = IndexByName.Find(Current.Value);
 		if (NodeIndex == nullptr || bNamed[*NodeIndex])
 		{
@@ -1024,7 +1025,7 @@ void ValidateGraph(
 				EForgeSeverity::Error,
 				JoinPath(InFieldPath, FieldNodes),
 				FString::Printf(TEXT("连线成环：%s；材质图必须是有向无环图"), *FString::Join(Stack, TEXT(" → "))));
-			Stack.Pop(EAllowShrinking::No);
+			Stack.Pop();
 			return false;
 		}
 
@@ -1045,7 +1046,7 @@ void ValidateGraph(
 			}
 		}
 
-		Stack.Pop(EAllowShrinking::No);
+		Stack.Pop();
 		States[InIndex] = 2;
 		return bOk;
 	};

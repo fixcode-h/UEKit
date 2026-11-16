@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Font/FontForge.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeDiff.h"
 #include "Core/ForgeDoc.h"
@@ -358,9 +359,9 @@ namespace
 
 		if (InNode.Props.IsValid())
 		{
-			for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InNode.Props->Values)
+			for (const auto& Pair : InNode.Props->Values)
 			{
-				const FString Key(Pair.Key.ToView());
+				const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 				if (IsExcludedProperty(FaceExcludedPropertyNames(), Key))
 				{
 					OutDiagnostics.Emplace(
@@ -774,9 +775,9 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 	// 结构属性与 FName 属性不能走配置（见 FontExcludedPropertyNames）。
 	if (InDocument.Root.Props.IsValid())
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InDocument.Root.Props->Values)
+		for (const auto& Pair : InDocument.Root.Props->Values)
 		{
-			const FString Key(Pair.Key.ToView());
+			const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 			if (!IsExcludedProperty(FontExcludedPropertyNames(), Key))
 			{
 				continue;

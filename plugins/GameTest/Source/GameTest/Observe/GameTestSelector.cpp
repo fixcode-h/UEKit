@@ -790,8 +790,13 @@ bool GameTestSelector::Resolve(
 	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
 	const FParsed& InParsed,
 	TSharedPtr<FGameTestWidgetNode>& OutNode,
-	FString& OutError)
+	FString& OutError,
+	TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
 {
+	if (OutAmbiguous != nullptr)
+	{
+		OutAmbiguous->Reset();
+	}
 	if (InParsed.bHandle)
 	{
 		OutError = TEXT("句柄由调用方解析");
@@ -882,6 +887,11 @@ bool GameTestSelector::Resolve(
 	{
 		OutError = FString::Printf(TEXT("'%s' 在 %d 个屏里都命中：%s（请在 target 里写屏名，或用 '>' 写出父界面）"),
 			*InParsed.Screen, Found.Num(), *DescribeCandidates(Found));
+		// 后面还有 `>>` 段时每个候选还要再往 Slate 里找，交出去的就不是最终控件了：只在没有 `>>` 时交候选。
+		if (OutAmbiguous != nullptr && InParsed.SlateSegments.Num() == 0)
+		{
+			*OutAmbiguous = Found;
+		}
 		return false;
 	}
 
@@ -915,7 +925,8 @@ bool GameTestSelector::ResolveText(
 	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
 	const FString& InText,
 	TSharedPtr<FGameTestWidgetNode>& OutNode,
-	FString& OutError)
+	FString& OutError,
+	TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
 {
 	FParsed Parsed;
 	if (GameTestSelector::Parse(InText, Parsed, OutError))
@@ -925,7 +936,7 @@ bool GameTestSelector::ResolveText(
 			OutError = FString::Printf(TEXT("'%s' 是句柄引用，此处需要选择器"), *InText);
 			return false;
 		}
-		return Resolve(InScreens, Parsed, OutNode, OutError);
+		return Resolve(InScreens, Parsed, OutNode, OutError, OutAmbiguous);
 	}
 
 	return false;

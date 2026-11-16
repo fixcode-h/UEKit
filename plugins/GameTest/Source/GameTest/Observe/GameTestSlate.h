@@ -57,6 +57,23 @@ public:
 	/** 子树里所有 `STextBlock` 的文字拼起来（最多 `InMaxChars` 字），选择器的 `text=` 和录制的 hint 用。 */
 	static FString CollectText(const TSharedPtr<SWidget>& InWidget, int32 InMaxChars = 120);
 
+	/**
+	 * 「挂在 Slate 上的子界面」：一个 WBP 实例没有 UMG 父面板（`GetParent()` 为空）、也不是别的 WBP 控件树的根，
+	 * 却显示在某个 UMG 控件的 Slate 子树里——DynamicEntryBox 的条目、自定义列表（不是 UListView）的条目、
+	 * Lua 或 C++ 直接塞进 Slate 的子界面都是这样。沿 UMG 父链找不到它的父界面，快照和选择器要靠这里把它挂回去。
+	 *
+	 * 收集 `InContainer` 的 Slate 子树里这样的 WBP（遇到别的 UMG 控件就不往下走，它们归各自的控件），按 Slate 子控件顺序。
+	 * 快照每帧都会调：只认元数据和 SObjectWidget，不走线性扫描；每个容器最多看几百个 Slate 控件。
+	 * UListView 不在这里收：它的条目走 `列表[序号]`。
+	 */
+	static void CollectAttachedUserWidgets(const UWidget& InContainer, TArray<UUserWidget*>& OutWidgets);
+
+	/** 这个 WBP 挂在哪个 UMG 控件的 Slate 上（见上）；有 UMG 父面板、直接加在视口上、或容器是 WBP / 列表时返回空。 */
+	static UWidget* FindAttachContainer(const UUserWidget& InWidget);
+
+	/** 控件在游戏视口里的位置（归一化，`OutMin`/`OutMax` 各 0–1）；没有视口或几何无效时返回 false。录制的 `hint.rect` 和回放消歧共用。 */
+	static bool GetViewportRect(const SWidget& InWidget, FVector2D& OutMin, FVector2D& OutSize);
+
 	/** 可读描述：`SButton → Button(BtnStart)@WBP_Main`，报错和 inspect 用。 */
 	static FString Describe(const TSharedPtr<SWidget>& InWidget);
 };

@@ -5,8 +5,8 @@
 | 插件 | 说明 | 引擎 |
 | --- | --- | --- |
 | [UELink](plugins/UELink) | 让 Agent 面板连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；其他插件也通过它和面板通信 | 5.4+ |
-| [AssetForge](plugins/AssetForge) | 用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等资产：导入、导出、演练、同步状态、属性差异 | 5.8 |
-| [GameTest](plugins/GameTest) | 用 JSON 场景写游戏测试：按选择器操作界面、注入输入、等待、断言、截图；录制真人操作再回放 | 5.8 |
+| [AssetForge](plugins/AssetForge) | 用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等资产：导入、导出、演练、同步状态、属性差异 | 5.4+（状态树只在 5.8） |
+| [GameTest](plugins/GameTest) | 用 JSON 场景写游戏测试：按选择器操作界面、注入输入、等待、断言、截图；录制真人操作再回放 | 5.4+ |
 
 插件目录（客户端查更新读这份）：[catalog.json](catalog.json)。
 

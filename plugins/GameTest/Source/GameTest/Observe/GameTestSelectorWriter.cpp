@@ -4,6 +4,7 @@
 #include "GameTestCompat.h"
 
 #include "Core/GameTestWorld.h"
+#include "Observe/GameTestHintPick.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
@@ -106,6 +107,46 @@ namespace GameTestSelectorWriterDetail
 				{
 					++SameClassIndex;
 				}
+			}
+		}
+		return FString::Printf(TEXT("#%s#%d"), *ClassName, SameClassIndex);
+	}
+
+	/**
+	 * 挂在容器 Slate 上的子界面的路径段：和快照的子节点顺序一致——容器的 UMG 子控件在前，挂上来的在后，
+	 * `#类名#序号` 的序号在这两部分合起来的同类里数。名字稳定（不是「类名_序号」）时照用名字。
+	 */
+	FString AttachedSegment(const UWidget& InContainer, const UUserWidget& InWidget)
+	{
+		if (!HasUnstableName(InWidget))
+		{
+			return InWidget.GetFName().ToString();
+		}
+
+		const FString ClassName = GameTestSnapshot::FriendlyClassName(InWidget.GetClass());
+		int32 SameClassIndex = 0;
+		if (const UPanelWidget* Panel = Cast<UPanelWidget>(&InContainer))
+		{
+			for (int32 Index = 0; Index < Panel->GetChildrenCount(); ++Index)
+			{
+				const UWidget* Child = Panel->GetChildAt(Index);
+				if (Child != nullptr && GameTestSnapshot::FriendlyClassName(Child->GetClass()) == ClassName)
+				{
+					++SameClassIndex;
+				}
+			}
+		}
+		TArray<UUserWidget*> Attached;
+		GameTestSlate::CollectAttachedUserWidgets(InContainer, Attached);
+		for (const UUserWidget* Other : Attached)
+		{
+			if (Other == &InWidget)
+			{
+				break;
+			}
+			if (Other != nullptr && GameTestSnapshot::FriendlyClassName(Other->GetClass()) == ClassName)
+			{
+				++SameClassIndex;
 			}
 		}
 		return FString::Printf(TEXT("#%s#%d"), *ClassName, SameClassIndex);
@@ -250,6 +291,19 @@ namespace GameTestSelectorWriterDetail
 				return true;
 			}
 
+			// 没有 UMG 父面板、但显示在某个 UMG 控件的 Slate 里（DynamicEntryBox、自定义列表、Lua 挂上去的）：
+			// 写成「容器/#类名#序号」，快照把它挂在同一个容器下面，同类的几个实例才分得开。
+			if (UWidget* Container = GameTestSlate::FindAttachContainer(*Standalone))
+			{
+				FString ContainerTarget;
+				if (!Describe(*Container, InDepth + 1, ContainerTarget, OutError))
+				{
+					return false;
+				}
+				OutTarget = ContainerTarget + TEXT("/") + AttachedSegment(*Container, *Standalone);
+				return true;
+			}
+
 			OutTarget = GameTestSnapshot::FriendlyClassName(Standalone->GetClass()) + TEXT(":.");
 			return true;
 		}
@@ -289,6 +343,30 @@ namespace GameTestSelectorWriterDetail
 		return bSame;
 	}
 
+	/**
+	 * 选择器命中同一个 WBP 的几个实例时，回放能不能按录制线索（位置、文字）挑回它：用回放同一套挑法（GameTestHintPick）当场试一次。
+	 * 挑得回来就不算歧义，只在 hint 里记一句 `pick`；挑不回来才写 `ambiguous`。
+	 */
+	bool VerifyByHint(const FString& InTarget, const UWidget* InWidget, const TSharedPtr<SWidget>& InSlate, const FJsonObject& InHint)
+	{
+		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
+		GameTestSnapshot::CaptureScreens(GameTestWorld::FindGameWorld(), Screens, /*bInLight=*/true);
+		TArray<TSharedPtr<FGameTestWidgetNode>> Ambiguous;
+		TSharedPtr<FGameTestWidgetNode> Node;
+		FString Error;
+		if (GameTestSelector::ResolveText(Screens, InTarget, Node, Error, &Ambiguous) || Ambiguous.Num() < 2)
+		{
+			return false;
+		}
+		FString Note;
+		FString Why;
+		if (!GameTestHintPick::Pick(Ambiguous, InHint, Node, Note, Why) || !Node.IsValid())
+		{
+			return false;
+		}
+		return InWidget != nullptr ? Node->Widget.Get() == InWidget : Node->Slate.Pin() == InSlate;
+	}
+
 	TSharedPtr<FJsonObject> MakeHint(const UWidget* InWidget, const TSharedPtr<SWidget>& InSlate)
 	{
 		const TSharedPtr<FJsonObject> Hint = MakeShared<FJsonObject>();
@@ -316,25 +394,17 @@ namespace GameTestSelectorWriterDetail
 			Hint->SetStringField(TEXT("text"), Text);
 		}
 
-		// 在视口里的位置（归一化）：面板上显示、解析失败时按位置找候选。
-		const TSharedPtr<SWidget> Viewport = GameTestSlate::GetGameViewportWidget();
-		if (InSlate.IsValid() && Viewport.IsValid())
+		// 在视口里的位置（归一化）：面板上显示；选择器命中多个时回放按它挑（GameTestHintPick）。
+		FVector2D Min;
+		FVector2D Size;
+		if (InSlate.IsValid() && GameTestSlate::GetViewportRect(*InSlate, Min, Size))
 		{
-			const FGeometry& ViewGeometry = Viewport->GetCachedGeometry();
-			const FGeometry& Geometry = InSlate->GetCachedGeometry();
-			const FVector2D ViewPos = FVector2D(ViewGeometry.GetAbsolutePosition());
-			const FVector2D ViewSize = FVector2D(ViewGeometry.GetAbsoluteSize());
-			const FVector2D Pos = FVector2D(Geometry.GetAbsolutePosition());
-			const FVector2D Size = FVector2D(Geometry.GetAbsoluteSize());
-			if (ViewSize.X >= 1.0 && ViewSize.Y >= 1.0 && Size.X >= 1.0 && Size.Y >= 1.0)
-			{
-				TArray<TSharedPtr<FJsonValue>> Rect;
-				Rect.Add(MakeShared<FJsonValueNumber>(Round3((Pos.X - ViewPos.X) / ViewSize.X)));
-				Rect.Add(MakeShared<FJsonValueNumber>(Round3((Pos.Y - ViewPos.Y) / ViewSize.Y)));
-				Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.X / ViewSize.X)));
-				Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.Y / ViewSize.Y)));
-				Hint->SetArrayField(TEXT("rect"), Rect);
-			}
+			TArray<TSharedPtr<FJsonValue>> Rect;
+			Rect.Add(MakeShared<FJsonValueNumber>(Round3(Min.X)));
+			Rect.Add(MakeShared<FJsonValueNumber>(Round3(Min.Y)));
+			Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.X)));
+			Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.Y)));
+			Hint->SetArrayField(TEXT("rect"), Rect);
 		}
 		return Hint;
 	}
@@ -366,7 +436,12 @@ bool GameTestSelectorWriter::IsTopLevel(const UWidget& InWidget)
 		return false;
 	}
 	const UObject* Item = nullptr;
-	return GameTestSelectorWriterDetail::GetOwningList(*const_cast<UUserWidget*>(UserWidget), Item) == nullptr;
+	if (GameTestSelectorWriterDetail::GetOwningList(*const_cast<UUserWidget*>(UserWidget), Item) != nullptr)
+	{
+		return false;
+	}
+	// 挂在别的控件 Slate 上的子界面也不是顶层屏：要先写出它的容器。
+	return GameTestSlate::FindAttachContainer(*UserWidget) == nullptr;
 }
 
 bool GameTestSelectorWriter::Write(UWidget& InWidget, FGameTestWrittenTarget& OutTarget, FString& OutError)
@@ -384,7 +459,14 @@ bool GameTestSelectorWriter::Write(UWidget& InWidget, FGameTestWrittenTarget& Ou
 	OutTarget.bVerified = GameTestSelectorWriterDetail::Verify(OutTarget.Target, &InWidget, Slate, VerifyError);
 	if (!OutTarget.bVerified)
 	{
-		OutTarget.Hint->SetStringField(TEXT("ambiguous"), VerifyError);
+		if (GameTestSelectorWriterDetail::VerifyByHint(OutTarget.Target, &InWidget, Slate, *OutTarget.Hint))
+		{
+			OutTarget.Hint->SetStringField(TEXT("pick"), TEXT("选择器会命中同一个界面的几个实例，回放按录制时的位置和文字挑回这一个"));
+		}
+		else
+		{
+			OutTarget.Hint->SetStringField(TEXT("ambiguous"), VerifyError);
+		}
 	}
 	return true;
 }
