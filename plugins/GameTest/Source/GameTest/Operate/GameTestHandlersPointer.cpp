@@ -9,6 +9,7 @@
 #include "Observe/GameTestHitTest.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "Operate/GameTestCodeClick.h"
 #include "GameTest.h"
 
 #include "Components/Widget.h"
@@ -391,6 +392,69 @@ namespace GameTestPointerDetail
 		return GameTestHandlers::StepPending;
 	}
 
+	/**
+	 * 不动真实鼠标的点击（click 的默认方式）：和真实指针一样先等控件可操作（出现、可见、可用、位置稳定），
+	 * 但不要求点击点没被挡住——调的是对象的委托，挡没挡住不影响；然后交给 GameTestCodeClick。
+	 */
+	EGameTestStepStatus RunClickCode(FGameTestStepContext& InContext)
+	{
+		const FJsonObject& Params = *InContext.Step->Params;
+		bool bOk = true;
+		const FVector2D At = ReadAt(Params, InContext.Message, bOk);
+		if (!bOk)
+		{
+			return GameTestHandlers::StepFailed;
+		}
+
+		TSharedPtr<FGameTestWidgetNode> Initial;
+		FString Ignored;
+		GameTestHandlers::TryResolveStepTarget(InContext, Initial, Ignored);
+
+		struct FState
+		{
+			FWaitState Wait;
+			FActionable Target;
+		};
+		const TSharedRef<FState> State = MakeShared<FState>();
+		const FString Target = InContext.Step->Target;
+		const TSharedPtr<FJsonObject> StepParams = InContext.Step->Params;
+		TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
+		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
+		InContext.PendingProgress = MakeShared<FString>();
+		InContext.PendingFailure = MakeShared<FString>();
+		const TSharedPtr<FString> Progress = InContext.PendingProgress;
+		const TSharedPtr<FString> Failure = InContext.PendingFailure;
+
+		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
+		InContext.Message = FString::Printf(TEXT("点击 %s"), *Target);
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At](double)
+		{
+			if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/false, State->Wait, State->Target, *Progress))
+			{
+				return false;
+			}
+			FString Message;
+			const bool bClicked = GameTestCodeClick::Click(State->Target.Slate, State->Target.Screen, *Payload, Message);
+			Payload->SetStringField(TEXT("path"), State->Target.Path);
+			Payload->SetStringField(TEXT("how"), Message);
+			if (!State->Target.PickNote.IsEmpty())
+			{
+				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
+			}
+			if (!bClicked)
+			{
+				*Failure = FString::Printf(TEXT("点 %s 失败：%s"), *State->Target.Path, *Message);
+			}
+			FString Clicked;
+			Payload->TryGetStringField(TEXT("clicked"), Clicked);
+			UE_LOG(LogGameTest, Display, TEXT("点击 %s（不动鼠标）：%s%s"), *State->Target.Path,
+				bClicked ? *FString::Printf(TEXT("调了 %s，%s"), *Clicked, *Message) : *FString::Printf(TEXT("失败：%s"), *Message),
+				State->Target.PickNote.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("；%s"), *State->Target.PickNote));
+			return true;
+		};
+		return GameTestHandlers::StepPending;
+	}
+
 	EGameTestStepStatus RunDrag(FGameTestStepContext& InContext)
 	{
 		const FJsonObject& Params = *InContext.Step->Params;
@@ -719,6 +783,11 @@ namespace GameTestHandlers
 	EGameTestStepStatus HandleClickPointer(FGameTestStepContext& InContext)
 	{
 		return GameTestPointerDetail::RunClickPointer(InContext);
+	}
+
+	EGameTestStepStatus HandleClickCode(FGameTestStepContext& InContext)
+	{
+		return GameTestPointerDetail::RunClickCode(InContext);
 	}
 
 	EGameTestStepStatus HandleDrag(FGameTestStepContext& InContext)

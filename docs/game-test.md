@@ -39,6 +39,7 @@
 ```
 
 - `stepDelayMs`（可选）覆盖项目设置里的步间隔（默认 1000ms，方便看清每一步；录制的场景写 0）。
+- `clickVia`（可选，1.2.0-beta.7 起）这个场景里 `click` 没写 `via` 时的点击方式：`code`（默认，不动鼠标）或 `pointer`（真实鼠标），覆盖运行配置。
 - `uiWaitTimeoutMs`（可选，1.2.0-beta.6 起）这个场景里 UI 动作等界面的上限（毫秒，0 = 不限），覆盖运行配置和项目设置，见「UI 动作怎么执行」。
 - `schemaVersion`：当前是 2（1.1.0 起）。2 里 `click` / `type` 默认走真实输入（真实指针、真实按键）；1 的文件照常能跑，见下面「从旧场景迁移」。写比插件支持的更高的版本会被明确拒绝。
 - 每一步的公共字段：`action`（必填）、`target`、`note`、`timeoutMs`、`onFail`（`stop` 默认 / `continue`）、`hint`。动作不认识的字段直接报错，不静默忽略。
@@ -99,7 +100,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `find` | `into` | 主模块（要 target） | 把选择器解析成句柄（捕获此刻的控件），之后用 @句柄 引用它；into 缺省用路径末段当句柄名 |
 | `snapshot` | `geometry`, `props` | 主模块 | 控件树快照：AI 的主要观察手段；给 target 就只取那棵子树，props=true 带出类自己的属性 |
 | `wait` | `until`, `seconds`, `target`, `actor`, `tag`, `point`, `radius` | 主模块 | 跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius） |
-| `click` | `via`, `at`, `button` | 主模块（要 target） | 点击控件：默认真实指针——先等控件可操作（见下面「UI 动作怎么执行」），再把光标移过去按下松开，不认控件类（按钮、自定义 WBP、Lua 绑的事件都一样）；点完核对接住按下的是不是目标，不是就失败。`at=[x,y]` 控件内位置（0–1，默认中心），`button` 默认 `LeftMouseButton`（也可 `RightMouseButton` / `MiddleMouseButton`）；`via` 取 `pointer`（默认）或 `code`，`code` 走旧的代码级点击（按钮 OnClicked、复选状态回调、菜单锚开合，不受遮挡影响） |
+| `click` | `via`, `at`, `button` | 主模块（要 target） | 点击控件：先等控件可操作（见下面「UI 动作怎么执行」）。`via` 取 `code`（默认，1.2.0-beta.7 起）或 `pointer`，没写时按场景 / 运行配置的 `clickVia`。`code` 不动鼠标：从目标往上（不出所在 WBP）找最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮依次广播 OnPressed → OnClicked → OnReleased，蓝图和 Lua 绑在哪个上都收得到）；目标是 WBP（列表条目、入口图标）时点它里面唯一可见的那个按钮；都找不到时在控件位置发一组虚拟鼠标事件（移动、按下、松开，同一帧发完，不移系统光标）。结果里 `via` 写实际用的（`code` / `virtualPointer`），`clicked` 写被调的控件。`pointer` 是真实鼠标：还要点击点没被挡住，把光标移过去按下松开，核对接住按下的是不是目标。`at=[x,y]` 控件内位置（0–1，默认中心），`button`（只对 `pointer`）默认 `LeftMouseButton` |
 | `drag` | `at`, `toTarget`, `toAt`, `by`, `button` | 主模块（要 target） | 拖动：从控件内 `at` 处按下，分几帧移到 `toTarget` 控件的 `toAt` 处（或按视口归一化位移 `by=[dx,dy]`，可以是负数）再松开；`toTarget` 和 `by` 二选一。起点和 click 一样先等可操作 |
 | `wheel` | `delta`, `at` | 主模块 | 滚轮：给 target 时先等控件可操作、把光标移到控件上再滚；不给时在光标当前位置滚。`delta` 必填，正数向上、负数向下 |
 | `type` | `text`, `commit`, `via`, `append` | 主模块（要 target） | 在输入框里打字：默认真实按键——把键盘焦点给控件，先全选（`append=true` 时不全选、接着原文字打），逐字发字符，`commit=true` 时再按回车；`via` 取 `keys`（默认）或 `code`，`code` 直接写文本并广播 OnTextChanged / OnTextCommitted（commit=true 才广播提交） |
@@ -146,6 +147,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 ```json
 {
   "uiWaitTimeoutMs": 0,
+  "clickVia": "code",
   "blockers": [
     { "widget": "WBP_Notice", "action": "close", "note": "登录公告" },
     { "widget": "WBP_Guide", "action": "call", "function": "Skip", "delayMs": 500 },
@@ -153,6 +155,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
   ]
 }
 ```
+
+`clickVia`（1.2.0-beta.7 起）是 `click` 没写 `via` 时的点击方式，`code`（默认）或 `pointer`，场景顶层的 `clickVia` 优先。
 
 `blockers` 是**阻挡界面**：公告、新手引导、活动弹窗、断线重连这类不定时弹出、会挡住后面步骤的界面。运行期间（每 0.2 秒看一次）规则里的界面一出现在屏上就处理掉：
 
@@ -292,7 +296,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 - 云端编不了 C++：每一版都要在本地 UE 5.8 完整编译验证，没验证过的版本号带 `-beta.N`。
 - `input.cursor` 和录制回放里点在游戏画面上的操作会移动真实光标，回放时别动鼠标。
-- 真实指针的 `click` / `drag` / `wheel` 也会移动真实光标：回放时别动鼠标，游戏窗口要在前台。
+- `via: "pointer"` 的 `click` 和 `drag` / `wheel` 会移动真实光标（默认的 `click` 不会）：回放时别动鼠标，游戏窗口要在前台。
 - Shipping 不可用：GameTest 不进 Shipping，录制和 `gt.inspect` 用的 Slate 调试事件、控件元数据在 Shipping 里也没有。
 - 没编 Slate 调试的进程（`gt.record.status` / `gt.inspect` 的 `handlerSource` 是 `hitPath`）：拿不到处理者，点击按光标下最深的控件推断（可能不如 `slateDebugging` 准），**录不到打字**；回放的 `click` 也核对不了接住按下的是不是目标。
 - 纯 Slate 控件只认游戏窗口和它弹出的子窗口里的；编辑器工具窗口上的操作不录。

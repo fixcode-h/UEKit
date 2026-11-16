@@ -54,6 +54,12 @@ public:
 	 */
 	static bool MovePointerTo(const FVector2D& InScreenPosition, FString& OutMessage);
 
+	/**
+	 * 虚拟鼠标点击：在屏幕坐标上发一组移动 / 按下 / 松开的 Slate 事件（左键），**不移动系统光标**。
+	 * 三个事件在同一帧里发完：隔帧的话，Slate 每帧按真实光标位置合成的移动会把悬停改回去，按钮松开时就不算点击。
+	 */
+	static bool SendVirtualClick(const FVector2D& InScreenPosition, FString& OutMessage);
+
 	/** 在光标当前位置滚一次滚轮（正数向上）。 */
 	static bool SendWheel(float InDelta, FString& OutMessage);
 

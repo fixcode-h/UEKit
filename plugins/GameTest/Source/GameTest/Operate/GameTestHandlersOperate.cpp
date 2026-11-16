@@ -72,35 +72,25 @@ namespace GameTestHandlers
 {
 	EGameTestStepStatus HandleClick(FGameTestStepContext& InContext)
 	{
-		// 默认真实指针（等可操作、移光标、按下松开，不认控件类）；`via: "code"` 才走下面按类的代码级点击，
-		// schemaVersion 1 的旧场景在加载时补上 via=code，行为不变。
+		// 点击方式：步骤的 via > 场景 / 运行配置的 clickVia（执行器注入到 ClickVia）> 默认 code。
+		// code 调对象的委托（按钮的 OnPressed / OnClicked / OnReleased），找不到按钮这类控件时用虚拟鼠标，不动系统光标；
+		// pointer 是真实鼠标（移光标、按下松开、核对接住的控件），要验证遮挡、悬停时才用。
 		FString Via;
 		GameTestJson::TryGetString(*InContext.Step->Params, TEXT("via"), Via);
-		if (Via.IsEmpty() || Via.Equals(TEXT("pointer"), ESearchCase::IgnoreCase))
+		if (Via.IsEmpty())
+		{
+			Via = InContext.ClickVia.IsEmpty() ? TEXT("code") : InContext.ClickVia;
+		}
+		if (Via.Equals(TEXT("pointer"), ESearchCase::IgnoreCase))
 		{
 			return HandleClickPointer(InContext);
 		}
-		if (!Via.Equals(TEXT("code"), ESearchCase::IgnoreCase))
+		if (Via.Equals(TEXT("code"), ESearchCase::IgnoreCase))
 		{
-			InContext.Message = FString::Printf(TEXT("via 只能是 pointer（默认，真实指针）或 code（代码级点击），收到 '%s'"), *Via);
-			return StepFailed;
+			return HandleClickCode(InContext);
 		}
-
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString Error;
-		if (!TryResolveStepTarget(InContext, Node, Error))
-		{
-			InContext.Message = Error;
-			return StepFailed;
-		}
-
-		if (!GameTestOps::Click(Node->Widget.Get(), InContext.Message, InContext.Payload))
-		{
-			return StepFailed;
-		}
-
-		InContext.Payload->SetStringField(TEXT("path"), Node->Path);
-		return StepSucceeded;
+		InContext.Message = FString::Printf(TEXT("via 只能是 code（默认，调控件的点击委托，不动鼠标）或 pointer（真实鼠标），收到 '%s'"), *Via);
+		return StepFailed;
 	}
 
 	EGameTestStepStatus HandleType(FGameTestStepContext& InContext)

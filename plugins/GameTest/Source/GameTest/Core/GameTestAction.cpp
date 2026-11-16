@@ -107,7 +107,7 @@ namespace
 				TEXT("跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）"),
 				&GameTestHandlers::HandleWait },
 			{ TEXT("click"), TEXT("via,at,button"), true, false,
-				TEXT("点击控件：默认真实指针——先等控件出现、可见、可用、位置稳定、点击点没被挡住，再把光标移过去按下松开，不认控件类（按钮、自定义 WBP、Lua 绑的事件都一样）；点完核对接住按下的是不是目标，不是就失败。at=[x,y] 控件内位置（默认中心），button 默认 LeftMouseButton；via=code 走旧的代码级点击（按钮 OnClicked、复选状态回调、菜单锚开合，不受遮挡影响）"),
+				TEXT("点击控件：先等控件出现、可见、可用、位置稳定。via=code（默认，可在场景或运行配置的 clickVia 改）不动鼠标：找目标往上（不出所在 WBP）最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮 OnPressed → OnClicked → OnReleased）；目标是 WBP 时点它里面唯一可见的按钮；都没有时在控件位置发虚拟鼠标事件，不移系统光标。via=pointer 是真实鼠标：还要求点击点没被挡住，移光标按下松开，核对接住按下的是不是目标。at=[x,y] 控件内位置（默认中心），button 只对 pointer 有效"),
 				&GameTestHandlers::HandleClick },
 			{ TEXT("drag"), TEXT("at,toTarget,toAt,by,button"), true, false,
 				TEXT("拖动：从控件内 at 处按下，分几帧移到 toTarget 控件的 toAt 处（或按视口归一化位移 by=[dx,dy]）再松开；起点同 click 一样先等可操作"),

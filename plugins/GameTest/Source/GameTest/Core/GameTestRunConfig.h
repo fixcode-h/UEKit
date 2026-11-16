@@ -42,7 +42,7 @@ struct GAMETEST_API FGameTestBlockerRule
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
  * ```json
- * { "uiWaitTimeoutMs": 0,
+ * { "uiWaitTimeoutMs": 0, "clickVia": "code",
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
  *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
  *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ] }
@@ -52,6 +52,8 @@ struct GAMETEST_API FGameTestRunConfig
 {
 	/** UI 等待上限（毫秒，0 = 不限）；-1 表示没写，按项目设置。 */
 	int32 UiWaitTimeoutMs = -1;
+	/** click 没写 via 时的点击方式：code / pointer；空表示默认（code）。 */
+	FString ClickVia;
 	TArray<FGameTestBlockerRule> Blockers;
 };
 

@@ -132,6 +132,9 @@ struct GAMETEST_API FGameTestRunRequest
 	 * 子系统按「场景 > 项目运行配置 > 项目设置」的顺序定下来再注入。
 	 */
 	int32 UiWaitTimeoutMs = 0;
+
+	/** click 没写 via 时用的点击方式：code（默认，调控件委托，不动鼠标）或 pointer（真实鼠标）。来源同上。 */
+	FString ClickVia = TEXT("code");
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

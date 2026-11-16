@@ -500,6 +500,8 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	Request.UiWaitTimeoutMs = InRun.UiWaitTimeoutMs >= 0 ? InRun.UiWaitTimeoutMs
 		: RunConfig.UiWaitTimeoutMs >= 0 ? RunConfig.UiWaitTimeoutMs
 		: (GetDefault<UGameTestSettings>() != nullptr ? GetDefault<UGameTestSettings>()->UiWaitTimeoutMs : 0);
+	// 点击方式：场景 > 运行配置 > 默认 code（不动鼠标）
+	Request.ClickVia = !InRun.ClickVia.IsEmpty() ? InRun.ClickVia : !RunConfig.ClickVia.IsEmpty() ? RunConfig.ClickVia : FString(TEXT("code"));
 
 	FString StartError;
 	FGameTestRuntimeState RuntimeState;

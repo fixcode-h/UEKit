@@ -115,6 +115,7 @@ namespace GameTestHandlers
 
 	// 真实指针的 UI 动作（Operate/GameTestHandlersPointer.cpp）：不认控件类，等可操作后发真实输入
 	EGameTestStepStatus HandleClickPointer(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleClickCode(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleDrag(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleWheel(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleTypeKeys(FGameTestStepContext& InContext);
