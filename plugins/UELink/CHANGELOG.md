@@ -2,6 +2,24 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.4.0
+
+> 按用户要求直接发正式版：这一版及之前的预发布都还没在本地用 UE 5.4 / 5.8 完整编译验证过，装好后编译有问题请反馈。下面是从上一个正式版以来各预发布的汇总，细节见下面各 beta 节。
+
+### 新功能
+- **Lua 改完能验、能看、能调** — `lua.check` / `lua.reload` / `lua.modules` / `lua.errors`，运行时看 Lua 对象（`lua.inspect` / `lua.call`），快照点、采样分析、泄漏排查（`lua.snap` / `lua.profile` / `lua.leaks`）
+- **EmmyLua 断点时能看到 UE 对象的全部属性** — 有新版 EmmyLua 调试器时自动接上，已销毁对象只显示「已失效」
+- **编辑器选中同步和编辑器小工具** — `editor.selection` / `editor.select`、批量资源校验、配置和 GameplayTag 查询、修复重定向器、在关卡里放删 Actor
+
+### 改进
+- **以 UE 5.4 为基准、兼容 5.8** — 5.4 上的编译错误（单体构建撞名、`FFrame` 不明确）都已修，版本差异收在 `UELinkCompat.h`
+
+### Bug 修复
+- **PIE 停止、编辑器退出、回收垃圾时不碰正在销毁的对象**
+
+### 注意
+- 装好后要在本地完整编译一次（Live Coding 不够）
+
 ## v2.4.0-beta.4
 
 > 云端改的，还没在本地用 UE 完整编译验证过，先发预发布。
