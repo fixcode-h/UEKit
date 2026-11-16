@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/ForgeJsonText.h"
+#include "AssetForgeCompat.h"
 
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -335,9 +336,9 @@ namespace
 
 			// 规范化后的键 → 原键：规范化只用于比较，取值还得用原键。
 			TMap<FString, FString> SortedKeys;
-			for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InObject->Values)
+			for (const auto& Pair : InObject->Values)
 			{
-				const FString Key(Pair.Key.ToView());
+				const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 				SortedKeys.Add(NormalizeKey(Key), Key);
 			}
 
@@ -349,7 +350,7 @@ namespace
 			for (const FString& NormalizedKey : Ordered)
 			{
 				const FString Key = SortedKeys[NormalizedKey];
-				const TSharedPtr<FJsonValue>* Value = InObject->Values.Find(UE::FSharedString(Key));
+				const TSharedPtr<FJsonValue>* Value = InObject->Values.Find(FForgeJsonKey(Key));
 				if (Value != nullptr)
 				{
 					// 写规范化键：比较看的是这份形态，两边才会一致。

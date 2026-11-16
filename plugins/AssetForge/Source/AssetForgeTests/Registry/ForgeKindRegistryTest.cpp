@@ -10,7 +10,9 @@
 #include "Engine/FontFace.h"
 #include "GameFramework/Actor.h"
 #include "Materials/MaterialInstanceConstant.h"
+#if ASSETFORGE_WITH_STATETREE
 #include "StateTree.h"
+#endif
 
 #if WITH_AUTOMATION_WORKER
 
@@ -40,9 +42,11 @@ TEST_CLASS_WITH_FLAGS(ForgeKindRegistryTest, "AssetForge.Registry",
 
 	TEST_METHOD(资产类判定取最具体的kind)
 	{
+#if ASSETFORGE_WITH_STATETREE
 		// UStateTree 是 UDataAsset 的子类：旧实现靠 IsA 链顺序保证，现在靠继承深度。
 		ASSERT_THAT(AreEqual(FString(TEXT("state-tree")), ForgeKindRegistry::ClassifyAssetClass(UStateTree::StaticClass()),
 			TEXT("状态树不能被判成 data-asset")));
+#endif
 		ASSERT_THAT(AreEqual(FString(TEXT("data-asset")), ForgeKindRegistry::ClassifyAssetClass(UPrimaryDataAsset::StaticClass()),
 			TEXT("UDataAsset 的普通子类是 data-asset")));
 		// UAnimBlueprint 也是 UBlueprint。
@@ -169,7 +173,10 @@ TEST_CLASS_WITH_FLAGS(ForgeKindRegistryTest, "AssetForge.Registry",
 	{
 		const TArray<FString> UnsupportedKinds = {
 			TEXT("data-table"), TEXT("anim-blueprint"), TEXT("niagara"), TEXT("material"),
-			TEXT("umg-widget"), TEXT("actor-blueprint"), TEXT("behavior-tree"), TEXT("state-tree"),
+			TEXT("umg-widget"), TEXT("actor-blueprint"), TEXT("behavior-tree"),
+#if ASSETFORGE_WITH_STATETREE
+			TEXT("state-tree"),
+#endif
 		};
 
 		for (const FString& Kind : UnsupportedKinds)
@@ -202,7 +209,8 @@ TEST_CLASS_WITH_FLAGS(ForgeKindRegistryTest, "AssetForge.Registry",
 	TEST_METHOD(支持范围覆盖管道登记的全部kind)
 	{
 		const TArray<FString> AllKinds = ForgeKindRegistry::GetSupportedKinds();
-		ASSERT_THAT(AreEqual(17, AllKinds.Num(), TEXT("登记表当前有 17 种 kind；新增时同步本断言并为它填好 DiffSupport")));
+		// 状态树只在 UE 5.8 上登记（ASSETFORGE_WITH_STATETREE），5.4 上少这一种
+		ASSERT_THAT(AreEqual(16 + ASSETFORGE_WITH_STATETREE, AllKinds.Num(), TEXT("登记表当前有 17 种 kind（5.4 上 16 种，没有状态树）；新增时同步本断言并为它填好 DiffSupport")));
 
 		int32 Supported = 0;
 		for (const FString& Kind : AllKinds)

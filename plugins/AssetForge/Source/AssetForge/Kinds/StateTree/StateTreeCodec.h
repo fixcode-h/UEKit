@@ -2,6 +2,9 @@
 
 #pragma once
 
+// 只在 ASSETFORGE_WITH_STATETREE 时有内容（UE 5.8），见 AssetForge.Build.cs
+#if ASSETFORGE_WITH_STATETREE
+
 #include "CoreMinimal.h"
 #include "Core/ForgeTypes.h"
 
@@ -152,3 +155,5 @@ namespace StateTreeCodec
 		TArray<FForgeDiagnostic>& OutDiagnostics,
 		const FString& InFieldPath);
 }
+
+#endif // ASSETFORGE_WITH_STATETREE

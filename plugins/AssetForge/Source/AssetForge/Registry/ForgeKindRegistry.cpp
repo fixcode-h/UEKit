@@ -15,7 +15,9 @@
 #include "Kinds/Physics/PhysicsAssetForge.h"
 #include "Kinds/SkeletalMesh/SkeletalMeshForge.h"
 #include "Kinds/Skeleton/SkeletonForge.h"
+#if ASSETFORGE_WITH_STATETREE
 #include "Kinds/StateTree/StateTreeForge.h"
+#endif
 #include "Kinds/Table/DataTableForge.h"
 #include "Kinds/Texture/TextureForge.h"
 #include "Kinds/Umg/UmgForge.h"
@@ -37,7 +39,9 @@
 #include "Misc/PackageName.h"
 #include "NiagaraSystem.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#if ASSETFORGE_WITH_STATETREE
 #include "StateTree.h"
+#endif
 #include "UObject/SoftObjectPath.h"
 #include "WidgetBlueprint.h"
 
@@ -140,10 +144,12 @@ namespace
 				&BehaviorTreeForge::ImportDocument, &BehaviorTreeForge::ExportAsset,
 				DiffUnsupported(TEXT("行为树节点能映射到 UBTNode，同样需要先选定「比哪个节点」——逐节点差异是后续工作。")));
 
+#if ASSETFORGE_WITH_STATETREE // 5.4 上不编状态树，这一类不注册
 			Add(StateTreeForge::Kind, TEXT("状态树"), TEXT("state-tree"),
 				[]() -> UClass* { return UStateTree::StaticClass(); }, nullptr,
 				&StateTreeForge::ImportDocument, &StateTreeForge::ExportAsset,
 				DiffUnsupported(TEXT("状态与节点是层级对象，同样需要先选定「比哪个状态/节点」——逐节点差异是后续工作。")));
+#endif
 
 			Add(AnimBlueprintForge::Kind, TEXT("动画蓝图"), TEXT("anim"),
 				[]() -> UClass* { return UAnimBlueprint::StaticClass(); }, nullptr,

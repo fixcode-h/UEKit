@@ -76,16 +76,28 @@ public class AssetForge : ModuleRules
 			//（margin 轨道与 UWidgetAnimation 本身在 UMG 模块，已在上方）。
 			"MovieScene",
 			"MovieSceneTracks",
-			// StateTreeModule / StateTreeEditorModule：state-tree kind——UStateTree 与
-			// UStateTreeEditorData 在 Runtime 侧；编译入口（UStateTreeEditingSubsystem::CompileStateTree）
-			// 与可绑定描述符枚举在 Editor 侧（UncookedOnly，Editor 模块可依赖）。
-			// PropertyBindingUtils（+Editor）：绑定路径 / 绑定集合的类型与实现；GameplayTags：状态标签与事件。
-			"StateTreeModule",
-			"StateTreeEditorModule",
-			"PropertyBindingUtils",
-			"PropertyBindingUtilsEditor",
+			// GameplayTags：状态树的状态标签与事件（状态树依赖见下面的 bWithStateTree）。
 			"GameplayTags",
 		});
+
+		// 状态树只在 UE 5.8 上编：它依赖 5.6 才有的 PropertyBindingUtils，5.4 的状态树绑定接口差别太大。
+		// 版本判断按 UEKit 约定写在 Build.cs（Target.Version），C++ 里只认 ASSETFORGE_WITH_STATETREE；
+		// Public 定义，测试模块也按它跳过状态树用例。
+		bool bWithStateTree = Target.Version.MajorVersion > 5 || (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion >= 8);
+		PublicDefinitions.Add("ASSETFORGE_WITH_STATETREE=" + (bWithStateTree ? "1" : "0"));
+		if (bWithStateTree)
+		{
+			// StateTreeModule / StateTreeEditorModule：UStateTree 与 UStateTreeEditorData 在 Runtime 侧；
+			// 编译入口（UStateTreeEditingSubsystem::CompileStateTree）与可绑定描述符枚举在 Editor 侧。
+			// PropertyBindingUtils（+Editor）：绑定路径 / 绑定集合的类型与实现。
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"StateTreeModule",
+				"StateTreeEditorModule",
+				"PropertyBindingUtils",
+				"PropertyBindingUtilsEditor",
+			});
+		}
 
 		// 本模块按层建子目录（Core/ Registry/ State/ Service/ Settings/ Integration/ Kinds/<Kind>/）。
 		// UBT 不会自动把模块根加进 include 路径——

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Map/MapForge.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeDiff.h"
 #include "Core/ForgeDoc.h"
@@ -15,7 +16,9 @@
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
 #include "UObject/UObjectGlobals.h"
+#if ASSETFORGE_HAS_NEW_MAP_WORLD_PARTITION_SETTINGS
 #include "WorldPartition/WorldPartitionSettings.h"
+#endif
 
 namespace MapForge
 {
@@ -124,14 +127,22 @@ namespace
 
 		// 与编辑器的「新建空白关卡」同一组初始化参数（取自 UWorldFactory 的默认值），
 		// 世界类型是 Inactive：这是一份磁盘资产，不该被引擎当成"已加载的世界"。
+#if ASSETFORGE_HAS_NEW_MAP_WORLD_PARTITION_SETTINGS
 		const UWorldPartitionSettings* WorldPartitionSettings = UWorldPartitionSettings::Get();
+		const bool bCreateWorldPartition = WorldPartitionSettings->GetNewMapsEnableWorldPartition();
+		const bool bWorldPartitionStreaming = WorldPartitionSettings->GetNewMapsEnableWorldPartitionStreaming();
+#else
+		// 5.4 没有「新建地图默认开世界分区」的项目设置：和编辑器「新建空白关卡」一样不开
+		const bool bCreateWorldPartition = false;
+		const bool bWorldPartitionStreaming = false;
+#endif
 		const UWorld::InitializationValues InitValues = UWorld::InitializationValues()
 			.ShouldSimulatePhysics(false)
 			.EnableTraceCollision(true)
 			.CreateNavigation(false)
 			.CreateAISystem(false)
-			.CreateWorldPartition(WorldPartitionSettings->GetNewMapsEnableWorldPartition())
-			.EnableWorldPartitionStreaming(WorldPartitionSettings->GetNewMapsEnableWorldPartitionStreaming());
+			.CreateWorldPartition(bCreateWorldPartition)
+			.EnableWorldPartitionStreaming(bWorldPartitionStreaming);
 
 		UWorld* NewWorld = UWorld::CreateWorld(
 			EWorldType::Inactive,

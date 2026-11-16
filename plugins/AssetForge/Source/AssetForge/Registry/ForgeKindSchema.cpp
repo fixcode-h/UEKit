@@ -18,7 +18,9 @@
 #include "Kinds/Physics/PhysicsAssetForge.h"
 #include "Kinds/SkeletalMesh/SkeletalMeshForge.h"
 #include "Kinds/Skeleton/SkeletonForge.h"
+#if ASSETFORGE_WITH_STATETREE
 #include "Kinds/StateTree/StateTreeForge.h"
+#endif
 #include "Kinds/Table/DataTableForge.h"
 #include "Kinds/Texture/TextureForge.h"
 #include "Kinds/Umg/UmgForge.h"
@@ -117,6 +119,7 @@ namespace
 					{TEXT("decorators"), TEXT("array"), TEXT("挂在这个节点上的装饰器：[{class, name, props}]")},
 					{TEXT("services"), TEXT("array"), TEXT("这个节点上的服务：[{class, name, props}]")}};
 			}
+#if ASSETFORGE_WITH_STATETREE
 			{
 				FShape& S = Out.AddDefaulted_GetRef();
 				S.Kind = StateTreeForge::Kind;
@@ -138,6 +141,7 @@ namespace
 					{TEXT("transitions"), TEXT("array"), TEXT("转移：[{trigger, to, event?, priority?, delay?, conditions?}]")}};
 				S.Notes = TEXT("字段多，最好先导出一份现有状态树照着改；绑定和参数每次导入全量重建");
 			}
+#endif
 			{
 				FShape& S = Out.AddDefaulted_GetRef();
 				S.Kind = AnimBlueprintForge::Kind;

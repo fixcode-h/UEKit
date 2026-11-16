@@ -260,7 +260,7 @@ namespace
 
 		while (Stack.Num() > 0)
 		{
-			const UMaterialExpression* Expression = Stack.Pop(EAllowShrinking::No);
+			const UMaterialExpression* Expression = Stack.Pop();
 
 			bool bAlreadyVisited = false;
 			OutReachable.Add(Expression, &bAlreadyVisited);

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/ForgeDiff.h"
+#include "AssetForgeCompat.h"
 #include "Core/ForgeJsonText.h"
 
 namespace ForgeDiff
@@ -70,9 +71,9 @@ namespace
 			return;
 		}
 
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InObject->Values)
+		for (const auto& Pair : InObject->Values)
 		{
-			const FString Key(Pair.Key.ToView());
+			const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 			const FString Normalized = ForgeJsonText::NormalizeKey(Key);
 			OutValues.Add(Normalized, Pair.Value);
 			OutDisplayKeys.Add(Normalized, Key);

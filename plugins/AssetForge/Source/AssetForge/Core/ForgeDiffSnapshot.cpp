@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/ForgeDiffSnapshot.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgePropertyCodec.h"
 #include "Core/ForgeTypes.h"
@@ -183,13 +184,13 @@ namespace ForgeDiffSnapshot
 		ForgePropertyCodec::ExportStructDelta(Struct, Before, After, BeforeJson, Diagnostics, TEXT("props"));
 
 		TArray<FString> Keys;
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : AfterJson->Values)
+		for (const auto& Pair : AfterJson->Values)
 		{
-			Keys.AddUnique(FString(Pair.Key.ToView()));
+			Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
 		}
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : BeforeJson->Values)
+		for (const auto& Pair : BeforeJson->Values)
 		{
-			Keys.AddUnique(FString(Pair.Key.ToView()));
+			Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
 		}
 		Keys.Sort();
 

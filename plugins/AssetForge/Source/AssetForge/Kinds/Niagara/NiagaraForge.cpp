@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Niagara/NiagaraForge.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeDiff.h"
 #include "Core/ForgeDoc.h"
@@ -550,9 +551,9 @@ namespace
 			return;
 		}
 
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InChild.Props->Values)
+		for (const auto& Pair : InChild.Props->Values)
 		{
-			const FString ParameterName(Pair.Key.ToView());
+			const FString ParameterName(ASSETFORGE_JSON_KEY(Pair.Key));
 			ApplyEmitterParameter(
 				InTarget,
 				InTemplate,
@@ -1110,9 +1111,9 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 		// 是"按需创建"的——不查模板的话，dry-run 会给出"参数写错也没问题"的假计划。
 		if (Child.Props.IsValid())
 		{
-			for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : Child.Props->Values)
+			for (const auto& Pair : Child.Props->Values)
 			{
-				const FString ParameterName(Pair.Key.ToView());
+				const FString ParameterName(ASSETFORGE_JSON_KEY(Pair.Key));
 				FNiagaraVariable Variable;
 				int32 Slot = INDEX_NONE;
 				if (!FindTemplateParameter(*Template, ParameterName, Variable, Slot))
@@ -1130,9 +1131,9 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 	if (InDocument.Root.Props.IsValid() && InDocument.Root.Props->Values.Num() > 0)
 	{
 		// 参数名的形态只做提示性校验：真正的类型检查在写入时按系统声明进行。
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InDocument.Root.Props->Values)
+		for (const auto& Pair : InDocument.Root.Props->Values)
 		{
-			const FString KeyString(Pair.Key.ToView());
+			const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 			if (!KeyString.StartsWith(TEXT("User.")))
 			{
 				OutReport.AddError(
@@ -1303,9 +1304,9 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 	// 3) 用户参数（系统层默认值）。
 	if (InDocument.Root.Props.IsValid())
 	{
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InDocument.Root.Props->Values)
+		for (const auto& Pair : InDocument.Root.Props->Values)
 		{
-			const FString KeyString(Pair.Key.ToView());
+			const FString KeyString(ASSETFORGE_JSON_KEY(Pair.Key));
 			ApplyUserParameter(
 				*System,
 				KeyString,
@@ -1343,15 +1344,15 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 		TSharedPtr<FJsonObject> ReadBack = MakeShared<FJsonObject>();
 		ExportEmitterParameters(*Emitter, /*InTemplate=*/nullptr, /*InConfiguredNames=*/nullptr, ReadBack);
 
-		for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : Child.Props->Values)
+		for (const auto& Pair : Child.Props->Values)
 		{
-			const FString ParameterName(Pair.Key.ToView());
+			const FString ParameterName(ASSETFORGE_JSON_KEY(Pair.Key));
 
 			// 读回对象的键也是 FSharedString——按字符串比较找同名项。
 			const TSharedPtr<FJsonValue>* Actual = nullptr;
-			for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& ReadBackPair : ReadBack->Values)
+			for (const auto& ReadBackPair : ReadBack->Values)
 			{
-				if (FString(ReadBackPair.Key.ToView()) == ParameterName)
+				if (FString(ASSETFORGE_JSON_KEY(ReadBackPair.Key)) == ParameterName)
 				{
 					Actual = &ReadBackPair.Value;
 					break;

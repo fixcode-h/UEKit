@@ -17,8 +17,8 @@ UEKit 是放进 UE 项目 `Plugins/` 的插件合集。Agent 面板的 UE 页可
 | 插件 | 类型 | 引擎 | 说明 |
 | --- | --- | --- | --- |
 | `plugins/UELink` | 基础 | 5.4+ | 让 Agent 面板连上 UE 进程（HTTP `/rpc` + 推送通道），其他插件也通过它和面板通信。协议见 [docs/protocol.md](docs/protocol.md)，**改协议先改这份文档** |
-| `plugins/AssetForge` | 扩展 | 5.8 | 用 JSON 配置管理资产：导入、导出、演练、同步状态、属性差异。见 [docs/asset-forge.md](docs/asset-forge.md) |
-| `plugins/GameTest` | 扩展 | 5.8 | 用 JSON 场景跑游戏测试、录制回放。见 [docs/game-test.md](docs/game-test.md) |
+| `plugins/AssetForge` | 扩展 | 5.4+（状态树只在 5.8） | 用 JSON 配置管理资产：导入、导出、演练、同步状态、属性差异。见 [docs/asset-forge.md](docs/asset-forge.md) |
+| `plugins/GameTest` | 扩展 | 5.4+ | 用 JSON 场景跑游戏测试、录制回放。见 [docs/game-test.md](docs/game-test.md) |
 
 ### 谁在用这些插件
 
@@ -62,7 +62,7 @@ dist/                   出包产物（已忽略）
   - **不自己开 HTTP 服务、不自己写名片、不自己读令牌**（`check.mjs` 会拦 `GetHttpRouter`）：UELink 已经管了令牌、只听本机和多实例。
   - 操作名前缀一个插件一个：AssetForge 用 `forge.`，GameTest 用 `gt.`。新插件先在协议文档里登记前缀。
 - **界面在 Agent 面板的网页里做**：UE 里不放 Slate 窗口和停靠页；命令行（commandlet）和内容浏览器右键菜单可以留，右键菜单只做「马上执行」的动作，不弹窗口。插件自己的界面状态（筛选、分组、字号）归网页，插件里不加 `UDeveloperSettings` 存个人偏好。
-- **引擎版本差异只写在 `<插件>Compat.h`**：用 UE 自带的 `ENGINE_MAJOR_VERSION` / `ENGINE_MINOR_VERSION` 或 `UE_VERSION_NEWER_THAN` / `UE_VERSION_OLDER_THAN` 定义成插件自己的宏或内联函数；Build.cs 里用 `Target.Version`。业务代码不直接判断版本（`check.mjs` 会拦）。只支持一个引擎版本的插件（如 5.8 的扩展）也照样留一个 Compat 头，以后要降版本时只改这一处。
+- **引擎版本差异只写在 `<插件>Compat.h`**：用 UE 自带的 `ENGINE_MAJOR_VERSION` / `ENGINE_MINOR_VERSION` 或 `UE_VERSION_NEWER_THAN` / `UE_VERSION_OLDER_THAN` 定义成插件自己的宏或内联函数；Build.cs 里用 `Target.Version`。业务代码不直接判断版本（`check.mjs` 会拦）。插件都以 5.4 为基准、同时兼容 5.8：默认写 5.4 的写法，新接口只在实测编过的 5.8 上用，中间版本不去猜。
 - **可选依赖拆成单独模块**：CommonUI、GAS、EnhancedInput、UnLua 这类不一定每个项目都开的插件，放进 `<插件><依赖>` 模块，`.uplugin` 里依赖标 `Optional`，没有时整块不编；主模块只认接口（注册表、委托），不 include 可选模块的头。
 - **UnLua 是可选的**：`UELinkCore.Build.cs` 扫项目里 UnLua 的头文件选接口（用户的 UnLua 可能是二次开发过的分支），不要假设官方 UnLua 的接口。
 - **项目侧接口不随手改名**：UELink 的类名 `FAgentPanel*`、`UAgentPanel*`、头文件名、commandlet 名 `-run=AgentPanel`、元数据 `meta=(AgentPanel)` 是项目代码在用的接口，改名要先在协议文档里写好迁移办法，并且面板跟上。

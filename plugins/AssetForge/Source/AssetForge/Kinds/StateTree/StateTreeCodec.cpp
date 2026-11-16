@@ -1,6 +1,11 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+// 状态树只在 UE 5.8 上编（ASSETFORGE_WITH_STATETREE，见 AssetForge.Build.cs）：它依赖 5.6 才有的 PropertyBindingUtils，
+// 5.4 的状态树绑定接口差别太大，这一类资产在 5.4 上先不支持。
+#if ASSETFORGE_WITH_STATETREE
+
 #include "Kinds/StateTree/StateTreeCodec.h"
+#include "AssetForgeCompat.h"
 
 #include "Core/ForgeDoc.h"
 #include "Core/ForgePropertyCodec.h"
@@ -1443,9 +1448,9 @@ void ImportPropertyBag(
 	{
 		return;
 	}
-	for (const TPair<UE::FSharedString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+	for (const auto& Pair : InJson->Values)
 	{
-		const FString Key(Pair.Key.ToView());
+		const FString Key(ASSETFORGE_JSON_KEY(Pair.Key));
 		const FName PropertyName(*Key);
 		const FString FieldPath = FString::Printf(TEXT("%s.%s"), *InFieldPath, *Key);
 		const TSharedPtr<FJsonValue>& JsonValue = Pair.Value;
@@ -1535,3 +1540,5 @@ void ImportPropertyBag(
 }
 
 } // namespace StateTreeCodec
+
+#endif // ASSETFORGE_WITH_STATETREE
