@@ -32,6 +32,7 @@ bool FAgentPanelLua::IsCompiledIn()
 void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 {
 	AgentPanelRegisterLuaDevOps(B);
+	AgentPanelRegisterLuaDebugOps(B);
 }
 void AgentPanelLuaInfo(const TSharedPtr<FJsonObject>&) {}
 
@@ -1246,6 +1247,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 
 	// 2.4 起的各组 Lua 操作各在自己的文件里登记
 	AgentPanelRegisterLuaDevOps(B);
+	AgentPanelRegisterLuaDebugOps(B);
 }
 
 #endif
