@@ -19,10 +19,10 @@
 | 状态 id | 含义 |
 | --- | --- |
 | `synced` | 配置和资产一致 |
-| `never-imported` | 有配置，还没导入过 |
+| `never-imported` | 有配置，本机还没导入过（资产不存在也算这个） |
 | `config-changed` | 配置自上次导入后改过（可能只是格式变化，深度检查能确认） |
 | `asset-changed` | 资产在编辑器里被改过 |
-| `asset-missing` | 配置指向的资产不存在 |
+| `asset-missing` | 导入过，但配置指向的资产后来不存在了 |
 | `pending` | 深度检查确认导入会改资产 |
 | `parse-error` | 配置解析失败 |
 | `foreign` | 不是本插件的配置 |
