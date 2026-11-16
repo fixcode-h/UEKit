@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.4.3",
-        "versionCode": 15,
+        "version": "2.5.0",
+        "versionCode": 16,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.4.3",
-        "asset": "UELink-2.4.3-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.3/UELink-2.4.3-src.zip",
-        "sha256": "c523a1ad8a1020461e0fcb2702a9b99779c9ad4e667edc58178216ad27987935",
-        "size": 204855,
+        "tag": "UELink-v2.5.0",
+        "asset": "UELink-2.5.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.5.0/UELink-2.5.0-src.zip",
+        "sha256": "0842e7c45ec481edbfe948e0cc4b2d72f18a3a987ca8de43cee6a50555bd4367",
+        "size": 220810,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **新引擎上编译不再出弃用警告** — 对象树（Outliner）列子对象时改用新引擎的 `EGetObjectsFlags` 写法，UE 5.8 上不再报 `ForEachObjectWithOuterBreakable` / `GetObjectsWithOuter` 的 C4996 警告；UE 5.4 照旧"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **后台增量生成 UE 反射的 Lua 声明（默认关闭）** — 打开后编辑器在后台把原生类、结构体、枚举、蓝图生成 EmmyLua 注解的 Lua 声明，放在 `Intermediate/UELink/LuaDecl`，IntelliJ-EmmyLua 自动用它做跳转、补全。不用再手动点 UnLua 的 Generate IntelliSense：蓝图编译、资源保存 / 改名 / 删除、Live Coding 后只更新变了的文件，内容没变不写盘。打开：IntelliJ-EmmyLua 设置里点「让 UE 编辑器后台生成」，或编辑器控制台 `UELink.LuaDecl.Enable 1`，或面板调 `luadecl.enable`\n\n### Bug 修复\n- **EmmyLua 调试 runtime 重新加载后 UE 属性还能接上** — 调试核心卸载后在同一地址重新加载时，旧版会以为还注册着，断点时看不到 UE 属性；现在向新版 runtime 确认注册还在，丢了就重新注册。runtime 拒绝注册时日志里写明原因"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T15:28:34.582Z"
+  "updatedAt": "2026-11-16T16:41:05.030Z"
 }
