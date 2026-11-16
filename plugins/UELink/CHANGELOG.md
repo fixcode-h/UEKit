@@ -11,6 +11,7 @@
 - **编辑器选中同步** — 新操作 `editor.selection`（关卡里选中的 Actor、内容浏览器选中的资源和文件夹、蓝图编辑器里选中的节点）和 `editor.select`（在编辑器里选中并对焦 Actor、在内容浏览器里定位资源）；选中变化时推 `uelink.selection` 事件，Agent 面板能跟着编辑器走，Agent 也知道你在看哪个
 - **一次校验多个资源** — `asset.validate` 能传 `paths`（最多 200 个），回每个资源的错误和警告条数，完整结果写进 `Saved/UELink/validate/`，给面板的「提交前检查」用
 - **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）
+- **编辑器小工具** — 新操作 `config.files` / `config.get`（读进程里合并后的项目配置，按 section、键查）、`tags.list` / `tags.refs`（全部 GameplayTag 和引用某个 Tag 的资源）、`asset.redirectors`（列出文件夹下的重定向器，`fix: true` 一键修复引用并删掉，和内容浏览器右键同一个入口）、`editor.spawn` / `editor.destroy`（在编辑器关卡里放、删 Actor，进撤销栈）。Agent 面板的配置和 GameplayTag 浏览页、资源页「修复重定向器」、Agent 的 `ue_console action=config / tags`、`ue_editor action=spawn / destroy` 用它们
 
 ### 注意
 - 装好后要在本地完整编译一次（Live Coding 不够）
