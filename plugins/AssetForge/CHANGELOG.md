@@ -2,6 +2,14 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.1.0-beta.1
+
+### 新功能
+- **给 Agent 的配置 schema** — `forge.kinds` 带 `kind` 时返回这种配置的 JSON Schema（根节点 class 该写什么、能不能有 children、`skeleton` / `blackboard` 这类字段放哪），带 `class` 时按反射列出那个类在 `props` 里能写的属性（类型、枚举取值，可按名字筛、分页）。Agent 写配置前先取，少一轮「写错字段被演练拒掉」
+
+### 注意
+- 还没在本地用 UE 5.8 编译过，先发预发布
+
 ## v1.0.0-beta.2
 
 ### Bug 修复

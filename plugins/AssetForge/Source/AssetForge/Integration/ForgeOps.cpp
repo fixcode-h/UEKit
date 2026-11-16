@@ -7,9 +7,11 @@
 #include "Core/ForgeDiffSnapshot.h"
 #include "Core/ForgeJsonText.h"
 #include "Core/ForgePipeline.h"
+#include "Core/ForgePropertySchema.h"
 #include "Core/ForgeTypes.h"
 #include "Integration/ForgeJobs.h"
 #include "Registry/ForgeKindRegistry.h"
+#include "Registry/ForgeKindSchema.h"
 #include "Service/ForgeBatch.h"
 #include "Service/ForgeService.h"
 #include "Settings/AssetForgeSettings.h"
@@ -158,9 +160,43 @@ namespace
 		return true;
 	}
 
-	// ---- forge.kinds：支持的资产类型
+	// ---- forge.kinds：支持的资产类型；给 kind 回这种配置的 JSON Schema，给 class 回那个类在 props 里能写的属性
+	// （Agent 写配置前先取，少一轮「写错字段被演练拒掉」）。不给参数时只回列表，17 份 schema 一起回会超过返回上限。
 	bool Kinds(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
+		const FString KindArg = Str(Args, TEXT("kind"));
+		const FString ClassArg = Str(Args, TEXT("class"));
+		if (!KindArg.IsEmpty())
+		{
+			const TSharedPtr<FJsonObject> Schema = ForgeKindSchema::Build(KindArg);
+			if (!Schema.IsValid())
+			{
+				Error = FString::Printf(TEXT("不认识的 kind：%s（可用的：%s）"), *KindArg,
+					*FString::Join(ForgeKindRegistry::GetSupportedKinds(), TEXT("、")));
+				return false;
+			}
+			Out->SetStringField(TEXT("kind"), KindArg);
+			Out->SetObjectField(TEXT("schema"), Schema);
+		}
+		if (!ClassArg.IsEmpty())
+		{
+			ForgePropertySchema::FQuery Query;
+			Query.Type = ClassArg;
+			Query.Filter = Str(Args, TEXT("filter"));
+			Query.Offset = Int(Args, TEXT("offset"), 0);
+			Query.Limit = Int(Args, TEXT("limit"), Query.Limit);
+			const TSharedPtr<FJsonObject> Props = MakeShared<FJsonObject>();
+			if (!ForgePropertySchema::Describe(Query, Props, Error))
+			{
+				return false;
+			}
+			Out->SetObjectField(TEXT("props"), Props);
+		}
+		if (!KindArg.IsEmpty() || !ClassArg.IsEmpty())
+		{
+			return true;
+		}
+
 		TArray<TSharedPtr<FJsonValue>> Items;
 		for (const ForgeKindRegistry::FForgeKindInfo& Info : ForgeKindRegistry::GetAll())
 		{
