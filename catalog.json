@@ -68,8 +68,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.4.0-beta.1",
-        "versionCode": 7,
+        "version": "2.4.0-beta.2",
+        "versionCode": 8,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -114,13 +114,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.4.0-beta.1",
-        "asset": "UELink-2.4.0-beta.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.0-beta.1/UELink-2.4.0-beta.1-src.zip",
-        "sha256": "c4034b7f7a0077ca171c4d5cd6f09dd9f6c1b2c6441a66c3bb96bf5f53928c0b",
-        "size": 191928,
+        "tag": "UELink-v2.4.0-beta.2",
+        "asset": "UELink-2.4.0-beta.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.0-beta.2/UELink-2.4.0-beta.2-src.zip",
+        "sha256": "4b9642bbf69b5f4530137d83740a8509b2aaf2b9b769a5cbfad9f7fef38b94a4",
+        "size": 192147,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 还没在本地用 UE 完整编译验证过，先发预发布。几个并行的工作包都往这一节加条目，不另开版本号。\n\n### 新功能\n- **Lua 改完能验** — 新操作 `lua.check`（只编译不执行，单独的 Lua 环境里查，不开游戏也能查语法）、`lua.reload`（重载模块：项目用 `FAgentPanelLua::SetReloader` 接自己的热重载，没接时用 require 兜底并把新函数换进旧模块表，已绑定的对象也会用上）、`lua.modules`（已加载的模块、对应文件、绑定对象数、文件改过还没重载）、`lua.errors`（Lua 报错按「消息 + 出错位置」归并，带次数、首末时间、调用栈；项目调 `FAgentPanelLua::CaptureError` 时还有出错那一帧的局部变量），有新报错时推 `uelink.luaErrors` 事件\n- **编辑器选中同步** — 新操作 `editor.selection`（关卡里选中的 Actor、内容浏览器选中的资源和文件夹、蓝图编辑器里选中的节点）和 `editor.select`（在编辑器里选中并对焦 Actor、在内容浏览器里定位资源）；选中变化时推 `uelink.selection` 事件，Agent 面板能跟着编辑器走，Agent 也知道你在看哪个\n- **一次校验多个资源** — `asset.validate` 能传 `paths`（最多 200 个），回每个资源的错误和警告条数，完整结果写进 `Saved/UELink/validate/`，给面板的「提交前检查」用\n- **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）\n- **编辑器小工具** — 新操作 `config.files` / `config.get`（读进程里合并后的项目配置，按 section、键查）、`tags.list` / `tags.refs`（全部 GameplayTag 和引用某个 Tag 的资源）、`asset.redirectors`（列出文件夹下的重定向器，`fix: true` 一键修复引用并删掉，和内容浏览器右键同一个入口）、`editor.spawn` / `editor.destroy`（在编辑器关卡里放、删 Actor，进撤销栈）。Agent 面板的配置和 GameplayTag 浏览页、资源页「修复重定向器」、Agent 的 `ue_console action=config / tags`、`ue_editor action=spawn / destroy` 用它们\n\n- **Lua 深度调试** — 新操作 `lua.snap`（快照点：执行到某行时记下局部变量和调用栈，游戏不暂停，命中几次自动撤掉，命中时推 `lua.snap` 事件）、`lua.profile`（采几秒，按函数统计调用次数和用时，带文件和行号）、`lua.leaks`（列出 Lua 还拿着、UObject 已经销毁或世界已经关了的对象，查界面关了释放不掉）。和 IDE 的 Lua 调试器共存：原来的钩子照样收到事件\n### 注意\n- 装好后要在本地完整编译一次（Live Coding 不够）\n- UnLua 二次开发版的热重载和报错入口桥接不猜，按需在项目模块里调 `SetReloader` / `CaptureError` 接上，见 `docs/protocol.md`"
+        "notes": "> 修了 UE 5.4 上实际编译报的错，还没在本地重新完整编译验证过，先发预发布。\n\n### Bug 修复\n- **UE 5.4 下编辑器模块编译不过** — 单体构建把世界大纲推送和编辑器选中同步两份代码拼在一起时，两边的 `Tick`、`Flush` 撞名（C2872「不明确的符号」）。大纲推送改用自己的命名空间"
       },
       "displayName": "UELink",
       "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
@@ -299,5 +299,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T07:20:12.362Z"
+  "updatedAt": "2026-11-16T07:25:23.409Z"
 }
