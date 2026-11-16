@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Material/MaterialForge.h"
+#include "AssetForgeCompat.h"
 
 #include "Kinds/Material/MaterialGraphCodec.h"
 #include "Core/ForgeDiff.h"
@@ -16,6 +17,8 @@
 #include "MaterialGraph/MaterialGraph.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpression.h"
+#include "MaterialShared.h"
+#include "RHIDefinitions.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "SceneTypes.h"
@@ -269,9 +272,9 @@ namespace
 				continue;
 			}
 
-			for (int32 InputIndex = 0; InputIndex < Expression->CountInputs(); ++InputIndex)
+			for (int32 InputIndex = 0; InputIndex < ForgeCountInputs(Expression); ++InputIndex)
 			{
-				if (const FExpressionInput* Input = Expression->GetInput(InputIndex))
+				if (const FExpressionInput* Input = ForgeGetInput(Expression, InputIndex))
 				{
 					if (Input->Expression != nullptr)
 					{
@@ -618,7 +621,19 @@ bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutR
 	}
 
 	// 编译：错误当失败，不写盘——把编译不过的材质存下来比留在内存里更糟。
-	for (const FString& CompileError : UMaterialEditingLibrary::RecompileMaterial(Material))
+#if ASSETFORGE_RECOMPILE_RETURNS_ERRORS
+	const TArray<FString> CompileErrors = UMaterialEditingLibrary::RecompileMaterial(Material);
+#else
+	// 5.4 的 RecompileMaterial 不回错误：等编辑器用的那份材质资源编完，再从它上面取。
+	UMaterialEditingLibrary::RecompileMaterial(Material);
+	TArray<FString> CompileErrors;
+	if (FMaterialResource* Resource = Material->GetMaterialResource(GMaxRHIShaderPlatform))
+	{
+		Resource->FinishCompilation();
+		CompileErrors = Resource->GetCompileErrors();
+	}
+#endif
+	for (const FString& CompileError : CompileErrors)
 	{
 		OutReport.AddError(TEXT("root"), FString::Printf(TEXT("编译错误：%s"), *CompileError));
 	}

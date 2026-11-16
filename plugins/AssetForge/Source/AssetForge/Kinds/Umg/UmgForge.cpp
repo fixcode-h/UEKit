@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Umg/UmgForge.h"
+#include "AssetForgeCompat.h"
 #include "Kinds/Umg/UmgAnimationCodec.h"
 #include "Kinds/Umg/UmgWidgetCodec.h"
 #include "Core/ForgeClassResolver.h"
@@ -67,7 +68,7 @@ namespace
 		{
 			if (InWidget != nullptr)
 			{
-				OwningBlueprint->OnVariableAdded(InWidget->GetFName());
+				ForgeWidgetVariableAdded(*OwningBlueprint, InWidget->GetFName());
 			}
 		}
 	}
@@ -78,7 +79,7 @@ namespace
 		{
 			if (InWidget != nullptr)
 			{
-				OwningBlueprint->OnVariableRemoved(InWidget->GetFName());
+				ForgeWidgetVariableRemoved(*OwningBlueprint, InWidget->GetFName());
 			}
 		}
 	}
@@ -95,6 +96,7 @@ namespace
 	 */
 	void AlignVariableGuidMap(UWidgetBlueprint& InBlueprint)
 	{
+#if ASSETFORGE_HAS_WIDGET_VARIABLE_GUIDS
 		if (InBlueprint.WidgetTree == nullptr)
 		{
 			return;
@@ -143,6 +145,7 @@ namespace
 				It.RemoveCurrent();
 			}
 		}
+#endif
 	}
 
 	/**
@@ -297,7 +300,7 @@ namespace
 
 			if (ParentCDO != nullptr)
 			{
-				UClass* SlotClass = ParentCDO->GetSlotClass();
+				UClass* SlotClass = ForgeSlotClass(ParentCDO);
 				ForgePropertyCodec::ValidateProperties(
 					SlotClass,
 					InNode.Slot,

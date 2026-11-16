@@ -526,7 +526,7 @@ namespace
 		// 入口 = 入口节点连出去的那个状态。
 		if (StateMachineGraph->EntryNode != nullptr)
 		{
-			if (const UEdGraphPin* EntryPin = StateMachineGraph->EntryNode->GetOutputPin())
+			if (const UEdGraphPin* EntryPin = FindAnyPin(StateMachineGraph->EntryNode, EGPD_Output))
 			{
 				if (EntryPin->LinkedTo.Num() > 0)
 				{
@@ -779,7 +779,7 @@ namespace
 			return false;
 		}
 
-		if (UEdGraphPin* EntryPin = StateMachineGraph->EntryNode->GetOutputPin())
+		if (UEdGraphPin* EntryPin = FindAnyPin(StateMachineGraph->EntryNode, EGPD_Output))
 		{
 			EntryPin->BreakAllPinLinks();
 			if (UEdGraphPin* StateInPin = FindAnyPin(*EntryState, EGPD_Input))

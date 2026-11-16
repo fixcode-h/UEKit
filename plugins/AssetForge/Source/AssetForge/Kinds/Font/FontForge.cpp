@@ -272,7 +272,7 @@ namespace
 	TArray<FCurrentFace> ReadCurrentFaces(const UFont* InFont)
 	{
 		TArray<FCurrentFace> Result;
-		for (const FTypefaceEntry& Entry : InFont->GetInternalCompositeFont().DefaultTypeface.Fonts)
+		for (const FTypefaceEntry& Entry : ForgeCompositeFont(InFont).DefaultTypeface.Fonts)
 		{
 			FCurrentFace& Item = Result.AddDefaulted_GetRef();
 			Item.EntryName = Entry.Name;
@@ -661,7 +661,7 @@ namespace
 		ForgePropertyCodec::ResetToDefaults(Font);
 		ForgePropertyCodec::ImportProperties(Font, InDocument.Root.Props, OutReport.Diagnostics, TEXT("root.props"));
 
-		FCompositeFont& Composite = Font->GetMutableInternalCompositeFont();
+		FCompositeFont& Composite = ForgeCompositeFont(Font);
 		Composite.DefaultTypeface.Fonts.Empty();
 		// 子字体（按字符范围回退）本 kind 不表达：清掉，保证「配置是唯一真源」。
 		Composite.SubTypefaces.Empty();
@@ -714,7 +714,7 @@ bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForge
 
 	ReadFontRootInto(Font, OutDocument.Root, OutReport.Diagnostics);
 
-	const FCompositeFont& Composite = Font->GetInternalCompositeFont();
+	const FCompositeFont& Composite = ForgeCompositeFont(static_cast<const UFont*>(Font));
 	if (Composite.SubTypefaces.Num() > 0)
 	{
 		OutReport.AddWarning(TEXT("root"),

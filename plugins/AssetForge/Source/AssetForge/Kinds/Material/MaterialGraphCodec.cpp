@@ -296,7 +296,7 @@ FString MakeMaterialPropertyKey(int32 InProperty)
 
 FString GetInputPinName(UMaterialExpression* InExpression, int32 InInputIndex)
 {
-	if (InExpression == nullptr || InInputIndex < 0 || InInputIndex >= InExpression->CountInputs())
+	if (InExpression == nullptr || InInputIndex < 0 || InInputIndex >= ForgeCountInputs(InExpression))
 	{
 		return FString();
 	}
@@ -367,10 +367,10 @@ int32 ResolveInputIndex(UMaterialExpression* InExpression, const FString& InPinN
 		}
 
 		const int32 Index = FCString::Atoi(*Digits);
-		return (Index >= 0 && Index < InExpression->CountInputs()) ? Index : INDEX_NONE;
+		return (Index >= 0 && Index < ForgeCountInputs(InExpression)) ? Index : INDEX_NONE;
 	}
 
-	const int32 InputCount = InExpression->CountInputs();
+	const int32 InputCount = ForgeCountInputs(InExpression);
 	for (int32 Index = 0; Index < InputCount; ++Index)
 	{
 		if (GetInputPinName(InExpression, Index) == InPinName)
@@ -695,10 +695,10 @@ bool ReadGraph(UMaterial* InMaterial, FMaterialGraph& OutGraph, TArray<FForgeDia
 
 		ForgePropertyCodec::ExportDeltaProperties(Expression, Node.Props, OutDiagnostics, Node.Name);
 
-		const int32 InputCount = Expression->CountInputs();
+		const int32 InputCount = ForgeCountInputs(Expression);
 		for (int32 InputIndex = 0; InputIndex < InputCount; ++InputIndex)
 		{
-			const FExpressionInput* Input = Expression->GetInput(InputIndex);
+			const FExpressionInput* Input = ForgeGetInput(Expression, InputIndex);
 			if (Input == nullptr || Input->Expression == nullptr)
 			{
 				continue;
@@ -908,7 +908,7 @@ void ValidateGraph(
 
 		// 引脚名在不在：拿类的默认对象问（GetInputName 是实例方法，但只读默认引脚就够了）。
 		UMaterialExpression* ClassDefault = Cast<UMaterialExpression>(ExpressionClass->GetDefaultObject());
-		const int32 InputCount = (ClassDefault != nullptr) ? ClassDefault->CountInputs() : 0;
+		const int32 InputCount = (ClassDefault != nullptr) ? ForgeCountInputs(ClassDefault) : 0;
 		DefaultByName.Add(Node.Name, ClassDefault);
 		if (Node.Inputs.Num() > 0 && InputCount == 0)
 		{
