@@ -12,6 +12,7 @@
 #include "Shot/GameTestShot.h"
 
 #include "Dom/JsonObject.h"
+#include "Engine/World.h"
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -52,13 +53,19 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 	const TSharedPtr<FJsonObject> Evidence = MakeShared<FJsonObject>();
 	Evidence->SetStringField(TEXT("dir"), GameTestShot::ToProjectRelative(Dir));
 
+	// 正在关闭的世界（PIE 刚停）不去碰：截图、控件快照都按「没有世界」写进证据，不崩。
 	UWorld* World = GameTestWorld::FindGameWorld();
+	if (World != nullptr && (!IsValid(World) || World->bIsTearingDown))
+	{
+		World = nullptr;
+	}
 
 	// 1. 截图：失败那一刻屏上是什么
 	{
 		const FString ShotPath = FPaths::Combine(Dir, TEXT("screen.png"));
 		FString Message;
-		TSharedPtr<FJsonObject> Ignored;
+		// 截图会往这里写尺寸等字段：必须给一个真对象（以前传空指针，停止 run 时一失败就在截图里崩了）。
+		TSharedPtr<FJsonObject> Ignored = MakeShared<FJsonObject>();
 		if (GameTestShot::CaptureGameWindow(World, ShotPath, nullptr, Message, Ignored))
 		{
 			Evidence->SetStringField(TEXT("screenshot"), GameTestShot::ToProjectRelative(ShotPath));

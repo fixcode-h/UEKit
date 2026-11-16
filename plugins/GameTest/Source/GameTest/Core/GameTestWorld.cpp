@@ -6,6 +6,14 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 
+namespace
+{
+	bool IsUsableWorld(const UWorld* InWorld)
+	{
+		return InWorld != nullptr && IsValid(InWorld) && !InWorld->bIsTearingDown;
+	}
+}
+
 UWorld* GameTestWorld::FindGameWorld()
 {
 	if (GEngine == nullptr)
@@ -17,7 +25,8 @@ UWorld* GameTestWorld::FindGameWorld()
 	for (const FWorldContext& Context : GEngine->GetWorldContexts())
 	{
 		UWorld* World = Context.World();
-		if (World == nullptr)
+		// 正在拆的世界（停止 PIE 的那一帧还留在列表里）当作没有：它的视口、控件随时会没，碰了会崩。
+		if (!IsUsableWorld(World))
 		{
 			continue;
 		}
@@ -38,7 +47,7 @@ UWorld* GameTestWorld::FindGameWorld()
 
 bool GameTestWorld::IsPlayable(const UWorld* InWorld)
 {
-	return InWorld != nullptr && InWorld->HasBegunPlay();
+	return InWorld != nullptr && IsValid(InWorld) && !InWorld->bIsTearingDown && InWorld->HasBegunPlay();
 }
 
 UGameViewportClient* GameTestWorld::FindGameViewport()
@@ -58,7 +67,8 @@ void GameTestWorld::FindGameWorlds(TArray<UWorld*>& OutWorlds)
 	for (const FWorldContext& Context : GEngine->GetWorldContexts())
 	{
 		UWorld* World = Context.World();
-		if (World == nullptr)
+		// 正在拆的世界（停止 PIE 的那一帧还留在列表里）当作没有：它的视口、控件随时会没，碰了会崩。
+		if (!IsUsableWorld(World))
 		{
 			continue;
 		}
