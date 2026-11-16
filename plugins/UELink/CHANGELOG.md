@@ -8,6 +8,8 @@
 
 ### 新功能
 - **Lua 改完能验** — 新操作 `lua.check`（只编译不执行，单独的 Lua 环境里查，不开游戏也能查语法）、`lua.reload`（重载模块：项目用 `FAgentPanelLua::SetReloader` 接自己的热重载，没接时用 require 兜底并把新函数换进旧模块表，已绑定的对象也会用上）、`lua.modules`（已加载的模块、对应文件、绑定对象数、文件改过还没重载）、`lua.errors`（Lua 报错按「消息 + 出错位置」归并，带次数、首末时间、调用栈；项目调 `FAgentPanelLua::CaptureError` 时还有出错那一帧的局部变量），有新报错时推 `uelink.luaErrors` 事件
+- **编辑器选中同步** — 新操作 `editor.selection`（关卡里选中的 Actor、内容浏览器选中的资源和文件夹、蓝图编辑器里选中的节点）和 `editor.select`（在编辑器里选中并对焦 Actor、在内容浏览器里定位资源）；选中变化时推 `uelink.selection` 事件，Agent 面板能跟着编辑器走，Agent 也知道你在看哪个
+- **一次校验多个资源** — `asset.validate` 能传 `paths`（最多 200 个），回每个资源的错误和警告条数，完整结果写进 `Saved/UELink/validate/`，给面板的「提交前检查」用
 - **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）
 
 ### 注意

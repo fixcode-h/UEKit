@@ -182,6 +182,111 @@ namespace
 		}
 		return true;
 	}
+
+	/** 一个资源的数据校验（引擎的 IsDataValid，项目写的校验器也会跑）；蓝图再带一份编译结果 */
+	TSharedPtr<FJsonObject> ValidateOne(UObject* Obj)
+	{
+		TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
+		FDataValidationContext Context;
+		// 走 const 版本：5.4 起非 const 的 IsDataValid(FDataValidationContext&) 弃用（会报 C4996），const 版各版本都有
+		const EDataValidationResult Result = static_cast<const UObject*>(Obj)->IsDataValid(Context);
+		Out->SetStringField(TEXT("result"), Result == EDataValidationResult::Invalid ? TEXT("invalid") : Result == EDataValidationResult::Valid ? TEXT("valid") : TEXT("notValidated"));
+		TArray<TSharedPtr<FJsonValue>> Issues;
+		for (const FDataValidationContext::FIssue& I : Context.GetIssues())
+		{
+			TSharedPtr<FJsonObject> O = MakeShared<FJsonObject>();
+			O->SetStringField(TEXT("severity"), I.Severity == EMessageSeverity::Error ? TEXT("error") : TEXT("warning"));
+			O->SetStringField(TEXT("text"), I.Message.ToString());
+			Issues.Add(JObj(O));
+		}
+		Out->SetArrayField(TEXT("issues"), Issues);
+		if (UBlueprint* BP = Cast<UBlueprint>(Obj))
+		{
+			Out->SetObjectField(TEXT("compile"), CompileReport(BP, false));
+		}
+		return Out;
+	}
+
+	/** 批量校验：每个资源回结果、错误和警告条数、前 5 条；完整结果写 Saved/UELink/validate/<时间>.json（ADR 0067：长内容写文件回路径） */
+	bool ValidateMany(const TArray<TSharedPtr<FJsonValue>>& Paths, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		if (Paths.Num() == 0 || Paths.Num() > 200)
+		{
+			Error = Paths.Num() == 0 ? TEXT("paths 是空的") : TEXT("一次最多查 200 个资源，请分批");
+			return false;
+		}
+		TArray<TSharedPtr<FJsonValue>> Items;
+		TArray<TSharedPtr<FJsonValue>> Full;
+		int32 Errors = 0;
+		int32 Warnings = 0;
+		for (const TSharedPtr<FJsonValue>& P : Paths)
+		{
+			const FString Path = P->AsString();
+			TSharedPtr<FJsonObject> Item = MakeShared<FJsonObject>();
+			Item->SetStringField(TEXT("path"), Path);
+			FString LoadError;
+			UObject* Obj = LoadAsset(Path, LoadError);
+			if (!Obj)
+			{
+				Item->SetStringField(TEXT("result"), TEXT("missing"));
+				Item->SetStringField(TEXT("error"), LoadError);
+				Item->SetNumberField(TEXT("errors"), 1);
+				Item->SetNumberField(TEXT("warnings"), 0);
+				++Errors;
+				Items.Add(JObj(Item));
+				Full.Add(JObj(Item));
+				continue;
+			}
+			const TSharedPtr<FJsonObject> R = ValidateOne(Obj);
+			int32 E = 0;
+			int32 W = 0;
+			TArray<TSharedPtr<FJsonValue>> Top;
+			for (const TSharedPtr<FJsonValue>& I : R->GetArrayField(TEXT("issues")))
+			{
+				const bool bErr = I->AsObject()->GetStringField(TEXT("severity")) == TEXT("error");
+				E += bErr ? 1 : 0;
+				W += bErr ? 0 : 1;
+				if (Top.Num() < 5)
+				{
+					Top.Add(I);
+				}
+			}
+			const TSharedPtr<FJsonObject>* Compile = nullptr;
+			if (R->TryGetObjectField(TEXT("compile"), Compile))
+			{
+				int32 CE = 0;
+				int32 CW = 0;
+				(*Compile)->TryGetNumberField(TEXT("errors"), CE);
+				(*Compile)->TryGetNumberField(TEXT("warnings"), CW);
+				E += CE;
+				W += CW;
+			}
+			Errors += E;
+			Warnings += W;
+			Item->SetStringField(TEXT("result"), R->GetStringField(TEXT("result")));
+			Item->SetNumberField(TEXT("errors"), E);
+			Item->SetNumberField(TEXT("warnings"), W);
+			Item->SetArrayField(TEXT("issues"), Top);
+			Items.Add(JObj(Item));
+			R->SetStringField(TEXT("path"), Path);
+			Full.Add(JObj(R));
+		}
+		Out->SetArrayField(TEXT("items"), Items);
+		Out->SetNumberField(TEXT("errors"), Errors);
+		Out->SetNumberField(TEXT("warnings"), Warnings);
+		TSharedPtr<FJsonObject> Report = MakeShared<FJsonObject>();
+		Report->SetArrayField(TEXT("items"), Full);
+		FString Text;
+		const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
+		FJsonSerializer::Serialize(Report.ToSharedRef(), Writer);
+		const FString File = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("UELink/validate") / (FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S")) + TEXT(".json")));
+		if (FFileHelper::SaveStringToFile(Text, *File, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		{
+			Out->SetStringField(TEXT("report"), File);
+		}
+		return true;
+	}
+
 }
 
 void AgentPanelEd::RegisterAssetOps()
@@ -404,27 +509,21 @@ void AgentPanelEd::RegisterAssetOps()
 	// ---------- 数据校验：资源自己的 IsDataValid；蓝图另报编译状态 ----------
 	B.AddOp(TEXT("asset.validate"), [](const TSharedPtr<FJsonObject>& A, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
+		// 2.4 起 paths 一次查多个（提交前检查）：回每个资源的条数和前几条，完整结果写文件只回路径
+		const TArray<TSharedPtr<FJsonValue>>* Paths = nullptr;
+		if (A->TryGetArrayField(TEXT("paths"), Paths))
+		{
+			return ValidateMany(*Paths, Out, Error);
+		}
 		UObject* Obj = LoadAsset(Str(A, TEXT("path")), Error);
 		if (!Obj)
 		{
 			return false;
 		}
-		FDataValidationContext Context;
-		// 走 const 版本：5.4 起非 const 的 IsDataValid(FDataValidationContext&) 弃用（会报 C4996），const 版各版本都有
-		const EDataValidationResult Result = static_cast<const UObject*>(Obj)->IsDataValid(Context);
-		Out->SetStringField(TEXT("result"), Result == EDataValidationResult::Invalid ? TEXT("invalid") : Result == EDataValidationResult::Valid ? TEXT("valid") : TEXT("notValidated"));
-		TArray<TSharedPtr<FJsonValue>> Issues;
-		for (const FDataValidationContext::FIssue& I : Context.GetIssues())
+		const TSharedPtr<FJsonObject> R = ValidateOne(Obj);
+		for (const auto& Pair : R->Values)
 		{
-			TSharedPtr<FJsonObject> O = MakeShared<FJsonObject>();
-			O->SetStringField(TEXT("severity"), I.Severity == EMessageSeverity::Error ? TEXT("error") : TEXT("warning"));
-			O->SetStringField(TEXT("text"), I.Message.ToString());
-			Issues.Add(JObj(O));
-		}
-		Out->SetArrayField(TEXT("issues"), Issues);
-		if (UBlueprint* BP = Cast<UBlueprint>(Obj))
-		{
-			Out->SetObjectField(TEXT("compile"), CompileReport(BP, false));
+			Out->SetField(UELINK_JSON_KEY(Pair.Key), Pair.Value);
 		}
 		return true;
 	});
