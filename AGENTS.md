@@ -85,14 +85,14 @@ dist/                   出包产物（已忽略）
 ## 版本和发布
 
 - 改了哪个插件就升哪个插件的版本：CHANGELOG 最上面加 `## vX.Y.Z`，同时改 `.uplugin` 的 `VersionName`、`Version`（加 1）和版本宏。最上面的版本已经发布过（有 `<插件>-v<版本>` 标签）就新开一节，不往已发布的版本里加条目。写法见 [docs/changelog.md](docs/changelog.md)，`node scripts/check.mjs` 会核对。
-- **云端编不了 UE 的 C++**：改了 C++ 要在本地对应版本的 UE **完整编译**（Live Coding 不够）验证后才能发正式版；没验证过的版本号必须带 `-beta.N`，合到 `main` 后只发成预发布，客户端查更新默认只认正式版。编译通过后去掉 `-beta` 再发正式版。
+- **直接发正式版，不发预发布**（用户 2026-11-16）：客户端查更新默认只认正式版，发预发布等于用户拿不到修复。云端编不了 UE 的 C++，没在本地完整编译验证过的版本照样发正式版，但要在 CHANGELOG 这一节开头写一句「还没在本地用 UE 完整编译验证过」，提交说明里也写清楚；用户反馈编译问题就马上出修订版。
 - **每次更新，用户都要在本地重新编译**，所以攒一批改动再发版，不要一个小改动发一版。
 - 发布由 CI 做（`.github/workflows/release.yml`）：合到 `main` 后按每个插件 CHANGELOG 最上面的版本，标签不存在就打包发 Release，说明 = CHANGELOG 这一节 + 上一版以来改了这个插件目录的提交；然后重写 `catalog.json` 提交回 `main`。只有 UELink 的正式版设成 Latest（老客户端查 `releases/latest` 用）。也可以在 Actions 页手动运行「发布」，选插件、选只打包不发布（包作为运行产物下载）。
 - 出包只打源码：`kit.json`、`CHANGELOG.md` 不进包；`Binaries/`、`Intermediate/`、`Saved/` 不进包也不进仓库。
 
 ## 加一个新插件
 
-1. 建 `plugins/<名字>/`：`<名字>.uplugin`、`kit.json`、`CHANGELOG.md`（第一版 `## v1.0.0-beta.1`）、`Source/<名字>/`（含 `<名字>.Build.cs` 和 `IMPLEMENT_MODULE`）、版本头 `<名字>Version.h`、`<名字>Compat.h`。
+1. 建 `plugins/<名字>/`：`<名字>.uplugin`、`kit.json`、`CHANGELOG.md`（第一版 `## v1.0.0`）、`Source/<名字>/`（含 `<名字>.Build.cs` 和 `IMPLEMENT_MODULE`）、版本头 `<名字>Version.h`、`<名字>Compat.h`。
 2. 扩展插件：`.uplugin` 依赖 UELink，`kit.json` 写 `requires.UELink`，在协议文档登记操作前缀。
 3. 写 `docs/<插件>.md`（能力、配置格式、操作表、限制），在本文件和 README 的插件表里加一行。
 4. 面板那边（`agent-plugins` 的 `ue/`）跟上：「UE 插件」列表认得它、需要的网页和工具按准入四问加。
