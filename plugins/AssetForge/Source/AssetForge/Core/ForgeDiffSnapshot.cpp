@@ -183,14 +183,22 @@ namespace ForgeDiffSnapshot
 		ForgePropertyCodec::ExportStructDelta(Struct, After, Before, AfterJson, Diagnostics, TEXT("props"));
 		ForgePropertyCodec::ExportStructDelta(Struct, Before, After, BeforeJson, Diagnostics, TEXT("props"));
 
+		// 没有差异时 ExportStructDelta 会把空对象还原成 nullptr（刚导入、配置和资产一致时就是这样），
+		// 这里必须判空，否则直接解引用会让编辑器崩溃
 		TArray<FString> Keys;
-		for (const auto& Pair : AfterJson->Values)
+		if (AfterJson.IsValid())
 		{
-			Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
+			for (const auto& Pair : AfterJson->Values)
+			{
+				Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
+			}
 		}
-		for (const auto& Pair : BeforeJson->Values)
+		if (BeforeJson.IsValid())
 		{
-			Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
+			for (const auto& Pair : BeforeJson->Values)
+			{
+				Keys.AddUnique(FString(ASSETFORGE_JSON_KEY(Pair.Key)));
+			}
 		}
 		Keys.Sort();
 
@@ -203,8 +211,8 @@ namespace ForgeDiffSnapshot
 			}
 			const TSharedRef<FJsonObject> Change = MakeShared<FJsonObject>();
 			Change->SetStringField(TEXT("property"), Key);
-			const TSharedPtr<FJsonValue> BeforeValue = BeforeJson->TryGetField(Key);
-			const TSharedPtr<FJsonValue> AfterValue = AfterJson->TryGetField(Key);
+			const TSharedPtr<FJsonValue> BeforeValue = BeforeJson.IsValid() ? BeforeJson->TryGetField(Key) : nullptr;
+			const TSharedPtr<FJsonValue> AfterValue = AfterJson.IsValid() ? AfterJson->TryGetField(Key) : nullptr;
 			Change->SetField(TEXT("before"), BeforeValue.IsValid() ? BeforeValue : MakeShared<FJsonValueNull>());
 			Change->SetField(TEXT("after"), AfterValue.IsValid() ? AfterValue : MakeShared<FJsonValueNull>());
 			Changes.Add(MakeShared<FJsonValueObject>(Change));

@@ -70,6 +70,7 @@ dist/                   出包产物（已忽略）
 - **线程**：所有操作都在游戏线程上执行；推送通道的套接字是非阻塞的，客户端卡住不能卡编辑器。超过几百毫秒的操作（批量导入、跑测试场景）马上返回作业号，每帧做一点，客户端用 `<前缀>.job` 查进度、`<前缀>.stop` 取消，进度变化走推送事件，不让客户端轮询。
 - **Shipping 不加载**：UELink 的 `UELinkCore` 在 Shipping 下不加载，扩展插件同样不进 Shipping（模块类型用 Editor / UncookedOnly / DeveloperTool，或 `TargetConfigurationDenyList` 拦 Shipping；`TargetDenyList` 只能填 Game、Editor 这类目标类型，写 Shipping 会让 UBT 直接报错，`check.mjs` 会拦）。
 - **凭据不进仓库**：令牌、密码、API key 不写进代码、测试、文档和提交说明。临时文件只放 `.tmp/`（已忽略）或系统临时目录，用完清理。
+- **任何输入都不能让编辑器崩溃**：插件跑在用户的编辑器进程里，一次空指针就是整个编辑器崩掉、未保存的工作全丢。`TSharedPtr` / `UObject*` 用之前判空，取不到就返回 false 并写清原因（资产不存在、配置缺字段、没有差异都是正常情况）。JSON 尤其注意：`GetObjectField` 缺字段、`AsObject()` 类型不对都返回空指针，不许链式 `->`（`check.mjs` 会拦），用 `TryGetObjectField` 或先存变量判 `IsValid()`；会把输出置回 nullptr 的函数（如 `ForgePropertyCodec::ExportStructDelta` 没有差异时）在声明处写明，调用方判空。UELink 的 `Dispatch` 兜底了返回体为空的情况，但别依赖它。
 - 注释用中文，写「为什么」。文件一律 UTF-8 不带 BOM（`check.mjs` 会拦）。
 
 ## 操作（/rpc）的写法

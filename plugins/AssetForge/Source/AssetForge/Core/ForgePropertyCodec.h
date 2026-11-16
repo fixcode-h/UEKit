@@ -80,7 +80,10 @@ namespace ForgePropertyCodec
 	// ---- 内存版：直接对「结构体 + 数据指针」做编解码 ----
 	// DataTable 的一行就是这种形态（RowStruct + uint8*），它不是 UObject，走不了下面那组包装。
 
-	/** 把与默认数据不同的可编辑属性写进 OutJson。InDefaultData 可为 nullptr（那样就写全量）。 */
+	/**
+	 * 把与默认数据不同的可编辑属性写进 OutJson。InDefaultData 可为 nullptr（那样就写全量）。
+	 * 注意：一个属性都没写出来时 OutJson 会被置回 nullptr（哪怕调用前已经 MakeShared 过），调用方用之前必须判 IsValid()。
+	 */
 	ASSETFORGE_API void ExportStructDelta(
 		const UStruct* InStruct,
 		const void* InData,

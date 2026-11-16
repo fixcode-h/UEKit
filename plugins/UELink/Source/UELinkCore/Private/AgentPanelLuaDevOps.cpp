@@ -1183,7 +1183,8 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& B)
 			if (Fns.Num() > Before)
 			{
 				FString Src0;
-				if (Fns[Before]->AsObject()->TryGetStringField(TEXT("src"), Src0))
+				const TSharedPtr<FJsonObject> FirstFn = Fns[Before].IsValid() ? Fns[Before]->AsObject() : nullptr;
+				if (FirstFn.IsValid() && FirstFn->TryGetStringField(TEXT("src"), Src0))
 				{
 					Layer->SetStringField(TEXT("src"), Src0);
 				}
@@ -1204,7 +1205,8 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& B)
 		for (const TSharedPtr<FJsonValue>& F : Fns)
 		{
 			FString S;
-			if (F->AsObject()->TryGetStringField(TEXT("src"), S))
+			const TSharedPtr<FJsonObject> FnObj = F.IsValid() ? F->AsObject() : nullptr;
+			if (FnObj.IsValid() && FnObj->TryGetStringField(TEXT("src"), S))
 			{
 				Out->SetStringField(TEXT("src"), S);
 				break;

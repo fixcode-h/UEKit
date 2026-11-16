@@ -81,6 +81,11 @@ for (const p of plugins) {
     // 版本差异只写在 Compat 头里：业务代码不直接判断引擎版本（UELink 也一样）
     if (!/Compat\.h$/.test(rel) && /#\s*if[^\n]*ENGINE_(MAJOR|MINOR)_VERSION|UE_VERSION_(NEWER|OLDER)_THAN/.test(text))
       fail(`${rel} 直接判断了引擎版本：版本差异写进 <插件>Compat.h，这里只用它定义的宏`)
+    // JSON 取对象不直接链式解引用：GetObjectField 缺字段、AsObject 类型不对时都返回空指针，
+    // 链式 -> 会让整个编辑器崩溃（AssetForge 属性差异的崩溃就是这样来的）。先存进变量判 IsValid()，
+    // 或用 TryGetObjectField。测试模块不查（断言失败本来就该停）
+    if (!/Tests\//.test(rel) && /(\bGetObjectField\s*\([^;]*?\)|\bAsObject\s*\(\s*\))\s*->/.test(text))
+      fail(`${rel} 对 GetObjectField / AsObject() 的结果直接用了 ->：先判 IsValid()（或用 TryGetObjectField），取不到时返回错误，不要让编辑器崩溃`)
     if (p.name === 'UELink') {
       if (/AGENTPANELBRIDGE(EDITOR)?_API/.test(text)) fail(`${rel} 还在用旧的导出宏 AGENTPANELBRIDGE_API，改成 UELINKCORE_API`)
       continue

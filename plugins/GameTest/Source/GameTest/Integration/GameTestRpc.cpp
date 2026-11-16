@@ -412,12 +412,26 @@ namespace
 
 		const TSharedPtr<FJsonObject> Result = Subsystem->BuildRunJson(RunId);
 		bool bOk = false;
-		if (!Result->TryGetBoolField(TEXT("ok"), bOk) || !bOk)
+		if (!Result.IsValid() || !Result->TryGetBoolField(TEXT("ok"), bOk) || !bOk)
 		{
-			Error = Result->GetStringField(TEXT("error"));
+			if (Result.IsValid())
+			{
+				Result->TryGetStringField(TEXT("error"), Error);
+			}
+			if (Error.IsEmpty())
+			{
+				Error = FString::Printf(TEXT("读不到运行 %s 的结果"), *RunId);
+			}
 			return false;
 		}
-		Out = Capped(Result->GetObjectField(TEXT("report")), TEXT("report"), StructureMaxChars);
+		// 缺 report 字段时 GetObjectField 会返回空指针，交出去会被解引用，必须先判空
+		const TSharedPtr<FJsonObject>* ReportJson = nullptr;
+		if (!Result->TryGetObjectField(TEXT("report"), ReportJson) || ReportJson == nullptr || !ReportJson->IsValid())
+		{
+			Error = FString::Printf(TEXT("运行 %s 还没有报告，稍后再查"), *RunId);
+			return false;
+		}
+		Out = Capped(*ReportJson, TEXT("report"), StructureMaxChars);
 		return true;
 	}
 

@@ -569,12 +569,23 @@ namespace
 		}
 	}
 
+	/** 值是不是一个空对象（类型不对或取不到对象都算否，不解引用空指针）。 */
+	bool IsEmptyJsonObject(const TSharedPtr<FJsonValue>& InValue)
+	{
+		const TSharedPtr<FJsonObject> Object = InValue.IsValid() && InValue->Type == EJson::Object ? InValue->AsObject() : nullptr;
+		return Object.IsValid() && Object->Values.Num() == 0;
+	}
+
 	/** 节点对象（任务 / 条件 / 评估器…）里的默认字段。 */
 	void StripNodeDefaults(const TSharedPtr<FJsonObject>& InOutNode)
 	{
+		if (!InOutNode.IsValid())
+		{
+			return;
+		}
 		RemoveFieldIfDefaultString(InOutNode, Field::Name, TEXT(""));
 		const TSharedPtr<FJsonValue> Props = InOutNode->TryGetField(Field::Props);
-		if (Props.IsValid() && Props->Type == EJson::Object && Props->AsObject()->Values.Num() == 0)
+		if (IsEmptyJsonObject(Props))
 		{
 			InOutNode->RemoveField(Field::Props);
 		}
@@ -583,6 +594,10 @@ namespace
 	/** 转移条目里的默认字段。 */
 	void StripTransitionDefaults(const TSharedPtr<FJsonObject>& InOutTransition)
 	{
+		if (!InOutTransition.IsValid())
+		{
+			return;
+		}
 		RemoveFieldIfDefaultString(InOutTransition, Field::Priority, TEXT("Normal"));
 		RemoveFieldIfDefaultBool(InOutTransition, Field::Enabled, true);
 		RemoveFieldIfDefaultNumber(InOutTransition, Field::Delay, 0.0);
@@ -624,7 +639,7 @@ namespace
 		RemoveFieldIfDefaultBool(InOutState, Field::CheckPrerequisites, true);
 
 		const TSharedPtr<FJsonValue> Parameters = InOutState->TryGetField(Field::Parameters);
-		if (Parameters.IsValid() && Parameters->Type == EJson::Object && Parameters->AsObject()->Values.Num() == 0)
+		if (IsEmptyJsonObject(Parameters))
 		{
 			InOutState->RemoveField(Field::Parameters);
 		}
@@ -773,7 +788,7 @@ namespace
 			{
 				return nullptr;
 			}
-			if (InValue->Type == EJson::Object && InValue->AsObject()->Values.Num() == 0)
+			if (IsEmptyJsonObject(InValue))
 			{
 				return nullptr;
 			}

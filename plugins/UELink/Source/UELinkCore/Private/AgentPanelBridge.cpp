@@ -320,6 +320,12 @@ TSharedPtr<FJsonObject> FAgentPanelBridge::Dispatch(const TSharedPtr<FJsonObject
 	{
 		return ErrorObject(Error.IsEmpty() ? TEXT("执行失败") : Error);
 	}
+	// 操作可能把 Out 换成一个取不到的对象（如 GetObjectField 缺字段时返回空指针），
+	// 这里兜底成空对象，免得扩展的一处疏忽直接让编辑器崩溃
+	if (!Out.IsValid())
+	{
+		Out = MakeShared<FJsonObject>();
+	}
 	Out->SetBoolField(TEXT("ok"), true);
 	return Out;
 }
