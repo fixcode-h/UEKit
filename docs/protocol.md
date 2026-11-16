@@ -46,13 +46,13 @@
 
 | 分组 | 操作 |
 | --- | --- |
-| 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run` |
+| 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open`、`asset.redirectors` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
-| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select` |
+| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`editor.spawn`、`editor.destroy` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call` |
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
@@ -103,6 +103,21 @@
 - `lua.set` 2.4.0 起 `value` 也可以是 JSON 对象或数组（转成 Lua 表）；原值是表时也能整个换掉，回包 `"undoable": false`、没有 `prev`（客户端不要提供撤回）。
 
 2.4.0 起 `asset.validate` 能一次查多个：`{"paths": [...]}`（最多 200 个）→ `{"items": [{"path", "result", "errors", "warnings", "issues": [前 5 条]}], "errors", "warnings", "report"}`，完整结果写进 `Saved/UELink/validate/<时间>.json`，`report` 是它的绝对路径。只给 `path` 时照旧回单个资源的结果。
+
+2.4.0 起的编辑器小工具（重定向器、放删 Actor 只在编辑器进程里有；配置和 GameplayTag 哪种进程都有。客户端按 `/info` 的 `ops` 判断）：
+
+- `config.files {}` → `{"items": [{"name", "file"}]}`：进程里加载了哪些配置（`name` 是 `Engine`、`Game`、`Input` 这类短名，`file` 是合并后的文件路径）。
+- `config.get {"file"?: "Engine", "section"?, "key"?, "filter"?, "limit"?}`：只读 `GConfig` 里合并后的最终值。
+  - 不给 `section` → `{"file", "path", "sections": [名字], "total"}`，`filter` 按名字包含筛，`limit` 默认 500、最多 5000。
+  - 给了 `section` → `{"file", "path", "section", "values": [{"key", "value"}], "total", "missing"?}`：同一个键的多个值（数组项）按顺序各占一行；`key` 只要这一个键；没有这个 section 时 `missing: true`。
+  - 每一层 ini（Base、Default、平台、Saved）各写了什么不在这里给：客户端自己读磁盘上的那几层文件，和这里的最终值对照（插件、命令行改的值只有这里有）。
+- `tags.list {"filter"?, "limit"?}` → `{"items": [{"tag", "source"?}], "total"}`：进程里登记的全部 GameplayTag（ini、DataTable、C++ 原生的，含只因为有子 Tag 才存在的隐式父级），按名字排序。`source` 是来源（ini 文件名、DataTable 包名、`Native`），只在编辑器里有，隐式父级没有。`limit` 默认 20000。
+- `tags.refs {"tag", "limit"?}` → `{"tag", "items": [包名], "total", "loading"?}`：哪些资源引用了这个 Tag，查资源注册表的「可搜索名」引用（和引用查看器一样，编辑器保存资源时写的）。`loading: true` 表示注册表还在扫盘，结果可能不全。
+- `asset.redirectors {"path": 文件夹, "fix"?: false, "limit"?: 200}` → `{"path", "items": [{"path", "package", "file", "readOnly", "target"? | "broken": true, "referencers": [{"package", "file", "readOnly"}]}], "total", "more"?}`：文件夹（含子文件夹）下的 ObjectRedirector，`referencers` 是还在引用它的包（修复时会被改写并保存）。
+  - `fix: true` 时调 `AssetTools.FixupReferencers`（和内容浏览器右键「修复重定向器」同一个入口，不弹签出框）：改写引用方并保存，删掉修好的重定向器。回包多 `fixed` / `left`（`[{"package", "file"}]`，按修完后包还在不在算）、`dirtied`、`note`?。超过 `limit` 个时拒绝，让客户端分批。
+  - 修复会保存引用方、删除重定向器文件：客户端按「结构性操作」请用户确认，P4 项目先把 `readOnly` 的文件签出，修完再把删掉的重定向器标记删除。
+- `editor.spawn {"class", "location"?: [x,y,z], "rotation"?: [pitch,yaw,roll], "scale"?: [x,y,z], "level"?, "label"?, "folder"?, "select"?: true}` → `{"actor": {"path", "name", "label", "class", "level", "location"}, "tx", "dirtied"?}`：在编辑器关卡里放一个 Actor（`GEditor->AddActor`，和从内容浏览器拖进视口同一套）。`class` 写原生类名或蓝图路径；`level` 是已加载关卡的包名或短名，空为当前关卡。包在编辑器事务里，`tx` 交给 `asset.undo` 撤回。PIE 运行中、后台编辑器里拒绝。
+- `editor.destroy {"actors": [Actor 路径]}` → `{"destroyed": [同上的 actor], "missing"?: [没找到的路径], "tx"}`：删掉编辑器关卡里的 Actor（`UEditorActorSubsystem::DestroyActors`），一次最多 100 个，进撤销栈。PIE 里的 Actor 不能用它删。
 
 > 2.4.0 这一批的操作由几个并行的工作包分别加：每个包的新操作放各自的 `*Ops.cpp`（例如 `UELinkSelectionOps.cpp`、`AgentPanelLuaDevOps.cpp`），在这份文档里各写一段，操作表里各加一格，版本统一记在 UELink 的 CHANGELOG `v2.4.0-beta.1` 一节里。
 
