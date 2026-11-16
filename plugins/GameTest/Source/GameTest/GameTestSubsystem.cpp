@@ -532,6 +532,8 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 
 	LastLoggedStepCount = 0;
 	Blockers.Begin(RunConfig.Blockers);
+	// 不用真实鼠标的 run 用虚拟光标：input.cursor、拖动、滚轮、鼠标键都不移系统光标
+	GameTestInput::SetVirtualCursor(!Request.ClickVia.Equals(TEXT("pointer"), ESearchCase::IgnoreCase));
 	const bool bStarted = Runner->StartRun(
 		Request,
 		RuntimeState,
