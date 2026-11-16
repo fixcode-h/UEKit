@@ -5,6 +5,7 @@
 #include "AgentPanelBlueprintComps.h"
 #include "AgentPanelOutliner.h"
 #include "AgentPanelAssetTree.h"
+#include "UELinkConfigOps.h"
 #include "AgentPanelGMLibrary.h"
 #include "AgentPanelLog.h"
 #include "AgentPanelLuaOps.h"
@@ -1416,4 +1417,5 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 	RegisterOutlinerOps(*this);
 	RegisterAssetTreeOps(*this);
 	RegisterPerfOps(*this);
+	RegisterConfigOps(*this);
 }

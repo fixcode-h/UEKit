@@ -2,6 +2,21 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.4.0-beta.1
+
+> 还没在本地用 UE 完整编译验证过，先发预发布。几个并行的工作包都往这一节加条目，不另开版本号。
+
+### 新功能
+- **Lua 改完能验** — 新操作 `lua.check`（只编译不执行，单独的 Lua 环境里查，不开游戏也能查语法）、`lua.reload`（重载模块：项目用 `FAgentPanelLua::SetReloader` 接自己的热重载，没接时用 require 兜底并把新函数换进旧模块表，已绑定的对象也会用上）、`lua.modules`（已加载的模块、对应文件、绑定对象数、文件改过还没重载）、`lua.errors`（Lua 报错按「消息 + 出错位置」归并，带次数、首末时间、调用栈；项目调 `FAgentPanelLua::CaptureError` 时还有出错那一帧的局部变量），有新报错时推 `uelink.luaErrors` 事件
+- **编辑器选中同步** — 新操作 `editor.selection`（关卡里选中的 Actor、内容浏览器选中的资源和文件夹、蓝图编辑器里选中的节点）和 `editor.select`（在编辑器里选中并对焦 Actor、在内容浏览器里定位资源）；选中变化时推 `uelink.selection` 事件，Agent 面板能跟着编辑器走，Agent 也知道你在看哪个
+- **一次校验多个资源** — `asset.validate` 能传 `paths`（最多 200 个），回每个资源的错误和警告条数，完整结果写进 `Saved/UELink/validate/`，给面板的「提交前检查」用
+- **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）
+- **编辑器小工具** — 新操作 `config.files` / `config.get`（读进程里合并后的项目配置，按 section、键查）、`tags.list` / `tags.refs`（全部 GameplayTag 和引用某个 Tag 的资源）、`asset.redirectors`（列出文件夹下的重定向器，`fix: true` 一键修复引用并删掉，和内容浏览器右键同一个入口）、`editor.spawn` / `editor.destroy`（在编辑器关卡里放、删 Actor，进撤销栈）。Agent 面板的配置和 GameplayTag 浏览页、资源页「修复重定向器」、Agent 的 `ue_console action=config / tags`、`ue_editor action=spawn / destroy` 用它们
+
+### 注意
+- 装好后要在本地完整编译一次（Live Coding 不够）
+- UnLua 二次开发版的热重载和报错入口桥接不猜，按需在项目模块里调 `SetReloader` / `CaptureError` 接上，见 `docs/protocol.md`
+
 ## v2.3.1-beta.1
 
 > 还没在本地用 UE 完整编译验证过，先发预发布。
