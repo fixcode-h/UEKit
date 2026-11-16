@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.4.1",
-        "versionCode": 12,
+        "version": "2.4.2",
+        "versionCode": 14,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,73 +55,15 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.4.1",
-        "asset": "UELink-2.4.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.1/UELink-2.4.1-src.zip",
-        "sha256": "78af35ecc9f16740dc7bb4acd3b857e2805d404d3a14bb3dd679601f9136a5a2",
-        "size": 204617,
+        "tag": "UELink-v2.4.2",
+        "asset": "UELink-2.4.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.2/UELink-2.4.2-src.zip",
+        "sha256": "49322fe4bfbe96f3b7ee2c281334c8057618b2adb11efc1aea37bdee1382b647",
+        "size": 204824,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "### Bug 修复\n- **打开工程时不再弹「插件为 5.4.0 构建、不兼容」** — 插件清单去掉了固定的引擎版本号，UE 5.4 到 5.8 打开工程都直接加载；只改了 `.uplugin`，C++ 没动"
+        "notes": "> 按用户要求直接发正式版：云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **扩展操作返回空结果时不再让编辑器崩溃** — 扩展插件的操作万一交回空的返回体，UELink 兜底成空结果，不再空指针崩溃"
       },
-      "prerelease": {
-        "name": "UELink",
-        "displayName": "UELink",
-        "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
-        "kind": "base",
-        "version": "2.4.2-beta.1",
-        "versionCode": 13,
-        "protocol": 2,
-        "engineMin": "5.4",
-        "engineTested": [
-          "5.4",
-          "5.5",
-          "5.6",
-          "5.7",
-          "5.8"
-        ],
-        "requires": {},
-        "enginePlugins": [],
-        "optionalPlugins": [
-          "UnLua"
-        ],
-        "modules": [
-          {
-            "name": "UELinkCore",
-            "type": "Runtime"
-          },
-          {
-            "name": "UELinkEditor",
-            "type": "Editor"
-          }
-        ],
-        "editorOnly": false,
-        "replaces": [
-          "AgentPanelBridge",
-          "UEToVSLink"
-        ],
-        "panelTools": [
-          "ue_status",
-          "ue_console",
-          "ue_gm",
-          "ue_find",
-          "ue_get",
-          "ue_set",
-          "ue_call",
-          "ue_asset",
-          "ue_blueprint",
-          "ue_log",
-          "ue_screenshot",
-          "ue_editor",
-          "ue_perf"
-        ],
-        "tag": "UELink-v2.4.2-beta.1",
-        "asset": "UELink-2.4.2-beta.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.2-beta.1/UELink-2.4.2-beta.1-src.zip",
-        "sha256": "84da7b0e549176d69c677b98dfb6caf74add9fabb53dc78ab78b9ad8203d0661",
-        "size": 204836,
-        "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "### Bug 修复\n- **扩展操作返回空结果时不再让编辑器崩溃** — 扩展插件的操作万一交回空的返回体，UELink 兜底成空结果，不再空指针崩溃"
-      },
+      "prerelease": null,
       "displayName": "UELink",
       "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
       "kind": "base"
@@ -133,8 +75,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.3.1",
-        "versionCode": 9,
+        "version": "1.3.2",
+        "versionCode": 11,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -166,60 +108,15 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.3.1",
-        "asset": "AssetForge-1.3.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.1/AssetForge-1.3.1-src.zip",
-        "sha256": "136034036eacdd8b8fe1840cd57f8efa6c3e0a238d80979c6bae93dfa29b38a5",
-        "size": 396319,
+        "tag": "AssetForge-v1.3.2",
+        "asset": "AssetForge-1.3.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.2/AssetForge-1.3.2-src.zip",
+        "sha256": "fd693e67a157e2f7b08d61be629dca7f7336c1aca6ecc6dae2d0968d8b9bc5a2",
+        "size": 396628,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "### Bug 修复\n- **打开工程时不再弹「插件为 5.4.0 构建、不兼容」** — 插件清单去掉了固定的引擎版本号，UE 5.4 到 5.8 打开工程都直接加载；只改了 `.uplugin`，C++ 没动"
+        "notes": "> 按用户要求直接发正式版：云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **「导入生成资源」不再让编辑器崩溃** — 配置和现有资产的属性完全一致（比如刚导入过）时，看属性差异会空指针崩溃；现在正常返回「没有差异」\n- **状态树配置里节点写成非对象时不再崩溃** — 整理默认字段时先判空再读"
       },
-      "prerelease": {
-        "name": "AssetForge",
-        "displayName": "AssetForge",
-        "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
-        "kind": "extension",
-        "version": "1.3.2-beta.1",
-        "versionCode": 10,
-        "engineMin": "5.4",
-        "engineTested": [],
-        "requires": {
-          "UELink": ">=2.4.0"
-        },
-        "enginePlugins": [
-          "StateTree",
-          "Niagara",
-          "DataValidation"
-        ],
-        "optionalPlugins": [
-          "PropertyBindingUtils",
-          "CQTest"
-        ],
-        "modules": [
-          {
-            "name": "AssetForge",
-            "type": "Editor"
-          },
-          {
-            "name": "AssetForgeTests",
-            "type": "UncookedOnly"
-          }
-        ],
-        "editorOnly": true,
-        "replaces": [
-          "TkAssetForge"
-        ],
-        "panelTools": [
-          "ue_forge"
-        ],
-        "tag": "AssetForge-v1.3.2-beta.1",
-        "asset": "AssetForge-1.3.2-beta.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.2-beta.1/AssetForge-1.3.2-beta.1-src.zip",
-        "sha256": "39681a45fd30035a7308e20630c2c12c5757c26c74416bba3d25d10c52824f31",
-        "size": 396640,
-        "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "### Bug 修复\n- **「导入生成资源」不再让编辑器崩溃** — 配置和现有资产的属性完全一致（比如刚导入过）时，看属性差异会空指针崩溃；现在正常返回「没有差异」\n- **状态树配置里节点写成非对象时不再崩溃** — 整理默认字段时先判空再读"
-      },
+      "prerelease": null,
       "displayName": "AssetForge",
       "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
       "kind": "extension"
@@ -231,8 +128,8 @@
         "displayName": "GameTest",
         "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
         "kind": "extension",
-        "version": "1.2.1",
-        "versionCode": 15,
+        "version": "1.2.2",
+        "versionCode": 17,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -275,75 +172,19 @@
         "panelTools": [
           "ue_gametest"
         ],
-        "tag": "GameTest-v1.2.1",
-        "asset": "GameTest-1.2.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.2.1/GameTest-1.2.1-src.zip",
-        "sha256": "b42653a3b26a5a8c07c8aaa88971fc447d2f9bd6a7eb91e35e46621c4086ffd7",
-        "size": 275959,
+        "tag": "GameTest-v1.2.2",
+        "asset": "GameTest-1.2.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.2.2/GameTest-1.2.2-src.zip",
+        "sha256": "34bf0a46f34587263b70adff157c05606f2a3703d459341bf0cbf3119cbde2d7",
+        "size": 276127,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "### Bug 修复\n- **打开工程时不再弹「插件为 5.4.0 构建、不兼容」** — 插件清单去掉了固定的引擎版本号，UE 5.4 到 5.8 打开工程都直接加载；只改了 `.uplugin`，C++ 没动"
+        "notes": "> 按用户要求直接发正式版：云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **查还没出报告的运行不再让编辑器崩溃** — `gt.report` 遇到运行结果里还没有报告时，返回「稍后再查」的错误，不再空指针崩溃"
       },
-      "prerelease": {
-        "name": "GameTest",
-        "displayName": "GameTest",
-        "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
-        "kind": "extension",
-        "version": "1.2.2-beta.1",
-        "versionCode": 16,
-        "engineMin": "5.4",
-        "engineTested": [],
-        "requires": {
-          "UELink": ">=2.4.0"
-        },
-        "enginePlugins": [
-          "CQTest"
-        ],
-        "optionalPlugins": [
-          "CommonUI",
-          "GameplayAbilities",
-          "EnhancedInput"
-        ],
-        "modules": [
-          {
-            "name": "GameTest",
-            "type": "Runtime"
-          },
-          {
-            "name": "GameTestCommonUI",
-            "type": "Runtime"
-          },
-          {
-            "name": "GameTestGAS",
-            "type": "Runtime"
-          },
-          {
-            "name": "GameTestEnhancedInput",
-            "type": "Runtime"
-          },
-          {
-            "name": "GameTestTests",
-            "type": "UncookedOnly"
-          }
-        ],
-        "editorOnly": false,
-        "replaces": [
-          "TkGameTest"
-        ],
-        "panelTools": [
-          "ue_gametest"
-        ],
-        "tag": "GameTest-v1.2.2-beta.1",
-        "asset": "GameTest-1.2.2-beta.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.2.2-beta.1/GameTest-1.2.2-beta.1-src.zip",
-        "sha256": "5b97eda1b2e8f68372ab9d03f1df88ed78286f6e539f28eb2635319e2e955a32",
-        "size": 276140,
-        "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "### Bug 修复\n- **查还没出报告的运行不再让编辑器崩溃** — `gt.report` 遇到运行结果里还没有报告时，返回「稍后再查」的错误，不再空指针崩溃"
-      },
+      "prerelease": null,
       "displayName": "GameTest",
       "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T14:27:00.561Z"
+  "updatedAt": "2026-11-16T14:54:07.400Z"
 }
