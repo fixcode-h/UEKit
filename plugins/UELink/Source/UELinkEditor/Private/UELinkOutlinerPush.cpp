@@ -10,7 +10,9 @@
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 
-namespace
+// 用具名命名空间、调用处写全名：单体构建（unity）会把同模块的 .cpp 拼在一起，匿名命名空间里的 Tick、Flush
+// 和 UELinkSelectionOps.cpp 的 UELinkSelection::Tick、Flush 撞名（5.4 上实际报过 C2872「不明确的符号」）
+namespace UELinkOutlinerPush
 {
 	TSet<FString> DirtyWorlds;
 	bool bAllDirty = false;
@@ -50,34 +52,34 @@ namespace
 
 void AgentPanelEd::StartOutlinerPush()
 {
-	if (!GEngine || !GIsEditor || IsRunningCommandlet() || Tick.IsValid())
+	if (!GEngine || !GIsEditor || IsRunningCommandlet() || UELinkOutlinerPush::Tick.IsValid())
 	{
 		return;
 	}
-	Hooks.Add(GEngine->OnLevelActorAdded().AddLambda([](AActor* A) { Mark(A); }));
-	Hooks.Add(GEngine->OnLevelActorDeleted().AddLambda([](AActor* A) { Mark(A); }));
-	Hooks.Add(GEngine->OnLevelActorAttached().AddLambda([](AActor* A, const AActor*) { Mark(A); }));
-	Hooks.Add(GEngine->OnLevelActorDetached().AddLambda([](AActor* A, const AActor*) { Mark(A); }));
-	Hooks.Add(GEngine->OnLevelActorFolderChanged().AddLambda([](const AActor* A, FName) { Mark(A); }));
-	Hooks.Add(GEngine->OnLevelActorListChanged().AddLambda([]() { bAllDirty = true; }));
-	Tick = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Flush), 0.5f);
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorAdded().AddLambda([](AActor* A) { UELinkOutlinerPush::Mark(A); }));
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorDeleted().AddLambda([](AActor* A) { UELinkOutlinerPush::Mark(A); }));
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorAttached().AddLambda([](AActor* A, const AActor*) { UELinkOutlinerPush::Mark(A); }));
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorDetached().AddLambda([](AActor* A, const AActor*) { UELinkOutlinerPush::Mark(A); }));
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorFolderChanged().AddLambda([](const AActor* A, FName) { UELinkOutlinerPush::Mark(A); }));
+	UELinkOutlinerPush::Hooks.Add(GEngine->OnLevelActorListChanged().AddLambda([]() { UELinkOutlinerPush::bAllDirty = true; }));
+	UELinkOutlinerPush::Tick = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&UELinkOutlinerPush::Flush), 0.5f);
 }
 
 void AgentPanelEd::StopOutlinerPush()
 {
-	if (Tick.IsValid())
+	if (UELinkOutlinerPush::Tick.IsValid())
 	{
-		FTSTicker::GetCoreTicker().RemoveTicker(Tick);
-		Tick.Reset();
+		FTSTicker::GetCoreTicker().RemoveTicker(UELinkOutlinerPush::Tick);
+		UELinkOutlinerPush::Tick.Reset();
 	}
 	if (GEngine)
 	{
-		GEngine->OnLevelActorAdded().Remove(Hooks.IsValidIndex(0) ? Hooks[0] : FDelegateHandle());
-		GEngine->OnLevelActorDeleted().Remove(Hooks.IsValidIndex(1) ? Hooks[1] : FDelegateHandle());
-		GEngine->OnLevelActorAttached().Remove(Hooks.IsValidIndex(2) ? Hooks[2] : FDelegateHandle());
-		GEngine->OnLevelActorDetached().Remove(Hooks.IsValidIndex(3) ? Hooks[3] : FDelegateHandle());
-		GEngine->OnLevelActorFolderChanged().Remove(Hooks.IsValidIndex(4) ? Hooks[4] : FDelegateHandle());
-		GEngine->OnLevelActorListChanged().Remove(Hooks.IsValidIndex(5) ? Hooks[5] : FDelegateHandle());
+		GEngine->OnLevelActorAdded().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(0) ? UELinkOutlinerPush::Hooks[0] : FDelegateHandle());
+		GEngine->OnLevelActorDeleted().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(1) ? UELinkOutlinerPush::Hooks[1] : FDelegateHandle());
+		GEngine->OnLevelActorAttached().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(2) ? UELinkOutlinerPush::Hooks[2] : FDelegateHandle());
+		GEngine->OnLevelActorDetached().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(3) ? UELinkOutlinerPush::Hooks[3] : FDelegateHandle());
+		GEngine->OnLevelActorFolderChanged().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(4) ? UELinkOutlinerPush::Hooks[4] : FDelegateHandle());
+		GEngine->OnLevelActorListChanged().Remove(UELinkOutlinerPush::Hooks.IsValidIndex(5) ? UELinkOutlinerPush::Hooks[5] : FDelegateHandle());
 	}
-	Hooks.Reset();
+	UELinkOutlinerPush::Hooks.Reset();
 }
