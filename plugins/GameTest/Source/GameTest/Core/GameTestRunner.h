@@ -80,6 +80,9 @@ struct FGameTestStepContext
 	/** 本次 run 的 UI 等待上限（毫秒，0 = 不限），见 FGameTestRunRequest::UiWaitTimeoutMs。 */
 	int32 UiWaitTimeoutMs = 0;
 
+	/** 本次 run 里 click 没写 via 时的点击方式（code / pointer），见 FGameTestRunRequest::ClickVia。 */
+	FString ClickVia;
+
 	/** UI 动作该填进 DefaultTimeoutMs 的值：不限时给 -1。 */
 	int32 UiWaitDefault() const
 	{
@@ -263,6 +266,7 @@ private:
 	bool bCancelling = false;
 
 	int32 UiWaitTimeoutMs = 0;
+	FString ClickVia;
 
 	/** AddStepEvent 攒下的事件：键 → 事件列表，下一步结束时并进它的 Payload。 */
 	TMap<FString, TArray<TSharedPtr<FJsonValue>>> PendingStepEvents;

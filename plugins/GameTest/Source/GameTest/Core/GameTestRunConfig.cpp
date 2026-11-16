@@ -93,6 +93,13 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		OutConfig.UiWaitTimeoutMs = Wait;
 	}
 
+	if (GameTestJson::TryGetString(InJson, TEXT("clickVia"), OutConfig.ClickVia) && !OutConfig.ClickVia.IsEmpty()
+		&& OutConfig.ClickVia != TEXT("code") && OutConfig.ClickVia != TEXT("pointer"))
+	{
+		OutError = TEXT("clickVia 只能是 code（调控件的点击委托，不动鼠标）或 pointer（真实鼠标）");
+		return false;
+	}
+
 	const TArray<TSharedPtr<FJsonValue>>* Items = GameTestJson::TryGetArray(InJson, TEXT("blockers"));
 	if (Items == nullptr)
 	{
@@ -158,6 +165,10 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (InConfig.UiWaitTimeoutMs >= 0)
 	{
 		Json->SetNumberField(TEXT("uiWaitTimeoutMs"), InConfig.UiWaitTimeoutMs);
+	}
+	if (!InConfig.ClickVia.IsEmpty())
+	{
+		Json->SetStringField(TEXT("clickVia"), InConfig.ClickVia);
 	}
 	TArray<TSharedPtr<FJsonValue>> Items;
 	for (const FGameTestBlockerRule& Rule : InConfig.Blockers)

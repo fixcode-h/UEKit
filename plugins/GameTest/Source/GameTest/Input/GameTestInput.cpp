@@ -207,6 +207,37 @@ bool GameTestInput::MovePointerTo(const FVector2D& InScreenPosition, FString& Ou
 	return true;
 }
 
+bool GameTestInput::SendVirtualClick(const FVector2D& InScreenPosition, FString& OutMessage)
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		OutMessage = TEXT("Slate 未初始化，发不了虚拟鼠标事件");
+		return false;
+	}
+
+	FSlateApplication& App = FSlateApplication::Get();
+	const FSyntheticScope Scope;
+	const FModifierKeysState Modifiers = MergedModifiers(App);
+	const FKey Button = EKeys::LeftMouseButton;
+
+	const FPointerEvent Move(
+		FSlateApplicationBase::CursorPointerIndex, InScreenPosition, InScreenPosition, TSet<FKey>(), EKeys::Invalid, 0.0f, Modifiers);
+	App.ProcessMouseMoveEvent(Move);
+
+	TSet<FKey> Pressed;
+	Pressed.Add(Button);
+	const FPointerEvent Down(
+		FSlateApplicationBase::CursorPointerIndex, InScreenPosition, InScreenPosition, Pressed, Button, 0.0f, Modifiers);
+	App.ProcessMouseButtonDownEvent(nullptr, Down);
+
+	const FPointerEvent Up(
+		FSlateApplicationBase::CursorPointerIndex, InScreenPosition, InScreenPosition, TSet<FKey>(), Button, 0.0f, Modifiers);
+	App.ProcessMouseButtonUpEvent(Up);
+
+	OutMessage = FString::Printf(TEXT("虚拟鼠标点击屏幕 (%.0f, %.0f)"), InScreenPosition.X, InScreenPosition.Y);
+	return true;
+}
+
 bool GameTestInput::SendWheel(float InDelta, FString& OutMessage)
 {
 	if (!FSlateApplication::IsInitialized())
