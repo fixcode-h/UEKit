@@ -505,7 +505,7 @@ const pageSettings = vbox('Page_Settings', [
           check('Vibration', '手柄震动', true),
           button('Open_Popup_Reset', '恢复默认', { kind: 'neutral', slot: { HorizontalAlignment: 'HAlign_Left', Padding: margin(0, 8, 0, 0) } }),
         ]),
-      ], fill()),
+      ]),
     ],
     { pad: 24, slot: { ...fill(), Padding: margin(0, 0, 0, 14) } },
   ),
@@ -621,7 +621,7 @@ const umg = {
   '//': '由 AssetForge 插件自带的示例测试界面：多页面、跳页、弹窗、列表、输入框、开关，用来练习 GameTest 录制。跳页逻辑在父类 ForgeSampleScreen 里，按控件名约定工作，说明见同目录的 README.md。',
   kind: 'umg-widget',
   schemaVersion: 1,
-  revision: 1,
+  revision: 2,
   asset: ASSET,
   parent: '/Script/AssetForgeTests.ForgeSampleScreen',
   root,
@@ -634,6 +634,32 @@ const map = {
   asset: MAP,
   root: { class: '/Script/Engine.WorldSettings', name: 'WorldSettings', props: { DefaultGameMode: '/Script/AssetForgeTests.ForgeSampleGameMode' } },
 }
+
+// ---- 核对 slot 写法：每种父面板的插槽认的属性不一样，写错了演练会拒（BorderSlot 没有 Size） ----
+const ALIGN = ['Padding', 'HorizontalAlignment', 'VerticalAlignment']
+const SLOT_KEYS = {
+  Overlay: ALIGN,
+  HorizontalBox: ['Size', ...ALIGN],
+  VerticalBox: ['Size', ...ALIGN],
+  Border: ALIGN,
+  Button: ALIGN,
+  SizeBox: ALIGN,
+  ScrollBox: ALIGN,
+  WidgetSwitcher: ALIGN,
+  UniformGridPanel: ['Row', 'Column', 'HorizontalAlignment', 'VerticalAlignment'],
+  CheckBox: [],
+}
+const slotErrors = []
+const checkSlots = (n) => {
+  for (const c of n.children ?? []) {
+    const allowed = SLOT_KEYS[n.class]
+    if (!allowed) slotErrors.push(`没登记 ${n.class} 的插槽属性`)
+    else for (const k of Object.keys(c.slot ?? {})) if (!allowed.includes(k)) slotErrors.push(`${c.name} 的 slot.${k}：${n.class} 的插槽没有这个属性`)
+    checkSlots(c)
+  }
+}
+checkSlots(root)
+if (slotErrors.length) throw new Error('\n' + [...new Set(slotErrors)].join('\n'))
 
 // ---- 选择器路径 ----
 const paths = {}

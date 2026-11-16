@@ -338,14 +338,17 @@ EForgeSyncState QuickState(const FString& InConfigPath, const FString& InAssetPa
 		return EForgeSyncState::NoAsset;
 	}
 
+	// 先看本机导入过没有：新配置（新建的、插件自带的示例、同事提交的）资产本来就不存在，
+	// 那是「还没导入」，不是「资产不存在」——后者只给导入过、资产后来没了的情况，否则新配置一出来就被标成出错
+	const FManifestCache& State = EnsureLoaded();
+	const ForgeManifest::FManifestEntry* Entry = State.Entries.Find(MakeManifestKey(InConfigPath));
+
 	const FString AssetMTime = AssetFileMTime(InAssetPath);
 	if (AssetMTime.IsEmpty() && !FPackageName::DoesPackageExist(NormalizeAssetPath(InAssetPath)))
 	{
-		return EForgeSyncState::AssetMissing;
+		return Entry == nullptr ? EForgeSyncState::NeverImported : EForgeSyncState::AssetMissing;
 	}
 
-	const FManifestCache& State = EnsureLoaded();
-	const ForgeManifest::FManifestEntry* Entry = State.Entries.Find(MakeManifestKey(InConfigPath));
 	if (Entry == nullptr)
 	{
 		return EForgeSyncState::NeverImported;
