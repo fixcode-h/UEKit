@@ -30,6 +30,7 @@ void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge&) {}
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "UObject/UObjectArray.h"
+#include "UObject/UObjectIterator.h"
 #include "lua.hpp"
 
 namespace AgentPanelLuaDebug
@@ -710,11 +711,27 @@ namespace AgentPanelLuaDebug
 		return false;
 	}
 
+	/**
+	 * 现在活着的全部 UObject 的地址。对象表里要找的恰恰是「已经销毁」的项，它们的地址可能已经被释放：
+	 * 不能像 GUObjectArray.IsValid 那样先读对象自己的内存（读已释放的内存可能直接崩），
+	 * 先拿地址在这张表里查，查到了才当成对象去读。只在这个排查操作里建一次，几十万个对象也只是一次遍历。
+	 */
+	TSet<const UObjectBase*> CollectLiveObjects()
+	{
+		TSet<const UObjectBase*> Live;
+		Live.Reserve(GUObjectArray.GetObjectArrayNumMinusAvailable());
+		for (TObjectIterator<UObject> It(RF_NoFlags); It; ++It)
+		{
+			Live.Add(*It);
+		}
+		return Live;
+	}
+
 	/** 对象表里的一项有没有问题：已经不在了、已标记销毁、所在的世界没了（只看 Actor、组件、UMG 控件） */
-	const TCHAR* MapEntryProblem(const void* P, FString& OutPath, FString& OutClass)
+	const TCHAR* MapEntryProblem(const void* P, const TSet<const UObjectBase*>& InLive, FString& OutPath, FString& OutClass)
 	{
 		const UObjectBase* Base = static_cast<const UObjectBase*>(P);
-		if (!GUObjectArray.IsValid(Base))
+		if (!InLive.Contains(Base) || !GUObjectArray.IsValid(Base))
 		{
 			return TEXT("stale");
 		}
@@ -876,6 +893,7 @@ namespace AgentPanelLuaDebug
 		const int Flag = lua_gettop(L);
 		TArray<TSharedPtr<FJsonObject>> Found;
 		int32 Scanned = 0;
+		const TSet<const UObjectBase*> LiveObjects = CollectLiveObjects();
 		lua_pushnil(L);
 		while (lua_next(L, C.Map))
 		{
@@ -890,7 +908,7 @@ namespace AgentPanelLuaDebug
 					lua_rawset(L, Inst);
 				}
 				FString ObjPath, Class;
-				if (const TCHAR* Kind = MapEntryProblem(P, ObjPath, Class))
+				if (const TCHAR* Kind = MapEntryProblem(P, LiveObjects, ObjPath, Class))
 				{
 					TSharedPtr<FJsonObject> E = MakeShared<FJsonObject>();
 					E->SetStringField(TEXT("kind"), Kind);
