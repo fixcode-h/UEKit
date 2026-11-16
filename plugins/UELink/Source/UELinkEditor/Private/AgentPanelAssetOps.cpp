@@ -243,7 +243,8 @@ namespace
 			TArray<TSharedPtr<FJsonValue>> Top;
 			for (const TSharedPtr<FJsonValue>& I : R->GetArrayField(TEXT("issues")))
 			{
-				const bool bErr = I->AsObject()->GetStringField(TEXT("severity")) == TEXT("error");
+				const TSharedPtr<FJsonObject> IssueObj = I.IsValid() ? I->AsObject() : nullptr;
+				const bool bErr = IssueObj.IsValid() && IssueObj->GetStringField(TEXT("severity")) == TEXT("error");
 				E += bErr ? 1 : 0;
 				W += bErr ? 0 : 1;
 				if (Top.Num() < 5)
