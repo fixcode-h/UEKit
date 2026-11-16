@@ -68,8 +68,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.4.0-beta.3",
-        "versionCode": 9,
+        "version": "2.4.0-beta.4",
+        "versionCode": 10,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -114,13 +114,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.4.0-beta.3",
-        "asset": "UELink-2.4.0-beta.3-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.0-beta.3/UELink-2.4.0-beta.3-src.zip",
-        "sha256": "c80c5f6591f0f629fb2f5940d4b343c9c6f07a03a8381971605758a098dc08a9",
-        "size": 192805,
+        "tag": "UELink-v2.4.0-beta.4",
+        "asset": "UELink-2.4.0-beta.4-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.4.0-beta.4/UELink-2.4.0-beta.4-src.zip",
+        "sha256": "aa3141882977f5490b74414e8a97e741d656cfdbbc4d9ba1559f05eab577980b",
+        "size": 204641,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端改的，还没在本地用 UE 完整编译验证过，先发预发布。\n\n### Bug 修复\n- **PIE 正在停止时操作不再碰正在关闭的世界** — 按世界找对象的操作和名片里的世界清单都跳过正在拆的世界，`world=pie0` 这类请求在那一帧直接回「找不到世界（PIE 可能已经停了）」\n- **编辑器退出或回收垃圾时不执行操作** — 这时对象随时会被销毁，`/rpc` 直接回一句原因，不去读写\n- **Lua 泄漏排查不再读已释放对象的内存** — 排查 UnLua 对象表里已销毁的对象时，先拿地址在当前活着的对象里查，查到了才去读对象本身"
+        "notes": "> 云端改的，还没在本地用 UE 完整编译验证过，先发预发布。\n\n### 新功能\n- **EmmyLua 断点时能看到 UE 对象的全部属性** — 用 EmmyLua 调试器在断点停下时，展开 UObject 会按声明类分组列出全部 UPROPERTY（和细节面板一样的顺序），Actor 还能看组件，最后是带参数的 UFunction 列表；结构体、TArray、TSet、TMap 分页展开。已经销毁的对象只显示「已失效」，不去读它的属性（以前在 Lua 侧读属性，对象没了会把游戏弄崩）。不用改项目代码：UELink 发现进程里有新版调试器就自动接上"
       },
       "displayName": "UELink",
       "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
@@ -134,8 +134,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.2.0-beta.2",
-        "versionCode": 6,
+        "version": "1.3.0-beta.1",
+        "versionCode": 7,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -167,13 +167,13 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.2.0-beta.2",
-        "asset": "AssetForge-1.2.0-beta.2-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.2.0-beta.2/AssetForge-1.2.0-beta.2-src.zip",
-        "sha256": "b789a34b49d952b260641972dcc27b5863a638f7267816617f7ff9b232388a70",
-        "size": 364810,
+        "tag": "AssetForge-v1.3.0-beta.1",
+        "asset": "AssetForge-1.3.0-beta.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.0-beta.1/AssetForge-1.3.0-beta.1-src.zip",
+        "sha256": "855ebd635882fece8402344d5e2e74dc0d9d3fe4e1d601aece8471ee17d54c38",
+        "size": 396347,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "> 云端改的，按 UE 5.4.1 的编译报错修的，还没在本地重新编译验证过，先发预发布。\n\n### Bug 修复\n- **UE 5.4 上编译不过** — 材质、字体、动画蓝图状态机、控件蓝图、资产健康检查里用到的只有 5.8 才有的接口，在 5.4 上换成等效写法，差异都收在 `AssetForgeCompat.h`，5.8 照旧\n- **UE 5.4 上的差别** — 资产健康检查只报逐资产的错误和警告（5.4 没有跨资产的校验消息）；改材质后的编译错误等材质编完再取"
+        "notes": "> 云端改的，还没在本地用 UE 5.4 / 5.8 编译验证过，先发预发布。\n\n### 新功能\n- **示例测试界面** — 插件自带一套多页面 UMG 界面的配置（侧栏六个页、子页签、多层跳转和返回、九个弹窗、列表、格子、复选框、滑条、下拉框、输入框），编辑器启动时装进配置根的 `Test/`，在 AssetForge 页导入就生成 `/Game/AgentTest/AssetForge/WBP_ForgeSample`，用来练习 GameTest 录制回放\n- **示例地图和 GameTest 场景** — 一并带一张示例地图（进图就显示示例界面，录完的场景回放能自己把界面带出来）和一个跑通跳页、弹窗、返回的 GameTest 场景（装进 GameTest 场景根的 `AssetForgeSample/`）；别的地图里 PIE 时控制台敲 `AssetForge.Sample` 打开 / 关掉界面\n- **跳页不用写蓝图** — 示例界面的父类按控件名约定接好跳页、返回、弹窗、选中、提交（`Go_`、`Back`、`Open_` / `Close_`、`Pick_`、`Submit_`），自己照着加页面、加按钮也只改 JSON\n\n### 注意\n- 改过的示例文件插件升级时不覆盖，删掉的不会再装回来；不想要示例在项目设置 → 插件 → Asset Forge 里关掉「安装示例测试界面」\n- 示例资产依赖只在编辑器里加载的测试模块，`/Game/AgentTest` 要加进「永不烘焙的目录」"
       },
       "displayName": "AssetForge",
       "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
@@ -300,5 +300,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T13:28:08.127Z"
+  "updatedAt": "2026-11-16T14:04:07.517Z"
 }
