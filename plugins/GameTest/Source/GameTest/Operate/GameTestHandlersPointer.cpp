@@ -10,7 +10,6 @@
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
 #include "GameTest.h"
-#include "GameTestSettings.h"
 
 #include "Components/Widget.h"
 #include "Dom/JsonObject.h"
@@ -47,11 +46,6 @@ namespace GameTestPointerDetail
 		/** 选择器命中多个、按录制线索挑出来的时候写怎么挑的（进步骤结果的 `picked`）。 */
 		FString PickNote;
 	};
-
-	int32 UiTimeoutMs()
-	{
-		return GetDefault<UGameTestSettings>()->UiWaitTimeoutMs;
-	}
 
 	TSharedPtr<SWidget> SlateOf(const FGameTestWidgetNode& InNode)
 	{
@@ -321,7 +315,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Progress = InContext.PendingProgress;
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
-		InContext.DefaultTimeoutMs = UiTimeoutMs();
+		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 		InContext.Message = FString::Printf(TEXT("点击 %s"), *Target);
 		// 按下后超时或被取消：执行器不再调谓词，这里把键松开，后面的步骤不会在「按住」下跑。
 		InContext.PendingCleanup = [State, Button]()
@@ -464,7 +458,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Progress = InContext.PendingProgress;
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
-		InContext.DefaultTimeoutMs = UiTimeoutMs();
+		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 		InContext.Message = ToTarget.IsEmpty()
 			? FString::Printf(TEXT("从 %s 拖动 (%.2f, %.2f)"), *Target, By.X, By.Y)
 			: FString::Printf(TEXT("把 %s 拖到 %s"), *Target, *ToTarget);
@@ -614,7 +608,7 @@ namespace GameTestPointerDetail
 		InContext.PendingProgress = MakeShared<FString>();
 		const TSharedPtr<FString> Progress = InContext.PendingProgress;
 
-		InContext.DefaultTimeoutMs = UiTimeoutMs();
+		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 		InContext.Message = FString::Printf(TEXT("在 %s 上滚动 %.1f"), *Target, Delta);
 		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, At, Delta](double)
 		{
@@ -678,7 +672,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Progress = InContext.PendingProgress;
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
-		InContext.DefaultTimeoutMs = UiTimeoutMs();
+		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 		InContext.Message = FString::Printf(TEXT("在 %s 输入「%s」%s"), *Target, *Text, bCommit ? TEXT("并回车") : TEXT(""));
 		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, Text, bCommit, bAppend](double)
 		{

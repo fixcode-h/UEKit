@@ -6,6 +6,8 @@
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestWidgetNode.h"
 
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
 #include "Misc/DateTime.h"
 
 bool FGameTestRunner::StartRun(
@@ -42,6 +44,8 @@ bool FGameTestRunner::StartRun(
 	OutputDir = InRequest.OutputDir;
 	DefaultStepTimeoutMs = InRequest.DefaultStepTimeoutMs;
 	StepDelayMs = InRequest.StepDelayMs;
+	UiWaitTimeoutMs = InRequest.UiWaitTimeoutMs;
+	PendingStepEvents.Reset();
 	Handles = InRuntimeState.Handles;
 	RootedObjects = InRuntimeState.RootedObjects;
 	OnStepFailed = InRuntimeState.OnStepFailed;
@@ -144,6 +148,7 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	Context.Handles = Handles;
 	Context.RootedObjects = RootedObjects;
 	Context.OutputDir = OutputDir;
+	Context.UiWaitTimeoutMs = UiWaitTimeoutMs;
 
 	EGameTestStepStatus Status = EGameTestStepStatus::Failed;
 
@@ -182,10 +187,16 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 		PendingCleanup = MoveTemp(Context.PendingCleanup);
 
 		// 步骤没写 timeoutMs、动作又给了自己的默认值：按动作的来（UI 自动等待默认短一些）。
+		// 小于 0 是「不设上限」：界面没出来就一直等，人看到卡住了可以 stop（报告里 timeoutMs 记 0）。
 		if (Step.TimeoutMs <= 0 && Context.DefaultTimeoutMs > 0)
 		{
 			CurrentRecord.Step.TimeoutMs = Context.DefaultTimeoutMs;
 			StepDeadline = InNowSeconds + Context.DefaultTimeoutMs / 1000.0;
+		}
+		else if (Step.TimeoutMs <= 0 && Context.DefaultTimeoutMs < 0)
+		{
+			CurrentRecord.Step.TimeoutMs = 0;
+			StepDeadline = TNumericLimits<double>::Max();
 		}
 		bStepInFlight = true;
 		return;
@@ -221,6 +232,20 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	const bool bStopAfterFailure = (InStatus == EGameTestStepStatus::Failed)
 		&& CurrentRecord.Step.FailMode == EGameTestFailMode::Stop;
 
+	// run 期间攒下的事件（关掉的阻挡界面等）归到这一步：失败证据和报告里都看得到。
+	if (PendingStepEvents.Num() > 0)
+	{
+		if (!CurrentRecord.Payload.IsValid())
+		{
+			CurrentRecord.Payload = MakeShared<FJsonObject>();
+		}
+		for (TPair<FString, TArray<TSharedPtr<FJsonValue>>>& Pair : PendingStepEvents)
+		{
+			CurrentRecord.Payload->SetArrayField(Pair.Key, Pair.Value);
+		}
+		PendingStepEvents.Reset();
+	}
+
 	// 收尾放在留证据之前：真实点击超时时鼠标键还按着，截图里不该带着这个半截状态，日志也该先写完收尾那几行。
 	bStepInFlight = false;
 	PendingPredicate = nullptr;
@@ -251,6 +276,15 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	{
 		NextStepNotBefore = InNowSeconds + StepDelayMs / 1000.0;
 	}
+}
+
+void FGameTestRunner::AddStepEvent(const FString& InKey, const TSharedPtr<FJsonObject>& InEvent)
+{
+	if (!bActive || !InEvent.IsValid())
+	{
+		return;
+	}
+	PendingStepEvents.FindOrAdd(InKey).Add(MakeShared<FJsonValueObject>(InEvent));
 }
 
 void FGameTestRunner::Cancel(const FString& InReason)

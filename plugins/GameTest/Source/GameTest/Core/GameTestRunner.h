@@ -6,6 +6,7 @@
 #include "Core/GameTestTypes.h"
 
 class FJsonObject;
+class FJsonValue;
 class UWidget;
 class UWorld;
 struct FGameTestWidgetNode;
@@ -72,9 +73,18 @@ struct FGameTestStepContext
 
 	/**
 	 * 动作自己的默认超时（毫秒）：步骤没写 `timeoutMs` 时用它代替全局的单步默认超时。
-	 * UI 动作的自动等待用较短的默认值（项目设置「UI 等待超时」），不必等满一分钟才知道界面没出来。
+	 * UI 动作的自动等待用 `UiWaitDefault()`。小于 0 表示不设上限：一直等，直到完成或有人 stop。
 	 */
 	int32 DefaultTimeoutMs = 0;
+
+	/** 本次 run 的 UI 等待上限（毫秒，0 = 不限），见 FGameTestRunRequest::UiWaitTimeoutMs。 */
+	int32 UiWaitTimeoutMs = 0;
+
+	/** UI 动作该填进 DefaultTimeoutMs 的值：不限时给 -1。 */
+	int32 UiWaitDefault() const
+	{
+		return UiWaitTimeoutMs > 0 ? UiWaitTimeoutMs : -1;
+	}
 };
 
 using FGameTestHandler = EGameTestStepStatus (*)(FGameTestStepContext&);
@@ -180,6 +190,18 @@ public:
 		return bTouchedSucceeded;
 	}
 
+	/** 正在执行（跨帧等待中）的那一步；两步之间或没有 run 时为空。阻挡界面处理据此避开这一步要点的界面。 */
+	const FGameTestStep* GetStepInFlight() const
+	{
+		return bActive && bStepInFlight ? &CurrentRecord.Step : nullptr;
+	}
+
+	/**
+	 * 记一条 run 期间发生的事（例如自动关掉了一个阻挡界面）：攒着，下一步结束时写进它的 `payload.<InKey>` 数组。
+	 * 两步之间发生的就记在下一步上。执行器只管归档，不管事件内容。
+	 */
+	void AddStepEvent(const FString& InKey, const TSharedPtr<FJsonObject>& InEvent);
+
 private:
 	void StartCurrentStep(double InNowSeconds);
 	void CompleteCurrentStep(EGameTestStepStatus InStatus, const FString& InMessage, double InNowSeconds);
@@ -239,4 +261,9 @@ private:
 
 	/** 正在取消：这时被标失败的步骤是人叫停的，不是测试没过，不留证据。 */
 	bool bCancelling = false;
+
+	int32 UiWaitTimeoutMs = 0;
+
+	/** AddStepEvent 攒下的事件：键 → 事件列表，下一步结束时并进它的 Payload。 */
+	TMap<FString, TArray<TSharedPtr<FJsonValue>>> PendingStepEvents;
 };

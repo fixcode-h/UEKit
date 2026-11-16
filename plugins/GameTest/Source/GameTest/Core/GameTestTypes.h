@@ -126,6 +126,12 @@ struct GAMETEST_API FGameTestRunRequest
 
 	/** 每步**成功之后**的间隔（毫秒）；0 = 不停顿。来源同 `DefaultStepTimeoutMs`。 */
 	int32 StepDelayMs = 0;
+
+	/**
+	 * UI 动作等目标控件出现、可操作的上限（毫秒）；0 = 不限，一直等到控件出来或有人 stop。
+	 * 子系统按「场景 > 项目运行配置 > 项目设置」的顺序定下来再注入。
+	 */
+	int32 UiWaitTimeoutMs = 0;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

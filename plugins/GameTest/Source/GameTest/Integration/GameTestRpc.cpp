@@ -7,6 +7,7 @@
 #include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Core/GameTestJson.h"
+#include "Core/GameTestRunConfig.h"
 #include "Core/GameTestScenario.h"
 #include "Observe/GameTestInspect.h"
 #include "Observe/GameTestResolve.h"
@@ -554,6 +555,48 @@ namespace
 		return true;
 	}
 
+	/**
+	 * 项目运行配置（场景根的 _settings.json：阻挡界面规则、UI 等待上限）。
+	 * 不带 config 是读；带 config 是校验后整份写回（dryRun 只校验不落盘），面板 GameTest 页「运行设置」用。
+	 */
+	bool Config(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		const FString Path = GameTestRunConfig::GetPath();
+		FGameTestRunConfig RunConfig;
+		const TSharedPtr<FJsonObject>* Incoming = nullptr;
+		const bool bWrite = Args.IsValid() && Args->TryGetObjectField(TEXT("config"), Incoming) && Incoming != nullptr;
+		const bool bDryRun = Bool(Args, TEXT("dryRun"), false);
+		if (bWrite)
+		{
+			if (!GameTestRunConfig::FromJson(**Incoming, RunConfig, Error))
+			{
+				return false;
+			}
+			if (!bDryRun && !GameTestRunConfig::Save(RunConfig, Error))
+			{
+				return false;
+			}
+		}
+		else if (!GameTestRunConfig::Load(RunConfig, Error))
+		{
+			return false;
+		}
+
+		Out = MakeShared<FJsonObject>();
+		Out->SetStringField(TEXT("path"), GameTestShot::ToProjectRelative(Path));
+		Out->SetBoolField(TEXT("exists"), IFileManager::Get().FileExists(*Path));
+		Out->SetObjectField(TEXT("config"), GameTestRunConfig::ToJson(RunConfig));
+		// 项目设置里的默认值：配置没写 uiWaitTimeoutMs 时按它，面板显示「默认：…」
+		const UGameTestSettings* Settings = GetDefault<UGameTestSettings>();
+		Out->SetNumberField(TEXT("settingsUiWaitTimeoutMs"), Settings != nullptr ? Settings->UiWaitTimeoutMs : 0);
+		if (bWrite)
+		{
+			Out->SetBoolField(TEXT("dryRun"), bDryRun);
+			Out->SetStringField(TEXT("message"), bDryRun ? TEXT("演练：配置有效，没有写盘") : TEXT("已保存，下次运行生效"));
+		}
+		return true;
+	}
+
 	void Add(const TCHAR* Name, bool (*Op)(const TSharedPtr<FJsonObject>&, TSharedPtr<FJsonObject>&, FString&))
 	{
 		if (FAgentPanelBridge::Get().AddExtensionOp(Name, Op))
@@ -606,6 +649,7 @@ void Register()
 	Add(TEXT("gt.inspect"), &Inspect);
 	Add(TEXT("gt.resolve"), &Resolve);
 	Add(TEXT("gt.history"), &History);
+	Add(TEXT("gt.config"), &Config);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)

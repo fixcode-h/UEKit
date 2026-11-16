@@ -236,6 +236,8 @@ namespace GameTestHandlers
 			const FString Target = InContext.Step->Target;
 			TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
 			const bool bExpectPresent = (Until == TEXT("widget"));
+			// 等界面出现 / 消失和点击的自动等待同一个上限（默认不限）。
+			InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 
 			InContext.PendingPredicate = [Target, Handles, bExpectPresent](double)
 			{

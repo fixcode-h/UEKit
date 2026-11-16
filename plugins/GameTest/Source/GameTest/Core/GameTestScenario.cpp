@@ -3,6 +3,7 @@
 #include "Core/GameTestScenario.h"
 
 #include "Core/GameTestJson.h"
+#include "Core/GameTestRunConfig.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -181,6 +182,13 @@ TArray<FGameTestScenarioInfo> GameTestScenario::ScanDirectory(const FString& InR
 
 	for (const FString& AbsolutePath : Found)
 	{
+		// 场景根下的运行配置（阻挡界面规则、UI 等待上限）不是场景，不列出来。
+		if (FPaths::GetCleanFilename(AbsolutePath) == GameTestRunConfig::FileName()
+			&& FPaths::IsSamePath(FPaths::GetPath(AbsolutePath), InRootDir))
+		{
+			continue;
+		}
+
 		FGameTestScenarioInfo Info;
 		Info.AbsolutePath = AbsolutePath;
 
@@ -272,6 +280,8 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 	OutRun.Revision = GetRevision(Json);
 	OutRun.StepDelayMs = -1;
 	GameTestJson::TryGetInt(*Json, TEXT("stepDelayMs"), OutRun.StepDelayMs);
+	OutRun.UiWaitTimeoutMs = -1;
+	GameTestJson::TryGetInt(*Json, TEXT("uiWaitTimeoutMs"), OutRun.UiWaitTimeoutMs);
 	return true;
 }
 

@@ -41,6 +41,8 @@ struct GAMETEST_API FGameTestScenarioRun
 	int32 Revision = 0;
 	/** 场景自己的步间隔；-1 表示按设置。 */
 	int32 StepDelayMs = -1;
+	/** 场景自己的 UI 等待上限（毫秒，0 = 不限）；-1 表示按项目运行配置和设置。 */
+	int32 UiWaitTimeoutMs = -1;
 };
 
 /**
