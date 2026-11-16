@@ -1,12 +1,5 @@
 #include "AgentPanelBridge.h"
-#include "Runtime/Launch/Resources/Version.h"
-
-// 5.8 起 FCoreDelegates::OnPostEngineInit 弃用，改用 GetOnPostEngineInit()；更早的版本只有前者
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 8)
-#define AGENT_PANEL_POST_ENGINE_INIT FCoreDelegates::GetOnPostEngineInit()
-#else
-#define AGENT_PANEL_POST_ENGINE_INIT FCoreDelegates::OnPostEngineInit
-#endif
+#include "UELinkCompat.h"
 
 #include "AgentPanelLog.h"
 #include "UELinkVersion.h"
@@ -473,7 +466,7 @@ public:
 		{
 			return;
 		}
-		PostInit = AGENT_PANEL_POST_ENGINE_INIT.AddLambda([]()
+		PostInit = UELINK_POST_ENGINE_INIT.AddLambda([]()
 		{
 			const FString Kind = GIsEditor && !IsRunningGame() ? TEXT("editor") : IsRunningDedicatedServer() ? TEXT("server") : TEXT("game");
 			FAgentPanelBridge::Get().Start(Kind);
@@ -483,7 +476,7 @@ public:
 
 	virtual void ShutdownModule() override
 	{
-		AGENT_PANEL_POST_ENGINE_INIT.Remove(PostInit);
+		UELINK_POST_ENGINE_INIT.Remove(PostInit);
 		FAgentPanelBridge::Get().Stop();
 	}
 

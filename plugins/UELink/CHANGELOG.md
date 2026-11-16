@@ -2,6 +2,17 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.3.1-beta.1
+
+> 还没在本地用 UE 完整编译验证过，先发预发布。
+
+### Bug 修复
+- **UE 5.4 下编译不过** — 编辑器模块单体构建时，trace 分析那份代码的 `using namespace TraceServices` 漏进了同一编译单元后面的文件，引擎 ContentBrowserData 头里的 `FFrame` 报「不明确的符号」（C2872）。改成只在自己的命名空间里生效
+- **资源校验的弃用警告** — `asset.validate` 改调 const 版的 `IsDataValid`，5.4 上不再报 C4996
+
+### 改进
+- **以 UE 5.4 为基准** — 各处 5.8 才有的接口统一收进 `UELinkCompat.h` 的版本宏，默认走 5.4 的写法
+
 ## v2.3.0
 
 > 按用户要求直接发正式版：发布前还没在本地用 UE 完整编译验证过，装好后编译有问题请反馈。

@@ -410,7 +410,8 @@ void AgentPanelEd::RegisterAssetOps()
 			return false;
 		}
 		FDataValidationContext Context;
-		const EDataValidationResult Result = Obj->IsDataValid(Context);
+		// 走 const 版本：5.4 起非 const 的 IsDataValid(FDataValidationContext&) 弃用（会报 C4996），const 版各版本都有
+		const EDataValidationResult Result = static_cast<const UObject*>(Obj)->IsDataValid(Context);
 		Out->SetStringField(TEXT("result"), Result == EDataValidationResult::Invalid ? TEXT("invalid") : Result == EDataValidationResult::Valid ? TEXT("valid") : TEXT("notValidated"));
 		TArray<TSharedPtr<FJsonValue>> Issues;
 		for (const FDataValidationContext::FIssue& I : Context.GetIssues())

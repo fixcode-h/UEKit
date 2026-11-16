@@ -26,12 +26,7 @@
 #include "ILiveCodingModule.h"
 #endif
 
-// 5.8 起 FCoreDelegates::OnPostEngineInit 弃用（同 UELinkCore 的 AgentPanelBridge.cpp）
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 8)
-#define UELINK_EDITOR_POST_ENGINE_INIT FCoreDelegates::GetOnPostEngineInit()
-#else
-#define UELINK_EDITOR_POST_ENGINE_INIT FCoreDelegates::OnPostEngineInit
-#endif
+#include "UELinkCompat.h"
 
 using namespace AgentPanel;
 using namespace AgentPanelEd;
@@ -371,7 +366,7 @@ public:
 		RegisterTextifyOps();
 		RegisterStreamOps();
 		// 推送通道等引擎初始化完再起（和运行时模块的 HTTP 服务同一时机）；commandlet、游戏进程里 Start 自己会跳过
-		PostInit = UELINK_EDITOR_POST_ENGINE_INIT.AddLambda([]()
+		PostInit = UELINK_POST_ENGINE_INIT.AddLambda([]()
 		{
 			FUELinkStream::Get().Start();
 			StartOutlinerPush();
@@ -380,7 +375,7 @@ public:
 
 	virtual void ShutdownModule() override
 	{
-		UELINK_EDITOR_POST_ENGINE_INIT.Remove(PostInit);
+		UELINK_POST_ENGINE_INIT.Remove(PostInit);
 		StopOutlinerPush();
 		FUELinkStream::Get().Stop();
 	}
