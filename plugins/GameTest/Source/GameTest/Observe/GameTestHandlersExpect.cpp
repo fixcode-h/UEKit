@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestHandlerShared.h"
+#include "GameTestCompat.h"
 
 #include "Core/GameTestJson.h"
 #include "Core/GameTestWorld.h"
@@ -48,11 +49,12 @@ namespace
 			return true;
 		}
 
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InObject->Values)
+		for (const auto& Pair : InObject->Values)
 		{
-			if (Pair.Key != TEXT("client") && Pair.Key != TEXT("locallyControlled"))
+			const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+			if (PairKey != TEXT("client") && PairKey != TEXT("locallyControlled"))
 			{
-				OutError = FString::Printf(TEXT("%s 里不认识字段 '%s'（可用：client, locallyControlled）"), InSideName, *Pair.Key);
+				OutError = FString::Printf(TEXT("%s 里不认识字段 '%s'（可用：client, locallyControlled）"), InSideName, *PairKey);
 				return false;
 			}
 		}
@@ -517,9 +519,10 @@ namespace GameTestHandlers
 			{
 				// 字段名写错是硬错误——把该节点实际有的字段列出来，省一次瞎猜。
 				TArray<FString> Keys;
-				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Node->State->Values)
+				for (const auto& Pair : Node->State->Values)
 				{
-					Keys.Add(Pair.Key);
+					const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+					Keys.Add(PairKey);
 				}
 				Mismatches.Add(FString::Printf(TEXT("state 里没有字段 '%s'（实际有：%s）"),
 					*StateKey, Keys.Num() > 0 ? *FString::Join(Keys, TEXT("、")) : TEXT("（空）")));

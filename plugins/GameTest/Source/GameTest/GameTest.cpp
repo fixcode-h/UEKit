@@ -71,9 +71,10 @@ namespace
 				UE_LOG(LogGameTest, Error, TEXT("参数 JSON 解析失败：%s"), *ParseError);
 				return;
 			}
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Params->Values)
+			for (const auto& Pair : Params->Values)
 			{
-				StepJson->SetField(Pair.Key, Pair.Value);
+				const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+				StepJson->SetField(PairKey, Pair.Value);
 			}
 		}
 

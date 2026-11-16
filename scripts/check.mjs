@@ -76,6 +76,9 @@ for (const p of plugins) {
     const text = readFileSync(f, 'utf8')
     if (text.charCodeAt(0) === 0xfeff) fail(`${rel} 带 BOM：统一用不带 BOM 的 UTF-8`)
     for (const m of text.matchAll(/IMPLEMENT_MODULE\s*\(\s*\w+\s*,\s*(\w+)\s*\)/g)) implemented.add(m[1])
+    // 版本差异只写在 Compat 头里：业务代码不直接判断引擎版本（UELink 也一样）
+    if (!/Compat\.h$/.test(rel) && /#\s*if[^\n]*ENGINE_(MAJOR|MINOR)_VERSION|UE_VERSION_(NEWER|OLDER)_THAN/.test(text))
+      fail(`${rel} 直接判断了引擎版本：版本差异写进 <插件>Compat.h，这里只用它定义的宏`)
     if (p.name === 'UELink') {
       if (/AGENTPANELBRIDGE(EDITOR)?_API/.test(text)) fail(`${rel} 还在用旧的导出宏 AGENTPANELBRIDGE_API，改成 UELINKCORE_API`)
       continue
@@ -84,9 +87,6 @@ for (const p of plugins) {
     if (/GetHttpRouter\s*\(/.test(text)) fail(`${rel} 自己开了 HTTP 服务：扩展的操作用 FAgentPanelBridge::AddExtensionOp 挂到 UELink 上`)
     // 原项目的前缀 Tk 已经去掉，防止搬代码时漏改
     if (/\b[FUSE]?Tk[A-Z]\w*|TK(ASSETFORGE|GAMETEST)\w*_API/.test(text)) fail(`${rel} 还有原项目前缀 Tk 的名字`)
-    // 版本差异只写在 Compat 头里：业务代码不直接判断引擎版本
-    if (!/Compat\.h$/.test(rel) && /#\s*if[^\n]*ENGINE_(MAJOR|MINOR)_VERSION|UE_VERSION_(NEWER|OLDER)_THAN/.test(text))
-      fail(`${rel} 直接判断了引擎版本：版本差异写进 <插件>Compat.h，这里只用它定义的宏`)
   }
   for (const name of moduleNames) if (!implemented.has(name)) fail(`没有找到 IMPLEMENT_MODULE(..., ${name})`)
   if (!errors.some((e) => e.startsWith(`${p.name}：`)))

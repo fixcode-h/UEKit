@@ -4,11 +4,15 @@
 // 放在编辑器模块：后台编辑器（-run=AgentPanel）和编辑器都加载它，游戏进程不加载，分析不拖慢要测的帧率。
 //
 // 只用最基础的几个接口（线程列表、时间线进出事件、计时器名字、帧、书签、计数器、日志），
-// TraceServices 的类型一律写全名（TraceServices::FFrame 等）：UObject 也有 FFrame（蓝图调用栈），只写短名在 5.8 上会撞名。
+// TraceServices 的类型一律写全名（TraceServices::FFrame 等）：UObject 也有 FFrame（蓝图调用栈），只写短名会撞名。
+// using namespace TraceServices 只能放在本文件自己的具名命名空间里（UELinkTrace），不能放文件作用域：
+// 单体构建（unity）把同模块的 .cpp 拼成一个编译单元，文件作用域的 using 会漏进后面的文件，
+// 后面 include 的 ContentBrowserData 等引擎头里写的短名 FFrame 就变成「不明确的符号」（5.4 上实际报过 C2872）。
 // 计时器汇总和调用树都在这里自己按进出事件算，不用 CreateAggregation 之类各版本签名不一样的接口。
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelEditorShared.h"
+#include "UELinkCompat.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -27,6 +31,9 @@
 #include "TraceServices/Model/TimingProfiler.h"
 
 using namespace AgentPanel;
+
+namespace UELinkTrace
+{
 using namespace TraceServices;
 
 namespace
@@ -159,7 +166,7 @@ namespace
 
 		explicit FTimers(const ITimingProfilerProvider& TP)
 		{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 8)
+#if UELINK_TRACE_TIMER_READER
 			// 5.8 起 ReadTimers 弃用，改 GetTimerReader()；返回引用还是指针都接得住
 			Reader = AsReader(TP.GetTimerReader());
 #else
@@ -897,11 +904,15 @@ namespace
 		Out->SetArrayField(TEXT("items"), Items);
 	}
 }
+} // namespace UELinkTrace
 
 namespace AgentPanelEd
 {
 	void RegisterTraceOps()
 	{
+		// 块作用域的 using 不会漏到别的文件（见文件头）
+		using namespace UELinkTrace;
+		using namespace TraceServices;
 		FAgentPanelBridge::Get().AddOp(TEXT("trace.query"), [](const TSharedPtr<FJsonObject>& A, TSharedPtr<FJsonObject>& Out, FString& Error)
 		{
 			const FString File = FPaths::ConvertRelativePathToFull(Str(A, TEXT("file")));

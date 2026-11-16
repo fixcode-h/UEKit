@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/GameTestRpc.h"
+#include "GameTestCompat.h"
 
 #include "AgentPanelBridge.h"
 #include "Core/GameTestHooks.h"
@@ -465,11 +466,12 @@ namespace
 	void PublishJob(const TSharedRef<FJsonObject>& InJob)
 	{
 		const TSharedRef<FJsonObject> Event = MakeShared<FJsonObject>();
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InJob->Values)
+		for (const auto& Pair : InJob->Values)
 		{
-			if (Pair.Key != TEXT("steps"))
+			const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+			if (PairKey != TEXT("steps"))
 			{
-				Event->SetField(Pair.Key, Pair.Value);
+				Event->SetField(PairKey, Pair.Value);
 			}
 		}
 

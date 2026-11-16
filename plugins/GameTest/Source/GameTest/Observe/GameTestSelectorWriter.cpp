@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestSelectorWriter.h"
+#include "GameTestCompat.h"
 
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestSelector.h"
@@ -149,11 +150,12 @@ namespace GameTestSelectorWriterDetail
 			const TSharedPtr<FJsonObject> Mine = GameTestSnapshot::DumpProperties(InItem);
 			if (Mine.IsValid())
 			{
-				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Mine->Values)
+				for (const auto& Pair : Mine->Values)
 				{
-					const bool bIdLike = Pair.Key.Equals(TEXT("id"), ESearchCase::IgnoreCase) || Pair.Key.Equals(TEXT("key"), ESearchCase::IgnoreCase)
-						|| Pair.Key.Equals(TEXT("guid"), ESearchCase::IgnoreCase) || Pair.Key.EndsWith(TEXT("Id"), ESearchCase::CaseSensitive)
-						|| Pair.Key.EndsWith(TEXT("ID"), ESearchCase::CaseSensitive);
+					const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+					const bool bIdLike = PairKey.Equals(TEXT("id"), ESearchCase::IgnoreCase) || PairKey.Equals(TEXT("key"), ESearchCase::IgnoreCase)
+						|| PairKey.Equals(TEXT("guid"), ESearchCase::IgnoreCase) || PairKey.EndsWith(TEXT("Id"), ESearchCase::CaseSensitive)
+						|| PairKey.EndsWith(TEXT("ID"), ESearchCase::CaseSensitive);
 					if (!bIdLike || !Pair.Value.IsValid() || (Pair.Value->Type != EJson::String && Pair.Value->Type != EJson::Number))
 					{
 						continue;
@@ -170,7 +172,7 @@ namespace GameTestSelectorWriterDetail
 					for (const UObject* Other : Items)
 					{
 						const TSharedPtr<FJsonObject> OtherProps = GameTestSnapshot::DumpProperties(Other);
-						const TSharedPtr<FJsonValue> OtherValue = OtherProps.IsValid() ? OtherProps->TryGetField(Pair.Key) : nullptr;
+						const TSharedPtr<FJsonValue> OtherValue = OtherProps.IsValid() ? OtherProps->TryGetField(PairKey) : nullptr;
 						if (OtherValue.IsValid() && OtherValue->AsString() == Value)
 						{
 							++SameValue;
@@ -178,7 +180,7 @@ namespace GameTestSelectorWriterDetail
 					}
 					if (SameValue == 1)
 					{
-						return FString::Printf(TEXT("[%s=%s]"), *Pair.Key, *Value);
+						return FString::Printf(TEXT("[%s=%s]"), *PairKey, *Value);
 					}
 				}
 			}
