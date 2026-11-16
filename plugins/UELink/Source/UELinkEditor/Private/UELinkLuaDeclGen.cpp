@@ -5,7 +5,7 @@
 
 #include "Engine/Blueprint.h"
 #include "Engine/UserDefinedEnum.h"
-#include "Engine/UserDefinedStruct.h"
+#include "StructUtils/UserDefinedStruct.h"
 #include "ObjectEditorUtils.h"
 #include "UObject/Class.h"
 #include "UObject/EnumProperty.h"

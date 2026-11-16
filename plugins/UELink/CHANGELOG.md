@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.5.1
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### Bug 修复
+- **2.5.0 编译不过** — 用户定义结构体的头文件路径写错（`Engine/UserDefinedStruct.h` → `StructUtils/UserDefinedStruct.h`），UELinkEditor 编译报「无法打开包括文件」
+
 ## v2.5.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
