@@ -102,12 +102,20 @@ namespace
 
 		const TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
 		for (const TCHAR* Field : { TEXT("ok"), TEXT("finished"), TEXT("status"), TEXT("message"), TEXT("action"), TEXT("runId"),
-				 TEXT("name"), TEXT("succeeded"), TEXT("total"), TEXT("failed"), TEXT("planned"), TEXT("busy"), TEXT("outputDir") })
+				 TEXT("name"), TEXT("scenario"), TEXT("succeeded"), TEXT("total"), TEXT("failed"), TEXT("planned"), TEXT("busy"), TEXT("outputDir") })
 		{
 			if (const TSharedPtr<FJsonValue> Value = InJson->TryGetField(Field))
 			{
 				Out->SetField(Field, Value);
 			}
+		}
+		// 批量的计数留在摘要里（每项的明细在文件里）：Agent 不读文件也知道批量过没过
+		const TSharedPtr<FJsonObject>* Batch = nullptr;
+		if (InJson->TryGetObjectField(TEXT("batch"), Batch) && Batch != nullptr)
+		{
+			const TSharedPtr<FJsonObject> Counts = MakeShared<FJsonObject>(**Batch);
+			Counts->RemoveField(TEXT("items"));
+			Out->SetObjectField(TEXT("batch"), Counts);
 		}
 		Out->SetBoolField(TEXT("truncated"), true);
 		Out->SetStringField(TEXT("file"), GameTestShot::ToProjectRelative(Path));
