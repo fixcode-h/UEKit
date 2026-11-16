@@ -2,9 +2,12 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
-## v2.4.4
+## v2.5.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### 新功能
+- **后台增量生成 UE 反射的 Lua 声明（默认关闭）** — 打开后编辑器在后台把原生类、结构体、枚举、蓝图生成 EmmyLua 注解的 Lua 声明，放在 `Intermediate/UELink/LuaDecl`，IntelliJ-EmmyLua 自动用它做跳转、补全。不用再手动点 UnLua 的 Generate IntelliSense：蓝图编译、资源保存 / 改名 / 删除、Live Coding 后只更新变了的文件，内容没变不写盘。打开：IntelliJ-EmmyLua 设置里点「让 UE 编辑器后台生成」，或编辑器控制台 `UELink.LuaDecl.Enable 1`，或面板调 `luadecl.enable`
 
 ### Bug 修复
 - **EmmyLua 调试 runtime 重新加载后 UE 属性还能接上** — 调试核心卸载后在同一地址重新加载时，旧版会以为还注册着，断点时看不到 UE 属性；现在向新版 runtime 确认注册还在，丢了就重新注册。runtime 拒绝注册时日志里写明原因

@@ -18,7 +18,9 @@ public class UELinkEditor : ModuleRules
 			// 推送通道（从 UEToVSLink 合进来）：本机 TCP 服务、在内容浏览器里定位资源
 			"Sockets", "Networking", "ContentBrowser",
 			// 编辑器选中同步（2.4）：读蓝图编辑器里选中的节点（FBlueprintEditor）
-			"Kismet"
+			"Kismet",
+			// 后台生成 Lua 声明（2.5）：找 UnLua 插件目录拷它自带的静态声明
+			"Projects"
 		});
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
