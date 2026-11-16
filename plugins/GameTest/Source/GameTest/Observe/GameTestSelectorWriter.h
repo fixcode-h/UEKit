@@ -17,7 +17,8 @@ struct FGameTestWrittenTarget
 
 	/**
 	 * 线索：`asset`（WBP 资源路径）、`class`、`text`、`rect`（视口归一化 [x, y, w, h]）。
-	 * 只用来显示和在解析失败时给候选，回放不会拿它换目标。解析核对没过时多一个 `ambiguous`（原因）。
+	 * 用来显示；选择器命中同一个 WBP 的几个实例时，回放按 `text`、`rect` 挑回录的那一个（GameTestHintPick），别的情况不拿它换目标。
+	 * 解析核对没过、但按线索挑得回来时多一个 `pick`（说明）；挑不回来时多一个 `ambiguous`（原因）。
 	 */
 	TSharedPtr<FJsonObject> Hint;
 
@@ -33,7 +34,9 @@ struct FGameTestWrittenTarget
  *    （`WBP_Item_C_12` 这类，名字等于类名加序号、又不在 WBP 的控件树里）换成 `#类名#同类序号`。
  * 2. 所在的 WBP 是嵌套的实例：先写出这个实例，再用 `>` 进去。
  * 3. 所在的 WBP 是列表条目：写成 `列表[属性=值]`（能找到唯一的 Id 类属性时）或 `列表[序号]`。
- * 4. 写完用回放同一套解析核对：必须唯一、指回同一个控件，否则在 hint 里记下原因。
+ * 4. 所在的 WBP 没有 UMG 父面板、挂在某个控件的 Slate 上（DynamicEntryBox、自定义列表、Lua 挂的）：
+ *    写成 `容器/#类名#同类序号`，快照把它挂在同一个容器下面（GameTestSlate::CollectAttachedUserWidgets）。
+ * 5. 写完用回放同一套解析核对：必须唯一、指回同一个控件；不唯一但按线索挑得回来时记 `pick`，否则记 `ambiguous`。
  */
 class GAMETEST_API GameTestSelectorWriter
 {

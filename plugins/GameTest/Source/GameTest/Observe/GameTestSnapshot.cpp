@@ -3,6 +3,7 @@
 #include "Observe/GameTestSnapshot.h"
 
 #include "Core/GameTestJson.h"
+#include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetJson.h"
 #include "Observe/GameTestWidgetNode.h"
 #include "Operate/GameTestOps.h"
@@ -304,6 +305,18 @@ TSharedPtr<FGameTestWidgetNode> GameTestSnapshot::CaptureSubtree(UWidget* InWidg
 			{
 				Node->Children.Add(Child);
 			}
+		}
+	}
+
+	// 从 Slate 挂上来的子界面（DynamicEntryBox、自定义列表、Lua 直接塞进 Slate 的 WBP）排在 UMG 子控件后面：
+	// 不挂回来的话它们在模型里没有父节点，同类的几个实例只能当成互不相干的屏，选择器分不出点的是哪一个。
+	TArray<UUserWidget*> Attached;
+	GameTestSlate::CollectAttachedUserWidgets(*InWidget, Attached);
+	for (UUserWidget* AttachedWidget : Attached)
+	{
+		if (const TSharedPtr<FGameTestWidgetNode> Child = CaptureSubtree(AttachedWidget, Node->Path, /*InIsScreenRoot=*/false, bInLight))
+		{
+			Node->Children.Add(Child);
 		}
 	}
 

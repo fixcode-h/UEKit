@@ -5,6 +5,8 @@
 #include "Core/GameTestWorld.h"
 
 #include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetTree.h"
+#include "Components/ListView.h"
 #include "Components/Widget.h"
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
@@ -37,6 +39,67 @@ namespace GameTestSlateDetail
 			}
 		}
 		return nullptr;
+	}
+
+	/** 只看元数据和 SObjectWidget 的反查：快照每帧要走很多 Slate 控件，不能掉进线性扫描。 */
+	UWidget* FindSourceWidgetFast(const SWidget& InWidget)
+	{
+		if (const TSharedPtr<FReflectionMetaData> MetaData = InWidget.GetMetaData<FReflectionMetaData>())
+		{
+			if (UWidget* Widget = const_cast<UWidget*>(Cast<UWidget>(MetaData->SourceObject.Get())))
+			{
+				return Widget;
+			}
+		}
+		if (InWidget.GetType() == FName(TEXT("SObjectWidget")))
+		{
+			return static_cast<const SObjectWidget&>(InWidget).GetWidgetObject();
+		}
+		return nullptr;
+	}
+
+	/** 没有 UMG 父面板、也不是哪个 WBP 控件树的根：只能是从 Slate 挂上去的（或直接加在视口上）。 */
+	bool HasNoUmgParent(const UUserWidget& InWidget)
+	{
+		if (InWidget.GetParent() != nullptr)
+		{
+			return false;
+		}
+		const UWidgetTree* Tree = Cast<UWidgetTree>(InWidget.GetOuter());
+		const UUserWidget* TreeOwner = Tree != nullptr ? Cast<UUserWidget>(Tree->GetOuter()) : nullptr;
+		return TreeOwner == nullptr || TreeOwner->WidgetTree == nullptr || TreeOwner->WidgetTree->RootWidget != &InWidget;
+	}
+
+	/** 每个容器最多看这么多 Slate 控件：正常容器到下一个 UMG 控件只隔一两层包装，再多说明走进了不该走的地方。 */
+	constexpr int32 AttachedScanBudget = 512;
+
+	void CollectAttached(const SWidget& InSlate, const UWidget& InContainer, TArray<UUserWidget*>& OutWidgets, int32& InOutBudget, int32 InDepth)
+	{
+		FChildren* Children = const_cast<SWidget&>(InSlate).GetChildren();
+		if (Children == nullptr || InDepth > 32)
+		{
+			return;
+		}
+		for (int32 Index = 0; Index < Children->Num(); ++Index)
+		{
+			if (--InOutBudget < 0)
+			{
+				return;
+			}
+			const TSharedRef<SWidget> Child = Children->GetChildAt(Index);
+			UWidget* Source = FindSourceWidgetFast(*Child);
+			if (Source != nullptr && Source != &InContainer)
+			{
+				// 别的 UMG 控件：它的子树归它自己。是没有 UMG 父面板的 WBP 才算挂在这个容器上。
+				UUserWidget* UserWidget = Cast<UUserWidget>(Source);
+				if (UserWidget != nullptr && HasNoUmgParent(*UserWidget))
+				{
+					OutWidgets.AddUnique(UserWidget);
+				}
+				continue;
+			}
+			CollectAttached(*Child, InContainer, OutWidgets, InOutBudget, InDepth + 1);
+		}
 	}
 
 	/** 元数据只要在，就一定比线性扫描准；只有一个控件都查不到元数据时才说明这个进程没开元数据。 */
@@ -203,6 +266,66 @@ FString GameTestSlate::CollectText(const TSharedPtr<SWidget>& InWidget, int32 In
 		GameTestSlateDetail::AppendText(InWidget.ToSharedRef(), Text, InMaxChars, 0);
 	}
 	return Text.Left(InMaxChars);
+}
+
+void GameTestSlate::CollectAttachedUserWidgets(const UWidget& InContainer, TArray<UUserWidget*>& OutWidgets)
+{
+	OutWidgets.Reset();
+	if (InContainer.IsA<UUserWidget>() || InContainer.IsA<UListView>())
+	{
+		return;
+	}
+	const TSharedPtr<SWidget> Slate = InContainer.GetCachedWidget();
+	if (!Slate.IsValid())
+	{
+		return;
+	}
+	int32 Budget = GameTestSlateDetail::AttachedScanBudget;
+	GameTestSlateDetail::CollectAttached(*Slate, InContainer, OutWidgets, Budget, 0);
+}
+
+UWidget* GameTestSlate::FindAttachContainer(const UUserWidget& InWidget)
+{
+	if (!GameTestSlateDetail::HasNoUmgParent(InWidget))
+	{
+		return nullptr;
+	}
+	const TSharedPtr<SWidget> Slate = InWidget.GetCachedWidget();
+	if (!Slate.IsValid())
+	{
+		return nullptr;
+	}
+	UWidget* Container = FindOwningWidget(Slate->GetParentWidget());
+	if (Container == nullptr || Container->IsA<UUserWidget>() || Container->IsA<UListView>())
+	{
+		return nullptr;
+	}
+	// 用快照同一套收集核对一遍：两边认的必须是同一个容器，否则写出来的路径回放时走不到。
+	TArray<UUserWidget*> Attached;
+	CollectAttachedUserWidgets(*Container, Attached);
+	return Attached.Contains(&InWidget) ? Container : nullptr;
+}
+
+bool GameTestSlate::GetViewportRect(const SWidget& InWidget, FVector2D& OutMin, FVector2D& OutSize)
+{
+	const TSharedPtr<SWidget> Viewport = GetGameViewportWidget();
+	if (!Viewport.IsValid())
+	{
+		return false;
+	}
+	const FGeometry& ViewGeometry = Viewport->GetCachedGeometry();
+	const FGeometry& Geometry = InWidget.GetCachedGeometry();
+	const FVector2D ViewPos = FVector2D(ViewGeometry.GetAbsolutePosition());
+	const FVector2D ViewSize = FVector2D(ViewGeometry.GetAbsoluteSize());
+	const FVector2D Pos = FVector2D(Geometry.GetAbsolutePosition());
+	const FVector2D Size = FVector2D(Geometry.GetAbsoluteSize());
+	if (ViewSize.X < 1.0 || ViewSize.Y < 1.0 || Size.X < 1.0 || Size.Y < 1.0)
+	{
+		return false;
+	}
+	OutMin = FVector2D((Pos.X - ViewPos.X) / ViewSize.X, (Pos.Y - ViewPos.Y) / ViewSize.Y);
+	OutSize = FVector2D(Size.X / ViewSize.X, Size.Y / ViewSize.Y);
+	return true;
 }
 
 FString GameTestSlate::Describe(const TSharedPtr<SWidget>& InWidget)

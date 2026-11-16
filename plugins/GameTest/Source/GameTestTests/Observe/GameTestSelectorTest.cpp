@@ -233,6 +233,50 @@ TEST_CLASS_WITH_FLAGS(GameTestSelectorTest, "GameTest.Selector",
 		ASSERT_THAT(IsTrue(GameTestSelector::ResolveText(Screens, TEXT("WBP_HUD:."), Node, Error), *Error));
 		ASSERT_THAT(IsTrue(Node->Name == TEXT("WBP_HUD_C"), *Node->Name));
 	}
+
+	TEST_METHOD(Resolve_MultiScreenHitHandsOverCandidates)
+	{
+		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
+		BuildTestScreens(Screens);
+
+		// 多屏命中仍然算失败（选择器自己不挑），但把每个屏里命中的控件交给调用方按录制线索挑。
+		TSharedPtr<FGameTestWidgetNode> Node;
+		FString Error;
+		TArray<TSharedPtr<FGameTestWidgetNode>> Ambiguous;
+		ASSERT_THAT(IsFalse(GameTestSelector::ResolveText(Screens, TEXT("*:Root/MenuStack/BtnStart"), Node, Error, &Ambiguous)));
+		ASSERT_THAT(IsTrue(Ambiguous.Num() == 2, *FString::FromInt(Ambiguous.Num())));
+		ASSERT_THAT(IsTrue(Ambiguous[0]->Name == TEXT("BtnStart") && Ambiguous[1]->Name == TEXT("BtnStart"), *Error));
+
+		// 唯一命中时不交候选。
+		ASSERT_THAT(IsTrue(GameTestSelector::ResolveText(Screens, TEXT("WBP_HUD:Root/MenuStack/BtnStart"), Node, Error, &Ambiguous), *Error));
+		ASSERT_THAT(IsTrue(Ambiguous.Num() == 0, TEXT("唯一命中时候选应为空")));
+	}
+
+	TEST_METHOD(Resolve_AttachedInstanceByClassIndexThenHop)
+	{
+		// 挂在容器 Slate 上的子界面在快照里是容器的子节点（引用），`#类名#序号` 选出一个，再用 `>` 进它自己的屏。
+		// 这里只验路径段的走法；`>` 跳进实例、真实的 Slate 收集要真的 UUserWidget，得在编辑器里录一次实测。
+		const TSharedPtr<FGameTestWidgetNode> Bar = MakeNode(TEXT("WBP_Bar_C_0"), TEXT("WBP_Bar"), TEXT("WBP_Bar_C_0"));
+		const TSharedPtr<FGameTestWidgetNode> BarRoot = MakeNode(TEXT("Root"), TEXT("HorizontalBox"), TEXT("WBP_Bar_C_0/Root"));
+		const TSharedPtr<FGameTestWidgetNode> Entries = MakeNode(TEXT("Entries"), TEXT("DynamicEntryBox"), TEXT("WBP_Bar_C_0/Root/Entries"));
+		for (int32 Index = 0; Index < 3; ++Index)
+		{
+			const FString Name = FString::Printf(TEXT("WBP_Item_C_%d"), 10 + Index);
+			const TSharedPtr<FGameTestWidgetNode> Item = MakeNode(Name, TEXT("WBP_Item"), TEXT("WBP_Bar_C_0/Root/Entries/") + Name);
+			Item->bIsUserWidget = true;
+			Entries->Children.Add(Item);
+		}
+		BarRoot->Children.Add(Entries);
+		Bar->Children.Add(BarRoot);
+
+		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
+		Screens.Add(Bar);
+
+		TSharedPtr<FGameTestWidgetNode> Node;
+		FString Error;
+		ASSERT_THAT(IsTrue(GameTestSelector::ResolveText(Screens, TEXT("WBP_Bar:Root/Entries/#WBP_Item#1"), Node, Error), *Error));
+		ASSERT_THAT(IsTrue(Node->Name == TEXT("WBP_Item_C_11"), *Node->Name));
+	}
 };
 
 #endif	// WITH_AUTOMATION_WORKER

@@ -49,18 +49,24 @@ namespace GameTestHandlers
 	 *
 	 * 跨文件共享是必须的：观察（find/snapshot/probe）与交互（click/select/set/stack…）都要用它，
 	 * 各写一份必然漂移。
+	 *
+	 * 给了录制线索 `InHint`（步骤的 `hint`）时，选择器命中同一个 WBP 的几个实例不直接失败，
+	 * 按线索挑回录的那一个（`GameTestHintPick`），怎么挑的写进 `OutPickNote`。
 	 */
 	GAMETEST_API bool TryResolveTarget(
 		const FString& InTarget,
 		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutMessage);
+		FString& OutMessage,
+		const FJsonObject* InHint = nullptr,
+		FString* OutPickNote = nullptr);
 
 	/**
 	 * 解析这一步的 target，顺便记下"碰过谁"——视口高亮靠它把控件框出来。
 	 *
 	 * 所有以 target 为靶心的动作都该走这里而不是直接调 `TryResolveTarget`：
 	 * 漏一处，那类动作在游戏窗口里就只会静默地没有高亮。
+	 * 步骤带录制线索（`hint`）时一并用来消歧，挑的理由写进结果的 `picked`。
 	 */
 	GAMETEST_API bool TryResolveStepTarget(FGameTestStepContext& InContext, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError);
 

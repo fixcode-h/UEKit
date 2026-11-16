@@ -48,17 +48,23 @@ public:
 	/** 屏名匹配：空或 `*` 表示任意；否则与类名或控件名忽略大小写相等。 */
 	static bool MatchScreen(const FString& InScreen, const FGameTestWidgetNode& InScreenRoot);
 
-	/** 在若干屏根里解析路径；唯一命中才成功，失败时 OutError 带候选。 */
+	/**
+	 * 在若干屏根里解析路径；唯一命中才成功，失败时 OutError 带候选。
+	 * 屏名命中多个屏、每个屏里都走得通（同一个 WBP 的几个实例）时，失败并把全部命中放进 `OutAmbiguous`（给了的话）：
+	 * 选择器自己不挑，由拿着录制线索的调用方决定（`GameTestHintPick`）。
+	 */
 	static bool Resolve(
 		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
 		const FParsed& InParsed,
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError);
+		FString& OutError,
+		TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
 
 	/** 解析 + 一步到位（`Resolve` 的便捷包装；@句柄 由调用方处理）。 */
 	static bool ResolveText(
 		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
 		const FString& InText,
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError);
+		FString& OutError,
+		TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
 };

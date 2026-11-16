@@ -5,6 +5,7 @@
 #include "Core/GameTestJson.h"
 #include "Input/GameTestHandlerWatch.h"
 #include "Input/GameTestInput.h"
+#include "Observe/GameTestHintPick.h"
 #include "Observe/GameTestHitTest.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -42,6 +43,8 @@ namespace GameTestPointerDetail
 		TSharedPtr<SWidget> Slate;
 		FString Path;
 		FVector2D Screen = FVector2D::ZeroVector;
+		/** 选择器命中多个、按录制线索挑出来的时候写怎么挑的（进步骤结果的 `picked`）。 */
+		FString PickNote;
 	};
 
 	int32 UiTimeoutMs()
@@ -97,6 +100,7 @@ namespace GameTestPointerDetail
 	bool CheckActionable(
 		const FString& InTarget,
 		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
+		const FJsonObject* InHint,
 		const FVector2D& InAt,
 		bool bInNeedHit,
 		FWaitState& InOutState,
@@ -104,7 +108,8 @@ namespace GameTestPointerDetail
 		FString& OutWhy)
 	{
 		TSharedPtr<FGameTestWidgetNode> Node;
-		if (!GameTestHandlers::TryResolveTarget(InTarget, InHandles, Node, OutWhy))
+		FString PickNote;
+		if (!GameTestHandlers::TryResolveTarget(InTarget, InHandles, Node, OutWhy, InHint, &PickNote))
 		{
 			InOutState.StableFrames = 0;
 			return false;
@@ -177,6 +182,7 @@ namespace GameTestPointerDetail
 
 		OutTarget.Slate = Slate;
 		OutTarget.Path = Node->Path;
+		OutTarget.PickNote = PickNote;
 		OutTarget.Screen = FVector2D(Geometry.LocalToAbsolute(LocalSize * InAt));
 		return true;
 	}
@@ -279,6 +285,7 @@ namespace GameTestPointerDetail
 		};
 		const TSharedRef<FState> State = MakeShared<FState>();
 		const FString Target = InContext.Step->Target;
+		const TSharedPtr<FJsonObject> StepParams = InContext.Step->Params;
 		TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
 		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
 		InContext.PendingProgress = MakeShared<FString>();
@@ -298,13 +305,13 @@ namespace GameTestPointerDetail
 				State->bHeld = false;
 			}
 		};
-		InContext.PendingPredicate = [State, Target, Handles, Payload, Progress, Failure, At, Button](double)
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At, Button](double)
 		{
 			FString Message;
 			switch (State->Stage)
 			{
 			case EStage::Wait:
-				if (!CheckActionable(Target, Handles, At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
+				if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
 				{
 					return false;
 				}
@@ -337,6 +344,10 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKey(Button, /*bInDown=*/false, Message);
 				State->bHeld = false;
 				Payload->SetStringField(TEXT("path"), State->Target.Path);
+				if (!State->Target.PickNote.IsEmpty())
+				{
+					Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
+				}
 				Payload->SetNumberField(TEXT("screenX"), State->Target.Screen.X);
 				Payload->SetNumberField(TEXT("screenY"), State->Target.Screen.Y);
 				if (!State->bDownOk)
@@ -408,6 +419,7 @@ namespace GameTestPointerDetail
 		};
 		const TSharedRef<FState> State = MakeShared<FState>();
 		const FString Target = InContext.Step->Target;
+		const TSharedPtr<FJsonObject> StepParams = InContext.Step->Params;
 		TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
 		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
 		InContext.PendingProgress = MakeShared<FString>();
@@ -429,13 +441,13 @@ namespace GameTestPointerDetail
 				State->bHeld = false;
 			}
 		};
-		InContext.PendingPredicate = [State, Target, Handles, Payload, Progress, Failure, At, Button, ToTarget, ToAt, By](double)
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At, Button, ToTarget, ToAt, By](double)
 		{
 			FString Message;
 			switch (State->Stage)
 			{
 			case EStage::Wait:
-				if (!CheckActionable(Target, Handles, At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
+				if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
 				{
 					return false;
 				}
@@ -505,6 +517,10 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKey(Button, /*bInDown=*/false, Message);
 				State->bHeld = false;
 				Payload->SetStringField(TEXT("path"), State->Target.Path);
+				if (!State->Target.PickNote.IsEmpty())
+				{
+					Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
+				}
 				if (!State->bDownOk)
 				{
 					*Failure = State->DownFailure;
@@ -555,6 +571,7 @@ namespace GameTestPointerDetail
 		};
 		const TSharedRef<FState> State = MakeShared<FState>();
 		const FString Target = InContext.Step->Target;
+		const TSharedPtr<FJsonObject> StepParams = InContext.Step->Params;
 		TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
 		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
 		InContext.PendingProgress = MakeShared<FString>();
@@ -562,12 +579,12 @@ namespace GameTestPointerDetail
 
 		InContext.DefaultTimeoutMs = UiTimeoutMs();
 		InContext.Message = FString::Printf(TEXT("在 %s 上滚动 %.1f"), *Target, Delta);
-		InContext.PendingPredicate = [State, Target, Handles, Payload, Progress, At, Delta](double)
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, At, Delta](double)
 		{
 			FString Message;
 			if (!State->bMoved)
 			{
-				if (!CheckActionable(Target, Handles, At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
+				if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
 				{
 					return false;
 				}
@@ -582,6 +599,10 @@ namespace GameTestPointerDetail
 			}
 			GameTestInput::SendWheel(static_cast<float>(Delta), Message);
 			Payload->SetStringField(TEXT("path"), State->Target.Path);
+			if (!State->Target.PickNote.IsEmpty())
+			{
+				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
+			}
 			return true;
 		};
 		return GameTestHandlers::StepPending;
@@ -612,6 +633,7 @@ namespace GameTestPointerDetail
 		};
 		const TSharedRef<FState> State = MakeShared<FState>();
 		const FString Target = InContext.Step->Target;
+		const TSharedPtr<FJsonObject> StepParams = InContext.Step->Params;
 		TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
 		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
 		InContext.PendingProgress = MakeShared<FString>();
@@ -621,10 +643,10 @@ namespace GameTestPointerDetail
 
 		InContext.DefaultTimeoutMs = UiTimeoutMs();
 		InContext.Message = FString::Printf(TEXT("在 %s 输入「%s」%s"), *Target, *Text, bCommit ? TEXT("并回车") : TEXT(""));
-		InContext.PendingPredicate = [State, Target, Handles, Payload, Progress, Failure, Text, bCommit, bAppend](double)
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, Text, bCommit, bAppend](double)
 		{
 			// 打字不要求点击点没被挡住：焦点直接给控件，不经过鼠标。
-			if (!CheckActionable(Target, Handles, FVector2D(0.5, 0.5), /*bInNeedHit=*/false, State->Wait, State->Target, *Progress))
+			if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), FVector2D(0.5, 0.5), /*bInNeedHit=*/false, State->Wait, State->Target, *Progress))
 			{
 				return false;
 			}
@@ -650,6 +672,10 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKeyTo(EKeys::Enter, /*bInDown=*/false, State->Target.Slate, Message);
 			}
 			Payload->SetStringField(TEXT("path"), State->Target.Path);
+			if (!State->Target.PickNote.IsEmpty())
+			{
+				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
+			}
 			Payload->SetStringField(TEXT("text"), Text);
 			return true;
 		};
