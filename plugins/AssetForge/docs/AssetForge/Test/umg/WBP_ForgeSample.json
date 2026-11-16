@@ -2,7 +2,7 @@
   "//": "由 AssetForge 插件自带的示例测试界面：多页面、跳页、弹窗、列表、输入框、开关，用来练习 GameTest 录制。跳页逻辑在父类 ForgeSampleScreen 里，按控件名约定工作，说明见同目录的 README.md。",
   "kind": "umg-widget",
   "schemaVersion": 1,
-  "revision": 1,
+  "revision": 2,
   "asset": "/Game/AgentTest/AssetForge/WBP_ForgeSample",
   "parent": "/Script/AssetForgeTests.ForgeSampleScreen",
   "root": {
@@ -2974,7 +2974,6 @@
                           {
                             "class": "WidgetSwitcher",
                             "name": "SettingsTabs",
-                            "slot": {"Size":{"SizeRule":"Fill","Value":1}},
                             "children": [
                               {
                                 "class": "VerticalBox",
