@@ -144,9 +144,22 @@ bool GameTestShot::CaptureGameWindow(
 	FString& OutMessage,
 	TSharedPtr<FJsonObject>& OutPayload)
 {
+	// 调用方可能只关心成没成、传进来一个空指针（失败证据就是这样）：这里补上，下面写字段不会解引用空指针。
+	if (!OutPayload.IsValid())
+	{
+		OutPayload = MakeShared<FJsonObject>();
+	}
+
 	if (InWorld == nullptr)
 	{
 		OutMessage = TEXT("没有正在运行的游戏世界（先 pie.start 或 wait until=pieReady）");
+		return false;
+	}
+
+	// 停止 PIE 的那一帧世界还在列表里但正在拆：视口和窗口随时会没，不去碰。
+	if (!IsValid(InWorld) || InWorld->bIsTearingDown)
+	{
+		OutMessage = TEXT("游戏世界正在关闭（PIE 刚停止），截不了图");
 		return false;
 	}
 

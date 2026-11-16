@@ -51,5 +51,8 @@ private:
 
 	TArray<FJob> Jobs;
 	FTSTicker::FDelegateHandle TickHandle;
+
+	/** 正在 Tick 里做一步：导入时引擎可能又驱动 ticker，这时不重入。 */
+	bool bInTick = false;
 	int32 Serial = 0;
 };

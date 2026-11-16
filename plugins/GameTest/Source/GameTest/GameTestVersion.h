@@ -2,4 +2,4 @@
 // 登记扩展时报给 UELink（名片和 /info 的 extensions），面板据此判断游戏里实际加载的是哪一版。
 #pragma once
 
-#define GAMETEST_VERSION TEXT("1.2.0-beta.2")
+#define GAMETEST_VERSION TEXT("1.2.0-beta.3")

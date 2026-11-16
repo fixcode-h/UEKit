@@ -42,12 +42,12 @@ namespace
 	const FLinearColor HighlightFailureColor(1.0f, 0.35f, 0.35f, 1.0f);
 }
 
-/** 高亮覆盖层的持有者：Slate 类型只出现在本翻译单元里，头文件不必把 Slate 拖给每个包含它的模块。 */
-struct FGameTestHighlightHolder
+/**
+ * 线框层画的数据。和覆盖层共享所有权：视口可能比子系统的持有者活得久
+ * （PIE 停了、换了视口，没来得及摘掉），覆盖层再画时读的仍是活着的数据，不会读到已释放的持有者。
+ */
+struct FGameTestHighlightPaint
 {
-	/** 加进视口的那一层：外层 SOverlay 负责铺满，内层只画。 */
-	TSharedPtr<SWidget> Overlay;
-
 	/**
 	 * 要画的框（**本层局部坐标**，单位是物理像素）。由执行器给的快照矩形减去窗口位置得到——
 	 * 别在画的时候读控件几何：那条路上有视口 DPI 与窗口坐标两层换算，实测会把框画歪。
@@ -58,6 +58,19 @@ struct FGameTestHighlightHolder
 
 	/** 这一步成没成（决定框的颜色）。 */
 	bool bSucceeded = true;
+};
+
+/** 高亮覆盖层的持有者：Slate 类型只出现在本翻译单元里，头文件不必把 Slate 拖给每个包含它的模块。 */
+struct FGameTestHighlightHolder
+{
+	/** 加进视口的那一层：外层 SOverlay 负责铺满，内层只画。 */
+	TSharedPtr<SWidget> Overlay;
+
+	/** 覆盖层加在哪个视口上：摘的时候只从这个视口摘，视口换了（新的 PIE）不会摘错、也不会留下孤儿层。 */
+	TWeakObjectPtr<UGameViewportClient> Viewport;
+
+	/** 要画的数据，和覆盖层共享。 */
+	TSharedRef<FGameTestHighlightPaint> Paint = MakeShared<FGameTestHighlightPaint>();
 
 	/** 已经应用过的 touch 序号：相同就不重建覆盖层。 */
 	int64 AppliedSerial = -1;
@@ -83,12 +96,12 @@ namespace
 	{
 	public:
 		SLATE_BEGIN_ARGS(SGameTestHighlightOverlay) {}
-			SLATE_ARGUMENT(FGameTestHighlightHolder*, Holder)
+			SLATE_ARGUMENT(TSharedPtr<FGameTestHighlightPaint>, Paint)
 		SLATE_END_ARGS()
 
 		void Construct(const FArguments& InArgs)
 		{
-			Holder = InArgs._Holder;
+			Paint = InArgs._Paint;
 		}
 
 		virtual FVector2D ComputeDesiredSize(float) const override
@@ -109,6 +122,7 @@ namespace
 			// 基类（SLeafWidget）把 OnPaint 关成 private，不打算被调用：本层自己起一套层号。
 			const int32 LayerId = InLayerId;
 
+			const FGameTestHighlightPaint* Holder = Paint.Get();
 			if (Holder == nullptr || !Holder->bHasRect)
 			{
 				return LayerId;
@@ -137,7 +151,7 @@ namespace
 		}
 
 	private:
-		FGameTestHighlightHolder* Holder = nullptr;
+		TSharedPtr<FGameTestHighlightPaint> Paint;
 	};
 }
 
@@ -193,6 +207,12 @@ void UGameTestSubsystem::Deinitialize()
 
 bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 {
+	// 子系统正在关（Deinitialize 先摘 ticker，但模块热重载等路径上顺序不保证）：没有执行器就什么都不做。
+	if (!Runner.IsValid() || !Evidence.IsValid())
+	{
+		return true;
+	}
+
 	const double Now = FPlatformTime::Seconds();
 	++TickCount;
 	Runner->Tick(Now);
@@ -284,6 +304,12 @@ void UGameTestSubsystem::UpdateHighlight(double InNowSeconds)
 		return;
 	}
 
+	// 视口换了（PIE 停了又起）：旧层跟着旧视口走，这里重建，不往新视口上叠一个指着旧数据的层。
+	if (Highlight.IsValid() && Highlight->Viewport.Get() != ViewportClient)
+	{
+		ClearHighlight();
+	}
+
 	const int64 Serial = Runner->GetTouchSerial();
 	const bool bIsNewTouch = Runner->GetTouchedWidget().IsValid()
 		&& (!Highlight.IsValid() || Highlight->AppliedSerial != Serial);
@@ -301,10 +327,11 @@ void UGameTestSubsystem::UpdateHighlight(double InNowSeconds)
 				.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Fill)
 				[
-					SNew(SGameTestHighlightOverlay).Holder(Highlight.Get())
+					SNew(SGameTestHighlightOverlay).Paint(Highlight->Paint)
 				];
 
 			ViewportClient->AddViewportWidgetContent(Highlight->Overlay.ToSharedRef(), HighlightZOrder);
+			Highlight->Viewport = ViewportClient;
 		}
 
 		// 执行器给的是"快照坐标系"的矩形（与截图标注同一份），本层的原点是窗口客户区左上角
@@ -320,13 +347,13 @@ void UGameTestSubsystem::UpdateHighlight(double InNowSeconds)
 				WindowPosition = Window->GetPositionInScreen();
 			}
 
-			Highlight->RectMin = RectMin - WindowPosition;
-			Highlight->RectMax = RectMax - WindowPosition;
+			Highlight->Paint->RectMin = RectMin - WindowPosition;
+			Highlight->Paint->RectMax = RectMax - WindowPosition;
 		}
-		Highlight->bHasRect = bHasRect;
+		Highlight->Paint->bHasRect = bHasRect;
 
 		Highlight->AppliedSerial = Serial;
-		Highlight->bSucceeded = Runner->WasTouchSuccessful();
+		Highlight->Paint->bSucceeded = Runner->WasTouchSuccessful();
 		Highlight->ExpiresAt = InNowSeconds + HighlightLingerSeconds;
 	}
 
@@ -347,10 +374,14 @@ void UGameTestSubsystem::ClearHighlight()
 {
 	if (Highlight.IsValid() && Highlight->Overlay.IsValid())
 	{
-		if (UGameViewportClient* ViewportClient = GEngine != nullptr ? GEngine->GameViewport : nullptr)
+		// 只从当初加上去的那个视口摘；它已经没了（PIE 停了）就不用摘，层跟着视口一起释放。
+		// 画的数据和层共享所有权，层哪怕多活几帧也不会读到已释放的内存。
+		if (UGameViewportClient* ViewportClient = Highlight->Viewport.Get())
 		{
 			ViewportClient->RemoveViewportWidgetContent(Highlight->Overlay.ToSharedRef());
 		}
+		// 先把画的数据清掉：万一层还挂在别处，也不再画框。
+		Highlight->Paint->bHasRect = false;
 	}
 
 	Highlight.Reset();
@@ -434,7 +465,11 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	{
 		RuntimeState.OnStepFailed = [this](FGameTestStepRecord& InOutRecord, const FString& InRunDir)
 		{
-			Evidence->Capture(InOutRecord, InRunDir, &Handles);
+			// 留证据只是附加信息：子系统正在关时没有 Evidence，跳过就好，不影响这一步的结论。
+			if (Evidence.IsValid())
+			{
+				Evidence->Capture(InOutRecord, InRunDir, &Handles);
+			}
 		};
 	}
 

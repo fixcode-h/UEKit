@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/Parse.h"
+#include "UObject/GarbageCollection.h"
 #include "Misc/DateTime.h"
 #include "HttpServerModule.h"
 #include "HttpServerRequest.h"
@@ -204,7 +205,8 @@ UWorld* FAgentPanelBridge::ResolveWorld(const FString& WorldIdIn, FString& Error
 	for (const FWorldContext& C : GEngine->GetWorldContexts())
 	{
 		UWorld* W = C.World();
-		if (!W)
+		// 停止 PIE 的那一帧世界还在列表里但正在拆：当它已经没了，操作不去碰正在销毁的 Actor 和组件
+		if (!W || !IsValid(W) || W->bIsTearingDown)
 		{
 			continue;
 		}
@@ -263,7 +265,7 @@ TSharedPtr<FJsonObject> FAgentPanelBridge::Info() const
 		for (const FWorldContext& C : GEngine->GetWorldContexts())
 		{
 			UWorld* W = C.World();
-			if (!W || (C.WorldType != EWorldType::Editor && C.WorldType != EWorldType::PIE && C.WorldType != EWorldType::Game))
+			if (!W || !IsValid(W) || W->bIsTearingDown || (C.WorldType != EWorldType::Editor && C.WorldType != EWorldType::PIE && C.WorldType != EWorldType::Game))
 			{
 				continue;
 			}
@@ -295,6 +297,15 @@ TSharedPtr<FJsonObject> FAgentPanelBridge::Dispatch(const TSharedPtr<FJsonObject
 	if (!Body.IsValid() || !Body->TryGetStringField(TEXT("op"), Op))
 	{
 		return ErrorObject(TEXT("请求里没有 op"));
+	}
+	// 引擎在退出、或正在回收垃圾时不执行任何操作：这时对象随时会被销毁，读写都可能踩到野指针
+	if (IsEngineExitRequested())
+	{
+		return ErrorObject(TEXT("编辑器正在退出，不再执行操作"));
+	}
+	if (IsGarbageCollecting())
+	{
+		return ErrorObject(TEXT("引擎正在回收垃圾，稍后再试"));
 	}
 	FAgentPanelOp* Fn = Ops.Find(Op);
 	if (!Fn)

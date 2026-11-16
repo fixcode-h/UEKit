@@ -7,6 +7,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "HAL/PlatformTime.h"
+#include "UObject/GarbageCollection.h"
 #include "State/ForgeState.h"
 
 namespace
@@ -71,6 +72,23 @@ bool FForgeJobs::Tick(float InDeltaTime)
 		TickHandle.Reset();
 		return false;
 	}
+
+	// 编辑器正在退出：剩下的不做了，按取消收尾，免得在模块和资产注册表拆掉的半路上还去导入
+	if (IsEngineExitRequested())
+	{
+		FJob& Job = Jobs.Last();
+		Job.Runner.Cancel();
+		Job.EndedAt = FDateTime::UtcNow();
+		TickHandle.Reset();
+		return false;
+	}
+
+	// 导入里可能弹进度框、加载资产，引擎在这期间又驱动 ticker 时不要重入：Jobs 数组和执行器都不能在一步做到一半时被改
+	if (bInTick || IsGarbageCollecting())
+	{
+		return true;
+	}
+	TGuardValue<bool> TickGuard(bInTick, true);
 
 	FJob& Job = Jobs.Last();
 	const double Start = FPlatformTime::Seconds();
