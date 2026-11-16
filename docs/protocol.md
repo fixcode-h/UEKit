@@ -224,3 +224,12 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 - 长任务（批量导入、跑测试场景）马上返回作业号，客户端用 `forge.job` / `gt.job` 查进度和最终结果。
 - **推送事件**（2.2 起，`features` 里有 `extEvents`）：扩展用 `FAgentPanelBridge::Get().PublishEvent("前缀.主题", 事件)` 推实时状态（在游戏线程调用）。客户端在推送通道订阅时把主题写进 `topics`（如 `["log","forge.job","gt.record"]`），收到的事件行是 `{"event":"forge.job", ...事件字段}`。没人订阅时扩展推事件几乎没有开销。事件只是实时提示，客户端中途连上会漏掉之前的，最终结果以 `*.job` 为准。
 - 扩展各自的操作列表见 `docs/asset-forge.md`、`docs/game-test.md`。
+
+## 7. 给 EmmyLua 调试器提供 UE 对象属性
+
+2.4.0-beta.4 起（装了 UnLua 时）。不走 `/rpc`，是进程内的 C 接口：EmmyLua 调试器（IntelliJ-EmmyLua 的原生 runtime）在断点暂停时展开 UObject，问 UELink 要属性，UELink 用 UE 反射回答。
+
+- **怎么接上**：UELink 不链接 emmy，项目也不用改代码。每 2 秒看一眼进程里有没有 emmy runtime 的模块（`emmy_core` / `emmy_debugger_core`，或静态链进了主程序），有并且导出了 `Emmy_RegisterHostValueProviderV2` 就注册；模块卸载或重新注入后重新注册。旧版 runtime 没有这个导出，UELink 什么也不做。
+- **接口**：权威定义在 IntelliJ-EmmyLua 的 `docs/design/variable-view.md` 13.6，UELink 里的副本是 `UELinkCore/Private/UELinkEmmyHostValueAbi.h`，两边要同步改。`describe` 回一行（`valid`、`typeName`、`summary`、`hint`、`kind`、`expandable`），`listChildren` 分页回子项（`total`、`children[]`，每项 `name`、`type`、`value`、`typeName`、`kind`、`attrs`、`hint`、`length`、`expandable`、`childRef`），`releasePause` 在暂停结束时释放这次暂停发出的句柄。
+- **显示什么**：UObject 下面按声明类分组（最派生的在前，组内按声明顺序，和细节面板一致），Actor 多一个「组件」分组，最后是「方法 (UFunction)」（带参数和返回类型）。结构体、`TArray` / `TSet` / `TMap` 分页展开（数组下标从 1 开始，和 UnLua 一致）。软引用只显示路径，不加载。
+- **安全**：认 Lua 值是哪个 UObject 用 UnLua 的对象表反查，不读 userdata 的内存布局；拿到指针先在活着的对象里确认（`GUObjectArray` + `IsValid`），已销毁的对象只回 `<已失效>`，不读任何属性。只在游戏线程上回答（不在时回 `NEEDS_GAME_THREAD`），GC 进行中不回答。属性内存的句柄只在发出它的那次暂停内有效，每次用之前再确认所属对象还活着。
