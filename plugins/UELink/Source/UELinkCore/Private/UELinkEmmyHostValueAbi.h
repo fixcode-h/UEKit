@@ -20,6 +20,8 @@ struct lua_State;
 /** 注册函数的导出名：runtime 没有这个导出（旧版）时 UELink 什么也不做 */
 #define UELINK_EMMY_REGISTER_EXPORT "Emmy_RegisterHostValueProviderV2"
 #define UELINK_EMMY_UNREGISTER_EXPORT "Emmy_UnregisterHostValueProviderV2"
+/** 可选导出（新版 runtime 才有）：id 是否还注册着。没有这个导出时只按模块句柄判断 */
+#define UELINK_EMMY_HAS_EXPORT "Emmy_HasHostValueProviderV2"
 
 /** 回调的返回值（和 v1 的 EmmyHostValueStatus 数值一致） */
 enum EUELinkEmmyStatus
@@ -81,3 +83,4 @@ typedef struct FUELinkEmmyHostValueProviderV2
 
 typedef uint64_t(UELINK_EMMY_CALL* FUELinkEmmyRegisterFn)(const FUELinkEmmyHostValueProviderV2* Provider);
 typedef int(UELINK_EMMY_CALL* FUELinkEmmyUnregisterFn)(uint64_t ProviderId);
+typedef int(UELINK_EMMY_CALL* FUELinkEmmyHasFn)(uint64_t ProviderId);

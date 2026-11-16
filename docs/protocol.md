@@ -53,6 +53,7 @@
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`editor.spawn`、`editor.destroy` |
+| Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
@@ -81,6 +82,18 @@
   - 只读编辑器的选中集合（`USelection`、`IContentBrowserSingleton::GetSelectedAssets`、蓝图编辑器的 `GetSelectedNodes`），不加载资源。
 - `editor.select {"actors"?: [Actor 路径], "assets"?: [资源路径], "focus"?: true}` → `{"actors": 选中了几个, "assets": 几个, "missing": [没找到的路径]}`：在编辑器里选中这些 Actor（`focus` 为 true 时视口对焦过去）、在内容浏览器里定位这些资源。打开资源还是用 `asset.open`。
 - 推送事件 `uelink.selection`（`features` 里有 `selection`）：关卡里选中的 Actor、内容浏览器选中的资源或文件夹变了时推，最多每 0.3 秒一次，事件字段和 `editor.selection` 的回包一样（不含 `blueprint`：蓝图编辑器的节点选中没有公开的变化通知，要时再调 `editor.selection`）。客户端订阅 `topics` 里写 `uelink.selection`。
+
+2.5.0 起的 Lua 声明（只在编辑器进程里有，代码在 `UELinkLuaDecl.cpp` / `UELinkLuaDeclGen.cpp`）：后台把 UE 反射（原生类、结构体、枚举、蓝图、用户定义结构体 / 枚举）生成 EmmyLua 注解的 Lua 声明文件，给 IDE（IntelliJ-EmmyLua 的 emmylua_ls）做跳转、补全、悬停。**默认关闭**，不需要 UnLua 也能开。
+
+- 输出目录 `<项目>/Intermediate/UELink/LuaDecl/`：`Native/<模块>/<类型>.lua`（原生类型）、`Blueprint/<包路径>.lua`（如 `Blueprint/Game/UI/BP_Bag.lua`）、`UE.lua`（全局 `UE` 表）、`UnLua/`（装了 UnLua 时拷它 `Content/IntelliSense` 里的静态声明：`UnLua` 表、`TArray` / `TMap` 等泛型），清单 `.uelink-luadecl.json`（`files`：相对路径 → 内容哈希；`assets`：包名 → `{file, stamp, full}`）。IDE 认这个目录：有清单就用它，不再加 UnLua 自己生成的 IntelliSense 目录（两份会重复定义）。
+- 格式和 UnLua 的 Generate IntelliSense 一致：类型名 `AActor`、`BP_Hero_C`、`FVector`、`TArray<integer>`，`---@class 名 : 父类`、`---@field`、`function 类:函数(参数) end`（静态函数用 `.`）。比 UnLua 多的：输出参数和带默认值的参数标成可省（`---@param X? T`），输出参数按 UnLua 的调用约定跟在返回值后面多写 `---@return`；字节属性带枚举时类型是枚举名；名字不是合法标识符的成员写成 `["名字"]`。
+- 增量：内容哈希和清单一样就不写盘，所以 emmylua_ls 的文件监听只收到真正变了的文件。打开后（或每次启动编辑器）先整遍比对一次：原生类型、资源注册表里的全部蓝图类资源；之后只处理变化——蓝图编译完、资源加载 / 保存 / 新增 / 改名 / 删除（删除和改名的旧名删掉对应文件）、Live Coding / 热重载和新模块加载（原生类型再比对一遍）。全部在游戏线程上分帧做：编辑器在前台每帧约 4 毫秒，在后台约 20 毫秒，PIE 里 1 毫秒；写盘在后台线程按顺序做（先写临时文件再换名）。
+- 没加载过的蓝图不为了声明去加载：先写只有继承关系的占位（`ParentClass` 标签，`full` 为 false），打开、编译或运行时加载过一次就补全；以前补全过的留着。要一次补全就 `luadecl.run {"loadBlueprints": true}`：在后台每帧加载一个（PIE 里暂停）。
+- `luadecl.status {}` → `{"enabled", "active", "dir", "phase": "idle|native|assets|loading", "done"?, "total"?, "loadDone"?, "loadTotal"?, "files", "stubs", "written", "deleted", "pending", "lastPassAt"?, "lastPassMs"?}`：`enabled` 是开关，`active` 是这个进程里在不在跑；`written` / `deleted` 是这次打开以来写、删的文件数。
+- `luadecl.enable {"enabled": true|false}` → 同 `luadecl.status`：开关存在本机的编辑器个人配置（`EditorPerProjectUserSettings.ini` 的 `[UELink.LuaDecl] Enabled`），下次启动编辑器照这个来；项目想统一打开可以在 `DefaultEditor.ini` 写同一节，个人配置优先。关掉时已生成的文件留着（IDE 照样能用，删目录就回到 UnLua 的声明）。
+- `luadecl.run {"force"?: false, "loadBlueprints"?: false}` → `{"started": true, "toLoad"?, ...状态}`：马上再整遍比对一次；`force` 不看清单全部重写；没打开时报错让先 `luadecl.enable`。
+- 推送事件 `uelink.luadecl` `{"phase": "done", "written", "deleted", "ms"}`（`features` 里有 `luaDecl`）：整遍比对做完时推。
+- 编辑器控制台：`UELink.LuaDecl.Enable 1|0`、`UELink.LuaDecl.Run [force] [load]`。
 
 2.4.0 起的 Lua 改完能验、对象检视（都在「装了 UnLua 时」才有，`/info` 的 `ops` 里能看到）：
 
@@ -229,7 +242,7 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 
 2.4.0-beta.4 起（装了 UnLua 时）。不走 `/rpc`，是进程内的 C 接口：EmmyLua 调试器（IntelliJ-EmmyLua 的原生 runtime）在断点暂停时展开 UObject，问 UELink 要属性，UELink 用 UE 反射回答。
 
-- **怎么接上**：UELink 不链接 emmy，项目也不用改代码。每 2 秒看一眼进程里有没有 emmy runtime 的模块（`emmy_core` / `emmy_debugger_core`，或静态链进了主程序），有并且导出了 `Emmy_RegisterHostValueProviderV2` 就注册；模块卸载或重新注入后重新注册。旧版 runtime 没有这个导出，UELink 什么也不做。
+- **怎么接上**：UELink 不链接 emmy，项目也不用改代码。每 2 秒看一眼进程里有没有 emmy runtime 的模块（`emmy_core` / `emmy_debugger_core`，或静态链进了主程序），有并且导出了 `Emmy_RegisterHostValueProviderV2` 就注册；模块卸载或重新注入后重新注册；新版 runtime 还导出 `Emmy_HasHostValueProviderV2`，核心卸载后在同一地址重新加载（模块句柄不变）时靠它发现注册丢了再注册。旧版 runtime 没有这个导出，UELink 什么也不做。
 - **接口**：权威定义在 IntelliJ-EmmyLua 的 `docs/design/variable-view.md` 13.6，UELink 里的副本是 `UELinkCore/Private/UELinkEmmyHostValueAbi.h`，两边要同步改。`describe` 回一行（`valid`、`typeName`、`summary`、`hint`、`kind`、`expandable`），`listChildren` 分页回子项（`total`、`children[]`，每项 `name`、`type`、`value`、`typeName`、`kind`、`attrs`、`hint`、`length`、`expandable`、`childRef`），`releasePause` 在暂停结束时释放这次暂停发出的句柄。
 - **显示什么**：UObject 下面按声明类分组（最派生的在前，组内按声明顺序，和细节面板一致），Actor 多一个「组件」分组，最后是「方法 (UFunction)」（带参数和返回类型）。结构体、`TArray` / `TSet` / `TMap` 分页展开（数组下标从 1 开始，和 UnLua 一致）。软引用只显示路径，不加载。
 - **安全**：认 Lua 值是哪个 UObject 用 UnLua 的对象表反查，不读 userdata 的内存布局；拿到指针先在活着的对象里确认（`GUObjectArray` + `IsValid`），已销毁的对象只回 `<已失效>`，不读任何属性。只在游戏线程上回答（不在时回 `NEEDS_GAME_THREAD`），GC 进行中不回答。属性内存的句柄只在发出它的那次暂停内有效，每次用之前再确认所属对象还活着。

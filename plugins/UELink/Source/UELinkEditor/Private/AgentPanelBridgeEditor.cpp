@@ -5,6 +5,7 @@
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelEditorShared.h"
+#include "UELinkLuaDecl.h"
 #include "UELinkStream.h"
 
 #include "DataTableEditorUtils.h"
@@ -367,12 +368,15 @@ public:
 		RegisterStreamOps();
 		RegisterSelectionOps();
 		RegisterEditorToolsOps();
+		// 2.5：后台增量生成 UE 反射的 Lua 声明（UELinkLuaDecl.cpp），默认关闭
+		UELinkLuaDecl::RegisterOps();
 		// 推送通道等引擎初始化完再起（和运行时模块的 HTTP 服务同一时机）；commandlet、游戏进程里 Start 自己会跳过
 		PostInit = UELINK_POST_ENGINE_INIT.AddLambda([]()
 		{
 			FUELinkStream::Get().Start();
 			StartOutlinerPush();
 			StartSelectionPush();
+			UELinkLuaDecl::Start();
 		});
 	}
 
@@ -381,6 +385,7 @@ public:
 		UELINK_POST_ENGINE_INIT.Remove(PostInit);
 		StopOutlinerPush();
 		StopSelectionPush();
+		UELinkLuaDecl::Stop();
 		FUELinkStream::Get().Stop();
 	}
 
