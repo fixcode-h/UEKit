@@ -4,10 +4,12 @@
 #include "GameTestCompat.h"
 
 #include "AgentPanelBridge.h"
+#include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestScenario.h"
 #include "Observe/GameTestInspect.h"
+#include "Observe/GameTestResolve.h"
 #include "Record/GameTestRecorder.h"
 #include "Shot/GameTestShot.h"
 #include "GameTestSettings.h"
@@ -209,39 +211,54 @@ namespace
 		return true;
 	}
 
-	/** `scenario`（相对场景根的路径）→ 步骤、名字、版本、场景自己的步间隔。 */
-	bool LoadScenario(
-		const FString& InRelativePath,
-		TArray<TSharedPtr<FJsonObject>>& OutSteps,
-		FString& OutName,
-		int32& OutRevision,
-		int32& OutStepDelayMs,
-		FString& OutError)
+	/** 字符串数组参数（scenarios、targets）；不是数组或没有时为空。 */
+	TArray<FString> Strings(const TSharedPtr<FJsonObject>& Args, const TCHAR* Name)
 	{
-		FString FullPath = InRelativePath;
-		if (FPaths::IsRelative(FullPath))
+		TArray<FString> Out;
+		const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+		if (Args.IsValid() && Args->TryGetArrayField(Name, Values) && Values != nullptr)
 		{
-			FullPath = FPaths::Combine(ScenarioRootDir(), InRelativePath);
+			for (const TSharedPtr<FJsonValue>& Value : *Values)
+			{
+				FString Text;
+				if (Value.IsValid() && Value->TryGetString(Text) && !Text.TrimStartAndEnd().IsEmpty())
+				{
+					Out.Add(Text.TrimStartAndEnd());
+				}
+			}
+		}
+		return Out;
+	}
+
+	/** `gt.run tag=` / `scenarios=[…]`：批量运行，马上返回批量编号，进度在 gt.job 的 batch 里。 */
+	bool RunBatch(UGameTestSubsystem* Subsystem, const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		const FString Tag = Str(Args, TEXT("tag"));
+		TArray<FString> Scenarios = Strings(Args, TEXT("scenarios"));
+		FString Label = Str(Args, TEXT("name"));
+		if (!Tag.IsEmpty())
+		{
+			Scenarios = GameTestScenario::FindByTag(ScenarioRootDir(), Tag);
+			if (Scenarios.Num() == 0)
+			{
+				Error = FString::Printf(TEXT("场景根里没有带 tag「%s」的场景（场景文件顶层的 tags 数组；gt.scenarios 能看到每个场景的 tags）"), *Tag);
+				return false;
+			}
+			Label = Label.IsEmpty() ? FString::Printf(TEXT("tag:%s"), *Tag) : Label;
 		}
 
-		const TSharedPtr<FJsonObject> Scenario = GameTestJson::ParseObjectFromFile(FullPath, OutError);
-		if (!Scenario.IsValid())
+		TSharedPtr<FJsonObject> Result;
+		if (!Subsystem->BeginBatch(Scenarios, Label.IsEmpty() ? TEXT("batch") : Label, Result))
 		{
+			FString Reason;
+			Error = Result.IsValid() && Result->TryGetStringField(TEXT("error"), Reason) ? Reason : TEXT("批量运行没能开始");
 			return false;
 		}
-
-		TArray<FString> Errors;
-		if (!GameTestScenario::CollectSteps(Scenario, OutSteps, Errors))
-		{
-			OutError = FString::Printf(TEXT("%s：%s"), *InRelativePath, *FString::Join(Errors, TEXT("；")));
-			return false;
-		}
-
-		GameTestScenario::ApplyLegacyDefaults(Scenario, OutSteps);
-		OutName = GameTestScenario::GetName(Scenario, FPaths::GetBaseFilename(InRelativePath));
-		OutRevision = GameTestScenario::GetRevision(Scenario);
-		OutStepDelayMs = -1;
-		GameTestJson::TryGetInt(*Scenario, TEXT("stepDelayMs"), OutStepDelayMs);
+		Out = MakeShared<FJsonObject>();
+		Out->SetStringField(TEXT("batchId"), Result->GetStringField(TEXT("batchId")));
+		Out->SetNumberField(TEXT("scenarios"), Scenarios.Num());
+		Out->SetStringField(TEXT("hint"), TEXT("批量在后台一个接一个跑：进度和每个场景的结果在 gt.job 的 batch 里（也推送 gt.job 事件），某个场景的细节用 gt.report 查它的 runId"));
+		Out = Capped(Out, TEXT("run"), DefaultMaxChars);
 		return true;
 	}
 
@@ -253,15 +270,18 @@ namespace
 			return false;
 		}
 
-		TArray<TSharedPtr<FJsonObject>> Steps;
-		FString RunName;
-		int32 Revision = 0;
-		int32 StepDelayMs = -1;
+		if (!Str(Args, TEXT("tag")).IsEmpty() || (Args.IsValid() && Args->HasField(TEXT("scenarios"))))
+		{
+			return RunBatch(Subsystem, Args, Out, Error);
+		}
+
+		FGameTestScenarioRun ToRun;
+		TArray<TSharedPtr<FJsonObject>>& Steps = ToRun.Steps;
 
 		const FString ScenarioPath = Str(Args, TEXT("scenario"));
 		if (!ScenarioPath.IsEmpty())
 		{
-			if (!LoadScenario(ScenarioPath, Steps, RunName, Revision, StepDelayMs, Error))
+			if (!GameTestScenario::LoadForRun(ScenarioRootDir(), ScenarioPath, ToRun, Error))
 			{
 				return false;
 			}
@@ -282,13 +302,13 @@ namespace
 					Steps.Add(*Step);
 				}
 			}
-			RunName = Str(Args, TEXT("name"));
-			StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
+			ToRun.Name = Str(Args, TEXT("name"));
+			ToRun.StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
 		}
 
 		FString RunId;
 		TSharedPtr<FJsonObject> Result;
-		if (!Subsystem->BeginScenarioRun(Steps, RunName, Revision, RunId, Result, StepDelayMs))
+		if (!Subsystem->BeginScenarioFileRun(ToRun, RunId, Result))
 		{
 			FString Reason;
 			Error = Result.IsValid() && Result->TryGetStringField(TEXT("error"), Reason) ? Reason : TEXT("run 没能开始");
@@ -298,7 +318,11 @@ namespace
 		Out = MakeShared<FJsonObject>();
 		Out->SetStringField(TEXT("runId"), RunId);
 		Out->SetNumberField(TEXT("steps"), Steps.Num());
-		Out->SetNumberField(TEXT("revision"), Revision);
+		Out->SetNumberField(TEXT("revision"), ToRun.Revision);
+		if (!ToRun.Scenario.IsEmpty())
+		{
+			Out->SetStringField(TEXT("scenario"), ToRun.Scenario);
+		}
 		bool bFinished = false;
 		if (Result.IsValid() && Result->TryGetBoolField(TEXT("finished"), bFinished))
 		{
@@ -454,6 +478,74 @@ namespace
 		return true;
 	}
 
+	/** `gt.resolve`：核对选择器（targets 列表，或 scenario 里每一步的 target / toTarget），只解析不执行。 */
+	bool Resolve(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		UGameTestSubsystem* Subsystem = RequireSubsystem(Error);
+		if (Subsystem == nullptr)
+		{
+			return false;
+		}
+
+		TArray<GameTestResolve::FTarget> Targets;
+		const FString ScenarioPath = Str(Args, TEXT("scenario"));
+		if (!ScenarioPath.IsEmpty())
+		{
+			FGameTestScenarioRun Run;
+			if (!GameTestScenario::LoadForRun(ScenarioRootDir(), ScenarioPath, Run, Error))
+			{
+				return false;
+			}
+			Targets = GameTestResolve::CollectTargets(Run.Steps);
+		}
+		for (const FString& Text : Strings(Args, TEXT("targets")))
+		{
+			GameTestResolve::FTarget Target;
+			Target.Target = Text;
+			Targets.Add(MoveTemp(Target));
+		}
+		if (Targets.Num() == 0)
+		{
+			Error = ScenarioPath.IsEmpty()
+				? TEXT("gt.resolve 要 targets（选择器数组）或 scenario（核对场景里每一步的 target）")
+				: TEXT("这个场景里没有写选择器的步骤（target / toTarget）");
+			return false;
+		}
+
+		TSharedPtr<FJsonObject> Result;
+		if (!GameTestResolve::Resolve(Targets, Subsystem->GetHandles(), Result, Error))
+		{
+			return false;
+		}
+		Out = Capped(Result, TEXT("resolve"), StructureMaxChars);
+		return true;
+	}
+
+	/**
+	 * `gt.history`：按场景文件的运行历史（最近 10 次）。给 scenario 回这个场景的每一次（时间、成败、第几步失败、产物目录）；
+	 * 不给回所有场景的通过 / 失败串（最新在前，p 通过 f 失败），列表上画历史条用。
+	 */
+	bool History(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		const TSharedPtr<FJsonObject> All = GameTestHistory::Load();
+		const FString Scenario = Str(Args, TEXT("scenario")).Replace(TEXT("\\"), TEXT("/"));
+		Out = MakeShared<FJsonObject>();
+		Out->SetNumberField(TEXT("keep"), GameTestHistory::Keep);
+		if (!Scenario.IsEmpty())
+		{
+			Out->SetStringField(TEXT("scenario"), Scenario);
+			const TSharedPtr<FJsonObject> Scenarios = All->GetObjectField(TEXT("scenarios"));
+			const TArray<TSharedPtr<FJsonValue>>* Runs = nullptr;
+			Out->SetArrayField(TEXT("runs"),
+				Scenarios->TryGetArrayField(Scenario, Runs) && Runs != nullptr ? *Runs : TArray<TSharedPtr<FJsonValue>>());
+			Out = Capped(Out, TEXT("history"), DefaultMaxChars);
+			return true;
+		}
+		Out->SetObjectField(TEXT("scenarios"), GameTestHistory::Compact(*All));
+		Out = Capped(Out, TEXT("history"), StructureMaxChars);
+		return true;
+	}
+
 	void Add(const TCHAR* Name, bool (*Op)(const TSharedPtr<FJsonObject>&, TSharedPtr<FJsonObject>&, FString&))
 	{
 		if (FAgentPanelBridge::Get().AddExtensionOp(Name, Op))
@@ -504,6 +596,8 @@ void Register()
 	Add(TEXT("gt.record.stop"), &RecordStop);
 	Add(TEXT("gt.record.status"), &RecordStatus);
 	Add(TEXT("gt.inspect"), &Inspect);
+	Add(TEXT("gt.resolve"), &Resolve);
+	Add(TEXT("gt.history"), &History);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)

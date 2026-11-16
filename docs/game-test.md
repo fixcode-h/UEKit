@@ -178,19 +178,52 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.health` | — | `version`、`process`（editor / game）、`busy`、`runId`、`editor`（PIE 状态）、`worldPresent`、`playable`、`map`、`scenarioRoot`、`outputRoot`、`record`；装了 EnhancedInput 模块时有 `activeInjections` |
 | `gt.actions` | — | `common`、`actions: [{name, params, targetRequired, editorOnly, summary, module}]`、`unavailable: [{name, module, plugin}]` |
 | `gt.scenarios` | `query`、`offset`、`limit`（默认 200） | `scenarios: [{name, relativePath, _note, steps, revision, tags, parseError?}]`、`total` |
-| `gt.run` | `scenario`（相对场景根）或 `steps` + `name`、`stepDelayMs` | `runId`、`steps`、`finished`；run 在后台跑 |
+| `gt.run` | `scenario`（相对场景根）或 `steps` + `name`、`stepDelayMs`；批量：`tag`（场景的 `tags` 里有它的全部场景）或 `scenarios`（路径数组），可带 `name` | 单个：`runId`、`steps`、`scenario`、`finished`；批量：`batchId`、`scenarios`（个数）。都在后台跑 |
 | `gt.step` | `step: {action, ...}` | 这一步的结果：`ok`、`status`、`message`、`payload` |
-| `gt.job` | `steps`（只回最后几步，默认 50） | 当前 / 最近一次 run：`status`、`busy`、`total`（已完成）、`planned`、`failed`、`steps` |
+| `gt.job` | `steps`（只回最后几步，默认 50） | 当前 / 最近一次 run：`status`、`busy`、`total`（已完成）、`planned`、`failed`、`steps`；批量运行时多 `batch`（见下） |
 | `gt.runs` | — | 本次会话最近的 run 摘要（含 `outputDir`） |
-| `gt.report` | `runId` | 完整报告（每步的状态、消息、payload、耗时） |
-| `gt.stop` | — | 取消当前 run |
+| `gt.report` | `runId` | 完整报告（每步的状态、消息、payload、耗时；跑的是场景文件时有 `scenario`；失败的步骤 `payload.evidence` 是失败证据的路径） |
+| `gt.stop` | — | 取消当前 run；批量运行中时整批取消（没轮到的标 `skipped`） |
+| `gt.history` | `scenario`（可省） | 按场景文件的运行历史（跨编辑器会话，每个场景最近 10 次）。给 `scenario`：`runs: [{runId, succeeded, startedAtUtc, durationMs, total, failed, failedStep?, message?, outputDir, revision?}]`，最新在前；不给：`scenarios: {路径: "pfpp…"}`（最新在前，`p` 通过、`f` 失败），列表上画历史条用 |
+| `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
 | `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
 | `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |
 | `gt.record.status` | `last`（默认 10） | `recording`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`，超过步数上限时 `truncated: true` |
 
-同一时间只跑一个 run。每次 run 的报告和截图在 `Saved/GameTest/<名字>-<时间>/`（`report.json`、`*.png`）。
+同一时间只跑一个 run（批量运行也是一个接一个）。每次 run 的报告和截图在 `Saved/GameTest/<名字>-<时间>/`（`report.json`、`*.png`）。
+
+### 失败证据（1.2.0 起）
+
+一步失败（取消不算）时自动留下三样东西，写进这次 run 产物目录的 `failures/step-<第几步>/`，报告里那一步的 `payload.evidence` 只记路径（相对项目根）：
+
+| 字段 | 内容 |
+| --- | --- |
+| `dir` | 这一份证据的目录 |
+| `screenshot` | `screen.png`，失败那一刻的游戏窗口（截不了时是 `screenshotError`） |
+| `widgets` | `widgets.json`，那一刻屏上的控件树（结构和几何，不含属性，最多 3000 个节点）；`screens` 是屏数 |
+| `target` / `selectorError` | 步骤有 `target` 时再解析一次：找到了是 `target`（路径、类、文字、`visibility`、`enabled`，说明「控件在，但没点成」）；找不到是 `selectorError`，带候选 |
+| `log` | `log.txt`，失败前 50 行和之后 50 行日志（之后的最多等 3 秒，Stop 模式下失败后马上收尾，可能不满 50 行） |
+
+一次 run 最多留 5 份。设置「失败时留证据」（`bCaptureFailureEvidence`，默认开）可以关掉。
+
+### 批量运行（1.2.0 起）
+
+`gt.run tag=smoke` 跑场景根里 `tags` 带 `smoke` 的全部场景（不分大小写，按路径排序），`gt.run scenarios=[…]` 跑指定的几份。前一个结束后下一帧起下一个，某个失败、解析不过都不挡后面的。进度在 `gt.job` 和 `gt.job` 事件的 `batch` 里：
+
+```json
+{ "id": "batch-7", "label": "tag:smoke", "active": true, "total": 3, "current": 1, "passed": 1, "failed": 0, "skipped": 0,
+  "items": [{ "scenario": "smoke/login.json", "name": "登录", "status": "passed", "runId": "登录-5", "durationMs": 8400 },
+            { "scenario": "smoke/shop.json", "status": "running" },
+            { "scenario": "smoke/bag.json", "status": "pending" }] }
+```
+
+`status`：`pending`、`running`、`passed`、`failed`（带 `failedStep`、`message`）、`error`（没能开始，例如解析失败）、`skipped`（被取消）。批量运行时作业的 `busy` 一直为真（两个场景之间也是），`gt.step` 和单独的 `gt.run` 会被拒绝。
+
+### 运行历史（1.2.0 起）
+
+跑场景文件（不是临时步骤）的每次 run 结束都记进 `Saved/GameTest/history.json`，按场景文件分组，每个场景留最近 10 次。用 `gt.history` 读。和 `gt.runs`（本次会话最近若干次的完整报告，只在内存）不同，这份跨编辑器会话保留。
 
 `gt.inspect` 的用途：录出来的步骤不对，或者手写的选择器解析不到时，把光标停在那个控件上调一次，看光标下到底是哪个控件、它在哪个 WBP 里、选择器该怎么写（`verified: false` 说明写出来的选择器有歧义或指不回它）；`lastHandler` 用来确认刚才那一下点击被谁接住了。
 

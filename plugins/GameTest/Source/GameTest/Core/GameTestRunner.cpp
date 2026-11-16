@@ -29,6 +29,7 @@ bool FGameTestRunner::StartRun(
 	Report = FGameTestReport();
 	Report.RunId = InRequest.RunId;
 	Report.Name = InRequest.Name;
+	Report.Scenario = InRequest.Scenario;
 	Report.Revision = InRequest.Revision;
 	Report.StartedAtUtc = FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
 	StartedAtSeconds = FPlatformTime::Seconds();
@@ -43,6 +44,8 @@ bool FGameTestRunner::StartRun(
 	StepDelayMs = InRequest.StepDelayMs;
 	Handles = InRuntimeState.Handles;
 	RootedObjects = InRuntimeState.RootedObjects;
+	OnStepFailed = InRuntimeState.OnStepFailed;
+	bCancelling = false;
 
 	bActive = true;
 	bStepInFlight = false;
@@ -218,8 +221,7 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	const bool bStopAfterFailure = (InStatus == EGameTestStepStatus::Failed)
 		&& CurrentRecord.Step.FailMode == EGameTestFailMode::Stop;
 
-	Report.Steps.Add(CurrentRecord);
-
+	// 收尾放在留证据之前：真实点击超时时鼠标键还按着，截图里不该带着这个半截状态，日志也该先写完收尾那几行。
 	bStepInFlight = false;
 	PendingPredicate = nullptr;
 	if (PendingCleanup)
@@ -229,6 +231,13 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 		PendingCleanup = nullptr;
 		Cleanup();
 	}
+
+	if (InStatus == EGameTestStepStatus::Failed && !bCancelling && OnStepFailed)
+	{
+		OnStepFailed(CurrentRecord, OutputDir);
+	}
+
+	Report.Steps.Add(CurrentRecord);
 	++CurrentIndex;
 
 	if (bStopAfterFailure)
@@ -257,6 +266,7 @@ void FGameTestRunner::Cancel(const FString& InReason)
 	// 那一步从报告里彻底消失（步数与场景对不上）。剩余步骤统一交给 FinishRun 标 skipped。
 	if (bStepInFlight)
 	{
+		bCancelling = true;
 		CompleteCurrentStep(EGameTestStepStatus::Failed,
 			FString::Printf(TEXT("已取消：%s"), *InReason), FPlatformTime::Seconds());
 	}

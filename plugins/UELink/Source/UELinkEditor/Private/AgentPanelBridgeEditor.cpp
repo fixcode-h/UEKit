@@ -365,12 +365,14 @@ public:
 		RegisterTraceOps();
 		RegisterTextifyOps();
 		RegisterStreamOps();
+		RegisterSelectionOps();
 		RegisterEditorToolsOps();
 		// 推送通道等引擎初始化完再起（和运行时模块的 HTTP 服务同一时机）；commandlet、游戏进程里 Start 自己会跳过
 		PostInit = UELINK_POST_ENGINE_INIT.AddLambda([]()
 		{
 			FUELinkStream::Get().Start();
 			StartOutlinerPush();
+			StartSelectionPush();
 		});
 	}
 
@@ -378,6 +380,7 @@ public:
 	{
 		UELINK_POST_ENGINE_INIT.Remove(PostInit);
 		StopOutlinerPush();
+		StopSelectionPush();
 		FUELinkStream::Get().Stop();
 	}
 

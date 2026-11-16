@@ -94,6 +94,13 @@ struct GAMETEST_API FGameTestRuntimeState
 
 	/** 需要活过本次会话的对象（例如 PIE 的临时 play settings）。 */
 	TArray<TStrongObjectPtr<UObject>>* RootedObjects = nullptr;
+
+	/**
+	 * 一步失败时（取消不算）调一次，此时记录还没进报告：子系统在这里留失败证据（截图、控件、日志），
+	 * 把路径写进记录的 Payload。执行器只给时机，不知道证据是什么——它是算法层，不碰 Slate 和日志。
+	 * 为空时不留。
+	 */
+	TFunction<void(FGameTestStepRecord& /*Record*/, const FString& /*OutputDir*/)> OnStepFailed;
 };
 
 /**
@@ -226,4 +233,10 @@ private:
 
 	TMap<FString, TWeakObjectPtr<UWidget>>* Handles = nullptr;
 	TArray<TStrongObjectPtr<UObject>>* RootedObjects = nullptr;
+
+	/** 见 FGameTestRuntimeState::OnStepFailed。 */
+	TFunction<void(FGameTestStepRecord&, const FString&)> OnStepFailed;
+
+	/** 正在取消：这时被标失败的步骤是人叫停的，不是测试没过，不留证据。 */
+	bool bCancelling = false;
 };

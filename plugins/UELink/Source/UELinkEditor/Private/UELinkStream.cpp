@@ -3,6 +3,7 @@
 #include "UELinkStreamJson.h"
 #include "UELinkVersion.h"
 #include "AgentPanelBridge.h"
+#include "AgentPanelLua.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Common/TcpListener.h"
@@ -104,7 +105,12 @@ FUELinkStream& FUELinkStream::Get()
 TArray<FString> FUELinkStream::Features()
 {
 	// extEvents：订阅时可以带扩展的主题（forge.job、gt.record……），见协议文档「扩展插件」
-	TArray<FString> Out = {TEXT("log"), TEXT("tests"), TEXT("extEvents")};
+	// selection：uelink.selection 事件（2.4）；luaErrors：uelink.luaErrors 事件（2.4，编进 Lua 支持时才有）
+	TArray<FString> Out = {TEXT("log"), TEXT("tests"), TEXT("extEvents"), TEXT("selection")};
+	if (FAgentPanelLua::IsCompiledIn())
+	{
+		Out.Add(TEXT("luaErrors"));
+	}
 #if AGENT_PANEL_LIVE_CODING
 	Out.Add(TEXT("liveCoding"));
 #endif

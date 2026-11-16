@@ -98,4 +98,8 @@ namespace AgentPanelEd
 	/** 世界里的 Actor 增删、挂接、换文件夹时推 uelink.outliner 事件（UELinkOutlinerPush.cpp），网页的大纲据此重读，不轮询 */
 	void StartOutlinerPush();
 	void StopOutlinerPush();
+	/** 2.4：编辑器选中同步（UELinkSelectionOps.cpp）：editor.selection / editor.select，选中变化推 uelink.selection */
+	void RegisterSelectionOps();
+	void StartSelectionPush();
+	void StopSelectionPush();
 }
