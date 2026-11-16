@@ -47,7 +47,7 @@ dist/                   出包产物（已忽略）
 | `displayName` / `description` | 面板「UE 插件」列表上显示的名字和一句话说明（中文） |
 | `kind` | `base`（UELink）或 `extension`（挂在 UELink 上的扩展） |
 | `versionHeader` | `{ file, macro }`：版本宏的位置，check 会核对它和 `.uplugin` 一致 |
-| `engineMin` / `engineTested` | 最低引擎版本（必须和 `.uplugin` 的 `EngineVersion` 前两段一致）、实测过的版本 |
+| `engineMin` / `engineTested` | 最低引擎版本（「主.次」，面板安装时按它拦）、实测过的版本。`.uplugin` 不写 `EngineVersion`：写了别的引擎版本打开工程会弹「插件不兼容」（`check.mjs` 会拦） |
 | `requires` | 依赖的本库插件和最低版本，如 `{ "UELink": ">=2.2.0" }`；扩展必填 UELink |
 | `enginePlugins` / `optionalPlugins` | 依赖的引擎插件、可选的引擎或项目插件（没有时对应模块不编） |
 | `replaces` | 这个插件替代的旧插件目录名，面板安装时提示删掉 |

@@ -28,8 +28,10 @@ for (const p of plugins) {
   // ---- kit.json
   for (const k of ['displayName', 'description', 'kind', 'engineMin']) if (!kit[k]) fail(`kit.json 缺 ${k}`)
   if (!['base', 'extension'].includes(kit.kind)) fail(`kit.json 的 kind 只能是 base / extension：${kit.kind}`)
-  const engineMin = (up.EngineVersion ?? '').split('.').slice(0, 2).join('.')
-  if (kit.engineMin !== engineMin) fail(`kit.json 的 engineMin（${kit.engineMin}）和 .uplugin 的 EngineVersion（${up.EngineVersion}）对不上`)
+  // .uplugin 不写 EngineVersion：写了以后别的引擎版本（哪怕 5.4.0 写成后在 5.4.1、5.8 打开）都会弹「插件不兼容」。
+  // 最低引擎版本只记在 kit.json 的 engineMin，面板安装时按它拦。
+  if (up.EngineVersion !== undefined) fail('.uplugin 不要写 EngineVersion（别的引擎版本打开会弹「插件不兼容」），最低版本只写 kit.json 的 engineMin')
+  if (!/^\d+\.\d+$/.test(kit.engineMin ?? '')) fail(`kit.json 的 engineMin 要写成「主.次」，例如 5.4：${kit.engineMin}`)
   for (const dep of Object.keys(kit.requires ?? {})) {
     if (!all.some((o) => o.name === dep)) fail(`kit.json 的 requires 里的 ${dep} 不在插件库里`)
     if (!(up.Plugins ?? []).some((x) => x.Name === dep && x.Enabled !== false && !x.Optional))
