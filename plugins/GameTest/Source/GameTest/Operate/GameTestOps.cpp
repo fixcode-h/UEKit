@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Operate/GameTestOps.h"
+#include "GameTestCompat.h"
 
 #include "Core/GameTestJson.h"
 
@@ -34,18 +35,19 @@ namespace
 	/** 参数白名单：出现别的字段就是写错了，直接报出来。 */
 	bool RejectUnknownParams(const FJsonObject& InParams, const TArray<FString>& InAllowed, FString& OutMessage)
 	{
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InParams.Values)
+		for (const auto& Pair : InParams.Values)
 		{
-			if (Pair.Key == TEXT("target") || Pair.Key == TEXT("action") || Pair.Key == TEXT("note")
-				|| Pair.Key == TEXT("timeoutMs") || Pair.Key == TEXT("onFail"))
+			const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+			if (PairKey == TEXT("target") || PairKey == TEXT("action") || PairKey == TEXT("note")
+				|| PairKey == TEXT("timeoutMs") || PairKey == TEXT("onFail"))
 			{
 				continue;
 			}
 
-			if (!InAllowed.Contains(Pair.Key))
+			if (!InAllowed.Contains(PairKey))
 			{
 				OutMessage = FString::Printf(TEXT("这个控件不支持字段 '%s'（可用：%s）"),
-					*Pair.Key, InAllowed.Num() > 0 ? *FString::Join(InAllowed, TEXT(", ")) : TEXT("无"));
+					*PairKey, InAllowed.Num() > 0 ? *FString::Join(InAllowed, TEXT(", ")) : TEXT("无"));
 				return false;
 			}
 		}

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestAction.h"
+#include "GameTestCompat.h"
 
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestJson.h"
@@ -317,12 +318,13 @@ bool GameTestActions::ParseStep(
 	AllowedParams.Append(GetCommonParams());
 	AppendParams(Info->Params, AllowedParams);
 
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InJson->Values)
+	for (const auto& Pair : InJson->Values)
 	{
-		if (!AllowedParams.Contains(Pair.Key))
+		const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
+		if (!AllowedParams.Contains(PairKey))
 		{
 			OutErrors.Add(FString::Printf(TEXT("%s 不认识字段 '%s'（可用：%s）"),
-				*ActionText, *Pair.Key, *FString::Join(AllowedParams, TEXT(", "))));
+				*ActionText, *PairKey, *FString::Join(AllowedParams, TEXT(", "))));
 		}
 	}
 

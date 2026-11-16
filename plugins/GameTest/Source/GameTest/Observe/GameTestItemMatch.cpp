@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestItemMatch.h"
+#include "GameTestCompat.h"
 
 #include "Observe/GameTestWidgetNode.h"
 
@@ -30,8 +31,8 @@ TSharedPtr<FJsonValue> GameTestItemMatch::FindProperty(const FJsonObject& InProp
 {
 	for (const auto& Pair : InProperties.Values)
 	{
-		// FJsonObject 的键在 5.8 里是 TSharedString，先落成 FString 再比大小写不敏感。
-		if (FString(Pair.Key).Equals(InPropertyName, ESearchCase::IgnoreCase))
+		// FJsonObject 的键在 5.8 里是 FSharedString，先落成 FString 再比大小写不敏感。
+		if (GAMETEST_JSON_KEY(Pair.Key).Equals(InPropertyName, ESearchCase::IgnoreCase))
 		{
 			return Pair.Value;
 		}
