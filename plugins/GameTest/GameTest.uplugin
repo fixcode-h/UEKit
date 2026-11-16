@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 6,
-  "VersionName": "1.1.1-beta.1",
+  "Version": 7,
+  "VersionName": "1.2.0-beta.1",
   "FriendlyName": "GameTest",
   "Description": "用 JSON 场景跑游戏测试：控件选择器、点击输入、等待断言、截图，支持录制回放。界面在 Agent 面板的 UE 页，经 UELink 通信。",
   "Category": "Testing",

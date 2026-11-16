@@ -226,3 +226,64 @@ TArray<FGameTestScenarioInfo> GameTestScenario::ScanDirectory(const FString& InR
 
 	return Scenarios;
 }
+
+bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPath, FGameTestScenarioRun& OutRun, FString& OutError)
+{
+	FString FullPath = InPath;
+	if (FPaths::IsRelative(FullPath))
+	{
+		FullPath = FPaths::Combine(InRootDir, InPath);
+	}
+	FullPath = FPaths::ConvertRelativePathToFull(FullPath);
+
+	// 历史按相对路径记：同一个文件不管调用方写的是相对还是绝对路径，都要落到同一个键上
+	FString Relative = FullPath;
+	FString Root = FPaths::ConvertRelativePathToFull(InRootDir);
+	if (!Root.EndsWith(TEXT("/")))
+	{
+		Root.AppendChar(TEXT('/'));
+	}
+	if (FPaths::MakePathRelativeTo(Relative, *Root) && !Relative.StartsWith(TEXT("..")))
+	{
+		OutRun.Scenario = Relative.Replace(TEXT("\\"), TEXT("/"));
+	}
+	else
+	{
+		OutRun.Scenario = InPath.Replace(TEXT("\\"), TEXT("/"));
+	}
+
+	const TSharedPtr<FJsonObject> Json = GameTestJson::ParseObjectFromFile(FullPath, OutError);
+	if (!Json.IsValid())
+	{
+		OutError = FString::Printf(TEXT("%s：%s"), *InPath, *OutError);
+		return false;
+	}
+
+	TArray<FString> Errors;
+	OutRun.Steps.Reset();
+	if (!CollectSteps(Json, OutRun.Steps, Errors))
+	{
+		OutError = FString::Printf(TEXT("%s：%s"), *InPath, *FString::Join(Errors, TEXT("；")));
+		return false;
+	}
+
+	ApplyLegacyDefaults(Json, OutRun.Steps);
+	OutRun.Name = GetName(Json, FPaths::GetBaseFilename(InPath));
+	OutRun.Revision = GetRevision(Json);
+	OutRun.StepDelayMs = -1;
+	GameTestJson::TryGetInt(*Json, TEXT("stepDelayMs"), OutRun.StepDelayMs);
+	return true;
+}
+
+TArray<FString> GameTestScenario::FindByTag(const FString& InRootDir, const FString& InTag)
+{
+	TArray<FString> Out;
+	for (const FGameTestScenarioInfo& Info : ScanDirectory(InRootDir))
+	{
+		if (Info.Tags.ContainsByPredicate([&InTag](const FString& InItem) { return InItem.Equals(InTag, ESearchCase::IgnoreCase); }))
+		{
+			Out.Add(Info.RelativePath);
+		}
+	}
+	return Out;
+}

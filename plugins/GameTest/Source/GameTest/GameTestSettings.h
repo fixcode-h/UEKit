@@ -66,4 +66,11 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "run 历史上限", ClampMin = "1", ClampMax = "1000"))
 	int32 MaxRunHistory = 20;
+
+	/**
+	 * 一步失败时自动留证据：截图、控件快照（含选择器的候选）、失败前后 50 行日志，写进这次 run 产物目录的 failures/ 下，
+	 * 报告里只记路径。一次 run 最多留 5 份。关掉可以省下失败时的一次截图。
+	 */
+	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "失败时留证据"))
+	bool bCaptureFailureEvidence = true;
 };

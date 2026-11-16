@@ -298,6 +298,30 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		ASSERT_THAT(IsFalse(Runner.IsBusy(), TEXT("超时后应收尾")));
 	}
 
+	/** 失败的步骤要叫一次留证据的回调（此时记录还没进报告，回调写进 Payload 的东西要进报告）；成功的不叫。 */
+	TEST_METHOD(OnStepFailed_CalledOncePerFailedStepBeforeReport)
+	{
+		FGameTestRunner Runner;
+		FGameTestRuntimeState RuntimeState;
+		int32 Calls = 0;
+		RuntimeState.OnStepFailed = [&Calls](FGameTestStepRecord& InOutRecord, const FString&)
+		{
+			++Calls;
+			InOutRecord.Payload = MakeShared<FJsonObject>();
+			InOutRecord.Payload->SetStringField(TEXT("evidence"), TEXT("x"));
+		};
+		FString Error;
+		ASSERT_THAT(IsTrue(Runner.StartRun(
+			MakeRequest({ MakeMarkStep(0), MakeFailingStep(1, /*bContinueOnFail=*/true), MakeMarkStep(2) }),
+			RuntimeState, nullptr, Error), *Error));
+		Runner.Tick(0.0);
+
+		const FGameTestReport& Report = Runner.GetReport();
+		ASSERT_THAT(IsTrue(Calls == 1, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps[1].Payload.IsValid() && Report.Steps[1].Payload->HasField(TEXT("evidence")),
+			TEXT("回调写进 Payload 的证据路径要进报告")));
+	}
+
 	/** 跨帧等待期间取消：当前步标 failed 且说明是取消，而不是伪装成超时。 */
 	TEST_METHOD(Cancel_MarksInFlightStepFailedAndSkipsRest)
 	{

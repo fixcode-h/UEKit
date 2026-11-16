@@ -90,6 +90,15 @@ TSharedPtr<FJsonObject> GameTestRunStore::MakeSummary(const FJsonObject& InRepor
 	{
 		Summary->SetStringField(TEXT("name"), Text);
 	}
+	// scenario：按场景认历史（名字可能重复）；outputDir：面板据此找截图和失败证据
+	if (GameTestJson::TryGetString(InReportJson, TEXT("scenario"), Text))
+	{
+		Summary->SetStringField(TEXT("scenario"), Text);
+	}
+	if (GameTestJson::TryGetString(InReportJson, TEXT("outputDir"), Text))
+	{
+		Summary->SetStringField(TEXT("outputDir"), Text);
+	}
 	if (GameTestJson::TryGetString(InReportJson, TEXT("startedAtUtc"), Text))
 	{
 		Summary->SetStringField(TEXT("startedAtUtc"), Text);
