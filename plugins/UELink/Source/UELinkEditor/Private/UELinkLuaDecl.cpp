@@ -14,7 +14,7 @@
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Engine/UserDefinedEnum.h"
-#include "Engine/UserDefinedStruct.h"
+#include "StructUtils/UserDefinedStruct.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Hash/CityHash.h"
 #include "HAL/FileManager.h"
