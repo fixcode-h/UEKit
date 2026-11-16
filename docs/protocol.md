@@ -106,11 +106,11 @@
 
 - 钩子：快照点用行钩子、采样用调用 / 返回钩子，共用一个钩子函数。挂上前记下原来的钩子（IDE 的 Lua 调试器），事件按它原来的掩码转过去，都撤了再放回去；`lua.exec` / `lua.call` 执行期间临时换成超时钩子，那段代码里的快照点和采样看不到。钩子按协程各一份，挂之前就在跑的协程看不到（回包 `note` 说明）。
 - `lua.snap {"action": "add", "file", "line", "hits"?: 1, "ttlSec"?: 600}` → `{"snap": {"id", "file", "line", "hits", "max", "active", "created", "expiresIn"}, "note"}`：执行到这一行时记下函数、局部变量（表顺带前 20 项简单值）、upvalue 和调用栈，游戏不暂停。`file` 可以是磁盘路径、相对脚本根的路径或模块名（`UI.BagPanel`），和 chunkname 按路径段从后往前比。命中 `hits` 次（最多 20）或过了 `ttlSec`（10–3600 秒）自动撤掉；同时最多 20 个。
-  - `{"action": "list", "id"?}` → `{"items": [...], "warning"?}`：不给 `id` 只列概要；给 `id` 时带 `captures: [{"at", "fn", "src", "line", "locals": [{"name", "t", "v"?, "fields"?}], "upvalues"?, "stack": [行]}]`。钩子被别的调试器换掉时带 `warning`。
+  - `{"action": "list", "id"?}` → `{"items": [...], "warning"?}`：不给 `id` 只列概要；给 `id` 时带 `captures: [{"at", "fn", "src", "file"?, "line", "locals": [{"name", "t", "v"?, "fields"?}], "upvalues"?, "stack": [行]}]`。钩子被别的调试器换掉时带 `warning`。
   - `{"action": "remove", "id"?}` → `{"removed"}`：不给 `id` 全部撤掉并清记录。
   - 推送事件 `lua.snap`（命中一次推一次）：`{"id", "hits", "max", "active", "capture"}`。客户端订阅 `topics` 里写 `lua.snap`。
 - `lua.profile {"action": "start", "seconds"?: 5}` → `{"started", "seconds", "note"}`：采几秒（1–60），按函数（闭包）累计调用次数、总用时、自身用时，C 函数（UnLua 导出的 UE 接口）也算。到时间自己停；`{"action": "stop"}` 提前停。
-  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "line", "c", "calls", "totalMs", "selfMs"}], "report"}`，全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
+  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "file"?, "line", "c", "calls", "totalMs", "selfMs"}], "report"}`，`file` 是完整路径（chunkname 以 @ 开头时才有，`src` 太长会被截断），`c` 表示 C 函数；全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
 - `lua.leaks {"limit"?: 100, "maxVisit"?: 200000, "objectKey"?: "Object"}` → `{"items": [{"kind", "module"?, "path"?, "object"?, "class"?}], "total", "visited", "truncated", "ms", "report", "note"}`：找 Lua 还拿着、UObject 却已经没了的（专查「关了界面控件释放不掉」）。`kind`：
   - `destroyed`：从 `_G` 和注册表出发走 Lua 堆（表、函数的 upvalue、元表；弱表不算引用），找到像 UnLua 实例表（有元表、`objectKey` 字段是 userdata）却不在对象表里的表——UnLua 在对象销毁时会把它从对象表删掉。是推测，`path` 是 Lua 里拿着它的第一条路径（如 `_G.UIManager.Panels[3]`、`<upvalue Panels>`）。
   - `stale`（对象表里还有、UObject 已经不在）、`garbage`（已标记销毁）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）：对象表本身的问题，`path` 是 Lua 里另外拿着它的路径（只有对象表拿着时没有）。

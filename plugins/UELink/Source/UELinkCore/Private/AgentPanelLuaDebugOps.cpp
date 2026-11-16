@@ -66,6 +66,8 @@ namespace AgentPanelLuaDebug
 	{
 		FString Name;
 		FString Src;
+		/** 完整的文件路径（chunkname 以 @ 开头时才有）：short_src 太长会被截成 ...，网页拿它用编辑器打开 */
+		FString File;
 		FString What;
 		int32 Line = 0;
 		int64 Calls = 0;
@@ -324,6 +326,10 @@ namespace AgentPanelLuaDebug
 		Out->SetStringField(TEXT("fn"), UTF8_TO_TCHAR(Ar->name ? Ar->name : "?"));
 		Out->SetStringField(TEXT("src"), UTF8_TO_TCHAR(Ar->short_src));
 		Out->SetNumberField(TEXT("line"), Ar->currentline);
+		if (Ar->source && Ar->source[0] == '@')
+		{
+			Out->SetStringField(TEXT("file"), UTF8_TO_TCHAR(Ar->source + 1));
+		}
 
 		TArray<TSharedPtr<FJsonValue>> Locals;
 		for (int I = 1; Locals.Num() < MaxLocals; ++I)
@@ -502,6 +508,10 @@ namespace AgentPanelLuaDebug
 				Stat->Name = UTF8_TO_TCHAR(Ar->name ? Ar->name : "?");
 				Stat->Src = UTF8_TO_TCHAR(Ar->short_src);
 				Stat->What = UTF8_TO_TCHAR(Ar->what ? Ar->what : "");
+				if (Ar->source && Ar->source[0] == '@')
+				{
+					Stat->File = UTF8_TO_TCHAR(Ar->source + 1);
+				}
 				Stat->Line = Ar->linedefined;
 			}
 		}
@@ -520,6 +530,10 @@ namespace AgentPanelLuaDebug
 		O->SetStringField(TEXT("fn"), Stat.Name);
 		O->SetStringField(TEXT("src"), Stat.Src);
 		O->SetNumberField(TEXT("line"), Stat.Line);
+		if (!Stat.File.IsEmpty())
+		{
+			O->SetStringField(TEXT("file"), Stat.File);
+		}
 		O->SetBoolField(TEXT("c"), Stat.What == TEXT("C"));
 		O->SetNumberField(TEXT("calls"), (double)Stat.Calls);
 		O->SetNumberField(TEXT("totalMs"), FMath::RoundToDouble(Ms(Stat.Total) * 1000.0) / 1000.0);
