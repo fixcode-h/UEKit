@@ -840,7 +840,7 @@ namespace UELinkEmmyValues
 
 	// ---- 找 emmy runtime 并注册 ----
 
-	/** emmy runtime 可能的模块名：PC 附加注入的是 emmy_core，新核心改名后也认 */
+	/** emmy runtime 所在的模块：PC 附加注入的 emmy_core / emmy_debugger_core，或者静态链进了主程序 */
 	void* FindEmmyModule()
 	{
 #if PLATFORM_WINDOWS
@@ -851,7 +851,9 @@ namespace UELinkEmmyValues
 				return M;
 			}
 		}
-		return nullptr;
+		// 项目把调试核心静态链进游戏（内嵌 runtime）时，导出在主程序上
+		HMODULE Exe = ::GetModuleHandleW(nullptr);
+		return Exe && ::GetProcAddress(Exe, UELINK_EMMY_REGISTER_EXPORT) ? Exe : nullptr;
 #else
 		for (const char* Name : { "libemmy_core.so", "emmy_core.so", "libemmy_debugger_core.so", "libemmy_core.dylib", "emmy_core.dylib" })
 		{
@@ -861,6 +863,12 @@ namespace UELinkEmmyValues
 				dlclose(M);
 				return M;
 			}
+		}
+		// 静态链进主程序（内嵌 runtime）时，从全局符号表里找
+		void* Self = dlopen(nullptr, RTLD_LAZY);
+		if (Self && dlsym(Self, UELINK_EMMY_REGISTER_EXPORT))
+		{
+			return Self;
 		}
 		return nullptr;
 #endif
