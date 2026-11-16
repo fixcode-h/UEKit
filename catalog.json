@@ -243,8 +243,8 @@
         "displayName": "GameTest",
         "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
         "kind": "extension",
-        "version": "1.2.0-beta.5",
-        "versionCode": 11,
+        "version": "1.2.0-beta.6",
+        "versionCode": 12,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -287,18 +287,18 @@
         "panelTools": [
           "ue_gametest"
         ],
-        "tag": "GameTest-v1.2.0-beta.5",
-        "asset": "GameTest-1.2.0-beta.5-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.2.0-beta.5/GameTest-1.2.0-beta.5-src.zip",
-        "sha256": "37ce2e0a8d23f6c178945d666496e126952922cd14211274cdfed78e0b720510",
-        "size": 258876,
+        "tag": "GameTest-v1.2.0-beta.6",
+        "asset": "GameTest-1.2.0-beta.6-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.2.0-beta.6/GameTest-1.2.0-beta.6-src.zip",
+        "sha256": "2d7747b042f9de1ce8bc11d676e30081f048a55fc175216bcbe6cd423543838b",
+        "size": 271634,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "> 云端改的，还没在本地用 UE 完整编译验证过，先发预发布。\n\n### Bug 修复\n- **按住 Alt 点按钮，回放时按钮收到的是「没按 Alt」** — 回放用 `key phase=press` 按住的 Alt / Ctrl / Shift 以前只发了按键事件，之后点击、滚轮、按键事件里的修饰键还是去问操作系统，看不到它们，于是「按住 Alt 点 GM 按钮」回放成了普通点击，界面没打开。现在回放按住的修饰键会带进之后的所有输入事件\n- **回放按键会抢走界面的焦点** — 没给 target 的按键以前每次都把焦点交给游戏视口，打开的界面可能因失焦关掉；现在焦点已经在游戏界面上时不动它，只有焦点在编辑器别的面板上才交给游戏视口\n\n### 新功能\n- **区分长按和单击** — 录制时按住超过 0.25 秒、期间没做别的操作的键录成一条 `key phase=tap holdMs=…`，回放按住同样久再松开；按住期间做了别的操作（按住 Alt 点按钮）才录成 press … release\n\n### 改进\n- **点击和每一步都写日志** — 每次真实指针点击写一行 LogGameTest（点了谁、屏幕坐标、按住了哪些键、按下被谁接住），每一步结束写一行结果，排查「录的时候点开了、回放没点开」不用猜\n- **失败证据的日志不再被刷屏淹没** — `log.txt` 开头先列本次运行里 GameTest 的每一步和所有警告、错误；失败前后的日志里，某个类别刷屏（如每帧打印的 Lua 日志）时只留它的警告和错误，其余折成一句「省略了多少行」"
+        "notes": "> 云端改的，还没在本地用 UE 完整编译验证过，先发预发布。\n\n### 新功能\n- **阻挡界面自动处理** — 在项目的运行配置里标记 WBP（公告、新手引导、活动弹窗、断线重连……），跑测试时它一出现就自动关掉、调它的函数（例如「跳过」）或执行一条指令（GM），不再挡住后面的步骤；每次处理都记进那一步的结果和日志。运行配置是场景根下的 `_settings.json`，跟着场景进版本管理，面板 GameTest 页「运行设置」里可以编辑\n\n### 改进\n- **UI 等待默认不限时** — 点击、拖动、输入和「等界面出现 / 消失」默认一直等到界面出来，加载慢时不再 10 秒就报失败；真卡住了在面板上点停止。上限可以在运行配置、场景（`uiWaitTimeoutMs`）或单个步骤（`timeoutMs`）里设"
       },
       "displayName": "GameTest",
       "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T11:36:47.646Z"
+  "updatedAt": "2026-11-16T11:46:44.361Z"
 }
