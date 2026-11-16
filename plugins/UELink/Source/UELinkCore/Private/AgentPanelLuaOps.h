@@ -12,5 +12,8 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& Bridge);
 /** 2.4：lua.check、lua.reload、lua.modules、lua.errors、lua.inspect、lua.call（AgentPanelLuaDevOps.cpp） */
 void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& Bridge);
 
+/** 2.4：快照点 lua.snap、性能采样 lua.profile、持有的已销毁 UObject lua.leaks（AgentPanelLuaDebugOps.cpp） */
+void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge& Bridge);
+
 /** /info 里的 lua 字段：{available, error?, version}，面板按它决定显示不显示 Lua 的入口 */
 void AgentPanelLuaInfo(const TSharedPtr<FJsonObject>& Info);

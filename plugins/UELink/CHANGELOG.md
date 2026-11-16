@@ -11,6 +11,7 @@
 - **运行时看 Lua 对象** — 新操作 `lua.inspect`（字段、自己的和继承来的函数带参数名、元表链、模块顶部的 upvalue）和 `lua.call`（按路径调 Lua 函数，可以带 self，参数写 JSON，回返回值、print 输出和 self 字段的变化）；`lua.set` 能把字段改成表（JSON 对象 / 数组）
 - **编辑器小工具** — 新操作 `config.files` / `config.get`（读进程里合并后的项目配置，按 section、键查）、`tags.list` / `tags.refs`（全部 GameplayTag 和引用某个 Tag 的资源）、`asset.redirectors`（列出文件夹下的重定向器，`fix: true` 一键修复引用并删掉，和内容浏览器右键同一个入口）、`editor.spawn` / `editor.destroy`（在编辑器关卡里放、删 Actor，进撤销栈）。Agent 面板的配置和 GameplayTag 浏览页、资源页「修复重定向器」、Agent 的 `ue_console action=config / tags`、`ue_editor action=spawn / destroy` 用它们
 
+- **Lua 深度调试** — 新操作 `lua.snap`（快照点：执行到某行时记下局部变量和调用栈，游戏不暂停，命中几次自动撤掉，命中时推 `lua.snap` 事件）、`lua.profile`（采几秒，按函数统计调用次数和用时，带文件和行号）、`lua.leaks`（列出 Lua 还拿着、UObject 已经销毁或世界已经关了的对象，查界面关了释放不掉）。和 IDE 的 Lua 调试器共存：原来的钩子照样收到事件
 ### 注意
 - 装好后要在本地完整编译一次（Live Coding 不够）
 - UnLua 二次开发版的热重载和报错入口桥接不猜，按需在项目模块里调 `SetReloader` / `CaptureError` 接上，见 `docs/protocol.md`

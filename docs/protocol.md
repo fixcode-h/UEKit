@@ -53,7 +53,7 @@
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`editor.spawn`、`editor.destroy` |
-| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call` |
+| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
@@ -101,6 +101,20 @@
   - `upvalues` 是自己的函数用到的 upvalue（模块顶部的 `local`），同名只列一次，最多 100 个，只给简单值。
 - `lua.call {"path"?, "keys": [函数路径], "self"?: false, "args"?: [JSON], "timeoutMs"?: 10000}` → `{"results", "output", "ms", "changes"?: [{"k", "before", "after"}]}`：沿 `keys` 找到函数，`self: true` 时把上一级的表当第一个参数（`obj:fn(...)`）。参数是 JSON，对象和数组转成 Lua 表。在 `lua_pcall` 里执行，超时中止，`print` 收进 `output`。`self: true` 时回包带上 self 表顶层简单字段调用前后的变化。
 - `lua.set` 2.4.0 起 `value` 也可以是 JSON 对象或数组（转成 Lua 表）；原值是表时也能整个换掉，回包 `"undoable": false`、没有 `prev`（客户端不要提供撤回）。
+
+2.4.0 起的 Lua 深度调试（「装了 UnLua 时」才有，代码在 `AgentPanelLuaDebugOps.cpp`）。三者都靠 Lua 的调试钩子或只读遍历，不改游戏状态；不做断点（桥接在游戏线程上处理请求，游戏线程一停桥接也停了）：
+
+- 钩子：快照点用行钩子、采样用调用 / 返回钩子，共用一个钩子函数。挂上前记下原来的钩子（IDE 的 Lua 调试器），事件按它原来的掩码转过去，都撤了再放回去；`lua.exec` / `lua.call` 执行期间临时换成超时钩子，那段代码里的快照点和采样看不到。钩子按协程各一份，挂之前就在跑的协程看不到（回包 `note` 说明）。
+- `lua.snap {"action": "add", "file", "line", "hits"?: 1, "ttlSec"?: 600}` → `{"snap": {"id", "file", "line", "hits", "max", "active", "created", "expiresIn"}, "note"}`：执行到这一行时记下函数、局部变量（表顺带前 20 项简单值）、upvalue 和调用栈，游戏不暂停。`file` 可以是磁盘路径、相对脚本根的路径或模块名（`UI.BagPanel`），和 chunkname 按路径段从后往前比。命中 `hits` 次（最多 20）或过了 `ttlSec`（10–3600 秒）自动撤掉；同时最多 20 个。
+  - `{"action": "list", "id"?}` → `{"items": [...], "warning"?}`：不给 `id` 只列概要；给 `id` 时带 `captures: [{"at", "fn", "src", "line", "locals": [{"name", "t", "v"?, "fields"?}], "upvalues"?, "stack": [行]}]`。钩子被别的调试器换掉时带 `warning`。
+  - `{"action": "remove", "id"?}` → `{"removed"}`：不给 `id` 全部撤掉并清记录。
+  - 推送事件 `lua.snap`（命中一次推一次）：`{"id", "hits", "max", "active", "capture"}`。客户端订阅 `topics` 里写 `lua.snap`。
+- `lua.profile {"action": "start", "seconds"?: 5}` → `{"started", "seconds", "note"}`：采几秒（1–60），按函数（闭包）累计调用次数、总用时、自身用时，C 函数（UnLua 导出的 UE 接口）也算。到时间自己停；`{"action": "stop"}` 提前停。
+  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "line", "c", "calls", "totalMs", "selfMs"}], "report"}`，全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
+- `lua.leaks {"limit"?: 100, "maxVisit"?: 200000, "objectKey"?: "Object"}` → `{"items": [{"kind", "module"?, "path"?, "object"?, "class"?}], "total", "visited", "truncated", "ms", "report", "note"}`：找 Lua 还拿着、UObject 却已经没了的（专查「关了界面控件释放不掉」）。`kind`：
+  - `destroyed`：从 `_G` 和注册表出发走 Lua 堆（表、函数的 upvalue、元表；弱表不算引用），找到像 UnLua 实例表（有元表、`objectKey` 字段是 userdata）却不在对象表里的表——UnLua 在对象销毁时会把它从对象表删掉。是推测，`path` 是 Lua 里拿着它的第一条路径（如 `_G.UIManager.Panels[3]`、`<upvalue Panels>`）。
+  - `stale`（对象表里还有、UObject 已经不在）、`garbage`（已标记销毁）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）：对象表本身的问题，`path` 是 Lua 里另外拿着它的路径（只有对象表拿着时没有）。
+  - 协程栈上的局部变量走不到。全部结果写进 `Saved/UELink/lua-leaks/leaks-<时间>.json`；大项目走一遍几百毫秒，会卡一下游戏线程。
 
 2.4.0 起 `asset.validate` 能一次查多个：`{"paths": [...]}`（最多 200 个）→ `{"items": [{"path", "result", "errors", "warnings", "issues": [前 5 条]}], "errors", "warnings", "report"}`，完整结果写进 `Saved/UELink/validate/<时间>.json`，`report` 是它的绝对路径。只给 `path` 时照旧回单个资源的结果。
 
