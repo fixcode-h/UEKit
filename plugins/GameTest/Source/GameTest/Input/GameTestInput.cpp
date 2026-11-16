@@ -24,6 +24,34 @@ namespace
 
 	bool bSendingSynthetic = false;
 
+	/**
+	 * 虚拟光标（1.2.3 起默认开）：回放的光标位置只记在这里、带进发给 Slate 的事件，不调 SetCursorPos，
+	 * 系统光标留给人用。run 的点击方式是 pointer（真实鼠标）时关掉，照旧移真实光标。
+	 */
+	bool bVirtualCursor = true;
+	TOptional<FVector2D> VirtualCursorPos;
+
+	/** 鼠标事件该用的位置：虚拟光标摆过就用它，否则用真实光标。 */
+	FVector2D CursorForEvents(const FSlateApplication& InApp)
+	{
+		return bVirtualCursor && VirtualCursorPos.IsSet() ? VirtualCursorPos.GetValue() : FVector2D(InApp.GetCursorPos());
+	}
+
+	/** 把光标摆到 InPosition：虚拟时只记下来，真实时移系统光标。返回移动前的位置（移动事件要用）。 */
+	FVector2D PlaceCursor(FSlateApplication& InApp, const FVector2D& InPosition)
+	{
+		const FVector2D Last = CursorForEvents(InApp);
+		if (bVirtualCursor)
+		{
+			VirtualCursorPos = InPosition;
+		}
+		else
+		{
+			InApp.SetCursorPos(InPosition);
+		}
+		return Last;
+	}
+
 	/** 发合成事件期间置位，录制器看到就跳过；作用域结束自动复位，提前返回也不会漏。 */
 	struct FSyntheticScope
 	{
@@ -90,11 +118,23 @@ bool GameTestInput::MoveCursor(UWorld& InWorld, const FVector2D& InNormalizedPoi
 		FMath::Clamp(InNormalizedPoint.Y, 0.0, 1.0));
 	const FVector2D AbsolutePosition = FVector2D(ViewportGeometry.GetAbsolutePositionAtCoordinates(FVector2f(Clamped)));
 
-	FSlateApplication::Get().SetCursorPos(AbsolutePosition);
+	{
+		FSlateApplication& App = FSlateApplication::Get();
+		const FSyntheticScope Scope;
+		const FVector2D LastPosition = PlaceCursor(App, AbsolutePosition);
+		if (bVirtualCursor)
+		{
+			// 虚拟光标没有系统光标移动带出来的事件：补一次移动，悬停、游戏里读鼠标事件的逻辑才看得到新位置
+			const FPointerEvent Move(
+				FSlateApplicationBase::CursorPointerIndex, AbsolutePosition, LastPosition, App.GetPressedMouseButtons(),
+				EKeys::Invalid, 0.0f, MergedModifiers(App));
+			App.ProcessMouseMoveEvent(Move);
+		}
+	}
 	OutScreenPosition = AbsolutePosition;
 
-	OutMessage = FString::Printf(TEXT("光标已移到视口归一化 (%.2f, %.2f) → 屏幕 (%.0f, %.0f)；视口 %.0f×%.0f"),
-		Clamped.X, Clamped.Y, AbsolutePosition.X, AbsolutePosition.Y, LocalSize.X, LocalSize.Y);
+	OutMessage = FString::Printf(TEXT("%s到视口归一化 (%.2f, %.2f) → 屏幕 (%.0f, %.0f)；视口 %.0f×%.0f"),
+		bVirtualCursor ? TEXT("虚拟光标已移") : TEXT("光标已移"), Clamped.X, Clamped.Y, AbsolutePosition.X, AbsolutePosition.Y, LocalSize.X, LocalSize.Y);
 	return true;
 }
 
@@ -133,7 +173,7 @@ bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<
 
 	if (InKey.IsMouseButton())
 	{
-		const FVector2D Position = App.GetCursorPos();
+		const FVector2D Position = CursorForEvents(App);
 		TSet<FKey> Pressed = App.GetPressedMouseButtons();
 		if (bInDown)
 		{
@@ -194,8 +234,7 @@ bool GameTestInput::MovePointerTo(const FVector2D& InScreenPosition, FString& Ou
 
 	FSlateApplication& App = FSlateApplication::Get();
 	const FSyntheticScope Scope;
-	const FVector2D LastPosition = App.GetCursorPos();
-	App.SetCursorPos(InScreenPosition);
+	const FVector2D LastPosition = PlaceCursor(App, InScreenPosition);
 
 	// 只调 SetCursorPos 要等下一帧 Slate 合成移动才更新悬停；这里直接发一次移动，按下时悬停已经对了。
 	const FPointerEvent Move(
@@ -248,7 +287,7 @@ bool GameTestInput::SendWheel(float InDelta, FString& OutMessage)
 
 	FSlateApplication& App = FSlateApplication::Get();
 	const FSyntheticScope Scope;
-	const FVector2D Position = App.GetCursorPos();
+	const FVector2D Position = CursorForEvents(App);
 	const FPointerEvent Wheel(
 		FSlateApplicationBase::CursorPointerIndex, Position, Position, App.GetPressedMouseButtons(),
 		EKeys::Invalid, InDelta, MergedModifiers(App));
@@ -300,6 +339,17 @@ bool GameTestInput::SendSelectAll(FString& OutMessage)
 
 	OutMessage = TEXT("全选");
 	return true;
+}
+
+void GameTestInput::SetVirtualCursor(bool bInVirtual)
+{
+	bVirtualCursor = bInVirtual;
+	VirtualCursorPos.Reset();
+}
+
+bool GameTestInput::IsVirtualCursor()
+{
+	return bVirtualCursor;
 }
 
 void GameTestInput::ReleaseHeldKeys()

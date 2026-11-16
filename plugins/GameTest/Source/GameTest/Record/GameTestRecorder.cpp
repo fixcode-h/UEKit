@@ -626,25 +626,50 @@ bool FGameTestRecorder::DescribeHandler(
 	{
 		Handler = InEvent.HitLeaf.Pin();
 	}
-	if (!Handler.IsValid() || Handler == GameTestSlate::GetGameViewportWidget())
+	const TSharedPtr<SWidget> Viewport = GameTestSlate::GetGameViewportWidget();
+	if (!Handler.IsValid() || Handler == Viewport)
 	{
-		// 没人接，或者游戏视口接了：点在游戏画面上。
-		return true;
+		// 按下没人接（或游戏视口接了），但点的位置上有游戏界面的控件：多半是只在松开时响应的控件
+		// （列表条目、自定义 WBP 按钮）。按命中的那个控件录成 UI 点击，不录成游戏画面上的原始鼠标——
+		// 原始鼠标回放要摆光标，还认不出点的是谁。
+		const TSharedPtr<SWidget> Leaf = InEvent.HitLeaf.Pin();
+		if (Leaf.IsValid() && Leaf != Viewport && GameTestSlate::IsInGameUi(Leaf) && GameTestSlate::FindOwningWidget(Leaf) != nullptr)
+		{
+			Handler = Leaf;
+		}
+		else
+		{
+			// 真点在游戏画面上
+			return true;
+		}
 	}
 
 	FString Error;
 	if (UWidget* Widget = GameTestSlate::FindOwningWidget(Handler))
 	{
-		FGameTestWrittenTarget Written;
-		if (!GameTestSelectorWriter::Write(*Widget, Written, Error))
+		// 写不出选择器时往外找几层：外层的按钮、条目往往写得出来，点它和点里面的图标效果一样；
+		// 实在写不出才录成游戏画面上的操作（那会要摆光标）。
+		constexpr int32 MaxClimb = 4;
+		UWidget* Current = Widget;
+		for (int32 Climb = 0; Current != nullptr && Climb <= MaxClimb; ++Climb)
 		{
-			UE_LOG(LogGameTest, Warning, TEXT("录制：%s 写不出选择器（%s），按游戏画面上的操作录"), *GameTestSlate::Describe(Handler), *Error);
-			return true;
+			FGameTestWrittenTarget Written;
+			if (GameTestSelectorWriter::Write(*Current, Written, Error))
+			{
+				if (Current != Widget)
+				{
+					UE_LOG(LogGameTest, Display, TEXT("录制：%s 写不出选择器，改录外层的 %s"), *GameTestSlate::Describe(Handler), *Written.Target);
+				}
+				OutIsUi = true;
+				OutTarget = Written.Target;
+				OutHint = Written.Hint;
+				OutSlate = Current->GetCachedWidget();
+				return true;
+			}
+			const TSharedPtr<SWidget> CurrentSlate = Current->GetCachedWidget();
+			Current = CurrentSlate.IsValid() ? GameTestSlate::FindOwningWidget(CurrentSlate->GetParentWidget()) : nullptr;
 		}
-		OutIsUi = true;
-		OutTarget = Written.Target;
-		OutHint = Written.Hint;
-		OutSlate = Widget->GetCachedWidget();
+		UE_LOG(LogGameTest, Warning, TEXT("录制：%s 写不出选择器（%s），按游戏画面上的操作录"), *GameTestSlate::Describe(Handler), *Error);
 		return true;
 	}
 

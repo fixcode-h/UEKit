@@ -69,6 +69,14 @@ public:
 	/** Ctrl+A 全选（输入框替换文本前用）。 */
 	static bool SendSelectAll(FString& OutMessage);
 
+	/**
+	 * 虚拟光标开关（每次 run 开始时按点击方式设）：开着时 MoveCursor / MovePointerTo 不移系统光标，
+	 * 只把位置记下来带进之后的鼠标事件（按键、滚轮），回放不占用人手里的鼠标。
+	 * 代价：游戏里直接读系统光标位置的逻辑（按鼠标位置瞄准）看不到虚拟光标，这种场景用 clickVia=pointer。
+	 */
+	static void SetVirtualCursor(bool bInVirtual);
+	static bool IsVirtualCursor();
+
 	/** 松开本次 run 里按下还没松开的键（run 收尾时调）。 */
 	static void ReleaseHeldKeys();
 
