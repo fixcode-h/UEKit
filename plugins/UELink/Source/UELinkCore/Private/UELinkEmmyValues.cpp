@@ -77,6 +77,7 @@ namespace UELinkEmmyValues
 		FTSTicker::FDelegateHandle Tick;
 		void* Module = nullptr;
 		FUELinkEmmyUnregisterFn Unregister = nullptr;
+		FUELinkEmmyHasFn Has = nullptr;
 		uint64 ProviderId = 0;
 
 		/** 当前暂停的缓存：句柄表、Lua 值 → UObject 指针的反查表 */
@@ -889,12 +890,19 @@ namespace UELinkEmmyValues
 		void* Module = FindEmmyModule();
 		if (Module == St.Module)
 		{
-			return true;
+			// 调试核心被卸载后又在同一地址加载时模块句柄不变，但注册已经随旧实例没了：新版 runtime 能问出来，重新注册
+			const bool bLost = Module && St.ProviderId && St.Has && St.Has(St.ProviderId) == 0;
+			if (!bLost)
+			{
+				return true;
+			}
+			UE_LOG(LogUELinkEmmy, Log, TEXT("UELink: EmmyLua 调试 runtime 重新加载过，重新注册 UE 属性提供者"));
 		}
 		// 模块换了（卸载、重新注入）：旧的注册随旧模块一起没了，按新模块重新来
 		St.Module = Module;
 		St.ProviderId = 0;
 		St.Unregister = nullptr;
+		St.Has = nullptr;
 		St.ResetPause(0, 0);
 		if (!Module)
 		{
@@ -916,6 +924,12 @@ namespace UELinkEmmyValues
 		Provider.releasePause = &ReleasePause;
 		St.ProviderId = Register(&Provider);
 		St.Unregister = reinterpret_cast<FUELinkEmmyUnregisterFn>(FindExport(Module, UELINK_EMMY_UNREGISTER_EXPORT));
+		St.Has = reinterpret_cast<FUELinkEmmyHasFn>(FindExport(Module, UELINK_EMMY_HAS_EXPORT));
+		if (St.ProviderId == 0)
+		{
+			UE_LOG(LogUELinkEmmy, Warning, TEXT("UELink: EmmyLua 调试 runtime 拒绝了 UE 属性提供者（接口版本不一致），断点时 UE 属性仍由 Lua 侧显示"));
+			return true;
+		}
 		UE_LOG(LogUELinkEmmy, Log, TEXT("UELink: 已向 EmmyLua 调试 runtime 注册 UE 属性提供者（id %llu）"), St.ProviderId);
 		return true;
 	}
@@ -948,6 +962,7 @@ void AgentPanelUnregisterEmmyValues()
 	}
 	St.ProviderId = 0;
 	St.Unregister = nullptr;
+	St.Has = nullptr;
 	St.Module = nullptr;
 	St.ResetPause(0, 0);
 }
