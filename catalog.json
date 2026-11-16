@@ -75,8 +75,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.3.2",
-        "versionCode": 11,
+        "version": "1.3.3",
+        "versionCode": 12,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -108,13 +108,13 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.3.2",
-        "asset": "AssetForge-1.3.2-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.2/AssetForge-1.3.2-src.zip",
-        "sha256": "fd693e67a157e2f7b08d61be629dca7f7336c1aca6ecc6dae2d0968d8b9bc5a2",
-        "size": 396628,
+        "tag": "AssetForge-v1.3.3",
+        "asset": "AssetForge-1.3.3-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.3.3/AssetForge-1.3.3-src.zip",
+        "sha256": "e2f515ad531f975e1668a11510576096a39ddd5758d73b5399251e44f231cc7f",
+        "size": 396809,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "> 按用户要求直接发正式版：云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **「导入生成资源」不再让编辑器崩溃** — 配置和现有资产的属性完全一致（比如刚导入过）时，看属性差异会空指针崩溃；现在正常返回「没有差异」\n- **状态树配置里节点写成非对象时不再崩溃** — 整理默认字段时先判空再读"
+        "notes": "> 按用户要求直接发正式版：云端编不了 UE，状态判断那处 C++ 改动还没在本地编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **示例测试界面演练报错** — `WBP_ForgeSample` 里设置页的页签容器给 Border 的插槽写了 `Size`（Border 的插槽没有这个属性），演练报「类型 BorderSlot 上没有名为 `Size` 的属性」。已去掉；插件升级时没改过的示例配置会自动换成新的\n- **还没导入过的配置被标成「资产不存在」** — 新建的、插件自带示例的、同事提交的配置，资产本来就还没生成，以前在 AssetForge 页显示成红色「资产不存在」、算进出错；现在显示「还没导入」。「资产不存在」只留给导入过、资产后来被删掉的情况"
       },
       "prerelease": null,
       "displayName": "AssetForge",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T15:00:46.366Z"
+  "updatedAt": "2026-11-16T15:10:31.457Z"
 }
