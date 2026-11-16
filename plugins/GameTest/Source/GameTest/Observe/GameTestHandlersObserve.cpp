@@ -22,7 +22,7 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/Paths.h"
-#include "Misc/StringOutputDevice.h"
+#include "GameTestCompat.h" // FStringOutputDevice 的头在 5.4 和之后的版本里位置不同
 
 #if WITH_EDITOR
 #include "Editor.h"
