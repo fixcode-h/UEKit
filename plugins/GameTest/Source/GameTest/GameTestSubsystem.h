@@ -192,4 +192,10 @@ private:
 	/** 活性证据：ticker 被调用的次数（health 里报出去，用来判断游戏线程是不是真的在走）。 */
 	int64 TickCount = 0;
 	double LastHeartbeatLog = 0.0;
+
+	/** 每步一行日志记到了第几步：失败证据的日志里要能看到前面每一步做了什么。 */
+	int32 LastLoggedStepCount = 0;
+
+	/** 把执行器新完成的步骤各写一行 LogGameTest。 */
+	void LogFinishedSteps();
 };

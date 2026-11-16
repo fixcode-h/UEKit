@@ -947,6 +947,27 @@ void FGameTestRecorder::ProcessKeyUp(const FRawEvent& InEvent)
 		}
 	}
 
+	// 长按、中间没录别的步骤：合成一条带 holdMs 的 tap（「按住 W 1.2 秒」），回放按住这么久再松开。
+	// 按住期间录了别的步骤（按住 Alt 点按钮、按住 W 时点技能）才分成 press … release，那时按住的状态本身就是操作的一部分。
+	if (!bQuick && Steps.Num() > 0)
+	{
+		const TSharedRef<FJsonObject>& Last = Steps.Last();
+		FString LastAction;
+		FString LastKey;
+		FString LastPhase;
+		Last->TryGetStringField(TEXT("action"), LastAction);
+		Last->TryGetStringField(TEXT("key"), LastKey);
+		Last->TryGetStringField(TEXT("phase"), LastPhase);
+		if (LastAction == TEXT("key") && LastKey == InEvent.Key.ToString() && LastPhase == TEXT("press"))
+		{
+			Last->SetStringField(TEXT("phase"), TEXT("tap"));
+			Last->SetNumberField(TEXT("holdMs"), FMath::RoundToInt((InEvent.Time - Down.Time) * 1000.0));
+			LastEventAt = InEvent.Time;
+			Broadcast(TEXT("step"));
+			return;
+		}
+	}
+
 	AddGapWait(InEvent.Time, !Down.Target.IsEmpty());
 	const TSharedRef<FJsonObject> Step = GameTestRecorderDetail::MakeStep(TEXT("key"));
 	Step->SetStringField(TEXT("key"), InEvent.Key.ToString());

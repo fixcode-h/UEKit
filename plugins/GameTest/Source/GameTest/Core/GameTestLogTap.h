@@ -29,6 +29,15 @@ public:
 	/** 序号 [InFrom, InTo) 里还留在环里的行（被淘汰的跳过）。 */
 	TArray<FString> Range(uint64 InFrom, uint64 InTo) const;
 
+	/**
+	 * 「要紧的行」：LogGameTest 的行和任何类别的警告 / 错误，单独存一个小环（最多 ImportantCapacity 行）。
+	 * 项目里有类别每帧刷屏时（UnLua 打印之类），大环里 1000 行只够一两秒，失败前每一步做了什么早被冲掉了；
+	 * 要紧的行另存，证据里才看得到。返回 InFromTime（`FPlatformTime::Seconds()`）之后的。
+	 */
+	TArray<FString> ImportantSince(double InFromTime) const;
+
+	static constexpr int32 ImportantCapacity = 300;
+
 	//~ Begin FOutputDevice interface
 	virtual void Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbosity, const FName& InCategory) override;
 	virtual bool CanBeUsedOnAnyThread() const override
@@ -45,5 +54,13 @@ private:
 	mutable FCriticalSection Lock;
 	TArray<FString> Lines;
 	uint64 Seq = 0;
+
+	struct FImportantLine
+	{
+		double Time = 0.0;
+		FString Line;
+	};
+	TArray<FImportantLine> Important;
+	uint64 ImportantSeq = 0;
 	bool bAttached = false;
 };

@@ -27,6 +27,49 @@ namespace
 
 	/** 选择器候选的说明截断：候选清单可能很长，证据里放够判断的那一段。 */
 	constexpr int32 EvidenceMaxSelectorChars = 2000;
+
+	/** 一段日志里某个类别超过这么多行就算刷屏：只留它的警告和错误，其余折成一句「省略了几行」。 */
+	constexpr int32 EvidenceSpamLines = 20;
+
+	/** 日志行「类别: 内容」或「类别: 级别: 内容」→ 类别。 */
+	FString EvidenceCategoryOf(const FString& InLine)
+	{
+		int32 Colon = INDEX_NONE;
+		return InLine.FindChar(TEXT(':'), Colon) ? InLine.Left(Colon) : FString();
+	}
+
+	bool EvidenceIsWarningOrError(const FString& InLine, const FString& InCategory)
+	{
+		const FString Rest = InLine.RightChop(InCategory.Len() + 1).TrimStart();
+		return Rest.StartsWith(TEXT("Warning:")) || Rest.StartsWith(TEXT("Error:")) || Rest.StartsWith(TEXT("Fatal:"));
+	}
+
+	/**
+	 * 折叠刷屏：一段里行数超过阈值的类别（LogGameTest 除外）只留警告和错误，省掉的按类别记数。
+	 * 项目里每帧打印的 Lua 日志会把失败前后几百行全占满，真正有用的几行被淹掉。
+	 */
+	TArray<FString> EvidenceFoldSpam(const TArray<FString>& InLines, TMap<FString, int32>& InOutDropped)
+	{
+		TMap<FString, int32> Counts;
+		for (const FString& Line : InLines)
+		{
+			++Counts.FindOrAdd(EvidenceCategoryOf(Line));
+		}
+		TArray<FString> Kept;
+		for (const FString& Line : InLines)
+		{
+			const FString Category = EvidenceCategoryOf(Line);
+			const bool bSpam = Category != TEXT("LogGameTest") && Counts.FindRef(Category) > EvidenceSpamLines
+				&& !EvidenceIsWarningOrError(Line, Category);
+			if (bSpam)
+			{
+				++InOutDropped.FindOrAdd(Category);
+				continue;
+			}
+			Kept.Add(Line);
+		}
+		return Kept;
+	}
 }
 
 FGameTestEvidence::FGameTestEvidence(FGameTestLogTap& InLogTap)
@@ -37,6 +80,7 @@ FGameTestEvidence::FGameTestEvidence(FGameTestLogTap& InLogTap)
 void FGameTestEvidence::BeginRun()
 {
 	CapturedThisRun = 0;
+	RunStartedAt = FPlatformTime::Seconds();
 }
 
 void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString& InRunDir, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles)
@@ -119,7 +163,8 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 		FPendingLog Pending;
 		Pending.Path = FPaths::Combine(Dir, TEXT("log.txt"));
 		Pending.FailSeq = LogTap.GetSeq();
-		Pending.Before = LogTap.Range(Pending.FailSeq > LogLines ? Pending.FailSeq - LogLines : 0, Pending.FailSeq);
+		Pending.Before = LogTap.Range(Pending.FailSeq > RawLogLines ? Pending.FailSeq - RawLogLines : 0, Pending.FailSeq);
+		Pending.ImportantFrom = RunStartedAt;
 		Pending.Deadline = FPlatformTime::Seconds() + EvidenceLogWaitSeconds;
 		WriteLog(Pending, /*bInFinal=*/false);
 		PendingLogs.Add(MoveTemp(Pending));
@@ -144,7 +189,7 @@ void FGameTestEvidence::Tick(double InNowSeconds)
 	for (int32 Index = PendingLogs.Num() - 1; Index >= 0; --Index)
 	{
 		const FPendingLog& Pending = PendingLogs[Index];
-		if (Seq >= Pending.FailSeq + LogLines || InNowSeconds >= Pending.Deadline)
+		if (Seq >= Pending.FailSeq + RawLogLines || InNowSeconds >= Pending.Deadline)
 		{
 			WriteLog(Pending, /*bInFinal=*/true);
 			PendingLogs.RemoveAt(Index);
@@ -163,11 +208,45 @@ void FGameTestEvidence::FlushAll()
 
 void FGameTestEvidence::WriteLog(const FPendingLog& InPending, bool bInFinal) const
 {
-	TArray<FString> Lines = InPending.Before;
+	TArray<FString> Lines;
+
+	// 1. 要紧的行：本次 run 里 GameTest 每一步的结果、每次点击送到了哪，以及任何类别的警告和错误。
+	Lines.Add(TEXT("== GameTest 每一步和警告 / 错误（本次 run 开始以来） =="));
+	Lines.Append(LogTap.ImportantSince(InPending.ImportantFrom));
+	Lines.Add(FString());
+
+	// 2. 失败前后的原始日志：刷屏的类别折叠掉，只留前后各 LogLines 行。
+	TMap<FString, int32> Dropped;
+	TArray<FString> Before = EvidenceFoldSpam(InPending.Before, Dropped);
+	if (Before.Num() > LogLines)
+	{
+		Before.RemoveAt(0, Before.Num() - LogLines);
+	}
+	TArray<FString> After;
+	if (bInFinal)
+	{
+		After = EvidenceFoldSpam(LogTap.Range(InPending.FailSeq, InPending.FailSeq + RawLogLines), Dropped);
+		if (After.Num() > LogLines)
+		{
+			After.SetNum(LogLines);
+		}
+	}
+
+	Lines.Add(TEXT("== 失败前后的日志 =="));
+	if (Dropped.Num() > 0)
+	{
+		TArray<FString> Parts;
+		for (const TPair<FString, int32>& Pair : Dropped)
+		{
+			Parts.Add(FString::Printf(TEXT("%s %d 行"), *Pair.Key, Pair.Value));
+		}
+		Lines.Add(FString::Printf(TEXT("（刷屏的类别只留警告和错误，省略了：%s）"), *FString::Join(Parts, TEXT("、"))));
+	}
+	Lines.Append(Before);
 	Lines.Add(TEXT("—————— 这一步在这里失败 ——————"));
 	if (bInFinal)
 	{
-		Lines.Append(LogTap.Range(InPending.FailSeq, InPending.FailSeq + LogLines));
+		Lines.Append(After);
 	}
 	else
 	{

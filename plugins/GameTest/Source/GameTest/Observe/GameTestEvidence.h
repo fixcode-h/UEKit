@@ -24,8 +24,11 @@ public:
 	/** 一次 run 最多留几份：Continue 模式下一路失败时不至于截几十张图。 */
 	static constexpr int32 MaxPerRun = 5;
 
-	/** 前后各取多少行日志。 */
+	/** 前后各留多少行日志（刷屏的类别折叠之后）。 */
 	static constexpr int32 LogLines = 50;
+
+	/** 前后各从多少行原始日志里挑：有类别刷屏时，折叠后还要剩得下 LogLines 行有用的。 */
+	static constexpr int32 RawLogLines = 600;
 
 	explicit FGameTestEvidence(FGameTestLogTap& InLogTap);
 
@@ -51,6 +54,8 @@ private:
 		TArray<FString> Before;
 		uint64 FailSeq = 0;
 		double Deadline = 0.0;
+		/** 「要紧的行」从这一刻起取：本次 run 开始的时间。 */
+		double ImportantFrom = 0.0;
 	};
 
 	void WriteLog(const FPendingLog& InPending, bool bInFinal) const;
@@ -58,4 +63,5 @@ private:
 	FGameTestLogTap& LogTap;
 	TArray<FPendingLog> PendingLogs;
 	int32 CapturedThisRun = 0;
+	double RunStartedAt = 0.0;
 };

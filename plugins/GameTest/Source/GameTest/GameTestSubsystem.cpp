@@ -205,6 +205,23 @@ void UGameTestSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
+void UGameTestSubsystem::LogFinishedSteps()
+{
+	const TArray<FGameTestStepRecord>& Steps = Runner->GetReport().Steps;
+	// 开新 run 时在 StartRun 前清零；这里再兜一次：报告比记到的还短，说明换了一个 run。
+	if (Steps.Num() < LastLoggedStepCount - 1)
+	{
+		LastLoggedStepCount = 0;
+	}
+	for (int32 Index = LastLoggedStepCount; Index < Steps.Num(); ++Index)
+	{
+		const FGameTestStepRecord& Record = Steps[Index];
+		UE_LOG(LogGameTest, Display, TEXT("第 %d 步 %s %s：%s"), Record.Step.Index + 1, *Record.Step.Action.ToString(),
+			GameTestStatus::ToString(Record.Status), *Record.Message.Left(300));
+	}
+	LastLoggedStepCount = FMath::Max(LastLoggedStepCount, Steps.Num());
+}
+
 bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 {
 	// 子系统正在关（Deinitialize 先摘 ticker，但模块热重载等路径上顺序不保证）：没有执行器就什么都不做。
@@ -216,6 +233,7 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 	const double Now = FPlatformTime::Seconds();
 	++TickCount;
 	Runner->Tick(Now);
+	LogFinishedSteps();
 	Evidence->Tick(Now);
 	DriveBatch();
 	UpdateHighlight(Now);
@@ -465,6 +483,15 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	{
 		RuntimeState.OnStepFailed = [this](FGameTestStepRecord& InOutRecord, const FString& InRunDir)
 		{
+			// 失败这一步先写进日志再留证据：证据里「失败前」的日志要看得到前面每一步和这一步为什么失败。
+			// 这时记录还没进报告，记下它已经写过，后面按报告补日志时跳过它。
+			if (Runner.IsValid())
+			{
+				LogFinishedSteps();
+				UE_LOG(LogGameTest, Display, TEXT("第 %d 步 %s %s：%s"), InOutRecord.Step.Index + 1, *InOutRecord.Step.Action.ToString(),
+					GameTestStatus::ToString(InOutRecord.Status), *InOutRecord.Message.Left(300));
+				LastLoggedStepCount = Runner->GetReport().Steps.Num() + 1;
+			}
 			// 留证据只是附加信息：子系统正在关时没有 Evidence，跳过就好，不影响这一步的结论。
 			if (Evidence.IsValid())
 			{
@@ -473,6 +500,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		};
 	}
 
+	LastLoggedStepCount = 0;
 	const bool bStarted = Runner->StartRun(
 		Request,
 		RuntimeState,
@@ -491,6 +519,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 			// 按场景文件的历史（跨会话，列表上的历史条）和批量运行的记账
 			GameTestHistory::Record(InReport, OutputRelative);
 			Batch.OnRunFinished(InReport);
+			LogFinishedSteps();
 			UE_LOG(LogGameTest, Display, TEXT("run '%s' 结束：ok=%d，步骤 %d 条"),
 				*InReport.Name, InReport.bSucceeded ? 1 : 0, InReport.Steps.Num());
 		},
