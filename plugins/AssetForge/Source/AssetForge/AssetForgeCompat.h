@@ -10,6 +10,8 @@
 
 #include <type_traits>
 
+struct FExpressionInput;
+
 #if UE_VERSION_OLDER_THAN(5, 4, 0)
 	#error "AssetForge 需要 UE 5.4 或更新的版本"
 #endif
@@ -29,3 +31,102 @@ using FForgeJsonKey = std::decay_t<decltype((*DeclVal<FJsonObject&>().Values.beg
 
 /** UWorldPartitionSettings 的「新建地图默认开不开世界分区」：5.4 没有这组设置，新建空白关卡不开世界分区 */
 #define ASSETFORGE_HAS_NEW_MAP_WORLD_PARTITION_SETTINGS UE_VERSION_NEWER_THAN(5, 7, 99)
+
+// ---- 下面这些只在 5.8 有的编辑器接口，写成模板：名字到调用处才解析，这个头不用 include 各领域的头 ----
+
+/** UMaterialExpression 的输入个数：5.8 有 const 的 CountInputs；5.4 没有，挨个 GetInput 到空为止（各表达式越界都返回空） */
+template <typename TExpression>
+int32 ForgeCountInputs(const TExpression* InExpression)
+{
+#if UE_VERSION_NEWER_THAN(5, 7, 99)
+	return InExpression->CountInputs();
+#else
+	TExpression* Mutable = const_cast<TExpression*>(InExpression);
+	int32 Count = 0;
+	while (Mutable->GetInput(Count) != nullptr)
+	{
+		++Count;
+	}
+	return Count;
+#endif
+}
+
+/** UMaterialExpression::GetInput：5.4 只有非 const 版，只读访问时去掉 const（不改表达式） */
+template <typename TExpression>
+auto ForgeGetInput(const TExpression* InExpression, int32 InIndex)
+{
+#if UE_VERSION_NEWER_THAN(5, 7, 99)
+	return InExpression->GetInput(InIndex);
+#else
+	return static_cast<const FExpressionInput*>(const_cast<TExpression*>(InExpression)->GetInput(InIndex));
+#endif
+}
+
+/** UMaterialEditingLibrary::RecompileMaterial 在 5.8 返回编译错误；5.4 返回 void，错误要等编译完从材质资源上取 */
+#define ASSETFORGE_RECOMPILE_RETURNS_ERRORS UE_VERSION_NEWER_THAN(5, 7, 99)
+
+/** UFont 的合成字体：5.8 走 Get(Mutable)InternalCompositeFont；5.4 是公开成员 CompositeFont */
+template <typename TFont>
+auto& ForgeCompositeFont(TFont* InFont)
+{
+#if UE_VERSION_NEWER_THAN(5, 7, 99)
+	if constexpr (std::is_const_v<TFont>)
+	{
+		return InFont->GetInternalCompositeFont();
+	}
+	else
+	{
+		return InFont->GetMutableInternalCompositeFont();
+	}
+#else
+	return InFont->CompositeFont;
+#endif
+}
+
+/**
+ * 控件蓝图的「变量名 → GUID」表（WidgetVariableNameToGuidMap、OnVariableAdded / OnVariableRemoved）：5.8 才有，
+ * 编译时会用 ensure 核对；5.4 没有这张表也没有这项核对，增删控件不用登记
+ */
+#define ASSETFORGE_HAS_WIDGET_VARIABLE_GUIDS UE_VERSION_NEWER_THAN(5, 7, 99)
+
+template <typename TWidgetBlueprint>
+void ForgeWidgetVariableAdded(TWidgetBlueprint& InBlueprint, FName InName)
+{
+#if ASSETFORGE_HAS_WIDGET_VARIABLE_GUIDS
+	InBlueprint.OnVariableAdded(InName);
+#endif
+}
+
+template <typename TWidgetBlueprint>
+void ForgeWidgetVariableRemoved(TWidgetBlueprint& InBlueprint, FName InName)
+{
+#if ASSETFORGE_HAS_WIDGET_VARIABLE_GUIDS
+	InBlueprint.OnVariableRemoved(InName);
+#endif
+}
+
+/**
+ * UPanelWidget::GetSlotClass：5.8 公开，5.4 是 protected。用派生类取成员指针再在基类对象上调用，
+ * 不改引擎、照常走虚函数（各面板控件返回自己的槽类）
+ */
+template <typename TPanel>
+struct TForgeSlotClassAccess : TPanel
+{
+	static UClass* Get(const TPanel* InPanel)
+	{
+#if UE_VERSION_NEWER_THAN(5, 7, 99)
+		return InPanel->GetSlotClass();
+#else
+		return (InPanel->*(&TForgeSlotClassAccess::GetSlotClass))();
+#endif
+	}
+};
+
+template <typename TPanel>
+UClass* ForgeSlotClass(const TPanel* InPanel)
+{
+	return TForgeSlotClassAccess<TPanel>::Get(InPanel);
+}
+
+/** FValidateAssetsResults::ValidatorMessages（跨资产的校验消息）：5.8 才有；5.4 只有逐资产的错误和警告 */
+#define ASSETFORGE_HAS_VALIDATOR_MESSAGES UE_VERSION_NEWER_THAN(5, 7, 99)

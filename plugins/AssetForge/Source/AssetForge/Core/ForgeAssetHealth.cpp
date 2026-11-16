@@ -1,4 +1,5 @@
 #include "Core/ForgeAssetHealth.h"
+#include "AssetForgeCompat.h"
 
 #include "Engine/Blueprint.h"
 #include "Editor.h"
@@ -147,6 +148,7 @@ namespace
 			}
 		}
 
+#if ASSETFORGE_HAS_VALIDATOR_MESSAGES
 		// 跨资产的消息（如"引用了缺失资产"），同样错误与警告都要。
 		for (const TSharedRef<FTokenizedMessage>& Message : Results.ValidatorMessages)
 		{
@@ -159,6 +161,7 @@ namespace
 					Message->ToText().ToString());
 			}
 		}
+#endif
 	}
 }
 

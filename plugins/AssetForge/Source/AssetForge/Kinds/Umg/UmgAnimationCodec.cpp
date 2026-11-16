@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Kinds/Umg/UmgAnimationCodec.h"
+#include "AssetForgeCompat.h"
 
 #include "Animation/MovieSceneMarginSection.h"
 #include "Animation/MovieSceneMarginTrack.h"
@@ -579,7 +580,7 @@ namespace
 	{
 		const FName AnimationName = InAnimation.GetFName();
 		InBlueprint.Animations.Remove(&InAnimation);
-		InBlueprint.OnVariableRemoved(AnimationName);
+		ForgeWidgetVariableRemoved(InBlueprint, AnimationName);
 
 		// 挪进瞬态包是引擎删动画的做法（AnimationTabSummoner.cpp:890-894）：
 		// 直接删对象会让还引用它的 Sequencer 标签页悬空。
@@ -983,7 +984,7 @@ bool Sync(UWidgetBlueprint& InBlueprint, const TArray<FUmgAnimation>& InTarget, 
 			Animation = NewObject<UWidgetAnimation>(&InBlueprint, FName(*Target.Name), RF_Transactional);
 			Animation->SetDisplayLabel(Target.Name);
 			InBlueprint.Animations.Add(Animation);
-			InBlueprint.OnVariableAdded(FName(*Target.Name));
+			ForgeWidgetVariableAdded(InBlueprint, FName(*Target.Name));
 		}
 
 		if (!RebuildAnimation(InBlueprint, *Animation, Target, OutDiagnostics))
