@@ -15,5 +15,12 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& Bridge);
 /** 2.4：快照点 lua.snap、性能采样 lua.profile、持有的已销毁 UObject lua.leaks（AgentPanelLuaDebugOps.cpp） */
 void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge& Bridge);
 
+/**
+ * 2.4：给 EmmyLua 调试器提供 UE 对象属性（UELinkEmmyValues.cpp）：每 2 秒看进程里有没有 emmy runtime，有就注册。
+ * 由 AgentPanelRegisterLuaOps 启动，模块关闭时注销。没编进 Lua 支持时什么也不做
+ */
+void AgentPanelRegisterEmmyValues();
+void AgentPanelUnregisterEmmyValues();
+
 /** /info 里的 lua 字段：{available, error?, version}，面板按它决定显示不显示 Lua 的入口 */
 void AgentPanelLuaInfo(const TSharedPtr<FJsonObject>& Info);
