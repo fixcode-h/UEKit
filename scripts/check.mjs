@@ -86,6 +86,10 @@ for (const p of plugins) {
     // 或用 TryGetObjectField。测试模块不查（断言失败本来就该停）
     if (!/Tests\//.test(rel) && /(\bGetObjectField\s*\([^;]*?\)|\bAsObject\s*\(\s*\))\s*->/.test(text))
       fail(`${rel} 对 GetObjectField / AsObject() 的结果直接用了 ->：先判 IsValid()（或用 TryGetObjectField），取不到时返回错误，不要让编辑器崩溃`)
+    // 5.8 起 GetObjectsWithOuter / ForEachObjectWithOuter 的 bool bIncludeNestedObjects 弃用（编译出 C4996 警告），
+    // 一律写 UELINK_OUTER_NESTED(...)（UELinkCompat.h），5.4 上展开成 bool、5.8 上展开成 EGetObjectsFlags
+    if (/GetObjectsWithOuter\s*\([^;]*,\s*(true|false)\s*\)/.test(text) || /ForEachObjectWithOuter(Breakable)?\s*\([\s\S]{0,800}?\}\s*,\s*(true|false)\s*[,)]/.test(text))
+      fail(`${rel} 给 GetObjectsWithOuter / ForEachObjectWithOuter 直接传了 true/false：5.8 上会报弃用警告，改用 UELINK_OUTER_NESTED(...)`)
     if (p.name === 'UELink') {
       if (/AGENTPANELBRIDGE(EDITOR)?_API/.test(text)) fail(`${rel} 还在用旧的导出宏 AGENTPANELBRIDGE_API，改成 UELINKCORE_API`)
       continue

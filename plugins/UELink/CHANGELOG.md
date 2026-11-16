@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.4.3
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### 改进
+- **新引擎上编译不再出弃用警告** — 对象树（Outliner）列子对象时改用新引擎的 `EGetObjectsFlags` 写法，UE 5.8 上不再报 `ForEachObjectWithOuterBreakable` / `GetObjectsWithOuter` 的 C4996 警告；UE 5.4 照旧
+
 ## v2.4.2
 
 > 按用户要求直接发正式版：云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
