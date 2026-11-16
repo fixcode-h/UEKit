@@ -4,6 +4,7 @@
 
 #include "Core/GameTestAction.h"
 #include "Core/GameTestJson.h"
+#include "Core/GameTestRunConfig.h"
 #include "Core/GameTestScenario.h"
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
@@ -232,6 +233,16 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 
 	const double Now = FPlatformTime::Seconds();
 	++TickCount;
+	// 阻挡界面先处理再推进步骤：弹窗这一帧关掉，等着的点击下一次检查就能点到
+	if (Runner->IsBusy() && Blockers.IsActive())
+	{
+		TArray<TSharedPtr<FJsonObject>> BlockerEvents;
+		Blockers.Tick(Now, GameTestWorld::FindGameWorld(), Runner->GetStepInFlight(), BlockerEvents);
+		for (const TSharedPtr<FJsonObject>& Event : BlockerEvents)
+		{
+			Runner->AddStepEvent(TEXT("blockers"), Event);
+		}
+	}
 	Runner->Tick(Now);
 	LogFinishedSteps();
 	Evidence->Tick(Now);
@@ -473,6 +484,23 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		Request.StepDelayMs = InStepDelayMs;
 	}
 
+	// 项目运行配置（场景根的 _settings.json）：阻挡界面规则和 UI 等待上限。写错了整次不跑——
+	// 规则没生效却照跑，弹窗挡住时只会看到一串莫名其妙的超时。
+	FGameTestRunConfig RunConfig;
+	FString ConfigError;
+	if (!GameTestRunConfig::Load(RunConfig, ConfigError))
+	{
+		RestoreBackgroundThrottle();
+		OutResult = MakeShared<FJsonObject>();
+		OutResult->SetBoolField(TEXT("ok"), false);
+		OutResult->SetStringField(TEXT("error"), ConfigError);
+		return false;
+	}
+	// UI 等待上限：场景 > 运行配置 > 项目设置
+	Request.UiWaitTimeoutMs = InRun.UiWaitTimeoutMs >= 0 ? InRun.UiWaitTimeoutMs
+		: RunConfig.UiWaitTimeoutMs >= 0 ? RunConfig.UiWaitTimeoutMs
+		: (GetDefault<UGameTestSettings>() != nullptr ? GetDefault<UGameTestSettings>()->UiWaitTimeoutMs : 0);
+
 	FString StartError;
 	FGameTestRuntimeState RuntimeState;
 	RuntimeState.Handles = &Handles;
@@ -501,12 +529,14 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	}
 
 	LastLoggedStepCount = 0;
+	Blockers.Begin(RunConfig.Blockers);
 	const bool bStarted = Runner->StartRun(
 		Request,
 		RuntimeState,
 		[this, OutputDir](const FGameTestReport& InReport)
 		{
 			RestoreBackgroundThrottle();
+			Blockers.End();
 			// 可选模块在这里清掉本次 run 留下的状态（EnhancedInput 模块停掉输入注入）。
 			GameTestInput::ReleaseHeldKeys();
 			GameTestHooks::OnRunFinished().Broadcast();
@@ -528,6 +558,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	if (!bStarted)
 	{
 		RestoreBackgroundThrottle();
+		Blockers.End();
 
 		OutResult = MakeShared<FJsonObject>();
 		OutResult->SetBoolField(TEXT("ok"), false);

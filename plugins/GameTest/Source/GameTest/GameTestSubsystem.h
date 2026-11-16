@@ -8,6 +8,7 @@
 #include "Core/GameTestRunner.h"
 #include "Core/GameTestRunStore.h"
 #include "Observe/GameTestEvidence.h"
+#include "Operate/GameTestBlockers.h"
 #include "Subsystems/EngineSubsystem.h"
 #include "GameTestSubsystem.generated.h"
 
@@ -164,6 +165,9 @@ private:
 	 * TUniquePtr 的析构，不完整类型会编不过（高亮层踩过，见上面的删除器）。
 	 */
 	TUniquePtr<FGameTestEvidence> Evidence;
+
+	/** 阻挡界面规则：每次 run 开始从项目运行配置读，run 期间每帧看一眼。 */
+	FGameTestBlockerGuard Blockers;
 
 	/** 批量运行的队列和结果。 */
 	FGameTestBatch Batch;

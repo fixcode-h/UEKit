@@ -43,11 +43,12 @@ public:
 	int32 DefaultStepTimeoutMs = 60000;
 
 	/**
-	 * UI 动作（click / drag / wheel / type）自动等待控件可操作的默认超时（毫秒）；步骤自己的 timeoutMs 优先。
-	 * 比单步默认超时短：界面一般几秒内就出来，等满一分钟才报「没找到」太慢。
+	 * UI 动作（click / drag / wheel / type、wait widget）等目标控件出现、可操作的上限（毫秒）。
+	 * 0 = 不限：界面没出来就一直等（加载慢、网络慢时不误报），卡住了在面板上停止。
+	 * 优先级：步骤的 timeoutMs > 场景的 uiWaitTimeoutMs > 项目运行配置（场景根的 _settings.json）> 这里。
 	 */
-	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "UI 等待超时(ms)", ClampMin = "500"))
-	int32 UiWaitTimeoutMs = 10000;
+	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "UI 等待超时(ms，0=不限)", ClampMin = "0"))
+	int32 UiWaitTimeoutMs = 0;
 
 	/**
 	 * 每步**成功之后**的间隔（毫秒）：让刚被操作的那个控件在游戏窗口里亮够、看得清。

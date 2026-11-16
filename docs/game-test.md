@@ -39,6 +39,7 @@
 ```
 
 - `stepDelayMs`（可选）覆盖项目设置里的步间隔（默认 1000ms，方便看清每一步；录制的场景写 0）。
+- `uiWaitTimeoutMs`（可选，1.2.0-beta.6 起）这个场景里 UI 动作等界面的上限（毫秒，0 = 不限），覆盖运行配置和项目设置，见「UI 动作怎么执行」。
 - `schemaVersion`：当前是 2（1.1.0 起）。2 里 `click` / `type` 默认走真实输入（真实指针、真实按键）；1 的文件照常能跑，见下面「从旧场景迁移」。写比插件支持的更高的版本会被明确拒绝。
 - 每一步的公共字段：`action`（必填）、`target`、`note`、`timeoutMs`、`onFail`（`stop` 默认 / `continue`）、`hint`。动作不认识的字段直接报错，不静默忽略。
 - `hint`：录制写的线索（`asset` WBP 资源路径、`class`、`text`、`rect` 视口归一化 `[x, y, w, h]`）。录的时候选择器核对不唯一、但按线索挑得回来时多一个 `pick`（说明），挑不回来时多一个 `ambiguous`（原因）。回放只在一种情况下用它：选择器命中**同一个 WBP 的几个实例**时按线索挑回录的那一个（见「UI 动作怎么执行」里的「按录制线索消歧」），别的情况不拿它换目标。手写场景不用写。
@@ -136,7 +137,37 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 **按录制线索消歧**（1.2.0-beta.4 起）：选择器命中同一个 WBP 的几个实例（「在 N 个屏里都命中」）、步骤又带着录制的 `hint` 时，「解析到」这一项按线索挑：先只留真在屏上的（在游戏视口里、整条父链可见、有尺寸，对象池里藏着的不算），剩一个就是它；还剩多个时留文字和 `hint.text` 完全一样的；再剩多个按 `hint.rect` 挑位置和大小最近的。最近的偏差超过 0.08（视口归一化）或最近两个差不到 0.02 时不挑，接着等，超时报「按录制线索也挑不出：…」。挑中时步骤结果里的 `picked` 写怎么挑的。没有 `hint` 的手写步骤照旧报歧义。
 
-超时取步骤的 `timeoutMs`，没写时用项目设置的「UI 等待超时」（`UiWaitTimeoutMs`，默认 10000ms；比单步默认超时 `DefaultStepTimeoutMs` 短，界面一般几秒内就出来）。所以场景里不用在每个 UI 操作前插 `wait`；显式的 `wait until=widget / widgetGone` 照样保留，给「等某个界面出现但不操作它」用。
+等待上限（`wait until=widget / widgetGone` 也一样）按这个顺序取：步骤的 `timeoutMs` > 场景顶层的 `uiWaitTimeoutMs` > 运行配置（下一节）的 `uiWaitTimeoutMs` > 项目设置「UI 等待超时」（`UiWaitTimeoutMs`）。**默认 0 = 不限**（1.2.0-beta.6 起，以前默认 10 秒）：界面没出来就一直等，加载慢、网络慢时不误报；真卡住了在面板上点停止（`gt.stop`），等待中的这一步标失败，消息里带最后一次检查卡在哪。不限时报告里这一步的 `timeoutMs` 记 0。所以场景里不用在每个 UI 操作前插 `wait`；显式的 `wait until=widget / widgetGone` 照样保留，给「等某个界面出现但不操作它」用。
+
+### 运行配置和阻挡界面（1.2.0-beta.6 起）
+
+场景根下的 `_settings.json` 是整个项目共用的运行配置（跟着场景进版本管理，不放 UE 的 Config；列场景时跳过它）。面板 GameTest 页「运行设置」读写它（`gt.config`），也可以直接改文件：
+
+```json
+{
+  "uiWaitTimeoutMs": 0,
+  "blockers": [
+    { "widget": "WBP_Notice", "action": "close", "note": "登录公告" },
+    { "widget": "WBP_Guide", "action": "call", "function": "Skip", "delayMs": 500 },
+    { "widget": "/Game/UI/Common/WBP_Reconnect", "action": "command", "command": "gm.Reconnect" }
+  ]
+}
+```
+
+`blockers` 是**阻挡界面**：公告、新手引导、活动弹窗、断线重连这类不定时弹出、会挡住后面步骤的界面。运行期间（每 0.2 秒看一次）规则里的界面一出现在屏上就处理掉：
+
+| 字段 | 说明 |
+| --- | --- |
+| `widget` | 类名（`WBP_Notice`，带不带 `_C` 都行）或资产路径（`/Game/UI/WBP_Notice`）；它的子类也算 |
+| `action` | `close`（默认）：`RemoveFromParent`，直接挂在 Slate 上移不掉的再折叠；`call`：调这个界面上的无参函数 `function`（蓝图里的函数名，有返回值可以、有输入参数不行）；`command`：执行控制台指令 `command`（先交给本地玩家控制器，GM、作弊管理器上的 exec 都能走到，没有玩家控制器再交给引擎） |
+| `delayMs` | 出现后过多久再处理，给打开动画留时间（默认 0，最多 60000） |
+| `enabled` | `false` 时暂时不用这条 |
+| `note` | 给人看的说明 |
+
+- 正在等的那一步要操作的就是这个界面（选择器里写着它的类名）时不处理它：场景里明写了「点公告的确定」，就不该被规则抢先关掉。
+- 同一个界面实例一次运行只处理一次；处理后 1 秒还在屏上，记一条 `ok: false`「处理后还在」，不反复处理。
+- 每次处理都记进当时那一步结果的 `payload.blockers`（两步之间发生的记在下一步上）：`[{widget, rule, action, ok, message, note?}]`，同时写一行 LogGameTest。面板的步骤详情里显示「自动关掉了哪些阻挡界面」。
+- 配置写错（缺字段、action 不认识）时整次运行不开始，报哪一条错了：规则没生效却照跑，弹窗挡住时只会看到一串莫名其妙的等待。
 
 动手：真实指针 `click` 把光标移到控件内 `at` 的位置，按下、隔一帧松开，和玩家点的效果一样，控件自己处理。按下后核对这次按下的处理者是目标本身或它里面的控件（点在按钮里的文字上，接住的是按钮也算），不是就报「点了 X，但接住按下的是 Y」，不算通过；没人接住按下时（有的控件只在松开时响应）不算失败，结果里 `handled: false`。这个进程拿不到处理者时（见限制）跳过核对，结果里写明「核对不了」。
 
@@ -188,6 +219,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.report` | `runId` | 完整报告（每步的状态、消息、payload、耗时；跑的是场景文件时有 `scenario`；失败的步骤 `payload.evidence` 是失败证据的路径） |
 | `gt.stop` | — | 取消当前 run；批量运行中时整批取消（没轮到的标 `skipped`） |
 | `gt.history` | `scenario`（可省） | 按场景文件的运行历史（跨编辑器会话，每个场景最近 10 次）。给 `scenario`：`runs: [{runId, succeeded, startedAtUtc, durationMs, total, failed, failedStep?, message?, outputDir, revision?}]`，最新在前；不给：`scenarios: {路径: "pfpp…"}`（最新在前，`p` 通过、`f` 失败），列表上画历史条用 |
+| `gt.config` | `config`（可省）、`dryRun` | 运行配置（场景根的 `_settings.json`，见「运行配置和阻挡界面」）。不给 `config` 是读：`{path, exists, config, settingsUiWaitTimeoutMs}`；给 `config` 是校验后整份写回（`dryRun: true` 只校验不写），另带 `message`。格式错时报哪一条错了 |
 | `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
 | `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录） | 录制状态 |
