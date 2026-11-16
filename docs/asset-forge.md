@@ -36,7 +36,7 @@
 | 操作 | 参数 | 返回 |
 | --- | --- | --- |
 | `forge.health` | — | `version`、`configRoot`、`configRootExists`、`scanRoots`、`kinds`（数量）、`jobRunning` |
-| `forge.kinds` | — | `kinds: [{kind, displayName, dir, assetClass, propertyDiff, propertyDiffReason?}]` |
+| `forge.kinds` | `kind`?、`class`?、`filter`、`offset`、`limit`（默认 60，最多 150） | 不给参数：`kinds: [{kind, displayName, dir, assetClass, propertyDiff, propertyDiffReason?}]`；给 `kind`：`schema`（这种配置的 JSON Schema，见下）；给 `class`（类或结构体，全路径或短名）：`props: {class, isStruct, properties, total, offset, truncated?, next?}`，只列导入认的属性（和 `ForgePropertyCodec::IsCodecProperty` 同一判据）。两个可以一起给 |
 | `forge.entries` | `unmanaged`（默认 true）、`deep`、`kind`、`state`（状态 id 或 `needsImport`）、`query`、`offset`、`limit`（默认 200，最多 1000） | `entries`、`total`、`offset`、`states`（各状态计数）、`kinds`（各 kind 计数） |
 | `forge.describe` | `config` 或 `asset` | `managed`、`entry`、`stateLabel`、`stateDescription`、`configText`（超长时 `configTextTruncated`）；没纳管的资产回 `exportable`、`kind` |
 | `forge.plan` | `config`、`configText`?（没存盘的内容） | `report`（`actions`、`diagnostics`、`created/updated/deleted`）、`state` |
@@ -45,6 +45,12 @@
 | `forge.export` | `assets: [...]` | `job`、`total` |
 | `forge.job` | `id`?（不给取最近一个）、`reports`（最多 50） | `job: {id, title, mode, status, total, finished, succeeded, failed, skipped, round?, current?, reports?}` |
 | `forge.stop` | `id` | `job` |
+
+### 配置的 JSON Schema（`forge.kinds kind=`）
+
+给 Agent 写配置前取（面板 `ue_forge action=schema`）。按 JSON Schema 2020-12 写：顶层的 `kind`、`schemaVersion`、`asset`、`parent`（用不用、必不必写因 kind 而异）、文档级扩展字段（`skeleton`、`blackboard`、`animations`……）；`$defs.root` 是根节点（固定的 `class` 写成 `const`，没有子节点的 kind 写 `children.maxItems: 0`），`$defs.node` 是子节点。`props` 里的属性不展开（一个类几百个属性），`x-forge.propsClass` 给出属性来自的类时，再用 `forge.kinds class=` 取属性表；`x-forge.notes` 是这种配置最容易踩的坑。
+
+形状写在 `Source/AssetForge/Registry/ForgeKindSchema.cpp`，照各 kind 头文件开头的「配置形状」注释；加 kind 时同时加一项（`AssetForge.Schema` 用例会拦）。Schema 只描述结构，字段写没写对最终以 `forge.plan` 的诊断为准。
 
 同一时间只跑一个作业。作业状态 `status`：`running`、`done`、`failed`（有失败项）、`cancelled`。
 
