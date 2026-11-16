@@ -59,6 +59,10 @@ TSharedPtr<FJsonObject> FGameTestReport::ToJson() const
 	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
 	Json->SetStringField(TEXT("runId"), RunId);
 	Json->SetStringField(TEXT("name"), Name);
+	if (!Scenario.IsEmpty())
+	{
+		Json->SetStringField(TEXT("scenario"), Scenario);
+	}
 	Json->SetNumberField(TEXT("revision"), Revision);
 	Json->SetBoolField(TEXT("succeeded"), bSucceeded);
 	Json->SetStringField(TEXT("startedAtUtc"), StartedAtUtc);

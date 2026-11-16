@@ -64,6 +64,12 @@ struct GAMETEST_API FGameTestReport
 
 	FString Name;
 
+	/**
+	 * 场景文件相对场景根的路径（`smoke/main-menu.json`）；临时步骤和单步 run 为空。
+	 * 场景名可以重复、可以改，按场景记历史和认「这次跑的是哪个文件」只能靠它。
+	 */
+	FString Scenario;
+
 	/** 场景文件里的 `revision`；单步 run 与没写该字段的场景为 0。用来判断"这次红的是不是改过的那份配置"。 */
 	int32 Revision = 0;
 
@@ -93,6 +99,9 @@ struct GAMETEST_API FGameTestRunRequest
 {
 	/** 进报告的场景名（人读的那个）。 */
 	FString Name;
+
+	/** 场景文件相对场景根的路径；临时步骤为空（见 FGameTestReport::Scenario）。 */
+	FString Scenario;
 
 	/** 场景文件里的 `revision`；单步 run 为 0。 */
 	int32 Revision = 0;

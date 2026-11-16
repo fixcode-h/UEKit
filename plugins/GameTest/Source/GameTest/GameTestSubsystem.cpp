@@ -7,6 +7,7 @@
 #include "Core/GameTestScenario.h"
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
+#include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Input/GameTestInput.h"
 #include "Shot/GameTestShot.h"
@@ -155,6 +156,8 @@ void UGameTestSubsystem::Initialize(FSubsystemCollectionBase& InCollection)
 	Super::Initialize(InCollection);
 
 	Runner = MakeUnique<FGameTestRunner>();
+	LogTap.Attach();
+	Evidence = MakeUnique<FGameTestEvidence>(LogTap);
 	if (const UGameTestSettings* Settings = GetDefault<UGameTestSettings>())
 	{
 		RunHistory.SetCapacity(Settings->MaxRunHistory);
@@ -177,6 +180,13 @@ void UGameTestSubsystem::Deinitialize()
 	Handles.Reset();
 	ClearHighlight();
 	Runner.Reset();
+	if (Evidence.IsValid())
+	{
+		// 还在等「之后」那半截的日志立刻写完，文件不留「还在收集」
+		Evidence->FlushAll();
+		Evidence.Reset();
+	}
+	LogTap.Detach();
 
 	Super::Deinitialize();
 }
@@ -186,6 +196,8 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 	const double Now = FPlatformTime::Seconds();
 	++TickCount;
 	Runner->Tick(Now);
+	Evidence->Tick(Now);
+	DriveBatch();
 	UpdateHighlight(Now);
 
 	// run 期间每 5 秒记一条：编辑器被节流/卡住时，这是唯一能确认"游戏线程还在走"的证据。
@@ -201,13 +213,16 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 	// 游戏线程也不用每帧序列化。只看步骤数会漏掉"最后一步完成、run 收尾"那次状态翻转。
 	// 还要看 runId：gt.run 里会立刻推进一次，第一步就失败的 run 在两次 Tick 之间已经开始又结束，
 	// 忙碌状态没变过；步骤数又碰巧和上一次 run 一样时，不看 runId 就永远不推「结束」，面板一直显示运行中。
+	// 批量运行时两个场景之间执行器是空的，但整件事还没完：busy 要连着批量算，面板才不会在两个场景之间显示「已结束」
 	const FGameTestReport& Report = Runner->GetReport();
-	const bool bBusy = Runner->IsBusy();
-	if (Report.Steps.Num() != LastSnapshotStepCount || bBusy != LastSnapshotBusy || CurrentRunId != LastSnapshotRunId)
+	const bool bBusy = Runner->IsBusy() || Batch.IsActive();
+	if (Report.Steps.Num() != LastSnapshotStepCount || bBusy != LastSnapshotBusy || CurrentRunId != LastSnapshotRunId
+		|| Batch.GetSerial() != LastSnapshotBatchSerial)
 	{
 		LastSnapshotStepCount = Report.Steps.Num();
 		LastSnapshotBusy = bBusy;
 		LastSnapshotRunId = CurrentRunId;
+		LastSnapshotBatchSerial = Batch.GetSerial();
 
 		const TSharedPtr<FJsonObject> Snapshot = Report.ToJson();
 		Snapshot->SetBoolField(TEXT("busy"), bBusy);
@@ -215,6 +230,10 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 		// 一共几步（total 是已完成的步数）：面板画进度条要用。
 		Snapshot->SetNumberField(TEXT("planned"), Runner->GetQueueLength());
 		Snapshot->SetStringField(TEXT("status"), bBusy ? TEXT("running") : (Report.Steps.Num() > 0 ? TEXT("finished") : TEXT("idle")));
+		if (Batch.HasData())
+		{
+			Snapshot->SetObjectField(TEXT("batch"), Batch.ToJson());
+		}
 
 		{
 			FScopeLock Lock(&JobLock);
@@ -338,16 +357,17 @@ void UGameTestSubsystem::ClearHighlight()
 }
 
 bool UGameTestSubsystem::StartRunOnGameThread(
-	const TArray<TSharedPtr<FJsonObject>>& InSteps,
-	const FString& InName,
-	int32 InRevision,
+	const FGameTestScenarioRun& InRun,
 	FString& OutRunId,
 	bool& bOutAlreadyFinished,
-	TSharedPtr<FJsonObject>& OutResult,
-	int32 InStepDelayMs)
+	TSharedPtr<FJsonObject>& OutResult)
 {
 	bOutAlreadyFinished = false;
 	OutRunId.Reset();
+	const TArray<TSharedPtr<FJsonObject>>& InSteps = InRun.Steps;
+	const FString& InName = InRun.Name;
+	const int32 InRevision = InRun.Revision;
+	const int32 InStepDelayMs = InRun.StepDelayMs;
 
 	// 解析失败不执行任何一步：错在配置上，让它整体失败比跑一半更安全。
 	TArray<FGameTestStep> Steps;
@@ -389,6 +409,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 
 	FGameTestRunRequest Request;
 	Request.Name = RunName;
+	Request.Scenario = InRun.Scenario;
 	Request.RunId = OutRunId;
 	Request.Revision = InRevision;
 	Request.OutputDir = OutputDir;
@@ -407,6 +428,15 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	FGameTestRuntimeState RuntimeState;
 	RuntimeState.Handles = &Handles;
 	RuntimeState.RootedObjects = &RootedObjects;
+	Evidence->BeginRun();
+	const UGameTestSettings* EvidenceSettings = GetDefault<UGameTestSettings>();
+	if (EvidenceSettings == nullptr || EvidenceSettings->bCaptureFailureEvidence)
+	{
+		RuntimeState.OnStepFailed = [this](FGameTestStepRecord& InOutRecord, const FString& InRunDir)
+		{
+			Evidence->Capture(InOutRecord, InRunDir, &Handles);
+		};
+	}
 
 	const bool bStarted = Runner->StartRun(
 		Request,
@@ -419,9 +449,13 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 			GameTestHooks::OnRunFinished().Broadcast();
 			WriteReportFile(InReport, OutputDir);
 			// 历史里记下产物目录（相对项目根）：面板据此找截图和 report.json。
+			const FString OutputRelative = GameTestShot::ToProjectRelative(OutputDir);
 			const TSharedPtr<FJsonObject> Summary = InReport.ToJson();
-			Summary->SetStringField(TEXT("outputDir"), GameTestShot::ToProjectRelative(OutputDir));
+			Summary->SetStringField(TEXT("outputDir"), OutputRelative);
 			RunHistory.Add(Summary);
+			// 按场景文件的历史（跨会话，列表上的历史条）和批量运行的记账
+			GameTestHistory::Record(InReport, OutputRelative);
+			Batch.OnRunFinished(InReport);
 			UE_LOG(LogGameTest, Display, TEXT("run '%s' 结束：ok=%d，步骤 %d 条"),
 				*InReport.Name, InReport.bSucceeded ? 1 : 0, InReport.Steps.Num());
 		},
@@ -479,12 +513,18 @@ void UGameTestSubsystem::RunStepInline(const TSharedPtr<FJsonObject>& InStepJson
 {
 	checkf(IsInGameThread(), TEXT("GameTest 的入口必须在游戏线程上调用（UELink 的操作本来就在游戏线程执行）"));
 
-	TArray<TSharedPtr<FJsonObject>> Steps;
-	Steps.Add(InStepJson);
+	if (RefuseDuringBatch(OutResult))
+	{
+		return;
+	}
+
+	FGameTestScenarioRun Run;
+	Run.Steps.Add(InStepJson);
+	Run.Name = TEXT("step");
 
 	FString RunId;
 	bool bAlreadyFinished = false;
-	if (!StartRunOnGameThread(Steps, TEXT("step"), /*InRevision=*/0, RunId, bAlreadyFinished, OutResult))
+	if (!StartRunOnGameThread(Run, RunId, bAlreadyFinished, OutResult))
 	{
 		return;
 	}
@@ -502,8 +542,25 @@ bool UGameTestSubsystem::BeginScenarioRun(
 {
 	checkf(IsInGameThread(), TEXT("GameTest 的入口必须在游戏线程上调用（UELink 的操作本来就在游戏线程执行）"));
 
+	FGameTestScenarioRun Run;
+	Run.Steps = InSteps;
+	Run.Name = InName;
+	Run.Revision = InRevision;
+	Run.StepDelayMs = InStepDelayMs;
+	return BeginScenarioFileRun(Run, OutRunId, OutResult);
+}
+
+bool UGameTestSubsystem::BeginScenarioFileRun(const FGameTestScenarioRun& InRun, FString& OutRunId, TSharedPtr<FJsonObject>& OutResult)
+{
+	checkf(IsInGameThread(), TEXT("GameTest 的入口必须在游戏线程上调用（UELink 的操作本来就在游戏线程执行）"));
+
+	if (RefuseDuringBatch(OutResult))
+	{
+		return false;
+	}
+
 	bool bAlreadyFinished = false;
-	if (!StartRunOnGameThread(InSteps, InName, InRevision, OutRunId, bAlreadyFinished, OutResult, InStepDelayMs))
+	if (!StartRunOnGameThread(InRun, OutRunId, bAlreadyFinished, OutResult))
 	{
 		return false;
 	}
@@ -512,8 +569,94 @@ bool UGameTestSubsystem::BeginScenarioRun(
 	return true;
 }
 
+bool UGameTestSubsystem::RefuseDuringBatch(TSharedPtr<FJsonObject>& OutResult)
+{
+	if (Batch.IsActive())
+	{
+		OutResult = MakeShared<FJsonObject>();
+		OutResult->SetBoolField(TEXT("ok"), false);
+		OutResult->SetStringField(TEXT("error"), TEXT("批量运行还在进行：等它跑完，或先 gt.stop 取消整批"));
+		return true;
+	}
+	// 单独跑一个场景或一步：上一份批量的结果不再挂在作业快照上，免得面板把它当成这次的
+	Batch.Clear();
+	return false;
+}
+
+bool UGameTestSubsystem::BeginBatch(const TArray<FString>& InScenarios, const FString& InLabel, TSharedPtr<FJsonObject>& OutResult)
+{
+	checkf(IsInGameThread(), TEXT("GameTest 的入口必须在游戏线程上调用（UELink 的操作本来就在游戏线程执行）"));
+
+	OutResult = MakeShared<FJsonObject>();
+	if (Batch.IsActive() || Runner->IsBusy())
+	{
+		OutResult->SetBoolField(TEXT("ok"), false);
+		OutResult->SetStringField(TEXT("error"), TEXT("已经有 run 或批量在跑：等它结束，或先 gt.stop"));
+		return false;
+	}
+	if (InScenarios.Num() == 0)
+	{
+		OutResult->SetBoolField(TEXT("ok"), false);
+		OutResult->SetStringField(TEXT("error"), TEXT("没有要跑的场景"));
+		return false;
+	}
+
+	const FString BatchId = GameTestRun::MakeRunId(TEXT("batch"), RunCounter.Increment());
+	Batch.Start(BatchId, InLabel, InScenarios);
+	UE_LOG(LogGameTest, Display, TEXT("批量运行 %s（%s）：%d 个场景"), *BatchId, *InLabel, InScenarios.Num());
+
+	// 立刻起第一个：和单个场景一样，第一步能同步做完的在这次调用里就有结果
+	DriveBatch();
+
+	OutResult->SetBoolField(TEXT("ok"), true);
+	OutResult->SetStringField(TEXT("batchId"), BatchId);
+	OutResult->SetObjectField(TEXT("batch"), Batch.ToJson());
+	return true;
+}
+
+void UGameTestSubsystem::DriveBatch()
+{
+	if (!Batch.IsActive() || Runner->IsBusy())
+	{
+		return;
+	}
+
+	const int32 Index = Batch.TakeNext();
+	if (Index == INDEX_NONE)
+	{
+		if (Batch.FinishIfDone())
+		{
+			UE_LOG(LogGameTest, Display, TEXT("批量运行结束：通过 %d，失败 %d"),
+				Batch.Count(TEXT("passed")), Batch.Count(TEXT("failed")) + Batch.Count(TEXT("error")));
+		}
+		return;
+	}
+
+	// 一帧只起一个：前一个刚收尾，给 UMG 和 PIE 一帧喘气（上一个场景可能刚 pie.stop）
+	FGameTestScenarioRun Run;
+	FString Error;
+	if (!GameTestScenario::LoadForRun(UGameTestSettings::ResolveScenarioRootDir(), Batch.GetItem(Index).Scenario, Run, Error))
+	{
+		Batch.MarkError(Index, Error);
+		return;
+	}
+
+	FString RunId;
+	bool bAlreadyFinished = false;
+	TSharedPtr<FJsonObject> Result;
+	if (!StartRunOnGameThread(Run, RunId, bAlreadyFinished, Result))
+	{
+		FString Reason;
+		Batch.MarkError(Index, Result.IsValid() && Result->TryGetStringField(TEXT("error"), Reason) ? Reason : TEXT("run 没能开始"));
+		return;
+	}
+	Batch.MarkStarted(Index, RunId, Run.Name);
+}
+
 void UGameTestSubsystem::CancelCurrentRun()
 {
+	// 先停批量再停当前 run：不然当前 run 一收尾，下一帧批量又起下一个
+	Batch.Cancel();
 	if (Runner.IsValid())
 	{
 		Runner->Cancel(TEXT("收到 stop 请求"));

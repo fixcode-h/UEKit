@@ -3,13 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/GameTestBatch.h"
+#include "Core/GameTestLogTap.h"
 #include "Core/GameTestRunner.h"
 #include "Core/GameTestRunStore.h"
+#include "Observe/GameTestEvidence.h"
 #include "Subsystems/EngineSubsystem.h"
 #include "GameTestSubsystem.generated.h"
 
 class FJsonObject;
 class UWidget;
+struct FGameTestScenarioRun;
 
 /** 高亮覆盖层的持有者：Slate 类型同样只留在 .cpp 里。 */
 struct FGameTestHighlightHolder;
@@ -72,7 +76,23 @@ public:
 		TSharedPtr<FJsonObject>& OutResult,
 		int32 InStepDelayMs = -1);
 
+	/** 游戏线程：跑一份场景文件（`gt.run scenario=`）。和上面一样，只是报告带上场景路径，结束时记进按场景的历史。 */
+	bool BeginScenarioFileRun(const FGameTestScenarioRun& InRun, FString& OutRunId, TSharedPtr<FJsonObject>& OutResult);
+
+	/**
+	 * 游戏线程：批量运行几份场景（相对场景根的路径），一个接一个跑，一个失败不影响后面的。立即返回批量编号；
+	 * 进度在作业快照的 `batch` 里（gt.job 和 gt.job 事件）。已经有 run 或批量在跑时返回 false。
+	 */
+	bool BeginBatch(const TArray<FString>& InScenarios, const FString& InLabel, TSharedPtr<FJsonObject>& OutResult);
+
+	/** 取消当前 run；批量运行中时整批取消。 */
 	void CancelCurrentRun();
+
+	/** 名称句柄表（`gt.resolve` 核对 `@句柄` 用）。 */
+	TMap<FString, TWeakObjectPtr<UWidget>>* GetHandles()
+	{
+		return &Handles;
+	}
 
 	TSharedPtr<FJsonObject> BuildHealthJson() const;
 	TSharedPtr<FJsonObject> BuildJobJson() const;
@@ -93,13 +113,16 @@ private:
 	 * @param bOutAlreadyFinished 起完之后是否已经跑完（跑完就没有 runId 可用）。
 	 */
 	bool StartRunOnGameThread(
-		const TArray<TSharedPtr<FJsonObject>>& InSteps,
-		const FString& InName,
-		int32 InRevision,
+		const FGameTestScenarioRun& InRun,
 		FString& OutRunId,
 		bool& bOutAlreadyFinished,
-		TSharedPtr<FJsonObject>& OutResult,
-		int32 InStepDelayMs = -1);
+		TSharedPtr<FJsonObject>& OutResult);
+
+	/** 批量运行中、执行器空下来时起下一个场景（每帧调）。 */
+	void DriveBatch();
+
+	/** 不是批量的入口（单步、单个场景）先问这里：批量在跑时拒绝，否则清掉上一份批量的结果。 */
+	bool RefuseDuringBatch(TSharedPtr<FJsonObject>& OutResult);
 
 	/**
 	 * 把一次 run 的报告写到 `<InOutputDir>/report.json`（成功/失败/取消三条收尾路径共用）。
@@ -132,6 +155,19 @@ private:
 	GameTestRunStore RunHistory;
 
 	FTSTicker::FDelegateHandle TickerHandle;
+
+	/** 最近的日志行：失败证据取前后 50 行。 */
+	FGameTestLogTap LogTap;
+
+	/**
+	 * 失败证据（截图、控件、日志）。头文件里给的是完整类型（不是前向声明）：UHT 生成的翻译单元也会实例化
+	 * TUniquePtr 的析构，不完整类型会编不过（高亮层踩过，见上面的删除器）。
+	 */
+	TUniquePtr<FGameTestEvidence> Evidence;
+
+	/** 批量运行的队列和结果。 */
+	FGameTestBatch Batch;
+	int64 LastSnapshotBatchSerial = -1;
 
 	/** 名称句柄：跨 run 有效，世界重载时清掉。 */
 	TMap<FString, TWeakObjectPtr<UWidget>> Handles;

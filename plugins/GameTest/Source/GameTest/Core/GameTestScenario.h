@@ -22,10 +22,25 @@ struct GAMETEST_API FGameTestScenarioInfo
 	int32 StepCount = 0;
 	/** 作者维护的内容版本；没写为 0。 */
 	int32 Revision = 0;
-	/** 作者的标签，只读回报（本次不做按标签过滤运行）。 */
+	/** 作者的标签：`gt.run tag=` 按它批量运行。 */
 	TArray<FString> Tags;
 	/** 非空表示这份文件解析或校验没过；此时除路径外的字段都是尽力而为。 */
 	FString ParseError;
+};
+
+/**
+ * 一份要跑的场景：步骤和跑法。`gt.run`、批量运行、`gt.resolve` 都从这里拿，读文件的规则只有一份。
+ * 临时步骤（`gt.run steps`）也装进它，只是 `Scenario` 为空。
+ */
+struct GAMETEST_API FGameTestScenarioRun
+{
+	TArray<TSharedPtr<FJsonObject>> Steps;
+	FString Name;
+	/** 相对场景根的路径（`/` 分隔）；临时步骤为空。 */
+	FString Scenario;
+	int32 Revision = 0;
+	/** 场景自己的步间隔；-1 表示按设置。 */
+	int32 StepDelayMs = -1;
 };
 
 /**
@@ -83,4 +98,13 @@ public:
 	 * 目录不存在时返回空数组（调用方据此给出"场景目录在哪"的提示），不是错误。
 	 */
 	static TArray<FGameTestScenarioInfo> ScanDirectory(const FString& InRootDir);
+
+	/**
+	 * 读一份场景准备运行：`InPath` 相对场景根（也接受绝对路径）。校验、旧格式兼容都做完，
+	 * 失败时 OutError 带上文件名和字段级原因。
+	 */
+	static bool LoadForRun(const FString& InRootDir, const FString& InPath, FGameTestScenarioRun& OutRun, FString& OutError);
+
+	/** 带某个 tag 的场景（相对路径，按路径排序）；tag 比较忽略大小写。解析失败的也列出来，跑的时候如实报错。 */
+	static TArray<FString> FindByTag(const FString& InRootDir, const FString& InTag);
 };

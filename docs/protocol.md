@@ -46,14 +46,14 @@
 
 | 分组 | 操作 |
 | --- | --- |
-| 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run` |
+| 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open`、`asset.redirectors` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
-| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status` |
-| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec` |
+| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`editor.spawn`、`editor.destroy` |
+| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
@@ -73,6 +73,67 @@
   - `loading: true` 表示资源注册表还在扫盘（编辑器刚启动），结果可能不全，稍后重读。
   - 什么时候用：网页资源页的文件夹树逐层展开；要按名字搜全项目还是用 `assets`。
   - 旧版本（2.2 及以前）没有这个操作：`GET /info` 的 `ops` 里没有 `assets.children`（直接调会回「这个进程不支持 assets.children」），客户端改走磁盘兜底（自己列项目 `Content/` 和插件 `Content/` 目录下的 `.uasset` / `.umap`）。
+
+2.4.0 起的编辑器选中同步（只在编辑器进程里有；客户端按 `GET /info` 的 `ops` 里有没有 `editor.selection` 判断）：
+
+- `editor.selection {}` → `{"actors": [{"path", "name", "label", "class", "world"}], "actorCount", "assets": [{"path", "name", "class"}], "folders": [内容浏览器选中的文件夹], "blueprint"?: {"path", "graph"?, "nodes": [{"id", "title"}]}}`。
+  - `actors` 是关卡编辑器里选中的 Actor（最多 50 个，`actorCount` 是实际个数）；`assets`、`folders` 是主内容浏览器里选中的（各最多 50 个）；`blueprint` 是最近激活的蓝图编辑器里打开的蓝图和它当前图表里选中的节点（节点 id 和 `bp.graph` 一致），没开蓝图编辑器时没有这个字段。
+  - 只读编辑器的选中集合（`USelection`、`IContentBrowserSingleton::GetSelectedAssets`、蓝图编辑器的 `GetSelectedNodes`），不加载资源。
+- `editor.select {"actors"?: [Actor 路径], "assets"?: [资源路径], "focus"?: true}` → `{"actors": 选中了几个, "assets": 几个, "missing": [没找到的路径]}`：在编辑器里选中这些 Actor（`focus` 为 true 时视口对焦过去）、在内容浏览器里定位这些资源。打开资源还是用 `asset.open`。
+- 推送事件 `uelink.selection`（`features` 里有 `selection`）：关卡里选中的 Actor、内容浏览器选中的资源或文件夹变了时推，最多每 0.3 秒一次，事件字段和 `editor.selection` 的回包一样（不含 `blueprint`：蓝图编辑器的节点选中没有公开的变化通知，要时再调 `editor.selection`）。客户端订阅 `topics` 里写 `uelink.selection`。
+
+2.4.0 起的 Lua 改完能验、对象检视（都在「装了 UnLua 时」才有，`/info` 的 `ops` 里能看到）：
+
+- `lua.check {"code"? | "file"? | "files"?: [...], "name"?}` → `{"passed", "checked", "errors": [{"file", "line", "message"}]}`：只编译不执行（`luaL_loadbuffer`），在一个**单独新建**的 `lua_State` 里做，不碰游戏里的 Lua 环境，所以不开游戏也能查。`file` / `files` 是磁盘路径，相对路径按项目目录算；一次最多 500 个文件。回包里不用 `ok` 字段（和外层的 `ok` 冲突），用 `passed`。
+- `lua.reload {"modules": ["UI.BagPanel", ...]}` 或 `{"changed": true}` → `{"items": [{"module", "ok", "mode": "reloader|require", "error"?}], "note"?}`：
+  - 项目调了 `FAgentPanelLua::SetReloader` 时，每个模块交给它重载（`mode: "reloader"`）。UnLua 二次开发版的热重载入口各家不同，桥接不猜。
+  - 没接时用 `require` 兜底（`mode: "require"`）：清掉 `package.loaded[模块]` 再 `require`，然后把新模块表里的**函数**拷回旧表、旧表放回 `package.loaded`。UnLua 的实例表通过元表指向模块表，这样已经绑定的对象也会用上新函数；旧表上的数据字段不动，新加的字段补上。模块顶部 `local` 存的状态会重新初始化（新函数用新的 upvalue），回包 `note` 里说明。
+  - `changed: true` 重载 `lua.modules` 里 `stale` 的那些。
+- `lua.modules {"filter"?, "limit"?}` → `{"items": [{"name", "file"?, "objects", "loadedAt"?, "modifiedAt"?, "stale"}], "total", "root"}`：`package.loaded` 里键是字符串、值是表的模块。`file` 先取模块里第一个 Lua 函数的定义文件，取不到时按模块名在脚本根目录（`root`，默认 `Content/Script`）下找 `A/B/C.lua`。`objects` 是绑定这个模块的对象数。`loadedAt` 是桥接重载它的时间，没重载过时是桥接第一次看到它的时间（偏晚，回包里 `loadedAtGuess: true`）；`stale` = 文件修改时间晚于 `loadedAt`。时间都是 ISO 8601。
+- `lua.errors {"since"?, "limit"?, "clear"?}` → `{"items": [{"id", "message", "where"?, "count", "first", "last", "stack": [行], "locals"?: [{"name", "t", "v"?}], "source": "capture|log", "seq"}], "seq"}`：最近的 Lua 报错，按「消息 + 出错位置」归并（同一处反复报只占一条，`count` 加一）。`since` 是上次回包的 `seq`，只给这之后变过的。`clear: true` 清空。
+  - 来源一 `capture`：项目在自己的 Lua 报错处理里调 `FAgentPanelLua::CaptureError(L, 消息)`（错误处理函数里栈还在，能拿到出错那一帧的局部变量）。
+  - 来源二 `log`：没接时从日志里认（分类名带 `Lua` 的 Error 行，或文字里有 `LuaError` / `stack traceback`），没有局部变量。
+- `lua.inspect {"path"?, "keys"?, "offset"?, "limit"?, "world"?}` → `{"value", "chain": [{"name", "src"?}], "src"?, "fields": [...], "functions": [{"name", "params": [...], "vararg", "src"?, "from"}], "upvalues": [{"fn", "name", "t", "v"?}], "total", "more"}`：
+  - 起点和 `lua.get` 一样（`path` 是对象路径，空为 `_G`；`keys` 往下走）。
+  - `fields` 是这张表自己的项（不含函数，格式同 `lua.get`），分页同 `lua.get`。
+  - `functions` 是自己的函数（`from: 0`）和元表链上继承来的（`from` 是第几层），参数名用 `debug.getlocal` 取，C 函数没有参数名。
+  - `chain` 是沿元表 `__index` 往上的每一层，`name` 是它在 `package.loaded` 里的模块名（不是模块时为空）。
+  - `upvalues` 是自己的函数用到的 upvalue（模块顶部的 `local`），同名只列一次，最多 100 个，只给简单值。
+- `lua.call {"path"?, "keys": [函数路径], "self"?: false, "args"?: [JSON], "timeoutMs"?: 10000}` → `{"results", "output", "ms", "changes"?: [{"k", "before", "after"}]}`：沿 `keys` 找到函数，`self: true` 时把上一级的表当第一个参数（`obj:fn(...)`）。参数是 JSON，对象和数组转成 Lua 表。在 `lua_pcall` 里执行，超时中止，`print` 收进 `output`。`self: true` 时回包带上 self 表顶层简单字段调用前后的变化。
+- `lua.set` 2.4.0 起 `value` 也可以是 JSON 对象或数组（转成 Lua 表）；原值是表时也能整个换掉，回包 `"undoable": false`、没有 `prev`（客户端不要提供撤回）。
+
+2.4.0 起的 Lua 深度调试（「装了 UnLua 时」才有，代码在 `AgentPanelLuaDebugOps.cpp`）。三者都靠 Lua 的调试钩子或只读遍历，不改游戏状态；不做断点（桥接在游戏线程上处理请求，游戏线程一停桥接也停了）：
+
+- 钩子：快照点用行钩子、采样用调用 / 返回钩子，共用一个钩子函数。挂上前记下原来的钩子（IDE 的 Lua 调试器），事件按它原来的掩码转过去，都撤了再放回去；`lua.exec` / `lua.call` 执行期间临时换成超时钩子，那段代码里的快照点和采样看不到。钩子按协程各一份，挂之前就在跑的协程看不到（回包 `note` 说明）。
+- `lua.snap {"action": "add", "file", "line", "hits"?: 1, "ttlSec"?: 600}` → `{"snap": {"id", "file", "line", "hits", "max", "active", "created", "expiresIn"}, "note"}`：执行到这一行时记下函数、局部变量（表顺带前 20 项简单值）、upvalue 和调用栈，游戏不暂停。`file` 可以是磁盘路径、相对脚本根的路径或模块名（`UI.BagPanel`），和 chunkname 按路径段从后往前比。命中 `hits` 次（最多 20）或过了 `ttlSec`（10–3600 秒）自动撤掉；同时最多 20 个。
+  - `{"action": "list", "id"?}` → `{"items": [...], "warning"?}`：不给 `id` 只列概要；给 `id` 时带 `captures: [{"at", "fn", "src", "file"?, "line", "locals": [{"name", "t", "v"?, "fields"?}], "upvalues"?, "stack": [行]}]`。钩子被别的调试器换掉时带 `warning`。
+  - `{"action": "remove", "id"?}` → `{"removed"}`：不给 `id` 全部撤掉并清记录。
+  - 推送事件 `lua.snap`（命中一次推一次）：`{"id", "hits", "max", "active", "capture"}`。客户端订阅 `topics` 里写 `lua.snap`。
+- `lua.profile {"action": "start", "seconds"?: 5}` → `{"started", "seconds", "note"}`：采几秒（1–60），按函数（闭包）累计调用次数、总用时、自身用时，C 函数（UnLua 导出的 UE 接口）也算。到时间自己停；`{"action": "stop"}` 提前停。
+  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "file"?, "line", "c", "calls", "totalMs", "selfMs"}], "report"}`，`file` 是完整路径（chunkname 以 @ 开头时才有，`src` 太长会被截断），`c` 表示 C 函数；全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
+- `lua.leaks {"limit"?: 100, "maxVisit"?: 200000, "objectKey"?: "Object"}` → `{"items": [{"kind", "module"?, "path"?, "object"?, "class"?}], "total", "visited", "truncated", "ms", "report", "note"}`：找 Lua 还拿着、UObject 却已经没了的（专查「关了界面控件释放不掉」）。`kind`：
+  - `destroyed`：从 `_G` 和注册表出发走 Lua 堆（表、函数的 upvalue、元表；弱表不算引用），找到像 UnLua 实例表（有元表、`objectKey` 字段是 userdata）却不在对象表里的表——UnLua 在对象销毁时会把它从对象表删掉。是推测，`path` 是 Lua 里拿着它的第一条路径（如 `_G.UIManager.Panels[3]`、`<upvalue Panels>`）。
+  - `stale`（对象表里还有、UObject 已经不在）、`garbage`（已标记销毁）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）：对象表本身的问题，`path` 是 Lua 里另外拿着它的路径（只有对象表拿着时没有）。
+  - 协程栈上的局部变量走不到。全部结果写进 `Saved/UELink/lua-leaks/leaks-<时间>.json`；大项目走一遍几百毫秒，会卡一下游戏线程。
+
+2.4.0 起 `asset.validate` 能一次查多个：`{"paths": [...]}`（最多 200 个）→ `{"items": [{"path", "result", "errors", "warnings", "issues": [前 5 条]}], "errors", "warnings", "report"}`，完整结果写进 `Saved/UELink/validate/<时间>.json`，`report` 是它的绝对路径。只给 `path` 时照旧回单个资源的结果。
+
+2.4.0 起的编辑器小工具（重定向器、放删 Actor 只在编辑器进程里有；配置和 GameplayTag 哪种进程都有。客户端按 `/info` 的 `ops` 判断）：
+
+- `config.files {}` → `{"items": [{"name", "file"}]}`：进程里加载了哪些配置（`name` 是 `Engine`、`Game`、`Input` 这类短名，`file` 是合并后的文件路径）。
+- `config.get {"file"?: "Engine", "section"?, "key"?, "filter"?, "limit"?}`：只读 `GConfig` 里合并后的最终值。
+  - 不给 `section` → `{"file", "path", "sections": [名字], "total"}`，`filter` 按名字包含筛，`limit` 默认 500、最多 5000。
+  - 给了 `section` → `{"file", "path", "section", "values": [{"key", "value"}], "total", "missing"?}`：同一个键的多个值（数组项）按顺序各占一行；`key` 只要这一个键；没有这个 section 时 `missing: true`。
+  - 每一层 ini（Base、Default、平台、Saved）各写了什么不在这里给：客户端自己读磁盘上的那几层文件，和这里的最终值对照（插件、命令行改的值只有这里有）。
+- `tags.list {"filter"?, "limit"?}` → `{"items": [{"tag", "source"?}], "total"}`：进程里登记的全部 GameplayTag（ini、DataTable、C++ 原生的，含只因为有子 Tag 才存在的隐式父级），按名字排序。`source` 是来源（ini 文件名、DataTable 包名、`Native`），只在编辑器里有，隐式父级没有。`limit` 默认 20000。
+- `tags.refs {"tag", "limit"?}` → `{"tag", "items": [包名], "total", "loading"?}`：哪些资源引用了这个 Tag，查资源注册表的「可搜索名」引用（和引用查看器一样，编辑器保存资源时写的）。`loading: true` 表示注册表还在扫盘，结果可能不全。
+- `asset.redirectors {"path": 文件夹, "fix"?: false, "limit"?: 200}` → `{"path", "items": [{"path", "package", "file", "readOnly", "target"? | "broken": true, "referencers": [{"package", "file", "readOnly"}]}], "total", "more"?}`：文件夹（含子文件夹）下的 ObjectRedirector，`referencers` 是还在引用它的包（修复时会被改写并保存）。
+  - `fix: true` 时调 `AssetTools.FixupReferencers`（和内容浏览器右键「修复重定向器」同一个入口，不弹签出框）：改写引用方并保存，删掉修好的重定向器。回包多 `fixed` / `left`（`[{"package", "file"}]`，按修完后包还在不在算）、`dirtied`、`note`?。超过 `limit` 个时拒绝，让客户端分批。
+  - 修复会保存引用方、删除重定向器文件：客户端按「结构性操作」请用户确认，P4 项目先把 `readOnly` 的文件签出，修完再把删掉的重定向器标记删除。
+- `editor.spawn {"class", "location"?: [x,y,z], "rotation"?: [pitch,yaw,roll], "scale"?: [x,y,z], "level"?, "label"?, "folder"?, "select"?: true}` → `{"actor": {"path", "name", "label", "class", "level", "location"}, "tx", "dirtied"?}`：在编辑器关卡里放一个 Actor（`GEditor->AddActor`，和从内容浏览器拖进视口同一套）。`class` 写原生类名或蓝图路径；`level` 是已加载关卡的包名或短名，空为当前关卡。包在编辑器事务里，`tx` 交给 `asset.undo` 撤回。PIE 运行中、后台编辑器里拒绝。
+- `editor.destroy {"actors": [Actor 路径]}` → `{"destroyed": [同上的 actor], "missing"?: [没找到的路径], "tx"}`：删掉编辑器关卡里的 Actor（`UEditorActorSubsystem::DestroyActors`），一次最多 100 个，进撤销栈。PIE 里的 Actor 不能用它删。
+
+> 2.4.0 这一批的操作由几个并行的工作包分别加：每个包的新操作放各自的 `*Ops.cpp`（例如 `UELinkSelectionOps.cpp`、`AgentPanelLuaDevOps.cpp`），在这份文档里各写一段，操作表里各加一格，版本统一记在 UELink 的 CHANGELOG `v2.4.0-beta.1` 一节里。
 
 2.0.0 新加的三个：
 
