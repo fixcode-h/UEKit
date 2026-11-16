@@ -48,6 +48,22 @@ TArray<FString> FGameTestLogTap::Range(uint64 InFrom, uint64 InTo) const
 	return Out;
 }
 
+TArray<FString> FGameTestLogTap::ImportantSince(double InFromTime) const
+{
+	FScopeLock Guard(&Lock);
+	TArray<FString> Out;
+	const uint64 Oldest = ImportantSeq > static_cast<uint64>(Important.Num()) ? ImportantSeq - Important.Num() : 0;
+	for (uint64 Index = Oldest; Index < ImportantSeq; ++Index)
+	{
+		const FImportantLine& Entry = Important[static_cast<int32>(Index % ImportantCapacity)];
+		if (Entry.Time >= InFromTime)
+		{
+			Out.Add(Entry.Line);
+		}
+	}
+	return Out;
+}
+
 void FGameTestLogTap::Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbosity, const FName& InCategory)
 {
 	if (InData == nullptr)
@@ -70,4 +86,23 @@ void FGameTestLogTap::Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbo
 		Lines[static_cast<int32>(Seq % Capacity)] = Line;
 	}
 	++Seq;
+
+	static const FName GameTestCategory(TEXT("LogGameTest"));
+	// 级别里可能带 SetColor / BreakOnLog 这类标志位，先取出真正的级别再比。
+	const ELogVerbosity::Type Level = static_cast<ELogVerbosity::Type>(InVerbosity & ELogVerbosity::VerbosityMask);
+	if (InCategory == GameTestCategory || (Level != ELogVerbosity::NoLogging && Level <= ELogVerbosity::Warning))
+	{
+		FImportantLine Entry;
+		Entry.Time = FPlatformTime::Seconds();
+		Entry.Line = Line;
+		if (Important.Num() < ImportantCapacity)
+		{
+			Important.Add(MoveTemp(Entry));
+		}
+		else
+		{
+			Important[static_cast<int32>(ImportantSeq % ImportantCapacity)] = MoveTemp(Entry);
+		}
+		++ImportantSeq;
+	}
 }

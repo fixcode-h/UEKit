@@ -108,7 +108,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `screenshot` | `name`, `annotate` | 主模块 | 截游戏窗口（含 UMG）落盘，返回相对路径与像素尺寸；annotate 画编号框并给出图例 |
 | `console` | `command`, `expectContains` | 主模块 | 执行一条控制台命令（等价于在控制台里敲它）；给 expectContains 时输出必须包含该子串，否则本步失败（用来让世界状态可被场景判定） |
 | `input.cursor` | `x`, `y` | 主模块 | 把光标移到视口内归一化坐标（0–1），用于驱动直读鼠标位置的游戏逻辑（如瞄准）；移动的是真实光标 |
-| `key` | `key`, `phase` | 主模块 | 按键：键盘键或鼠标键（UE 的键名，如 W、SpaceBar、LeftMouseButton），走 Slate 输入入口，和真实按键同一条路；phase=tap（默认，按下隔一帧松开）/ press / release；鼠标键在光标当前位置按（先 input.cursor）；给 `target` 时键盘事件发给这个控件（输入框里的回车、退格、方向键），否则发给游戏视口 |
+| `key` | `key`, `phase`, `holdMs` | 主模块 | 按键：键盘键或鼠标键（UE 的键名，如 W、SpaceBar、LeftMouseButton），走 Slate 输入入口，和真实按键同一条路；phase=tap（默认，按下隔一帧松开；给 `holdMs` 时按住这么多毫秒再松开，即长按）/ press / release（按住期间还要做别的操作时用）；press 按住的 Alt / Ctrl / Shift 会带进之后的点击、滚轮、按键事件（1.2.0-beta.5 起）；鼠标键在光标当前位置按（先 input.cursor）；给 `target` 时键盘事件发给这个控件（输入框里的回车、退格、方向键），否则发给游戏视口 |
 | `actor.get` | `class`, `tag`, `client`, `locallyControlled` | 主模块 | 在游戏世界里按 class 或 tag 找 actor（唯一命中），回报对象路径、位置、朝向与速度；多客户端会话可用 client（\"server\" 或 0 起序号）寻址世界、locallyControlled 区分本端与远端 |
 | `net.compare` | `class`, `tag`, `from`, `to`, `tolerance` | 主模块 | 跨端一致性断言：同一玩家对应的 actor 在两端世界的位姿偏差不超过 tolerance（厘米）；from/to 各可给 client 与 locallyControlled（缺省 from=server、to=client0）；给 timeoutMs 则跨帧等到一致 |
 | `assert` | `exists`, `visible`, `enabled`, `text`, `textContains`, `count`, `selected`, `selectedProperty`, `stateKey`, `equals` | 主模块（要 target） | 断言目标状态（stateKey+equals 可断言快照 state 里的任意字段）；失败信息里带实际值，不做静默通过 |
@@ -160,7 +160,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | 键盘焦点在输入框里打字 | `type target=… text=… append: true`，连续字符合成一条 |
 | 被 UI 控件接住的功能键（回车、退格、方向键） | `key key=… target=…`（先把打到一半的字落成一条 `type`） |
 | 点在游戏画面上（游戏视口接住、或没人接） | 照旧 `input.cursor`（视口归一化坐标）+ `key LeftMouseButton` |
-| 发给游戏的键盘、手柄、鼠标键 | `key`：短按（< 0.25 秒）录成 `tap`，长按录成 `press` … `release` |
+| 发给游戏的键盘、手柄、鼠标键 | `key`：短按（< 0.25 秒）录成 `tap`；长按、期间没做别的操作录成 `tap` + `holdMs`；按住期间做了别的操作（按住 Alt 点按钮）录成 `press` … `release` |
 | 按住 Ctrl+Alt 点一个控件 | 这次点击被录制器吃掉、不传给游戏，录成 `assert target=… visible: true`；文字类控件顺带断言此刻的 `text` |
 | 两次游戏操作隔了 0.15 秒以上 | `wait until=seconds` |
 
@@ -207,7 +207,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `screenshot` | `screen.png`，失败那一刻的游戏窗口（截不了时是 `screenshotError`） |
 | `widgets` | `widgets.json`，那一刻屏上的控件树（结构和几何，不含属性，最多 3000 个节点）；`screens` 是屏数 |
 | `target` / `selectorError` | 步骤有 `target` 时再解析一次：找到了是 `target`（路径、类、文字、`visibility`、`enabled`，说明「控件在，但没点成」）；找不到是 `selectorError`，带候选 |
-| `log` | `log.txt`，失败前 50 行和之后 50 行日志（之后的最多等 3 秒，Stop 模式下失败后马上收尾，可能不满 50 行） |
+| `log` | `log.txt`：先是本次 run 里 LogGameTest 的每一行（每一步的结果、每次点击送到了哪）和任何类别的警告 / 错误；再是失败前后各 50 行日志，某个类别在这段里超过 20 行（每帧打印的 Lua 日志之类）时只留它的警告和错误，其余折成一句「省略了多少行」（之后的最多等 3 秒，Stop 模式下失败后马上收尾，可能不满 50 行） |
 
 一次 run 最多留 5 份。设置「失败时留证据」（`bCaptureFailureEvidence`，默认开）可以关掉。
 

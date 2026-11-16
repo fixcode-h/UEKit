@@ -9,6 +9,7 @@
 #include "Observe/GameTestHitTest.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "GameTest.h"
 #include "GameTestSettings.h"
 
 #include "Components/Widget.h"
@@ -242,6 +243,33 @@ namespace GameTestPointerDetail
 		return true;
 	}
 
+	/**
+	 * 每次真实指针点击写一行 LogGameTest：点了谁、屏幕坐标、带着哪些按住的键、按下被谁接住。
+	 * 「录的时候点开了、回放没点开」这类问题，光看步骤成功没法查，要能在日志里看到点击到底送到了哪。
+	 */
+	void LogClick(const FJsonObject& InPayload, const FActionable& InTarget, const FKey& InButton, const FString& InFailure)
+	{
+		FString Handler = TEXT("（没人接住按下）");
+		bool bHandled = false;
+		if (InPayload.TryGetBoolField(TEXT("handled"), bHandled) && bHandled)
+		{
+			InPayload.TryGetStringField(TEXT("handler"), Handler);
+		}
+		else if (InPayload.HasField(TEXT("handler")))
+		{
+			InPayload.TryGetStringField(TEXT("handler"), Handler);
+		}
+		FString HeldKeys;
+		InPayload.TryGetStringField(TEXT("heldKeys"), HeldKeys);
+		FString Picked;
+		InPayload.TryGetStringField(TEXT("picked"), Picked);
+		UE_LOG(LogGameTest, Display, TEXT("点击 %s：%s 在屏幕 (%.0f, %.0f)，按住的键：%s；按下：%s%s%s"),
+			*InTarget.Path, *InButton.GetFName().ToString(), InTarget.Screen.X, InTarget.Screen.Y,
+			HeldKeys.IsEmpty() ? TEXT("无") : *HeldKeys, *Handler,
+			Picked.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("；%s"), *Picked),
+			InFailure.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("；失败：%s"), *InFailure));
+	}
+
 	/** 读步骤通用的 at（控件内的点，默认中心）。 */
 	FVector2D ReadAt(const FJsonObject& InParams, FString& OutError, bool& bOutOk)
 	{
@@ -327,6 +355,14 @@ namespace GameTestPointerDetail
 					return false;
 				}
 				State->SerialBefore = GameTestHandlerWatch::GetLast(GameTestHandlerWatch::EKind::MouseDown).Serial;
+				{
+					// 按下前记下回放按住的键（Alt 之类）：点击的效果常常取决于它，结果和日志里都要看得到。
+					const FString HeldKeys = GameTestInput::DescribeHeldKeys();
+					if (!HeldKeys.IsEmpty())
+					{
+						Payload->SetStringField(TEXT("heldKeys"), HeldKeys);
+					}
+				}
 				GameTestInput::SendKey(Button, /*bInDown=*/true, Message);
 				State->bHeld = true;
 				State->bDownOk = CheckDownHandler(State->SerialBefore, State->Target.Slate, State->Target.Path, *Payload, State->DownFailure);
@@ -354,6 +390,7 @@ namespace GameTestPointerDetail
 				{
 					*Failure = State->DownFailure;
 				}
+				LogClick(*Payload, State->Target, Button, State->bDownOk ? FString() : State->DownFailure);
 				return true;
 			}
 		};

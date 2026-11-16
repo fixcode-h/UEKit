@@ -3,6 +3,7 @@
 #include "Input/GameTestInput.h"
 
 #include "Core/GameTestWorld.h"
+#include "Observe/GameTestSlate.h"
 
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
@@ -29,6 +30,27 @@ namespace
 		FSyntheticScope() { bSendingSynthetic = true; }
 		~FSyntheticScope() { bSendingSynthetic = false; }
 	};
+
+	/**
+	 * 发出去的事件带的修饰键 = 物理键盘上真按着的 + 回放按下还没松开的。
+	 * `GetModifierKeys()` 只问操作系统，回放用 `key phase=press` 按住的 Alt / Ctrl / Shift 它看不见：
+	 * 录制时按住 Alt 点的按钮，回放时控件拿到的点击事件 `IsAltDown()` 是 false，走的是另一条逻辑。
+	 */
+	FModifierKeysState MergedModifiers(const FSlateApplication& InApp)
+	{
+		const FModifierKeysState Real = InApp.GetModifierKeys();
+		const TSet<FKey>& Held = GetHeldKeys();
+		return FModifierKeysState(
+			Real.IsLeftShiftDown() || Held.Contains(EKeys::LeftShift),
+			Real.IsRightShiftDown() || Held.Contains(EKeys::RightShift),
+			Real.IsLeftControlDown() || Held.Contains(EKeys::LeftControl),
+			Real.IsRightControlDown() || Held.Contains(EKeys::RightControl),
+			Real.IsLeftAltDown() || Held.Contains(EKeys::LeftAlt),
+			Real.IsRightAltDown() || Held.Contains(EKeys::RightAlt),
+			Real.IsLeftCommandDown() || Held.Contains(EKeys::LeftCommand),
+			Real.IsRightCommandDown() || Held.Contains(EKeys::RightCommand),
+			Real.AreCapsLocked());
+	}
 }
 
 bool GameTestInput::MoveCursor(UWorld& InWorld, const FVector2D& InNormalizedPoint, FVector2D& OutScreenPosition, FString& OutMessage)
@@ -98,6 +120,17 @@ bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<
 	FSlateApplication& App = FSlateApplication::Get();
 	const FSyntheticScope Scope;
 
+	// 先记下按住的键再发事件：真实按下 Alt 时，Alt 自己的按下事件里修饰键就已经是 Alt。
+	if (bInDown)
+	{
+		GetHeldKeys().Add(InKey);
+	}
+	else
+	{
+		GetHeldKeys().Remove(InKey);
+	}
+	const FModifierKeysState Modifiers = MergedModifiers(App);
+
 	if (InKey.IsMouseButton())
 	{
 		const FVector2D Position = App.GetCursorPos();
@@ -112,7 +145,7 @@ bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<
 		}
 
 		const FPointerEvent Event(
-			FSlateApplicationBase::CursorPointerIndex, Position, Position, Pressed, InKey, 0.0f, App.GetModifierKeys());
+			FSlateApplicationBase::CursorPointerIndex, Position, Position, Pressed, InKey, 0.0f, Modifiers);
 		if (bInDown)
 		{
 			App.ProcessMouseButtonDownEvent(nullptr, Event);
@@ -124,18 +157,19 @@ bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<
 	}
 	else
 	{
-		// 键盘事件发给有焦点的控件：给了目标就交给目标（输入框里的回车、退格），否则交给游戏视口，
-		// 编辑器里才不会落到别的面板上。
+		// 键盘事件发给有焦点的控件：给了目标就交给目标（输入框里的回车、退格）。没给目标时，焦点已经在游戏界面上
+		// （游戏视口或它里面的 UMG）就不动它——按住 Alt 这类键时把焦点从打开的界面抢回视口，界面可能因失焦而关掉；
+		// 焦点在编辑器别的面板上时才交给游戏视口，按键不会落到编辑器里。
 		if (InFocus.IsValid())
 		{
 			App.SetUserFocus(0, InFocus, EFocusCause::SetDirectly);
 		}
-		else
+		else if (!GameTestSlate::IsInGameUi(App.GetUserFocusedWidget(0)))
 		{
 			App.SetAllUserFocusToGameViewport();
 		}
 
-		const FKeyEvent Event(InKey, App.GetModifierKeys(), /*InUserIndex=*/0, /*bInIsRepeat=*/false, /*InCharacterCode=*/0, /*InKeyCode=*/0);
+		const FKeyEvent Event(InKey, Modifiers, /*InUserIndex=*/0, /*bInIsRepeat=*/false, /*InCharacterCode=*/0, /*InKeyCode=*/0);
 		if (bInDown)
 		{
 			App.ProcessKeyDownEvent(Event);
@@ -144,15 +178,6 @@ bool GameTestInput::SendKeyTo(const FKey& InKey, bool bInDown, const TSharedPtr<
 		{
 			App.ProcessKeyUpEvent(Event);
 		}
-	}
-
-	if (bInDown)
-	{
-		GetHeldKeys().Add(InKey);
-	}
-	else
-	{
-		GetHeldKeys().Remove(InKey);
 	}
 
 	OutMessage = FString::Printf(TEXT("已%s %s"), bInDown ? TEXT("按下") : TEXT("松开"), *InKey.GetFName().ToString());
@@ -175,7 +200,7 @@ bool GameTestInput::MovePointerTo(const FVector2D& InScreenPosition, FString& Ou
 	// 只调 SetCursorPos 要等下一帧 Slate 合成移动才更新悬停；这里直接发一次移动，按下时悬停已经对了。
 	const FPointerEvent Move(
 		FSlateApplicationBase::CursorPointerIndex, InScreenPosition, LastPosition, App.GetPressedMouseButtons(),
-		EKeys::Invalid, 0.0f, App.GetModifierKeys());
+		EKeys::Invalid, 0.0f, MergedModifiers(App));
 	App.ProcessMouseMoveEvent(Move);
 
 	OutMessage = FString::Printf(TEXT("光标移到屏幕 (%.0f, %.0f)"), InScreenPosition.X, InScreenPosition.Y);
@@ -195,7 +220,7 @@ bool GameTestInput::SendWheel(float InDelta, FString& OutMessage)
 	const FVector2D Position = App.GetCursorPos();
 	const FPointerEvent Wheel(
 		FSlateApplicationBase::CursorPointerIndex, Position, Position, App.GetPressedMouseButtons(),
-		EKeys::Invalid, InDelta, App.GetModifierKeys());
+		EKeys::Invalid, InDelta, MergedModifiers(App));
 	App.ProcessMouseWheelOrGestureEvent(Wheel, nullptr);
 
 	OutMessage = FString::Printf(TEXT("在 (%.0f, %.0f) 滚动 %.1f"), Position.X, Position.Y, InDelta);
@@ -214,7 +239,7 @@ bool GameTestInput::SendCharacters(const FString& InText, FString& OutMessage)
 	const FSyntheticScope Scope;
 	for (const TCHAR Character : InText)
 	{
-		const FCharacterEvent Event(Character, App.GetModifierKeys(), /*InUserIndex=*/0, /*bInIsRepeat=*/false);
+		const FCharacterEvent Event(Character, MergedModifiers(App), /*InUserIndex=*/0, /*bInIsRepeat=*/false);
 		App.ProcessKeyCharEvent(Event);
 	}
 
@@ -260,4 +285,15 @@ void GameTestInput::ReleaseHeldKeys()
 bool GameTestInput::IsSendingSynthetic()
 {
 	return bSendingSynthetic;
+}
+
+FString GameTestInput::DescribeHeldKeys()
+{
+	TArray<FString> Names;
+	for (const FKey& Key : GetHeldKeys())
+	{
+		Names.Add(Key.GetFName().ToString());
+	}
+	Names.Sort();
+	return FString::Join(Names, TEXT("、"));
 }

@@ -68,4 +68,7 @@ public:
 
 	/** 正在发合成输入：录制器据此不把回放出来的按键再录一遍。 */
 	static bool IsSendingSynthetic();
+
+	/** 回放按住还没松开的键（「LeftAlt、W」），没有时返回空串；点击的诊断日志用，说明这次点击带着哪些修饰键。 */
+	static FString DescribeHeldKeys();
 };

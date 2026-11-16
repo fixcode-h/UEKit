@@ -115,18 +115,40 @@ namespace GameTestHandlers
 		}
 
 		// tap：按下后隔一帧再松开——同一帧里按下又松开，有的 trigger（Pressed / Tap）看不到这次按键。
+		// 给了 holdMs（录制的长按）就按住这么久再松开：长按和单击在游戏里常常是两个操作（Hold / Tap trigger）。
+		int32 HoldMs = 0;
+		GameTestJson::TryGetInt(Params, TEXT("holdMs"), HoldMs);
+		HoldMs = FMath::Max(HoldMs, 0);
 		const FKey HeldKey = Key;
 		const uint64 PressedFrame = GFrameCounter;
+		const double ReleaseAt = FPlatformTime::Seconds() + HoldMs / 1000.0;
 		const TWeakPtr<SWidget> FocusWeak = Focus;
-		InContext.Message = FString::Printf(TEXT("已按下并松开 %s"), *Key.GetFName().ToString());
-		InContext.PendingPredicate = [HeldKey, PressedFrame, FocusWeak](double)
+		InContext.Payload->SetNumberField(TEXT("holdMs"), HoldMs);
+		InContext.Message = HoldMs > 0
+			? FString::Printf(TEXT("已按住 %s %d 毫秒后松开"), *Key.GetFName().ToString(), HoldMs)
+			: FString::Printf(TEXT("已按下并松开 %s"), *Key.GetFName().ToString());
+		// 按住的时间可能比单步默认超时还长：超时至少留出按住的时间再加 5 秒。
+		InContext.DefaultTimeoutMs = HoldMs + 5000;
+		// 超时或取消时执行器不再调谓词：由收尾把键松开，后面的步骤不会在「按住」下跑。
+		const TSharedRef<bool> bReleased = MakeShared<bool>(false);
+		InContext.PendingCleanup = [HeldKey, FocusWeak, bReleased]()
 		{
-			if (GFrameCounter <= PressedFrame + 1)
+			if (!*bReleased)
+			{
+				FString Ignored;
+				GameTestInput::SendKeyTo(HeldKey, /*bInDown=*/false, FocusWeak.Pin(), Ignored);
+				*bReleased = true;
+			}
+		};
+		InContext.PendingPredicate = [HeldKey, PressedFrame, ReleaseAt, FocusWeak, bReleased](double)
+		{
+			if (GFrameCounter <= PressedFrame + 1 || FPlatformTime::Seconds() < ReleaseAt)
 			{
 				return false;
 			}
 			FString Ignored;
 			GameTestInput::SendKeyTo(HeldKey, /*bInDown=*/false, FocusWeak.Pin(), Ignored);
+			*bReleased = true;
 			return true;
 		};
 		return StepPending;
