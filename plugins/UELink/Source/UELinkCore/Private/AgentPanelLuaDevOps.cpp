@@ -576,7 +576,7 @@ namespace AgentPanelLuaDev
 		GDeadline = FPlatformTime::Seconds() + 10.0;
 		lua_sethook(L, TimeoutHook, LUA_MASKCOUNT, 10000);
 		const int Status = lua_pcall(L, 1, 1, Msgh);
-		lua_sethook(L, OldHook, OldMask, OldCount);
+		RestoreHookAfterTimeout(L, OldHook, OldMask, OldCount);
 		if (Status != LUA_OK)
 		{
 			Error = PopError(L);
@@ -827,7 +827,7 @@ namespace AgentPanelLuaDev
 
 		~FRunGuard()
 		{
-			lua_sethook(L, OldHook, OldMask, OldCount);
+			RestoreHookAfterTimeout(L, OldHook, OldMask, OldCount);
 			GPrintSink = nullptr;
 			lua_pushstring(L, "print");
 			lua_pushvalue(L, OldPrint);

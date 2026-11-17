@@ -149,9 +149,9 @@ namespace AgentPanelLuaDebug
 		const int Need = NeedMask();
 		if (Need)
 		{
+			const lua_Hook Cur = lua_gethook(L);
 			if (!S.bHooked)
 			{
-				const lua_Hook Cur = lua_gethook(L);
 				if (Cur != &HookFn)
 				{
 					S.PrevHook = Cur;
@@ -160,6 +160,19 @@ namespace AgentPanelLuaDebug
 				}
 				S.Main = L;
 				S.bHooked = true;
+			}
+			else if (Cur != &HookFn)
+			{
+				// 挂上之后别人（IDE 的 Lua 调试器）换了钩子：不抢回来。以前每帧发现掩码不对就重新挂，
+				// 会把调试器的钩子顶掉，IDE 的断点、单步时灵时不灵。快照点 / 采样这时收不到事件，查询时有 warning。
+				if (Cur != nullptr)
+				{
+					return;
+				}
+				// 调试器断开时会把钩子清掉：重新接上。原来记下的「前一个钩子」就是它，已经不在了，不再转发
+				S.PrevHook = nullptr;
+				S.PrevMask = 0;
+				S.PrevCount = 0;
 			}
 			lua_sethook(L, &HookFn, Need | S.PrevMask, S.PrevCount);
 		}
@@ -691,7 +704,7 @@ namespace AgentPanelLuaDebug
 		return O;
 	}
 
-	const TCHAR* CoroutineNote = TEXT("钩子挂上之前就已经在跑的协程看不到（挂上后新建的协程能看到）；IDE 的 Lua 调试器之后再连上会换掉钩子");
+	const TCHAR* CoroutineNote = TEXT("钩子挂上之前就已经在跑的协程看不到（挂上后新建的协程能看到）；IDE 的 Lua 调试器连着时钩子归它，断开后自动接上");
 
 	// ---------- 持有的已销毁 UObject ----------
 
@@ -1103,7 +1116,7 @@ void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge& B)
 			{
 				if (HookTaken(L))
 				{
-					Out->SetStringField(TEXT("warning"), TEXT("Lua 的调试钩子被别的调试器换掉了，快照点收不到；断开 IDE 的 Lua 调试器后重新加"));
+					Out->SetStringField(TEXT("warning"), TEXT("Lua 的调试钩子被 IDE 的 Lua 调试器接管了，快照点暂时收不到；调试器断开后自动接上"));
 				}
 			}
 			return true;
@@ -1191,6 +1204,10 @@ void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge& B)
 			S.bProfiling = true;
 			UpdateHook(C.L);
 			EnsureTick();
+			if (HookTaken(C.L))
+			{
+				Out->SetStringField(TEXT("warning"), TEXT("IDE 的 Lua 调试器连着，Lua 钩子归它，这次采样收不到事件；改用 IDE 的采样（调试窗口的采样，或 MCP lua_debug_inspect action=profile）"));
+			}
 			Out->SetBoolField(TEXT("started"), true);
 			Out->SetNumberField(TEXT("seconds"), Seconds);
 			Out->SetStringField(TEXT("note"), CoroutineNote);
