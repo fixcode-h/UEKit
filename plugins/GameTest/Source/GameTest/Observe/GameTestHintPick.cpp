@@ -231,7 +231,7 @@ namespace GameTestHintPickDetail
 
 	FString TextOf(const FGameTestWidgetNode& InNode)
 	{
-		return GameTestSlate::CollectText(SlateOfNode(InNode), 40);
+		return GameTestSlate::CollectTextNear(SlateOfNode(InNode), 40);
 	}
 }
 
@@ -294,7 +294,7 @@ bool GameTestHintPick::Pick(
 		TArray<FString> Texts;
 		for (const FCandidate& Candidate : OnScreen)
 		{
-			Texts.Add(GameTestSlate::CollectText(Candidate.Slate, 40));
+			Texts.Add(GameTestSlate::CollectTextNear(Candidate.Slate, 40));
 		}
 		TArray<int32> Hits;
 		const GameTestTextMatch::ETier Tier = GameTestTextMatch::FilterBest(Text, Texts, Hits);

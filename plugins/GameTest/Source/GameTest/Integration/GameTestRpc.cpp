@@ -454,6 +454,13 @@ namespace
 
 	bool RecordStart(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
+		// 录制截图参数（1.3.1）：shots=false 关掉，对象时覆盖外扩、尺寸（面板「设置 → 插件 → UE」里改）
+		FGameTestShotOptions ShotOptions;
+		if (!FGameTestShotOptions::FromJson(Args.IsValid() ? Args->TryGetField(TEXT("shots")) : TSharedPtr<FJsonValue>(), ShotOptions, Error))
+		{
+			return false;
+		}
+		FGameTestRecorder::Get().SetShotOptions(ShotOptions);
 		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
