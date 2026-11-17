@@ -2,7 +2,7 @@
 
 #include "Observe/GameTestSelector.h"
 
-#include "Observe/GameTestItemMatch.h"
+#include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
 
@@ -335,7 +335,27 @@ namespace GameTestSelectorDetail
 		return nullptr;
 	}
 
-	/** 列表节点 + `序号` 或 `属性=值` → 条目控件那棵屏。只认已经生成出来的条目（列表是虚拟化的）。 */
+	/** 条目控件 → 它在快照里的节点：容器的子节点里有就用它（和 `#类名#序号` 走到的是同一个），没有再找它那棵屏。 */
+	TSharedPtr<FGameTestWidgetNode> FindEntryNode(
+		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
+		const TSharedPtr<FGameTestWidgetNode>& InContainer,
+		const UWidget* InWidget)
+	{
+		for (const TSharedPtr<FGameTestWidgetNode>& Child : InContainer->Children)
+		{
+			if (Child.IsValid() && Child->Widget.Get() == InWidget)
+			{
+				return Child;
+			}
+		}
+		return FindScreenOf(InScreens, InWidget);
+	}
+
+	/**
+	 * 容器节点 + `[…]` → 条目。
+	 * - `[序号]`：ListView 系是第几个数据项（只认已经生成的，没生成交给自动滚动），其他容器是第几个子控件；
+	 * - `[条件,条件]`（1.4.0）：在**全部**条目里按标识找（GameTestItemKey），ListView 系按数据项找，没滚到的也能找到。
+	 */
 	bool ResolveListEntry(
 		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
 		const TSharedPtr<FGameTestWidgetNode>& InList,
@@ -343,72 +363,78 @@ namespace GameTestSelectorDetail
 		TSharedPtr<FGameTestWidgetNode>& OutEntry,
 		FString& OutError)
 	{
-		UListView* List = Cast<UListView>(InList->Widget.Get());
-		if (List == nullptr)
+		UWidget* Container = InList->Widget.Get();
+		UListView* List = Cast<UListView>(Container);
+
+		TArray<FGameTestKeyCond> Conds;
+		FString CondError;
+		const bool bConds = GameTestItemKey::ParseConds(InInner, Conds, CondError);
+		if (!bConds && !CondError.IsEmpty())
 		{
-			OutError = FString::Printf(TEXT("%s 不是列表（ListView / TileView / TreeView），不能写 [%s]"), *InList->Path, *InInner);
+			OutError = CondError;
+			return false;
+		}
+
+		// 回放每帧都会解析：ListView 最多看 2000 项（背包、商店够用），读值有缓存
+		TArray<FGameTestKeyEntry> Entries;
+		if (!GameTestItemKey::CollectEntries(Container, Entries, /*InMax=*/2000))
+		{
+			OutError = FString::Printf(TEXT("%s 不是容器（ListView / TileView / TreeView、面板、DynamicEntryBox），不能写 [%s]"), *InList->Path, *InInner);
 			return false;
 		}
 
 		int32 Index = INDEX_NONE;
-		FString Property;
-		FString Value;
-		if (InInner.IsNumeric())
+		if (!bConds)
 		{
 			Index = FCString::Atoi(*InInner);
-		}
-		else if (InInner.Split(TEXT("="), &Property, &Value))
-		{
-			Property.TrimStartAndEndInline();
-			Value.TrimStartAndEndInline();
-			Index = GameTestItemMatch::FindIndexByProperty(InList->Items, Property, FJsonValueString(Value));
-			if (Index == INDEX_NONE)
+			if (!Entries.IsValidIndex(Index))
 			{
-				OutError = FString::Printf(TEXT("%s 里没有 %s=%s 的条目；%s"), *InList->Path, *Property, *Value,
-					*GameTestItemMatch::DescribeProperty(InList->Items, Property, /*InLimit=*/10));
+				OutError = FString::Printf(TEXT("%s 只有 %d 个条目，没有第 %d 个"), *InList->Path, Entries.Num(), Index);
 				return false;
 			}
 		}
 		else
 		{
-			OutError = FString::Printf(TEXT("[%s] 看不懂：列表条目写 [序号] 或 [属性=值]"), *InInner);
-			return false;
-		}
-
-		if (!InList->Items.IsValidIndex(Index) || !InList->Items[Index].IsValid())
-		{
-			OutError = FString::Printf(TEXT("%s 只有 %d 个条目，没有第 %d 个"), *InList->Path, InList->Items.Num(), Index);
-			return false;
-		}
-
-		const UObject* Item = InList->Items[Index]->Item.Get();
-		for (UUserWidget* Entry : List->GetDisplayedEntryWidgets())
-		{
-			if (Entry == nullptr)
+			FGameTestKeyCache Cache;
+			TArray<int32> Hits;
+			GameTestItemKey::FindMatches(Entries, List != nullptr, Conds, Cache, /*InMaxHits=*/4, Hits);
+			if (Hits.Num() == 0)
 			{
-				continue;
-			}
-			TScriptInterface<IUserObjectListEntry> EntryInterface;
-			EntryInterface.SetObject(Entry);
-			if (UUserObjectListEntryLibrary::GetListItemObject(EntryInterface) != Item)
-			{
-				continue;
-			}
-
-			OutEntry = FindScreenOf(InScreens, Entry);
-			if (!OutEntry.IsValid())
-			{
-				OutError = FString::Printf(TEXT("%s 第 %d 个条目的控件还没建出 Slate 控件（下一帧再看）"), *InList->Path, Index);
+				OutError = FString::Printf(TEXT("%s 的 %d 个条目里没有 [%s] 的；%s"), *InList->Path, Entries.Num(), *InInner,
+					*GameTestItemKey::DescribeValues(Entries, List != nullptr, Conds[0], Cache, /*InLimit=*/10));
 				return false;
 			}
-			return true;
+			if (Hits.Num() > 1)
+			{
+				OutError = FString::Printf(TEXT("%s 里 [%s] 的条目不止一个（第 %s 个），条件不够确定：再加一个字段，用逗号连"),
+					*InList->Path, *InInner, *FString::JoinBy(Hits, TEXT("、"), [](int32 Hit) { return FString::FromInt(Hit); }));
+				return false;
+			}
+			Index = Hits[0];
 		}
 
-		GUngeneratedEntry.List = List;
-		GUngeneratedEntry.Index = Index;
-		GUngeneratedEntry.Path = InList->Path;
-		OutError = FString::Printf(TEXT("%s 第 %d 个条目没生成（不在可视范围内）：先 scroll index=%d 把它滚出来"), *InList->Path, Index, Index);
-		return false;
+		const UWidget* EntryWidget = Entries[Index].Widget.Get();
+		if (EntryWidget == nullptr)
+		{
+			if (List != nullptr)
+			{
+				GUngeneratedEntry.List = List;
+				GUngeneratedEntry.Index = Index;
+				GUngeneratedEntry.Path = InList->Path;
+				OutError = FString::Printf(TEXT("%s 第 %d 个条目没生成（不在可视范围内）：先 scroll index=%d 把它滚出来"), *InList->Path, Index, Index);
+				return false;
+			}
+			OutError = FString::Printf(TEXT("%s 第 %d 个条目已经不在了"), *InList->Path, Index);
+			return false;
+		}
+
+		OutEntry = List != nullptr ? FindScreenOf(InScreens, EntryWidget) : FindEntryNode(InScreens, InList, EntryWidget);
+		if (!OutEntry.IsValid())
+		{
+			OutError = FString::Printf(TEXT("%s 第 %d 个条目的控件还没建出 Slate 控件（下一帧再看）"), *InList->Path, Index);
+			return false;
+		}
+		return true;
 	}
 
 	/**

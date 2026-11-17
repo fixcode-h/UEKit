@@ -375,6 +375,13 @@ bool GameTestHintPick::Rematch(
 	{
 		return false;
 	}
+	// 这一步已经按唯一标识认（hint.key.cond，1.4.0）：方括号里的条件就是答案，按文字换位置反而会认错
+	const TSharedPtr<FJsonObject>* Key = nullptr;
+	FString KeyCond;
+	if (InHint.TryGetObjectField(TEXT("key"), Key) && Key != nullptr && Key->IsValid() && (*Key)->TryGetStringField(TEXT("cond"), KeyCond) && !KeyCond.IsEmpty())
+	{
+		return false;
+	}
 	FString WantText;
 	if (!InOutNode.IsValid() || !GameTestJson::TryGetString(InHint, TEXT("text"), WantText) || WantText.IsEmpty())
 	{
