@@ -82,6 +82,12 @@ namespace GameTestHandlers
 		TArray<TSharedPtr<FGameTestWidgetNode>> Ambiguous;
 		if (GameTestSelector::ResolveText(Screens, InTarget, OutNode, OutMessage, InHint != nullptr ? &Ambiguous : nullptr))
 		{
+			// 唯一命中但文字和录制时对不上：按位置写的选择器在容器顺序变了时会指到别的按钮，在同容器里找文字对得上的。
+			FString RematchNote;
+			if (InHint != nullptr && GameTestHintPick::Rematch(Screens, InTarget, *InHint, OutNode, RematchNote) && OutPickNote != nullptr)
+			{
+				*OutPickNote = RematchNote;
+			}
 			return true;
 		}
 		if (InHint == nullptr || Ambiguous.Num() < 2)
