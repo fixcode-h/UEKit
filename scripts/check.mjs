@@ -90,6 +90,11 @@ for (const p of plugins) {
     // 一律写 UELINK_OUTER_NESTED(...)（UELinkCompat.h），5.4 上展开成 bool、5.8 上展开成 EGetObjectsFlags
     if (/GetObjectsWithOuter\s*\([^;]*,\s*(true|false)\s*\)/.test(text) || /ForEachObjectWithOuter(Breakable)?\s*\([\s\S]{0,800}?\}\s*,\s*(true|false)\s*[,)]/.test(text))
       fail(`${rel} 给 GetObjectsWithOuter / ForEachObjectWithOuter 直接传了 true/false：5.8 上会报弃用警告，改用 UELINK_OUTER_NESTED(...)`)
+    // CQTest 的测试类是 struct 定义，结尾少了分号时本文件报 C1004「意外的文件尾」，合并编译时还会连累下一个文件
+    // （UE 5.4 上表现成 UMG 的 PanelSlot.h 语法错误，GameTest 1.3.0 就是这样）
+    const testClasses = (text.match(/^TEST_CLASS\w*\s*\(/gm) ?? []).length
+    if (testClasses && (text.match(/^\};/gm) ?? []).length < testClasses)
+      fail(`${rel} 的 TEST_CLASS 结尾少了分号：类体最后一行写 };`)
     if (p.name === 'UELink') {
       if (/AGENTPANELBRIDGE(EDITOR)?_API/.test(text)) fail(`${rel} 还在用旧的导出宏 AGENTPANELBRIDGE_API，改成 UELINKCORE_API`)
       continue

@@ -45,6 +45,6 @@ TEST_CLASS_WITH_FLAGS(GameTestTextMatchTest, "GameTest.TextMatch",
 		ASSERT_THAT(AreEqual(1, Hits.Num()));
 		ASSERT_THAT(AreEqual(1, Hits[0]));
 	}
-}
+};
 
 #endif
