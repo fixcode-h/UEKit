@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.5.3",
-        "versionCode": 19,
+        "version": "2.6.0",
+        "versionCode": 20,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.5.3",
-        "asset": "UELink-2.5.3-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.5.3/UELink-2.5.3-src.zip",
-        "sha256": "eefd71e5084214d562e7799af15c594452e05ba46d29e6dc5734569e3aa50f52",
-        "size": 221977,
+        "tag": "UELink-v2.6.0",
+        "asset": "UELink-2.6.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.6.0/UELink-2.6.0-src.zip",
+        "sha256": "cd9b4c3bdcde43e9d97d5f62dd3932c18ae6bee182056bba64b9831d785e3a0b",
+        "size": 222362,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **面板开着快照点或采样时，IDE 的 Lua 断点时灵时不灵** — `lua.snap` / `lua.profile` 挂上钩子后，每帧发现钩子被 IDE 的 Lua 调试器换掉就抢回来，两边来回覆盖，IDE 收不到行事件。现在不再抢：调试器连着时钩子归它，快照点和采样暂时收不到（`lua.snap list`、`lua.profile start` 返回里有 `warning`），调试器断开后自动接上\n- **`lua.exec` / `lua.reload` 执行完会盖掉调试器新挂的钩子** — 执行期间 IDE 改了断点，执行完放回旧钩子时把新的盖掉了，新断点要等下次再改才生效。现在只在钩子还是超时钩子时才放回"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **Lua 声明默认只生成 C++ 反射类型** — 蓝图、用户定义结构体 / 枚举改成单独的开关，默认关（`luadecl.enable {\"blueprints\": true}` 或控制台 `UELink.LuaDecl.Blueprints 1` 打开）。关着时以前生成的蓝图声明会在下一遍比对时删掉"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-17T01:09:38.254Z"
+  "updatedAt": "2026-11-17T02:09:21.707Z"
 }
