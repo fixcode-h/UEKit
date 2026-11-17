@@ -9,7 +9,9 @@
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunConfig.h"
 #include "Core/GameTestScenario.h"
+#include "Core/GameTestWorld.h"
 #include "Observe/GameTestInspect.h"
+#include "Observe/GameTestNav.h"
 #include "Observe/GameTestResolve.h"
 #include "Record/GameTestRecorder.h"
 #include "Shot/GameTestShot.h"
@@ -158,6 +160,8 @@ namespace
 		Out->SetStringField(TEXT("scenarioRoot"), ScenarioRootDir());
 		Out->SetStringField(TEXT("outputRoot"), GameTestShot::GetOutputRootDir());
 		Out->SetObjectField(TEXT("record"), FGameTestRecorder::Get().DescribeStatus(/*InLastSteps=*/0));
+		// 导航网格：move 步骤有网格时寻路，没有时按轨迹或探路（面板据此提示）。
+		Out->SetObjectField(TEXT("nav"), GameTestNav::Describe(GameTestWorld::FindGameWorld()));
 		return true;
 	}
 
@@ -468,6 +472,23 @@ namespace
 		return true;
 	}
 
+	/** 录制快捷操作：录移动开始 / 结束、放弃、记下位置、在这附近、下一次点击录成断言（和游戏里的工具栏、Alt+数字同一个入口）。 */
+	bool RecordMove(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		double Radius = 0.0;
+		if (Args.IsValid())
+		{
+			GameTestJson::TryGetNumber(*Args, TEXT("radius"), Radius);
+		}
+		const FString Phase = Str(Args, TEXT("phase"));
+		if (!FGameTestRecorder::Get().Quick(Phase.IsEmpty() ? FString(TEXT("toggle")) : Phase, Radius, Error))
+		{
+			return false;
+		}
+		Out = FGameTestRecorder::Get().DescribeStatus(/*InLastSteps=*/3);
+		return true;
+	}
+
 	bool RecordStop(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		if (!FGameTestRecorder::Get().Stop(Bool(Args, TEXT("save"), true), Out, Error))
@@ -658,6 +679,7 @@ void Register()
 	Add(TEXT("gt.stop"), &Stop);
 	Add(TEXT("gt.record.start"), &RecordStart);
 	Add(TEXT("gt.record.mark"), &RecordMark);
+	Add(TEXT("gt.record.move"), &RecordMove);
 	Add(TEXT("gt.record.stop"), &RecordStop);
 	Add(TEXT("gt.record.status"), &RecordStatus);
 	Add(TEXT("gt.inspect"), &Inspect);

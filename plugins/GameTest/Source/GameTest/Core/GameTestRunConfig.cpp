@@ -4,6 +4,7 @@
 
 #include "Core/GameTestJson.h"
 #include "GameTestSettings.h"
+#include "Operate/GameTestMove.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -122,6 +123,20 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		OutConfig.RandomSeed = Seed;
 	}
 
+	if (InJson.HasField(TEXT("move")))
+	{
+		OutConfig.Move = GameTestJson::TryGetObject(InJson, TEXT("move"));
+		if (!OutConfig.Move.IsValid())
+		{
+			OutError = TEXT("move 要写成对象（{\"fallback\": \"none\", ...}）");
+			return false;
+		}
+		if (!GameTestMove::ValidateDefaults(*OutConfig.Move, OutError))
+		{
+			return false;
+		}
+	}
+
 	// 前置步骤只检查是不是对象：动作和字段由开跑时的步骤解析检查（和场景步骤同一套，报错带「前置第 N 步」）。
 	if (const TArray<TSharedPtr<FJsonValue>>* SetupItems = GameTestJson::TryGetArray(InJson, TEXT("setup")))
 	{
@@ -214,6 +229,10 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (InConfig.RandomSeed.IsSet())
 	{
 		Json->SetNumberField(TEXT("randomSeed"), InConfig.RandomSeed.GetValue());
+	}
+	if (InConfig.Move.IsValid() && InConfig.Move->Values.Num() > 0)
+	{
+		Json->SetObjectField(TEXT("move"), InConfig.Move);
 	}
 	if (InConfig.Setup.Num() > 0)
 	{

@@ -46,6 +46,7 @@ bool FGameTestRunner::StartRun(
 	StepDelayMs = InRequest.StepDelayMs;
 	UiWaitTimeoutMs = InRequest.UiWaitTimeoutMs;
 	ClickVia = InRequest.ClickVia;
+	MoveDefaults = InRequest.MoveDefaults;
 	UiStepGapMs = FMath::Max(0, InRequest.UiStepGapMs);
 	LastUiStepEndedAt = -1.0;
 	PendingStepEvents.Reset();
@@ -200,6 +201,7 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	Context.OutputDir = OutputDir;
 	Context.UiWaitTimeoutMs = UiWaitTimeoutMs;
 	Context.ClickVia = ClickVia;
+	Context.MoveDefaults = MoveDefaults;
 
 	EGameTestStepStatus Status = EGameTestStepStatus::Failed;
 

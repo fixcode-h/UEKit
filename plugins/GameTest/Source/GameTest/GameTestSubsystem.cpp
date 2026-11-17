@@ -11,6 +11,7 @@
 #include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Input/GameTestInput.h"
+#include "Operate/GameTestMove.h"
 #include "Shot/GameTestShot.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
@@ -502,6 +503,8 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		: (GetDefault<UGameTestSettings>() != nullptr ? GetDefault<UGameTestSettings>()->UiWaitTimeoutMs : 0);
 	// 点击方式：场景 > 运行配置 > 默认 code（不动鼠标）
 	Request.ClickVia = !InRun.ClickVia.IsEmpty() ? InRun.ClickVia : !RunConfig.ClickVia.IsEmpty() ? RunConfig.ClickVia : FString(TEXT("code"));
+	// move 步骤的默认设置：场景的 move 段盖在运行配置的 move 段上
+	Request.MoveDefaults = GameTestMove::MergeDefaults(RunConfig.Move, InRun.Move);
 	// UI 操作间隔：运行配置 > 默认 1 秒（和录制时的手速无关，录的场景 stepDelayMs 是 0）
 	Request.UiStepGapMs = RunConfig.UiStepGapMs >= 0 ? RunConfig.UiStepGapMs : GameTestRunConfig::DefaultUiStepGapMs;
 

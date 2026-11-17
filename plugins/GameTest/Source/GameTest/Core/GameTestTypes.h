@@ -144,6 +144,8 @@ struct GAMETEST_API FGameTestRunRequest
 	/** click 没写 via 时用的点击方式：code（默认，调控件委托，不动鼠标）或 pointer（真实鼠标）。来源同上。 */
 	FString ClickVia = TEXT("code");
 
+	/** move 步骤的默认设置：场景顶层的 `move` 盖在运行配置的 `move` 上，再由步骤字段覆盖。没有时为空。 */
+	TSharedPtr<FJsonObject> MoveDefaults;
 	/**
 	 * 相邻两个 UI 操作（click、drag、type……）之间至少隔多久（毫秒）：从上一个 UI 操作结束算，
 	 * 中间的 wait 等步骤用掉的时间也算进去；0 = 不隔。来自运行配置的 uiStepGapMs。
