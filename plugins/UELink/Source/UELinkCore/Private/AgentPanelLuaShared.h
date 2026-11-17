@@ -53,6 +53,18 @@ namespace AgentPanelLuaImpl
 		bool bMods = false;
 		TMap<const void*, FString> Mods;
 
+		/**
+		 * Open 压在栈上的对象表在用完时弹掉（2.8 起）：以前每次操作都在主线程栈上留一格，
+		 * GameTest 回放时每帧读条目的 Lua 字段，不弹会一直往上涨
+		 */
+		~FLuaCtx()
+		{
+			if (L && Map && lua_gettop(L) >= Map)
+			{
+				lua_settop(L, Map - 1);
+			}
+		}
+
 		bool Open(UObject* Context, FString& Error)
 		{
 			L = StateFor(Context, Error);

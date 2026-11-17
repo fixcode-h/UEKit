@@ -245,6 +245,7 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 - 操作用 `AddExtensionOp("前缀.名字", 处理函数)` 登记：名字必须带前缀（AssetForge 用 `forge.`，GameTest 用 `gt.`），和已有操作重名时拒绝。客户端调用方式和 UELink 自己的操作完全一样。
 - 长任务（批量导入、跑测试场景）马上返回作业号，客户端用 `forge.job` / `gt.job` 查进度和最终结果。
 - **推送事件**（2.2 起，`features` 里有 `extEvents`）：扩展用 `FAgentPanelBridge::Get().PublishEvent("前缀.主题", 事件)` 推实时状态（在游戏线程调用）。客户端在推送通道订阅时把主题写进 `topics`（如 `["log","forge.job","gt.record"]`），收到的事件行是 `{"event":"forge.job", ...事件字段}`。没人订阅时扩展推事件几乎没有开销。事件只是实时提示，客户端中途连上会漏掉之前的，最终结果以 `*.job` 为准。
+- **读 Lua 字段**（2.8 起）：扩展要看对象 Lua 实例表上的数据时用 C++ 接口 `FAgentPanelLua::ReadFields(对象, 层数, 字段上限, 错误)`，返回 JSON 对象（标量原样、子表展开，函数和 userdata 跳过，超过上限带 `"__more": true`）。只用 `lua_next` 原样读，不触发元方法、不调 Lua 函数；对象没绑 Lua、没有 UnLua 时返回空并写原因。GameTest 1.4 录制列表条目时用它。
 - 扩展各自的操作列表见 `docs/asset-forge.md`、`docs/game-test.md`。
 
 ## 7. 给 EmmyLua 调试器提供 UE 对象属性
