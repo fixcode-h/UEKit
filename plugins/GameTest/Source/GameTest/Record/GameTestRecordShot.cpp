@@ -437,11 +437,20 @@ void FGameTestRecordShots::OnUiPress(const TSharedPtr<SWidget>& InSlate, const F
 	}
 	const FIntRect Click = GameTestRecordShotDetail::ToPixels(InScreenPosition, FVector2D::ZeroVector, WindowPos, Scale);
 	const FString Path = NextPath(TEXT(""));
+	const FIntPoint To = FitInside(Crop.Size(), FIntPoint(Options.MaxWidth, Options.MaxHeight));
+	const FIntRect Frame(Target.Min - Crop.Min, Target.Max - Crop.Min);
 	GameTestRecordShotDetail::SaveAsync(
-		GameTestRecordShotDetail::CopyRegion(Pixels, Size, Crop), Crop.Size(),
-		FitInside(Crop.Size(), FIntPoint(Options.MaxWidth, Options.MaxHeight)),
-		FIntRect(Target.Min - Crop.Min, Target.Max - Crop.Min), FIntPoint(Click.Min - Crop.Min), Path);
+		GameTestRecordShotDetail::CopyRegion(Pixels, Size, Crop), Crop.Size(), To, Frame, FIntPoint(Click.Min - Crop.Min), Path);
 	InHint->SetStringField(TEXT("shot"), GameTestShot::ToProjectRelative(Path));
+	// 红框在存下来的图里的位置 [x, y, w, h]：面板 OCR 只认框里的字
+	const double Sx = static_cast<double>(To.X) / Crop.Width();
+	const double Sy = static_cast<double>(To.Y) / Crop.Height();
+	TArray<TSharedPtr<FJsonValue>> Box;
+	Box.Add(MakeShared<FJsonValueNumber>(FMath::RoundToInt(Frame.Min.X * Sx)));
+	Box.Add(MakeShared<FJsonValueNumber>(FMath::RoundToInt(Frame.Min.Y * Sy)));
+	Box.Add(MakeShared<FJsonValueNumber>(FMath::RoundToInt(Frame.Width() * Sx)));
+	Box.Add(MakeShared<FJsonValueNumber>(FMath::RoundToInt(Frame.Height() * Sy)));
+	InHint->SetArrayField(TEXT("shotBox"), Box);
 }
 
 void FGameTestRecordShots::OnGamePress(const FVector2D& InScreenPosition, const TSharedPtr<FJsonObject>& InHint)
