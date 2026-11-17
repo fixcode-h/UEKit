@@ -34,4 +34,27 @@ namespace GameTestHintPick
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
 		FString& OutNote,
 		FString& OutWhy);
+
+	/**
+	 * 选择器唯一命中了，但文字和录制时对不上：在**同一个容器**里找文字对得上的那个换过去。
+	 *
+	 * **为什么需要它**：录制器在没有名字可写时按位置写选择器（`#类名#序号`、`列表[序号]`、`容器/#类名#序号>…`）。
+	 * 容器里的条目顺序会变（历史记录按最近使用排、列表重新排序），回放时同一个序号已经是别的按钮了，
+	 * 按序号点就点错。录制时记下的 `hint.text` 能认出原来那个。
+	 *
+	 * 规则：
+	 * 1. 解析到的控件文字和 `hint.text` 一样（或没录到文字）就不动：序号没变是绝大多数情况。
+	 * 2. 从最靠近目标的那个按位置写的段开始，把序号换成同容器里的其他序号（只认此刻在屏上的），
+	 *    文字和录制时一样的只有一个就换成它；有几个时按 `hint.rect` 挑最近的，挑不出就不换。
+	 * 0. `hint.byIndex` 为 true（面板上选了「只按第几个」）时不换。
+	 * 3. 这一段的兄弟里一个都对不上，再往外一层按位置写的段找；都对不上就照旧按序号（文字可能本来就会变）。
+	 *
+	 * 换了返回 true，`InOutNode` 换成匹配的那个，`OutNote` 写怎么换的（进步骤结果的 `picked`）。
+	 */
+	GAMETEST_API bool Rematch(
+		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
+		const FString& InTarget,
+		const FJsonObject& InHint,
+		TSharedPtr<FGameTestWidgetNode>& InOutNode,
+		FString& OutNote);
 }

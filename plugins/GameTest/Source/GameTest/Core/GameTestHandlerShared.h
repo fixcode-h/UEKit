@@ -51,7 +51,8 @@ namespace GameTestHandlers
 	 * 各写一份必然漂移。
 	 *
 	 * 给了录制线索 `InHint`（步骤的 `hint`）时，选择器命中同一个 WBP 的几个实例不直接失败，
-	 * 按线索挑回录的那一个（`GameTestHintPick`），怎么挑的写进 `OutPickNote`。
+	 * 按线索挑回录的那一个（`GameTestHintPick`），怎么挑的写进 `OutPickNote`；
+	 * 唯一命中但文字和录制时对不上时，在同容器里换成文字对得上的那个（`GameTestHintPick::Rematch`）。
 	 */
 	GAMETEST_API bool TryResolveTarget(
 		const FString& InTarget,

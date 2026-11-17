@@ -3,6 +3,7 @@
 #include "Observe/GameTestHintPick.h"
 
 #include "Core/GameTestJson.h"
+#include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
 
@@ -81,6 +82,111 @@ namespace GameTestHintPickDetail
 	FString DescribePick(const FCandidate& InCandidate)
 	{
 		return FString::Printf(TEXT("%s（位置 %.3f, %.3f）"), *InCandidate.Node->Path, InCandidate.Min.X, InCandidate.Min.Y);
+	}
+
+	/**
+	 * 同一个容器里最多试这么多个序号：历史记录、GM 按钮这类容器一般十几个；
+	 * 自动等待每帧都可能走到这里（只在文字对不上时），试太多会拖慢回放。
+	 */
+	constexpr int32 MaxSiblingTries = 48;
+
+	/** 选择器里按位置写的一段：`#类名#序号` 或 `列表[序号]`。`Hop` 为 -1 表示第一段路径，否则是第几个 `>` 之后。 */
+	struct FPositional
+	{
+		int32 Hop = INDEX_NONE;
+		int32 Segment = INDEX_NONE;
+		FString Prefix;
+		FString Suffix;
+		int32 Index = 0;
+	};
+
+	bool IsDigits(const FString& InText)
+	{
+		if (InText.IsEmpty() || InText.Len() > 6)
+		{
+			return false;
+		}
+		for (const TCHAR Char : InText)
+		{
+			if (!FChar::IsDigit(Char))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** `#类名#3` → 前缀 `#类名#`、序号 3；`List[3]` → 前缀 `List[`、后缀 `]`、序号 3。`List[Id=7]`、`#类名` 不算。 */
+	bool ParsePositional(const FString& InSegment, FString& OutPrefix, FString& OutSuffix, int32& OutIndex)
+	{
+		if (InSegment.StartsWith(TEXT("#")))
+		{
+			int32 Hash = INDEX_NONE;
+			if (!InSegment.FindLastChar(TEXT('#'), Hash) || Hash <= 0)
+			{
+				return false;
+			}
+			const FString Number = InSegment.RightChop(Hash + 1);
+			if (!IsDigits(Number))
+			{
+				return false;
+			}
+			OutPrefix = InSegment.Left(Hash + 1);
+			OutSuffix.Reset();
+			OutIndex = FCString::Atoi(*Number);
+			return true;
+		}
+		if (InSegment.EndsWith(TEXT("]")))
+		{
+			int32 Open = INDEX_NONE;
+			if (!InSegment.FindLastChar(TEXT('['), Open) || Open <= 0)
+			{
+				return false;
+			}
+			const FString Number = InSegment.Mid(Open + 1, InSegment.Len() - Open - 2);
+			if (!IsDigits(Number))
+			{
+				return false;
+			}
+			OutPrefix = InSegment.Left(Open + 1);
+			OutSuffix = TEXT("]");
+			OutIndex = FCString::Atoi(*Number);
+			return true;
+		}
+		return false;
+	}
+
+	TArray<FString>& SegmentsOf(GameTestSelector::FParsed& InParsed, int32 InHop)
+	{
+		return InHop < 0 ? InParsed.Segments : InParsed.NestedHops[InHop];
+	}
+
+	/** 按出现顺序列出所有按位置写的段（调用方从后往前试：越靠近目标的容器越可能是顺序变了的那个）。 */
+	void CollectPositionals(const GameTestSelector::FParsed& InParsed, TArray<FPositional>& OutPositionals)
+	{
+		const auto AddFrom = [&OutPositionals](const TArray<FString>& InSegments, int32 InHop)
+		{
+			for (int32 Index = 0; Index < InSegments.Num(); ++Index)
+			{
+				FPositional Positional;
+				if (ParsePositional(InSegments[Index], Positional.Prefix, Positional.Suffix, Positional.Index))
+				{
+					Positional.Hop = InHop;
+					Positional.Segment = Index;
+					OutPositionals.Add(MoveTemp(Positional));
+				}
+			}
+		};
+		AddFrom(InParsed.Segments, INDEX_NONE);
+		for (int32 Hop = 0; Hop < InParsed.NestedHops.Num(); ++Hop)
+		{
+			AddFrom(InParsed.NestedHops[Hop], Hop);
+		}
+	}
+
+	FString TextOf(const FGameTestWidgetNode& InNode)
+	{
+		return GameTestSlate::CollectText(SlateOfNode(InNode), 40);
 	}
 }
 
@@ -193,4 +299,99 @@ bool GameTestHintPick::Pick(
 	OutNode = Best.Node;
 	OutNote = FString::Printf(TEXT("选择器命中 %d 个，按录制时的位置挑了 %s（偏差 %.3f）"), InCandidates.Num(), *Best.Node->Path, Best.Distance);
 	return true;
+}
+
+bool GameTestHintPick::Rematch(
+	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
+	const FString& InTarget,
+	const FJsonObject& InHint,
+	TSharedPtr<FGameTestWidgetNode>& InOutNode,
+	FString& OutNote)
+{
+	using namespace GameTestHintPickDetail;
+
+	// 用户在面板上把这一步定成「只按第几个点」：就是要点容器里那个位置上的，不管上面写的是什么。
+	bool bByIndex = false;
+	if (InHint.TryGetBoolField(TEXT("byIndex"), bByIndex) && bByIndex)
+	{
+		return false;
+	}
+	FString WantText;
+	if (!InOutNode.IsValid() || !GameTestJson::TryGetString(InHint, TEXT("text"), WantText) || WantText.IsEmpty())
+	{
+		return false;
+	}
+	const FString NowText = TextOf(*InOutNode);
+	if (NowText.Equals(WantText))
+	{
+		return false;
+	}
+
+	GameTestSelector::FParsed Parsed;
+	FString ParseError;
+	if (!GameTestSelector::Parse(InTarget, Parsed, ParseError) || Parsed.bHandle || Parsed.bSlateOnly)
+	{
+		return false;
+	}
+	TArray<FPositional> Positionals;
+	CollectPositionals(Parsed, Positionals);
+
+	// 从最靠近目标的那段往外试：这一层的兄弟里有对得上的就停，不再动外层。
+	for (int32 Slot = Positionals.Num() - 1; Slot >= 0; --Slot)
+	{
+		const FPositional& Positional = Positionals[Slot];
+		TArray<TSharedPtr<FGameTestWidgetNode>> Matches;
+		TArray<int32> MatchIndices;
+		for (int32 Index = 0; Index < MaxSiblingTries; ++Index)
+		{
+			if (Index == Positional.Index)
+			{
+				continue;
+			}
+			GameTestSelector::FParsed Variant = Parsed;
+			SegmentsOf(Variant, Positional.Hop)[Positional.Segment] = Positional.Prefix + FString::FromInt(Index) + Positional.Suffix;
+			TSharedPtr<FGameTestWidgetNode> Node;
+			FString Error;
+			// 只认唯一命中：兄弟换过去还歧义的不碰（那是多实例消歧的事，见 Pick）。
+			if (!GameTestSelector::Resolve(InScreens, Variant, Node, Error) || !Node.IsValid())
+			{
+				continue;
+			}
+			if (!IsOnScreen(SlateOfNode(*Node)) || !TextOf(*Node).Equals(WantText))
+			{
+				continue;
+			}
+			Matches.Add(Node);
+			MatchIndices.Add(Index);
+		}
+		if (Matches.Num() == 0)
+		{
+			continue;
+		}
+
+		const FString Segment = SegmentsOf(Parsed, Positional.Hop)[Positional.Segment];
+		int32 Chosen = 0;
+		if (Matches.Num() > 1)
+		{
+			// 同一个容器里有几个文字一样的：按录制时的位置挑；挑不出就别猜，照旧按序号。
+			TSharedPtr<FGameTestWidgetNode> Picked;
+			FString PickNote;
+			FString Why;
+			if (!Pick(Matches, InHint, Picked, PickNote, Why) || !Picked.IsValid())
+			{
+				return false;
+			}
+			Chosen = Matches.IndexOfByKey(Picked);
+			if (Chosen == INDEX_NONE)
+			{
+				return false;
+			}
+		}
+
+		OutNote = FString::Printf(TEXT("录制时 %s 的文字是「%s」，现在那个位置是「%s」（容器里的顺序变了）；同容器里文字对得上的是第 %d 个，点它：%s"),
+			*Segment, *WantText, *NowText.Left(40), MatchIndices[Chosen], *Matches[Chosen]->Path);
+		InOutNode = Matches[Chosen];
+		return true;
+	}
+	return false;
 }
