@@ -64,7 +64,7 @@
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
-`trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.0 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.0 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
+`trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。

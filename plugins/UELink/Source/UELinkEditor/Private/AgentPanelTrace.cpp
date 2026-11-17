@@ -1081,7 +1081,7 @@ namespace AgentPanelEd
 			const bool bDone = S.IsAnalysisComplete();
 			Out->SetBoolField(TEXT("analyzing"), !bDone);
 			Out->SetNumberField(TEXT("duration"), S.GetDurationSeconds());
-			// 读取进度（2.8）：没分析完时网页显示「已读 X / Y MB」，录制中追上了（caughtUp）就先把已有的部分显示出来
+			// 读取进度（2.8.1）：没分析完时网页显示「已读 X / Y MB」，录制中追上了（caughtUp）就先把已有的部分显示出来
 			Out->SetNumberField(TEXT("readBytes"), static_cast<double>(Entry->Follow->ReadBytes.load()));
 			Out->SetNumberField(TEXT("fileBytes"), static_cast<double>(Entry->Follow->FileBytes.load()));
 			if (!bDone && Entry->Follow->Following())
@@ -1092,7 +1092,7 @@ namespace AgentPanelEd
 			{
 				Out->SetBoolField(TEXT("caughtUp"), true);
 			}
-			// 第一帧的开始时间（2.8）：trace 的时间从进程启动算，录制中途才开始时第一帧在几百上千秒处，
+			// 第一帧的开始时间（2.8.1）：trace 的时间从进程启动算，录制中途才开始时第一帧在几百上千秒处，
 			// 面板按它把时间换成「从录制开始算」（以前网页的「已分析到第 1700 秒」其实是编辑器开了 28 分钟）
 			Out->SetNumberField(TEXT("origin"), FirstFrameTime(S));
 			if (What == TEXT("info"))
