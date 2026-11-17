@@ -91,7 +91,10 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 	}
 	++CapturedThisRun;
 
-	const FString Dir = FPaths::Combine(InRunDir, TEXT("failures"), FString::Printf(InOutRecord.Step.bSetup ? TEXT("setup-%02d") : TEXT("step-%02d"), InOutRecord.Step.Index + 1));
+	// Printf 的格式串必须是字面量（新引擎编译期校验），所以两种前缀各写一遍。
+	const FString Dir = FPaths::Combine(InRunDir, TEXT("failures"), InOutRecord.Step.bSetup
+		? FString::Printf(TEXT("setup-%02d"), InOutRecord.Step.Index + 1)
+		: FString::Printf(TEXT("step-%02d"), InOutRecord.Step.Index + 1));
 	IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
 
 	const TSharedPtr<FJsonObject> Evidence = MakeShared<FJsonObject>();
