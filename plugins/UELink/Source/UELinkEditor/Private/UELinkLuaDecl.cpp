@@ -386,7 +386,7 @@ namespace UELinkLuaDecl
 				if (FFileHelper::LoadFileToString(Content, *File))
 				{
 					const FString Out = TEXT("UnLua/") + Rel;
-					Emit(Out, Content);
+					Emit(Out, FixUnLuaStatic(Content));
 					St.NativeSeen.Add(Out);
 				}
 			}

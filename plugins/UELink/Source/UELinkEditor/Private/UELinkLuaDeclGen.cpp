@@ -326,6 +326,11 @@ namespace UELinkLuaDecl
 				Out += TEXT(" : ") + TypeName(Super);
 			}
 			Out += TEXT("\n");
+			if (!Struct->IsA<UClass>())
+			{
+				// UnLua 里结构体可以直接调用构造：UE.FVector(1, 2, 3)；不写的话 emmylua 报「不能调用」
+				Out += TEXT("---@overload fun(...): ") + Name + TEXT("\n");
+			}
 			for (TFieldIterator<FProperty> It(Struct, EFieldIteratorFlags::ExcludeSuper, EFieldIteratorFlags::ExcludeDeprecated); It; ++It)
 			{
 				AppendField(Out, *It);
@@ -480,18 +485,49 @@ namespace UELinkLuaDecl
 
 	FString GenerateUETable(const TArray<FString>& NativeTypeNames)
 	{
+		// 写成类声明 + 字段（---@class UE / ---@field AActor AActor），不用 UE = { ---@type ... } 的表构造式：
+		// 字段声明是 emmylua 最直接的写法，UE.xxx 的补全和跳转不依赖表构造式的类型推断
 		FString Out = Header;
 		Out += TEXT("---UnLua 的全局 UE 表：原生类、结构体、枚举都能按名字取（UE.AActor、UE.FVector、UE.ECollisionChannel）\n");
-		Out += TEXT("UE = {\n");
+		Out += TEXT("---@class UE\n");
 		for (const FString& Name : NativeTypeNames)
 		{
 			if (!IsIdentifier(Name))
 			{
 				continue;
 			}
-			Out += FString::Printf(TEXT("    ---@type %s\n    %s = nil,\n"), *Name, *Name);
+			Out += FString::Printf(TEXT("---@field %s %s\n"), *Name, *Name);
 		}
-		Out += TEXT("}\n");
+		Out += TEXT("UE = {}\n\n");
+		// UnLua 的静态声明里只有 _G.UnLua = UnLua，emmylua 不把它当全局：这里补一个全局变量，UnLua.Class() 才找得到
+		Out += TEXT("---@type UnLua\n");
+		Out += TEXT("UnLua = UnLua\n");
 		return Out;
+	}
+
+	FString FixUnLuaStatic(const FString& Content)
+	{
+		// UnLua 的写法是 ---@param SuperClass string @[opt]，emmylua 只认参数名后面的 ?，
+		// 不改的话 UnLua.Class() 不传参数会报「缺参数」
+		TArray<FString> Lines;
+		Content.ParseIntoArray(Lines, TEXT("\n"), false);
+		for (FString& Line : Lines)
+		{
+			const FString Prefix = TEXT("---@param ");
+			if (!Line.StartsWith(Prefix) || !Line.Contains(TEXT("@[opt]")))
+			{
+				continue;
+			}
+			int32 NameEnd = Prefix.Len();
+			while (NameEnd < Line.Len() && (FChar::IsAlnum(Line[NameEnd]) || Line[NameEnd] == TEXT('_')))
+			{
+				++NameEnd;
+			}
+			if (NameEnd > Prefix.Len() && NameEnd < Line.Len() && Line[NameEnd] == TEXT(' '))
+			{
+				Line.InsertAt(NameEnd, TEXT('?'));
+			}
+		}
+		return FString::Join(Lines, TEXT("\n"));
 	}
 }
