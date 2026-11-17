@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.8.1",
-        "versionCode": 24,
+        "version": "2.9.0",
+        "versionCode": 25,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.8.1",
-        "asset": "UELink-2.8.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.8.1/UELink-2.8.1-src.zip",
-        "sha256": "1c5221cf56fec3c5586eb1f9fce7adb1e721e271d4ede08e24a70bd96e3210f4",
-        "size": 231220,
+        "tag": "UELink-v2.9.0",
+        "asset": "UELink-2.9.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.9.0/UELink-2.9.0-src.zip",
+        "sha256": "45cd61e703b63504bfafa9bc846d7856ce36a401bdbb27d57e662767799596d9",
+        "size": 249825,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **录制中的 trace 能实时看了** — 以前录制中的文件一直在变，每次查询都从头重新分析整个文件，网页永远停在「正在分析」；现在只分析一遍并跟着文件往下读，已经分析到的部分马上能看，新录的数据几秒内跟上（`trace.query` 的 `live`，见协议文档）\n- **trace 的时间从录制开始算** — 回包加 `origin`（第一帧的时间）和读取进度 `readBytes` / `fileBytes`：录制中途才开始时 trace 的时间是从编辑器启动算的，以前「已分析到第 1700 秒」其实是编辑器开了 28 分钟"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **Lua 函数进 Unreal Insights trace** — 录 trace 时带上 `lua` 通道（`luac` 让 C 函数也单独成块），每个 Lua 函数就是时间轴上一块，和 UE 的作用域嵌在一起：哪一帧慢、慢在哪个 Lua 函数、是从哪个 UE 回调进来的一眼能看出；同一份文件用 UE 自带的 Unreal Insights 打开也能看到。计时器带 .lua 文件和行号，每帧另有 `Lua/FrameMs`、`Lua/Calls`、`Lua/MemoryKB` 三个计数器。没在录制、或没开 `lua` 通道时没有任何开销。`trace.query` 加 `luainfo`、`tree`（火焰图用的调用树），`timers` 加 `lua`、`mergeC`（见协议文档）\n\n### 改进\n- **Lua 性能采样的函数名不再是 ?** — UnLua 从 C++ 调进来的函数（`ReceiveTick` 这类）按模块表里的字段名认出来，显示成 `模块:函数`；C 函数显示成 `UE.接口名` 或 `lua.string.format`"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-17T15:55:50.173Z"
+  "updatedAt": "2026-11-17T16:15:37.974Z"
 }
