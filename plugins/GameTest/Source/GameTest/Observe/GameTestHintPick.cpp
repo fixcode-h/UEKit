@@ -310,6 +310,12 @@ bool GameTestHintPick::Rematch(
 {
 	using namespace GameTestHintPickDetail;
 
+	// 用户在面板上把这一步定成「只按第几个点」：就是要点容器里那个位置上的，不管上面写的是什么。
+	bool bByIndex = false;
+	if (InHint.TryGetBoolField(TEXT("byIndex"), bByIndex) && bByIndex)
+	{
+		return false;
+	}
 	FString WantText;
 	if (!InOutNode.IsValid() || !GameTestJson::TryGetString(InHint, TEXT("text"), WantText) || WantText.IsEmpty())
 	{
