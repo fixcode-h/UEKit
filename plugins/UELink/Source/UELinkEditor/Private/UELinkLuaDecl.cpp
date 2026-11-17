@@ -42,6 +42,9 @@ namespace UELinkLuaDecl
 	{
 		const TCHAR* ConfigSection = TEXT("UELink.LuaDecl");
 		const TCHAR* ConfigKey = TEXT("Enabled");
+		// 蓝图（及用户定义结构体 / 枚举）默认不生成，只出 C++ 反射类型（用户 2026-11-17）；打开后才扫资源
+		const TCHAR* BlueprintsKey = TEXT("Blueprints");
+		bool GBlueprints = false;
 		const TCHAR* ManifestName = TEXT(".uelink-luadecl.json");
 		constexpr int32 ManifestFormat = 1;
 
@@ -141,6 +144,29 @@ namespace UELinkLuaDecl
 				return bEnabled;
 			}
 			return false;
+		}
+
+		bool ReadBlueprints()
+		{
+			bool bOn = false;
+			if (GConfig && GConfig->GetBool(ConfigSection, BlueprintsKey, bOn, GEditorPerProjectIni))
+			{
+				return bOn;
+			}
+			if (GConfig && GConfig->GetBool(ConfigSection, BlueprintsKey, bOn, GEditorIni))
+			{
+				return bOn;
+			}
+			return false;
+		}
+
+		void WriteBlueprints(bool bOn)
+		{
+			if (GConfig)
+			{
+				GConfig->SetBool(ConfigSection, BlueprintsKey, bOn, GEditorPerProjectIni);
+				GConfig->Flush(false, GEditorPerProjectIni);
+			}
 		}
 
 		void WriteEnabled(bool bEnabled)
@@ -454,6 +480,11 @@ namespace UELinkLuaDecl
 
 		EAssetKind KindOf(const FAssetData& D)
 		{
+			// 蓝图开关关着时所有资源都不算：整遍扫描时旧的蓝图声明会被当成「没了」删掉
+			if (!GBlueprints)
+			{
+				return EAssetKind::None;
+			}
 			const UClass* Class = D.GetClass();
 			if (!Class)
 			{
@@ -476,7 +507,7 @@ namespace UELinkLuaDecl
 
 		bool IsRelevantObject(const UObject* Obj)
 		{
-			return Obj && (Obj->IsA<UBlueprint>() || Obj->IsA<UUserDefinedStruct>() || Obj->IsA<UUserDefinedEnum>());
+			return GBlueprints && Obj && (Obj->IsA<UBlueprint>() || Obj->IsA<UUserDefinedStruct>() || Obj->IsA<UUserDefinedEnum>());
 		}
 
 		FString AssetRel(const FString& PackageName)
@@ -614,7 +645,10 @@ namespace UELinkLuaDecl
 		{
 			FState& St = S();
 			St.AssetQueue.Reset();
-			IAssetRegistry::GetChecked().GetAssets(RelevantFilter(), St.AssetQueue);
+			if (GBlueprints)
+			{
+				IAssetRegistry::GetChecked().GetAssets(RelevantFilter(), St.AssetQueue);
+			}
 			St.AssetIndex = 0;
 			St.AssetSeen.Reset();
 			St.bAssetPassIsFull = true;
@@ -841,6 +875,7 @@ namespace UELinkLuaDecl
 			{
 				return;
 			}
+			GBlueprints = ReadBlueprints();
 			if (!St.bActive)
 			{
 				St.bActive = true;
@@ -961,6 +996,7 @@ namespace UELinkLuaDecl
 			FState& St = S();
 			TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 			Out->SetBoolField(TEXT("enabled"), ReadEnabled());
+			Out->SetBoolField(TEXT("blueprints"), ReadBlueprints());
 			Out->SetBoolField(TEXT("active"), St.bActive);
 			Out->SetStringField(TEXT("dir"), St.OutDir.IsEmpty() ? OutputDir() : St.OutDir);
 			Out->SetStringField(TEXT("phase"), PhaseName(St.Phase));
@@ -1036,6 +1072,11 @@ namespace UELinkLuaDecl
 				Error = TEXT("后台生成 Lua 声明还没打开：先调 luadecl.enable {\"enabled\": true}（或控制台 UELink.LuaDecl.Enable 1）");
 				return false;
 			}
+			if (bLoad && !ReadBlueprints())
+			{
+				Error = TEXT("没打开蓝图声明，加载蓝图没有意义：先 luadecl.enable {\"enabled\": true, \"blueprints\": true}（或控制台 UELink.LuaDecl.Blueprints 1）");
+				return false;
+			}
 			Begin(bForce);
 			Queued = bLoad ? QueueLoads() : 0;
 			return true;
@@ -1054,6 +1095,20 @@ namespace UELinkLuaDecl
 					return;
 				}
 				UE_LOG(LogTemp, Log, TEXT("UELink：后台生成 Lua 声明已%s，输出目录 %s"), bEnabled ? TEXT("打开") : TEXT("关闭"), *OutputDir());
+			}));
+
+		FAutoConsoleCommand BlueprintsCommand(
+			TEXT("UELink.LuaDecl.Blueprints"),
+			TEXT("Lua 声明里也生成蓝图、用户定义结构体 / 枚举（默认只生成 C++ 反射类型）。1 打开、0 关闭，存在本机的编辑器个人配置里"),
+			FConsoleCommandWithArgsDelegate::CreateLambda([](const TArray<FString>& Args)
+			{
+				const bool bOn = Args.Num() == 0 || Args[0] == TEXT("1") || Args[0].Equals(TEXT("true"), ESearchCase::IgnoreCase);
+				WriteBlueprints(bOn);
+				if (S().bActive)
+				{
+					Begin(false);
+				}
+				UE_LOG(LogTemp, Log, TEXT("UELink：Lua 声明里的蓝图类型已%s"), bOn ? TEXT("打开") : TEXT("关闭"));
 			}));
 
 		FAutoConsoleCommand RunCommand(
@@ -1104,6 +1159,11 @@ namespace UELinkLuaDecl
 			{
 				Error = TEXT("要给 enabled（true 打开、false 关闭）");
 				return false;
+			}
+			bool bBlueprints = false;
+			if (A->TryGetBoolField(TEXT("blueprints"), bBlueprints))
+			{
+				WriteBlueprints(bBlueprints);
 			}
 			if (!SetEnabled(bEnabled, Error))
 			{

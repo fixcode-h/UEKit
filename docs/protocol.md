@@ -88,10 +88,11 @@
 - 输出目录 `<项目>/Intermediate/UELink/LuaDecl/`：`Native/<模块>/<类型>.lua`（原生类型）、`Blueprint/<包路径>.lua`（如 `Blueprint/Game/UI/BP_Bag.lua`）、`UE.lua`（全局 `UE` 表）、`UnLua/`（装了 UnLua 时拷它 `Content/IntelliSense` 里的静态声明：`UnLua` 表、`TArray` / `TMap` 等泛型），清单 `.uelink-luadecl.json`（`files`：相对路径 → 内容哈希；`assets`：包名 → `{file, stamp, full}`）。IDE 认这个目录：有清单就用它，不再加 UnLua 自己生成的 IntelliSense 目录（两份会重复定义）。
 - 格式和 UnLua 的 Generate IntelliSense 一致：类型名 `AActor`、`BP_Hero_C`、`FVector`、`TArray<integer>`，`---@class 名 : 父类`、`---@field`、`function 类:函数(参数) end`（静态函数用 `.`）。比 UnLua 多的：输出参数和带默认值的参数标成可省（`---@param X? T`），输出参数按 UnLua 的调用约定跟在返回值后面多写 `---@return`；字节属性带枚举时类型是枚举名；名字不是合法标识符的成员写成 `["名字"]`。
 - 增量：内容哈希和清单一样就不写盘，所以 emmylua_ls 的文件监听只收到真正变了的文件。打开后（或每次启动编辑器）先整遍比对一次：原生类型、资源注册表里的全部蓝图类资源；之后只处理变化——蓝图编译完、资源加载 / 保存 / 新增 / 改名 / 删除（删除和改名的旧名删掉对应文件）、Live Coding / 热重载和新模块加载（原生类型再比对一遍）。全部在游戏线程上分帧做：编辑器在前台每帧约 4 毫秒，在后台约 20 毫秒，PIE 里 1 毫秒；写盘在后台线程按顺序做（先写临时文件再换名）。
+- **默认只生成 C++ 反射类型**（2.6.0 起）：蓝图、用户定义结构体 / 枚举要另开 `blueprints` 开关（`[UELink.LuaDecl] Blueprints`，`luadecl.enable {"blueprints": true}` 或控制台 `UELink.LuaDecl.Blueprints 1`），默认关；关着时以前生成的蓝图声明在下一遍整遍比对时删掉。
 - 没加载过的蓝图不为了声明去加载：先写只有继承关系的占位（`ParentClass` 标签，`full` 为 false），打开、编译或运行时加载过一次就补全；以前补全过的留着。要一次补全就 `luadecl.run {"loadBlueprints": true}`：在后台每帧加载一个（PIE 里暂停）。
-- `luadecl.status {}` → `{"enabled", "active", "dir", "phase": "idle|native|assets|loading", "done"?, "total"?, "loadDone"?, "loadTotal"?, "files", "stubs", "written", "deleted", "pending", "lastPassAt"?, "lastPassMs"?}`：`enabled` 是开关，`active` 是这个进程里在不在跑；`written` / `deleted` 是这次打开以来写、删的文件数。
-- `luadecl.enable {"enabled": true|false}` → 同 `luadecl.status`：开关存在本机的编辑器个人配置（`EditorPerProjectUserSettings.ini` 的 `[UELink.LuaDecl] Enabled`），下次启动编辑器照这个来；项目想统一打开可以在 `DefaultEditor.ini` 写同一节，个人配置优先。关掉时已生成的文件留着（IDE 照样能用，删目录就回到 UnLua 的声明）。
-- `luadecl.run {"force"?: false, "loadBlueprints"?: false}` → `{"started": true, "toLoad"?, ...状态}`：马上再整遍比对一次；`force` 不看清单全部重写；没打开时报错让先 `luadecl.enable`。
+- `luadecl.status {}` → `{"enabled", "blueprints", "active", "dir", "phase": "idle|native|assets|loading", "done"?, "total"?, "loadDone"?, "loadTotal"?, "files", "stubs", "written", "deleted", "pending", "lastPassAt"?, "lastPassMs"?}`：`enabled` 是开关，`active` 是这个进程里在不在跑；`written` / `deleted` 是这次打开以来写、删的文件数。
+- `luadecl.enable {"enabled": true|false, "blueprints"?: true|false}` → 同 `luadecl.status`：开关存在本机的编辑器个人配置（`EditorPerProjectUserSettings.ini` 的 `[UELink.LuaDecl] Enabled`），下次启动编辑器照这个来；项目想统一打开可以在 `DefaultEditor.ini` 写同一节，个人配置优先。关掉时已生成的文件留着（IDE 照样能用，删目录就回到 UnLua 的声明）。
+- `luadecl.run {"force"?: false, "loadBlueprints"?: false}` → `{"started": true, "toLoad"?, ...状态}`：马上再整遍比对一次；`force` 不看清单全部重写；没打开时报错让先 `luadecl.enable`；`loadBlueprints` 要先打开蓝图开关。
 - 推送事件 `uelink.luadecl` `{"phase": "done", "written", "deleted", "ms"}`（`features` 里有 `luaDecl`）：整遍比对做完时推。
 - 编辑器控制台：`UELink.LuaDecl.Enable 1|0`、`UELink.LuaDecl.Run [force] [load]`。
 
