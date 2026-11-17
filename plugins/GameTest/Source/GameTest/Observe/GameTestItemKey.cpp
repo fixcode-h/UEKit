@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestItemKey.h"
+#include "GameTestCompat.h"
 
 #include "Observe/GameTestItemMatch.h"
 #include "Observe/GameTestSlate.h"
@@ -549,11 +550,13 @@ void GameTestItemKey::Flatten(const FJsonObject& InObject, int32 InDepth, int32 
 			{
 				break;
 			}
-			if (Pair.Key.StartsWith(TEXT("__")) || !Pair.Value.IsValid())
+			// 键在 5.8 是 FSharedString，先按 Compat 的写法转成 FString
+			const FString Key = GAMETEST_JSON_KEY(Pair.Key);
+			if (Key.StartsWith(TEXT("__")) || !Pair.Value.IsValid())
 			{
 				continue;
 			}
-			const FString Path = Frame.Prefix.IsEmpty() ? Pair.Key : Frame.Prefix + TEXT(".") + Pair.Key;
+			const FString Path = Frame.Prefix.IsEmpty() ? Key : Frame.Prefix + TEXT(".") + Key;
 			const TSharedPtr<FJsonObject>* Child = nullptr;
 			if (Pair.Value->TryGetObject(Child) && Child != nullptr && Child->IsValid())
 			{
@@ -806,7 +809,7 @@ TSharedPtr<FJsonValue> GameTestItemKey::ReadValue(const FGameTestKeyEntry& InEnt
 	else if (Source == TEXT("text"))
 	{
 		const FString Text = Widget != nullptr ? GameTestSlate::CollectText(Widget->GetCachedWidget(), 40) : FString();
-		return Text.IsEmpty() ? nullptr : MakeShared<FJsonValueString>(Text);
+		return Text.IsEmpty() ? TSharedPtr<FJsonValue>() : TSharedPtr<FJsonValue>(MakeShared<FJsonValueString>(Text));
 	}
 	else if (Source == TEXT("row") || Source == TEXT("col"))
 	{

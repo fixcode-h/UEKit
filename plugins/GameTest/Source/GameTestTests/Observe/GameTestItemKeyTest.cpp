@@ -109,7 +109,8 @@ TEST_CLASS_WITH_FLAGS(GameTestItemKeyTest, "GameTest.ItemKey",
 		ASSERT_THAT(IsTrue(Object.IsValid(), TEXT("测试数据要能解析")));
 		const TSharedPtr<FJsonValue> Value = GameTestItemKey::FindPath(*Object, TEXT("data.itemid"));
 		ASSERT_THAT(IsTrue(Value.IsValid(), TEXT("路径大小写不敏感")));
-		ASSERT_THAT(AreEqual(1001.0, Value->AsNumber()));
+		// CQTest 不让 AreEqual 比浮点：Id 是整数，直接比相等
+		ASSERT_THAT(IsTrue(Value->AsNumber() == 1001.0, TEXT("取到的值应是 1001")));
 		ASSERT_THAT(IsFalse(GameTestItemKey::FindPath(*Object, TEXT("Data.Missing")).IsValid(), TEXT("没有的字段取不到")));
 	}
 
