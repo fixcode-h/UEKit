@@ -7,6 +7,7 @@
 // 钩子：一个 lua_State 只能挂一个钩子函数，快照点（行钩子）和采样（调用 / 返回钩子）共用 HookFn 分发。
 // 挂上前记下原来的钩子（IDE 的 Lua 调试器常挂一个），每次事件按原来的掩码转给它；都撤了再把原来的放回去。
 // 钩子按线程（协程）各自一份：挂上后新建的协程会继承，挂之前就在的协程里的代码看不到（回包 note 里说明）。
+// 2.8.1 起 trace 的 lua 通道（AgentPanelLuaTrace.cpp）也走这里：录制中开了 lua 通道时要调用 / 返回事件，HookFn 转给它。
 #include "AgentPanelLuaOps.h"
 
 #if !AGENT_PANEL_WITH_LUA
@@ -18,6 +19,7 @@ void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge&) {}
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelLuaShared.h"
+#include "AgentPanelLuaTrace.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/ActorComponent.h"
 #include "Containers/Ticker.h"
@@ -127,7 +129,7 @@ namespace AgentPanelLuaDebug
 		{
 			M |= LUA_MASKLINE;
 		}
-		if (St().bProfiling)
+		if (St().bProfiling || AgentPanelLuaTrace::WantsCallHook())
 		{
 			M |= LUA_MASKCALL | LUA_MASKRET;
 		}
@@ -511,15 +513,16 @@ namespace AgentPanelLuaDebug
 		// 调用和尾调用：尾调用替换了当前帧，旧的那帧没有返回事件，按层数对齐时一起结算
 		Unwind(Stack, D, Now);
 		lua_getinfo(L, "f", Ar);
-		const void* Fn = lua_topointer(L, -1);
-		lua_pop(L, 1);
+		const int FnIdx = lua_gettop(L);
+		const void* Fn = lua_topointer(L, FnIdx);
 		FProfStat* Stat = S.Stats.Find(Fn);
 		if (!Stat)
 		{
 			Stat = &S.Stats.Add(Fn);
 			if (lua_getinfo(L, "Sn", Ar))
 			{
-				Stat->Name = UTF8_TO_TCHAR(Ar->name ? Ar->name : "?");
+				// 2.8.1：和 trace 共用名字解析（模块:函数、模块表里的字段名、UE.*、lua.*），不再一堆 ?
+				Stat->Name = AgentPanelLuaTrace::FunctionName(L, Ar, FnIdx);
 				Stat->Src = UTF8_TO_TCHAR(Ar->short_src);
 				Stat->What = UTF8_TO_TCHAR(Ar->what ? Ar->what : "");
 				if (Ar->source && Ar->source[0] == '@')
@@ -529,6 +532,7 @@ namespace AgentPanelLuaDebug
 				Stat->Line = Ar->linedefined;
 			}
 		}
+		lua_settop(L, FnIdx - 1);
 		++Stat->Calls;
 		Stack.Add({ Fn, Now, 0, D });
 	}
@@ -674,15 +678,28 @@ namespace AgentPanelLuaDebug
 				OnLine(L, Ar);
 			}
 		}
-		else if (S.bProfiling && (Ev == LUA_HOOKCALL || Ev == LUA_HOOKTAILCALL || Ev == LUA_HOOKRET))
+		else if (Ev == LUA_HOOKCALL || Ev == LUA_HOOKTAILCALL || Ev == LUA_HOOKRET)
 		{
-			OnCallRet(L, Ar);
+			if (S.bProfiling)
+			{
+				OnCallRet(L, Ar);
+			}
+			if (AgentPanelLuaTrace::WantsCallHook())
+			{
+				AgentPanelLuaTrace::OnHook(L, Ar);
+			}
 		}
 		// 原来的钩子（IDE 调试器）照它自己要的事件转过去
 		const int EvMask = Ev == LUA_HOOKTAILCALL ? LUA_MASKCALL : (1 << Ev);
 		if (S.PrevHook && (S.PrevMask & EvMask))
 		{
 			S.PrevHook(L, Ar);
+		}
+		// 挂着时新建的协程继承了这个钩子，主线程摘了它们也摘不到：谁都不要事件了，就在它自己第一次进来时放回原来的，
+		// 不然录完 trace / 采样完以后这些协程每次调用还进一趟钩子（2.8.1）
+		if (L != S.Main && NeedMask() == 0)
+		{
+			lua_sethook(L, S.PrevHook, S.PrevMask, S.PrevCount);
 		}
 	}
 
@@ -1192,6 +1209,7 @@ void AgentPanelRegisterLuaDebugOps(FAgentPanelBridge& B)
 				return false;
 			}
 			const int32 Seconds = FMath::Clamp(Int(A, TEXT("seconds"), 5), 1, 60);
+			AgentPanelLuaTrace::PrepareNames(C.L);
 			S.Stats.Reset();
 			S.Stacks.Reset();
 			S.ProfEvents = 0;

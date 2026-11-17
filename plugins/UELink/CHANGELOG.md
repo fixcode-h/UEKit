@@ -6,6 +6,12 @@
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
 
+### 新功能
+- **Lua 函数进 Unreal Insights trace** — 录 trace 时带上 `lua` 通道（`luac` 让 C 函数也单独成块），每个 Lua 函数就是时间轴上一块，和 UE 的作用域嵌在一起：哪一帧慢、慢在哪个 Lua 函数、是从哪个 UE 回调进来的一眼能看出；同一份文件用 UE 自带的 Unreal Insights 打开也能看到。计时器带 .lua 文件和行号，每帧另有 `Lua/FrameMs`、`Lua/Calls`、`Lua/MemoryKB` 三个计数器。没在录制、或没开 `lua` 通道时没有任何开销。`trace.query` 加 `luainfo`、`tree`（火焰图用的调用树），`timers` 加 `lua`、`mergeC`（见协议文档）
+
+### 改进
+- **Lua 性能采样的函数名不再是 ?** — UnLua 从 C++ 调进来的函数（`ReceiveTick` 这类）按模块表里的字段名认出来，显示成 `模块:函数`；C 函数显示成 `UE.接口名` 或 `lua.string.format`
+
 ### Bug 修复
 - **录制中的 trace 能实时看了** — 以前录制中的文件一直在变，每次查询都从头重新分析整个文件，网页永远停在「正在分析」；现在只分析一遍并跟着文件往下读，已经分析到的部分马上能看，新录的数据几秒内跟上（`trace.query` 的 `live`，见协议文档）
 - **trace 的时间从录制开始算** — 回包加 `origin`（第一帧的时间）和读取进度 `readBytes` / `fileBytes`：录制中途才开始时 trace 的时间是从编辑器启动算的，以前「已分析到第 1700 秒」其实是编辑器开了 28 分钟

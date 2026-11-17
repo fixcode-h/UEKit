@@ -9,6 +9,7 @@
 // 单体构建（unity）把同模块的 .cpp 拼成一个编译单元，文件作用域的 using 会漏进后面的文件，
 // 后面 include 的 ContentBrowserData 等引擎头里写的短名 FFrame 就变成「不明确的符号」（5.4 上实际报过 C2872）。
 // 计时器汇总和调用树都在这里自己按进出事件算，不用 CreateAggregation 之类各版本签名不一样的接口。
+// 2.8.1 起 Lua 相关的查询（luainfo、tree、timers 的 lua / mergeC）在 AgentPanelTraceLua.cpp，共用的结构在 AgentPanelTraceShared.h。
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelEditorShared.h"
@@ -35,6 +36,9 @@
 #include "TraceServices/Model/TimingProfiler.h"
 #include "Trace/DataStream.h"
 
+// 和 AgentPanelTraceLua.cpp 共用的结构和函数（计时器名字、走泳道、调用树）
+#include "AgentPanelTraceShared.h"
+
 #include <atomic>
 
 using namespace AgentPanel;
@@ -47,8 +51,6 @@ namespace
 {
 	/** 时间轴一次最多回这么多块（设计 6）：再多网页画不过来，也说明范围太大、该放大了 */
 	constexpr int32 MaxBlocks = 20000;
-	/** GPU 泳道在请求里的编号（CPU 泳道用线程 id） */
-	constexpr int32 GpuLane = -1;
 
 	/**
 	 * 一份 trace 的读取进度，分析线程（写）和查询（游戏线程，读）共用，所以全是原子量。
@@ -250,6 +252,9 @@ namespace
 		OutEntry = &E;
 		return Session;
 	}
+} // 匿名命名空间
+
+	// ---------- 和 AgentPanelTraceLua.cpp 共用的（声明在 AgentPanelTraceShared.h，不能放匿名命名空间） ----------
 
 	double Num(const TSharedPtr<FJsonObject>& A, const TCHAR* Key, double Default)
 	{
@@ -290,50 +295,6 @@ namespace
 		});
 		return Out;
 	}
-
-	inline const ITimingProfilerTimerReader* AsReader(const ITimingProfilerTimerReader& R) { return &R; }
-	inline const ITimingProfilerTimerReader* AsReader(const ITimingProfilerTimerReader* R) { return R; }
-
-	/** 计时器 id → 名字。带元数据的计时器（id 最高位是 1）换成原始计时器，和 Insights 一样合在一起算 */
-	struct FTimers
-	{
-		const ITimingProfilerTimerReader* Reader = nullptr;
-
-		explicit FTimers(const ITimingProfilerProvider& TP)
-		{
-#if UELINK_TRACE_TIMER_READER
-			// 5.8 起 ReadTimers 弃用，改 GetTimerReader()；返回引用还是指针都接得住
-			Reader = AsReader(TP.GetTimerReader());
-#else
-			TP.ReadTimers([this](const ITimingProfilerTimerReader& R) { Reader = &R; });
-#endif
-		}
-
-		uint32 Resolve(uint32 Index) const
-		{
-			if (Reader && static_cast<int32>(Index) < 0)
-			{
-				return Reader->GetOriginalTimerIdFromMetadata(Index);
-			}
-			return Index;
-		}
-
-		FString Name(uint32 Id) const
-		{
-			const TraceServices::FTimingProfilerTimer* T = Reader ? Reader->GetTimer(Id) : nullptr;
-			return T && T->Name ? FString(T->Name) : FString::Printf(TEXT("<timer %u>"), Id);
-		}
-	};
-
-	/** 一块（一次作用域）走完时的回调：开始、结束（秒）、深度、计时器 id、它外面的调用栈（从根往里，不含自己） */
-	struct FOpen
-	{
-		uint32 Timer;
-		double Start;
-		double Child;	// 子块的包含时间之和（算独占时间）
-	};
-	using FBlockFn = TFunctionRef<void(double Start, double End, int32 Depth, uint32 Timer, double ChildTime, const TArray<FOpen>& Parents)>;
-
 	/**
 	 * 按进出事件走一条泳道 [T0, T1]，自己维护调用栈。范围外开始、范围内还没结束的块也会给（时间按真实的）。
 	 * 返回 false 表示这条泳道不存在
@@ -385,15 +346,6 @@ namespace
 		return true;
 	}
 
-	/**
-	 * 无穷大 / NaN 换成 0：UE 的 JSON 写出来是 inf / nan，不是合法 JSON，面板整个回复都解析不了。
-	 * 录制停在半帧时最后一帧的 EndTime 就是无穷大（帧条一直显示加载，就是这一帧把 frames 的回复弄坏了）
-	 */
-	inline double Fin(double X)
-	{
-		return FMath::IsFinite(X) ? X : 0.0;
-	}
-
 	TSharedPtr<FJsonValue> NumArr(const TArray<double>& V)
 	{
 		TArray<TSharedPtr<FJsonValue>> Out;
@@ -410,7 +362,46 @@ namespace
 	{
 		return Fin(FMath::RoundToDouble(Seconds * 1000000.0) / 1000.0);
 	}
+	/** 树转 JSON：每层按包含时间倒序，最多 MaxKids 个、MaxDepth 层，其余的合进「其他」的计数里 */
+	TSharedPtr<FJsonObject> TreeJson(uint32 Id, const FNode& N, const FTimers& Timers, int32 Depth)
+	{
+		constexpr int32 MaxKids = TreeMaxKids;
+		constexpr int32 MaxDepth = TreeMaxDepth;
+		TSharedPtr<FJsonObject> O = MakeShared<FJsonObject>();
+		O->SetNumberField(TEXT("id"), Id);
+		O->SetStringField(TEXT("name"), Timers.Name(Id));
+		O->SetNumberField(TEXT("count"), static_cast<double>(N.Count));
+		O->SetNumberField(TEXT("incl"), Ms(N.Incl));
+		O->SetNumberField(TEXT("excl"), Ms(N.Excl));
+		if (Depth >= MaxDepth || N.Kids.Num() == 0)
+		{
+			if (N.Kids.Num() > 0)
+			{
+				O->SetNumberField(TEXT("more"), N.Kids.Num());
+			}
+			return O;
+		}
+		TArray<TPair<uint32, const FNode*>> Sorted;
+		for (const TPair<uint32, TUniquePtr<FNode>>& P : N.Kids)
+		{
+			Sorted.Add({ P.Key, P.Value.Get() });
+		}
+		Sorted.Sort([](const TPair<uint32, const FNode*>& X, const TPair<uint32, const FNode*>& Y) { return X.Value->Incl > Y.Value->Incl; });
+		TArray<TSharedPtr<FJsonValue>> Kids;
+		for (int32 i = 0; i < Sorted.Num() && i < MaxKids; ++i)
+		{
+			Kids.Add(MakeShared<FJsonValueObject>(TreeJson(Sorted[i].Key, *Sorted[i].Value, Timers, Depth + 1)));
+		}
+		O->SetArrayField(TEXT("children"), Kids);
+		if (Sorted.Num() > MaxKids)
+		{
+			O->SetNumberField(TEXT("more"), Sorted.Num() - MaxKids);
+		}
+		return O;
+	}
 
+namespace
+{
 	// ---------- 各个查询 ----------
 
 	void QueryInfo(const IAnalysisSession& S, TSharedPtr<FJsonObject>& Out)
@@ -440,6 +431,8 @@ namespace
 			Threads.Add(MakeShared<FJsonValueObject>(O));
 		});
 		Out->SetArrayField(TEXT("threads"), Threads);
+		// 2.8.1：有没有 Lua 计时器（录制时开了 lua 通道），面板给抓取列表打「Lua」标签
+		Out->SetBoolField(TEXT("lua"), TP && HasLuaTimers(*TP));
 		const IFrameProvider& FP = ReadFrameProvider(S);
 		Out->SetNumberField(TEXT("frames"), static_cast<double>(FP.GetFrameCount(TraceFrameType_Game)));
 	}
@@ -549,162 +542,6 @@ namespace
 		Out->SetBoolField(TEXT("cut"), bCut);
 		return true;
 	}
-
-	struct FAgg
-	{
-		int64 Count = 0;
-		double Incl = 0;
-		double InclMax = 0;
-		double Excl = 0;
-		bool bGpu = false;
-	};
-
-	void QueryTimers(const IAnalysisSession& S, const ITimingProfilerProvider& TP, const TSharedPtr<FJsonObject>& A, TSharedPtr<FJsonObject>& Out)
-	{
-		const double T0 = Num(A, TEXT("t0"), 0);
-		const double T1 = Num(A, TEXT("t1"), S.GetDurationSeconds());
-		const FString Filter = Str(A, TEXT("filter"));
-		const int32 Top = FMath::Clamp(Int(A, TEXT("top"), 200), 1, 2000);
-		TArray<int32> Want = Lanes(A);
-		if (Want.Num() == 0)
-		{
-			Want = AllLanes(S, TP);
-		}
-		FTimers Timers(TP);
-		TMap<uint32, FAgg> Agg;
-		for (int32 Lane : Want)
-		{
-			// 同一个计时器递归套自己时，包含时间只算最外层，免得翻倍（和 Insights 一致）
-			TMap<uint32, int32> Depths;
-			Walk(TP, Timers, Lane, T0, T1, [&](double Start, double End, int32, uint32 Timer, double Child, const TArray<FOpen>& Parents)
-			{
-				// 只算落在范围内的那部分
-				const double S0 = FMath::Max(Start, T0);
-				const double S1 = FMath::Min(End, T1);
-				if (S1 <= S0)
-				{
-					return;
-				}
-				FAgg& G = Agg.FindOrAdd(Timer);
-				G.bGpu |= Lane == GpuLane;
-				++G.Count;
-				bool bNested = false;
-				for (const FOpen& P : Parents)
-				{
-					bNested |= P.Timer == Timer;
-				}
-				const double Dur = S1 - S0;
-				if (!bNested)
-				{
-					G.Incl += Dur;
-				}
-				G.InclMax = FMath::Max(G.InclMax, End - Start);
-				G.Excl += FMath::Max(0.0, Dur - Child * (Dur / FMath::Max(End - Start, 1e-12)));
-			});
-		}
-		struct FRow
-		{
-			uint32 Id;
-			FString Name;
-			FAgg G;
-		};
-		TArray<FRow> Rows;
-		for (const TPair<uint32, FAgg>& P : Agg)
-		{
-			FString Name = Timers.Name(P.Key);
-			if (!Filter.IsEmpty() && !Name.Contains(Filter))
-			{
-				continue;
-			}
-			Rows.Add({ P.Key, MoveTemp(Name), P.Value });
-		}
-		const FString Sort = Str(A, TEXT("sort"), TEXT("excl"));
-		Rows.Sort([&](const FRow& X, const FRow& Y)
-		{
-			if (Sort == TEXT("incl")) return X.G.Incl > Y.G.Incl;
-			if (Sort == TEXT("count")) return X.G.Count > Y.G.Count;
-			if (Sort == TEXT("max")) return X.G.InclMax > Y.G.InclMax;
-			return X.G.Excl > Y.G.Excl;
-		});
-		TArray<TSharedPtr<FJsonValue>> Items;
-		for (int32 i = 0; i < Rows.Num() && i < Top; ++i)
-		{
-			const FRow& R = Rows[i];
-			TSharedPtr<FJsonObject> O = MakeShared<FJsonObject>();
-			O->SetNumberField(TEXT("id"), R.Id);
-			O->SetStringField(TEXT("name"), R.Name);
-			O->SetNumberField(TEXT("count"), static_cast<double>(R.G.Count));
-			O->SetNumberField(TEXT("incl"), Ms(R.G.Incl));
-			O->SetNumberField(TEXT("inclMax"), Ms(R.G.InclMax));
-			O->SetNumberField(TEXT("excl"), Ms(R.G.Excl));
-			if (R.G.bGpu)
-			{
-				O->SetBoolField(TEXT("gpu"), true);
-			}
-			Items.Add(MakeShared<FJsonValueObject>(O));
-		}
-		Out->SetArrayField(TEXT("items"), Items);
-		Out->SetNumberField(TEXT("total"), Rows.Num());
-		Out->SetNumberField(TEXT("seconds"), T1 - T0);
-	}
-
-	/** 调用树的一个节点：按计时器 id 合并同一路径上的调用 */
-	struct FNode
-	{
-		int64 Count = 0;
-		double Incl = 0;
-		double Excl = 0;
-		TMap<uint32, TUniquePtr<FNode>> Kids;
-
-		FNode& Kid(uint32 Id)
-		{
-			TUniquePtr<FNode>& P = Kids.FindOrAdd(Id);
-			if (!P)
-			{
-				P = MakeUnique<FNode>();
-			}
-			return *P;
-		}
-	};
-
-	/** 树转 JSON：每层按包含时间倒序，最多 MaxKids 个、MaxDepth 层，其余的合进「其他」的计数里 */
-	TSharedPtr<FJsonObject> TreeJson(uint32 Id, const FNode& N, const FTimers& Timers, int32 Depth)
-	{
-		constexpr int32 MaxKids = 30;
-		constexpr int32 MaxDepth = 16;
-		TSharedPtr<FJsonObject> O = MakeShared<FJsonObject>();
-		O->SetNumberField(TEXT("id"), Id);
-		O->SetStringField(TEXT("name"), Timers.Name(Id));
-		O->SetNumberField(TEXT("count"), static_cast<double>(N.Count));
-		O->SetNumberField(TEXT("incl"), Ms(N.Incl));
-		O->SetNumberField(TEXT("excl"), Ms(N.Excl));
-		if (Depth >= MaxDepth || N.Kids.Num() == 0)
-		{
-			if (N.Kids.Num() > 0)
-			{
-				O->SetNumberField(TEXT("more"), N.Kids.Num());
-			}
-			return O;
-		}
-		TArray<TPair<uint32, const FNode*>> Sorted;
-		for (const TPair<uint32, TUniquePtr<FNode>>& P : N.Kids)
-		{
-			Sorted.Add({ P.Key, P.Value.Get() });
-		}
-		Sorted.Sort([](const TPair<uint32, const FNode*>& X, const TPair<uint32, const FNode*>& Y) { return X.Value->Incl > Y.Value->Incl; });
-		TArray<TSharedPtr<FJsonValue>> Kids;
-		for (int32 i = 0; i < Sorted.Num() && i < MaxKids; ++i)
-		{
-			Kids.Add(MakeShared<FJsonValueObject>(TreeJson(Sorted[i].Key, *Sorted[i].Value, Timers, Depth + 1)));
-		}
-		O->SetArrayField(TEXT("children"), Kids);
-		if (Sorted.Num() > MaxKids)
-		{
-			O->SetNumberField(TEXT("more"), Sorted.Num() - MaxKids);
-		}
-		return O;
-	}
-
 	/**
 	 * 调用者 / 被调用者（Insights 的 Butterfly）：选中计时器的每一次调用，
 	 * 往外的调用栈并进「调用者」树（自己在根，往下是父、祖父…），往里的子调用并进「被调用者」树。
@@ -1147,7 +984,17 @@ namespace AgentPanelEd
 			{
 				return QueryInstances(S, *TP, A, Out, Error);
 			}
-			Error = FString::Printf(TEXT("不认识的查询：%s（info / frames / timing / timers / butterfly / stack / instances / counters / log / bookmarks）"), *What);
+			// 2.8.1：Lua 计时器的文件和行号、自上而下的调用树（AgentPanelTraceLua.cpp）
+			if (What == TEXT("luainfo"))
+			{
+				QueryLuaInfo(*TP, Out);
+				return true;
+			}
+			if (What == TEXT("tree"))
+			{
+				return QueryTree(S, *TP, A, Out, Error);
+			}
+			Error = FString::Printf(TEXT("不认识的查询：%s（info / frames / timing / timers / butterfly / stack / instances / tree / luainfo / counters / log / bookmarks）"), *What);
 			return false;
 		});
 	}
