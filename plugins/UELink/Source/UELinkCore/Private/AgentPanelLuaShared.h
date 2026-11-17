@@ -187,6 +187,8 @@ namespace AgentPanelLuaImpl
 	// 执行 Lua：超时钩子和收 print 的输出（lua.exec、lua.call 共用）
 	extern double GDeadline;
 	void TimeoutHook(lua_State* L, lua_Debug* Ar);
+	/** 执行完放回原来的钩子；执行期间 IDE 的 Lua 调试器换过钩子（还在用 TimeoutHook 以外的）就不动，免得把它新挂的盖掉 */
+	void RestoreHookAfterTimeout(lua_State* L, lua_Hook OldHook, int OldMask, int OldCount);
 	extern TArray<FString>* GPrintSink;
 	int PrintFn(lua_State* L);
 	int TracebackFn(lua_State* L);

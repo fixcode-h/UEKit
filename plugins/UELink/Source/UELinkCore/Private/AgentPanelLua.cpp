@@ -833,6 +833,14 @@ namespace AgentPanelLuaImpl
 		}
 	}
 
+	void RestoreHookAfterTimeout(lua_State* L, lua_Hook OldHook, int OldMask, int OldCount)
+	{
+		if (lua_gethook(L) == &TimeoutHook)
+		{
+			lua_sethook(L, OldHook, OldMask, OldCount);
+		}
+	}
+
 	/** 执行期间 print 往这里收；执行完置空。Lua 代码可能把 print 存起来以后再调，那时只写日志，不碰已经释放的数组 */
 	TArray<FString>* GPrintSink = nullptr;
 
@@ -1205,7 +1213,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 		const double Start = FPlatformTime::Seconds();
 		const int Status = lua_pcall(L, 1, LUA_MULTRET, Msgh);
 		const double Ms = (FPlatformTime::Seconds() - Start) * 1000.0;
-		lua_sethook(L, OldHook, OldMask, OldCount);
+		RestoreHookAfterTimeout(L, OldHook, OldMask, OldCount);
 		GPrintSink = nullptr;
 		lua_pushstring(L, "print");
 		lua_pushvalue(L, OldPrint);
