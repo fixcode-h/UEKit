@@ -143,6 +143,7 @@ const sidebar = sized(
       navButton('Go_Page_Inventory__Nav', '背包'),
       navButton('Go_Page_Shop__Nav', '商店'),
       navButton('Go_Page_Tasks__Nav', '任务'),
+      navButton('Go_Page_Lists__Nav', '列表'),
       navButton('Go_Page_Settings__Nav', '设置'),
       navButton('Go_Page_Profile__Nav', '资料'),
       spacer('SideFill', 1, 1, fill()),
@@ -560,6 +561,86 @@ const pageProfile = hbox('Page_Profile', [
   ),
 ])
 
+// ---- 列表条目（AssetForge 1.4.0）：GameTest「这一格怎么认」的靶子 ----
+// 三个容器在配置里是空的：数据对象和运行时生成的格子由父类 ForgeSampleScreen 构造时填（Sample/ForgeSampleLists.cpp），
+// 条目控件是 C++ 类（没有蓝图资源），所以 EntryWidgetClass 直接填 /Script 路径。改数据记得同步这里的场景。
+const ENTRY = '/Script/AssetForgeTests.'
+const listHead = (id, title, sub, note, tone) =>
+  hbox(
+    id + 'Head',
+    [
+      vbox(id + 'HeadText', [text(id + 'Title', title, { size: 16, bold: true, slot: vgap(2) }), text(id + 'Sub', sub, { size: 11, color: T.muted })], {
+        ...fill(),
+        VerticalAlignment: 'VAlign_Center',
+      }),
+      node(
+        'Border',
+        id + 'Note',
+        { Background: rounded(tone === 'ok' ? '#173A2A' : '#3A2F12', 6), Padding: margin(8, 3) },
+        [text(id + 'NoteText', note, { size: 11, color: tone === 'ok' ? T.success : T.warn })],
+        { VerticalAlignment: 'VAlign_Center' },
+      ),
+    ],
+    vgap(12),
+  )
+const pageLists = vbox('Page_Lists', [
+  hbox(
+    'ListsHead',
+    [
+      text('Page_Lists_Title', '列表条目', { size: 20, bold: true, slot: { Padding: margin(0, 0, 16, 0), VerticalAlignment: 'VAlign_Center' } }),
+      text('ListsHint', '录制时点下面条目上的按钮：GameTest 挑一个能唯一认出这一条的字段写进选择器，拿不准时暂停游戏、在面板上弹窗问你。', {
+        size: 12,
+        color: T.muted,
+        wrap: true,
+        slot: { ...fill(), VerticalAlignment: 'VAlign_Center' },
+      }),
+    ],
+    vgap(14),
+  ),
+  hbox(
+    'ListsBody',
+    [
+      card(
+        'BagCard',
+        [
+          vbox('BagCol', [
+            listHead('Bag', '仓库', 'TileView · 48 格 · 数据对象 ForgeSampleItem', '有 ItemId：自动认，不问', 'ok'),
+            node('TileView', 'ItemList', { EntryWidgetClass: ENTRY + 'ForgeBagSlot', EntryWidth: 118, EntryHeight: 146 }, null, fill()),
+          ]),
+        ],
+        { pad: 16, slot: { ...fill(3), Padding: margin(0, 0, 16, 0) } },
+      ),
+      vbox(
+        'ListsRight',
+        [
+          card(
+            'MailCard',
+            [
+              vbox('MailCol', [
+                listHead('Mail', '邮件', 'ListView · 10 封 · 数据对象 ForgeSampleMail', '只有 SentAt 不重复：会问', 'warn'),
+                node('ListView', 'MailList', { EntryWidgetClass: ENTRY + 'ForgeMailRow' }, null, fill()),
+              ]),
+            ],
+            { pad: 16, slot: { ...fill(3), Padding: margin(0, 0, 0, 16) } },
+          ),
+          card(
+            'SkillCard',
+            [
+              vbox('SkillCol', [
+                listHead('Skill', '技能栏', 'WrapBox · 运行时生成的 8 个 ForgeSkillCell', '要 SkillType + Level 组合：会问', 'warn'),
+                node('WrapBox', 'SkillBar', {}, null, fill()),
+              ]),
+            ],
+            { pad: 16, slot: fill(2) },
+          ),
+        ],
+        fill(2),
+      ),
+    ],
+    fill(),
+  ),
+])
+
 // ---- 弹窗 ----
 const popup = (id, title, body, buttons, { subject, width = 460 } = {}) =>
   node(
@@ -610,7 +691,7 @@ const root = node('Overlay', 'Root', {}, [
     'Shell',
     [
       { ...sidebar, slot: { HorizontalAlignment: 'HAlign_Left', VerticalAlignment: 'VAlign_Fill' } },
-      vbox('Main', [topbar, node('WidgetSwitcher', 'Pages', {}, [pageHome, pageInventory, pageShop, pageTasks, pageTaskDetail, pageSettings, pageProfile], { ...fill(), Padding: margin(28, 24) })], fill()),
+      vbox('Main', [topbar, node('WidgetSwitcher', 'Pages', {}, [pageHome, pageInventory, pageShop, pageTasks, pageTaskDetail, pageSettings, pageProfile, pageLists], { ...fill(), Padding: margin(28, 24) })], fill()),
     ],
     { HorizontalAlignment: 'HAlign_Fill', VerticalAlignment: 'VAlign_Fill' },
   ),
@@ -621,7 +702,7 @@ const umg = {
   '//': '由 AssetForge 插件自带的示例测试界面：多页面、跳页、弹窗、列表、输入框、开关，用来练习 GameTest 录制。跳页逻辑在父类 ForgeSampleScreen 里，按控件名约定工作，说明见同目录的 README.md。',
   kind: 'umg-widget',
   schemaVersion: 1,
-  revision: 2,
+  revision: 3,
   asset: ASSET,
   parent: '/Script/AssetForgeTests.ForgeSampleScreen',
   root,
@@ -725,6 +806,34 @@ const scenario = {
   ],
 }
 
+// 第二份场景：按条目标识回放（GameTest 1.4.0 起）。数据和 Sample/ForgeSampleLists.cpp 对应：
+// ItemId 1001 起 48 格；SentAt 202611100900 起每封隔一小时；技能格 (SkillType, Level) 两两不同
+const keyScenario = {
+  kind: 'gametest-scenario',
+  schemaVersion: 2,
+  name: 'AssetForge 示例界面：按条目标识点列表',
+  _note:
+    '配套「列表条目」页（AssetForge 1.4.0 起，要 GameTest 1.4.0 起）。手动录制时点这页条目上的按钮：仓库按 ItemId 自动认，邮件和技能栏会暂停游戏、在面板上弹窗问用哪个字段认。',
+  revision: 1,
+  tags: ['sample', 'assetforge', 'item-key'],
+  stepDelayMs: 300,
+  steps: [
+    { action: 'pie.start', map: MAP },
+    { action: 'wait', until: 'widget', target: sel('Crumb'), note: '等示例界面出来' },
+    click('Go_Page_Lists__Nav'),
+    crumb('列表条目'),
+    { action: 'click', target: sel('ItemList') + '[ItemId=1030]>SlotBg/SlotCol/BtnUse', note: '按数据对象的 ItemId 认；第 30 格没滚到先滚过去' },
+    { action: 'assert', target: sel('Status'), textContains: 'ItemId 1030' },
+    { action: 'click', target: sel('MailList') + '[SentAt=202611101400]>RowPad/RowBg/RowCols/BtnClaim', note: '按发送时间认第 6 封' },
+    { action: 'assert', target: sel('Status'), textContains: '11-10 14:00' },
+    { action: 'click', target: sel('SkillBar') + '[SkillType=13,Level=2]>CellBg/CellWidth/CellCol/BtnCast', note: '两个字段一起才唯一：2 级治疗' },
+    { action: 'assert', target: sel('Status'), textContains: 'SkillType 13' },
+    { action: 'screenshot', name: 'forge-sample-lists' },
+    { action: 'pie.stop' },
+    { action: 'wait', until: 'pieStopped' },
+  ],
+}
+
 // 短的对象 / 数组写一行，长的逐项展开：配置要能让人读、能 diff
 const pretty = (v, ind) => {
   const one = JSON.stringify(v)
@@ -742,4 +851,5 @@ const write = (rel, obj) => {
 write('umg/WBP_ForgeSample.json', umg)
 write('map/Map_ForgeSample.json', map)
 write('_GameTest/ForgeSample-冒烟.json', scenario)
+write('_GameTest/ForgeSample-条目标识.json', keyScenario)
 console.log('控件数', names.size)

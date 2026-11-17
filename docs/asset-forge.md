@@ -70,6 +70,7 @@
 - 跳页按控件名约定（`Go_`、`Back`、`Open_` / `Close_`、`Pick_`、`Submit_`，`__` 后缀只为不重名），细节见 `docs/AssetForge/Test/README.md`。
 - 配置由仓库根的 `docs/asset-forge-sample/gen.mjs` 生成（控件名和场景里的选择器路径一起算），改界面改脚本再生成。
 - 控制台命令 `AssetForge.Sample`：在当前游戏世界打开 / 关掉示例界面。
+- 「列表条目」页（1.4.0 起）是 GameTest「条目标识」的靶子：仓库 TileView（数据对象有 `ItemId`，录制时自动认）、邮件 ListView（只有 `SentAt` 不重复，录制时暂停问）、技能栏 WrapBox（运行时生成的格子，要 `SkillType` + `Level` 组合，录制时暂停问）。数据对象和条目控件在 `Sample/ForgeSampleLists.cpp`，条目控件是 C++ 类、控件树在代码里搭，配置里只有空容器；配套场景 `_GameTest/ForgeSample-条目标识.json`。
 
 ## 其他入口
 

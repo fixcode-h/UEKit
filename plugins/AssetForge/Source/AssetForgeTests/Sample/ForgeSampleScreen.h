@@ -89,6 +89,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "ForgeSample")
 	void ResetScreen();
 
+	/** 列表条目页的条目控件（ForgeSampleLists）把操作结果写进 Status 用 */
+	void ReportStatus(const FString& InText) { SetStatus(InText); }
+
 	void HandleClick(UWidget* InSource);
 	void HandleCheck(UWidget* InSource, bool bIsChecked);
 	void HandleValue(UWidget* InSource, float InValue);

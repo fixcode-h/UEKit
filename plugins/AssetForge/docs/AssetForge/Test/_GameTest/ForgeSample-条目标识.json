@@ -1,0 +1,36 @@
+{
+  "kind": "gametest-scenario",
+  "schemaVersion": 2,
+  "name": "AssetForge 示例界面：按条目标识点列表",
+  "_note": "配套「列表条目」页（AssetForge 1.4.0 起，要 GameTest 1.4.0 起）。手动录制时点这页条目上的按钮：仓库按 ItemId 自动认，邮件和技能栏会暂停游戏、在面板上弹窗问用哪个字段认。",
+  "revision": 1,
+  "tags": ["sample","assetforge","item-key"],
+  "stepDelayMs": 300,
+  "steps": [
+    {"action":"pie.start","map":"/Game/AgentTest/AssetForge/Map_ForgeSample"},
+    {"action":"wait","until":"widget","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","note":"等示例界面出来"},
+    {"action":"click","target":"WBP_ForgeSample:Root/Shell/SideWidth/SideBg/SideCol/Go_Page_Lists__Nav"},
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/Crumb","text":"列表条目"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Lists/ListsBody/BagCard/BagCol/ItemList[ItemId=1030]>SlotBg/SlotCol/BtnUse",
+      "note": "按数据对象的 ItemId 认；第 30 格没滚到先滚过去"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/StatusChip/Status","textContains":"ItemId 1030"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Lists/ListsBody/ListsRight/MailCard/MailCol/MailList[SentAt=202611101400]>RowPad/RowBg/RowCols/BtnClaim",
+      "note": "按发送时间认第 6 封"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/StatusChip/Status","textContains":"11-10 14:00"},
+    {
+      "action": "click",
+      "target": "WBP_ForgeSample:Root/Shell/Main/Pages/Page_Lists/ListsBody/ListsRight/SkillCard/SkillCol/SkillBar[SkillType=13,Level=2]>CellBg/CellWidth/CellCol/BtnCast",
+      "note": "两个字段一起才唯一：2 级治疗"
+    },
+    {"action":"assert","target":"WBP_ForgeSample:Root/Shell/Main/TopBar/TopRow/StatusChip/Status","textContains":"SkillType 13"},
+    {"action":"screenshot","name":"forge-sample-lists"},
+    {"action":"pie.stop"},
+    {"action":"wait","until":"pieStopped"}
+  ]
+}
