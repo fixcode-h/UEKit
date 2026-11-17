@@ -1,4 +1,4 @@
-// Lua 函数进 Unreal Insights trace（Lua 性能分析 Insights 化设计稿 4、9.1，2.8.1 起）。
+// Lua 函数进 Unreal Insights trace（Lua 性能分析 Insights 化设计稿 4、9.1，2.9.0 起）。
 //
 // 录制 .utrace 时带上 lua 通道，每个 Lua 函数就变成游戏线程上一个 CPU 计时器作用域，和 UE 自己的作用域嵌在一起，
 // 面板的性能页和 UE 自带的 Unreal Insights 打开同一份文件都能看到。只用 Lua 的 C 接口和调试钩子，不碰 UnLua 内部结构。

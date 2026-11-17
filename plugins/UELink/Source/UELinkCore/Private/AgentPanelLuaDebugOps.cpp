@@ -7,7 +7,7 @@
 // 钩子：一个 lua_State 只能挂一个钩子函数，快照点（行钩子）和采样（调用 / 返回钩子）共用 HookFn 分发。
 // 挂上前记下原来的钩子（IDE 的 Lua 调试器常挂一个），每次事件按原来的掩码转给它；都撤了再把原来的放回去。
 // 钩子按线程（协程）各自一份：挂上后新建的协程会继承，挂之前就在的协程里的代码看不到（回包 note 里说明）。
-// 2.8.1 起 trace 的 lua 通道（AgentPanelLuaTrace.cpp）也走这里：录制中开了 lua 通道时要调用 / 返回事件，HookFn 转给它。
+// 2.9.0 起 trace 的 lua 通道（AgentPanelLuaTrace.cpp）也走这里：录制中开了 lua 通道时要调用 / 返回事件，HookFn 转给它。
 #include "AgentPanelLuaOps.h"
 
 #if !AGENT_PANEL_WITH_LUA
@@ -521,7 +521,7 @@ namespace AgentPanelLuaDebug
 			Stat = &S.Stats.Add(Fn);
 			if (lua_getinfo(L, "Sn", Ar))
 			{
-				// 2.8.1：和 trace 共用名字解析（模块:函数、模块表里的字段名、UE.*、lua.*），不再一堆 ?
+				// 2.9.0：和 trace 共用名字解析（模块:函数、模块表里的字段名、UE.*、lua.*），不再一堆 ?
 				Stat->Name = AgentPanelLuaTrace::FunctionName(L, Ar, FnIdx);
 				Stat->Src = UTF8_TO_TCHAR(Ar->short_src);
 				Stat->What = UTF8_TO_TCHAR(Ar->what ? Ar->what : "");
@@ -696,7 +696,7 @@ namespace AgentPanelLuaDebug
 			S.PrevHook(L, Ar);
 		}
 		// 挂着时新建的协程继承了这个钩子，主线程摘了它们也摘不到：谁都不要事件了，就在它自己第一次进来时放回原来的，
-		// 不然录完 trace / 采样完以后这些协程每次调用还进一趟钩子（2.8.1）
+		// 不然录完 trace / 采样完以后这些协程每次调用还进一趟钩子（2.9.0）
 		if (L != S.Main && NeedMask() == 0)
 		{
 			lua_sethook(L, S.PrevHook, S.PrevMask, S.PrevCount);

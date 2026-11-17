@@ -1,4 +1,4 @@
-// trace.query 两个文件（AgentPanelTrace.cpp 和 2.8.1 起的 AgentPanelTraceLua.cpp）共用的结构和函数，不对外。
+// trace.query 两个文件（AgentPanelTrace.cpp 和 2.9.0 起的 AgentPanelTraceLua.cpp）共用的结构和函数，不对外。
 // 只能在 include 了 TraceServices 头文件之后 include。类型都放在具名命名空间 UELinkTrace 里，using namespace TraceServices
 // 也只在这个命名空间里：单体构建（unity）把同模块的 .cpp 拼成一个编译单元，文件作用域的 using 会漏进别的文件（见 AgentPanelTrace.cpp 开头）。
 #pragma once
@@ -159,7 +159,7 @@ using namespace TraceServices;
 	TSharedPtr<FJsonObject> TreeJson(uint32 Id, const FNode& N, const FTimers& Timers, int32 Depth);
 
 	// AgentPanelTraceLua.cpp
-	/** what=timers：计时器表；2.8.1 起带 lua / mergeC 参数，Lua 计时器的行带 file / line / c */
+	/** what=timers：计时器表；2.9.0 起带 lua / mergeC 参数，Lua 计时器的行带 file / line / c */
 	void QueryTimers(const IAnalysisSession& S, const ITimingProfilerProvider& TP, const TSharedPtr<FJsonObject>& A, TSharedPtr<FJsonObject>& Out);
 	/** what=luainfo：这份 trace 里所有 Lua 计时器的文件和行号 */
 	void QueryLuaInfo(const ITimingProfilerProvider& TP, TSharedPtr<FJsonObject>& Out);

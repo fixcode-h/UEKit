@@ -66,7 +66,7 @@
 
 `trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
 
-2.8.1 起 `trace.query` 认得 Lua 计时器（录制时开了 `lua` 通道，见下面「Lua 函数进 trace」）。Lua 计时器按注册时的文件认：文件以 `.lua` 结尾的是 Lua 函数，文件是 `<lua:C>` 的是 C 函数。`butterfly`、`stack`、`instances` 不变（客户端用 `luainfo` 的表认 Lua 计时器）：
+2.9.0 起 `trace.query` 认得 Lua 计时器（录制时开了 `lua` 通道，见下面「Lua 函数进 trace」）。Lua 计时器按注册时的文件认：文件以 `.lua` 结尾的是 Lua 函数，文件是 `<lua:C>` 的是 C 函数。`butterfly`、`stack`、`instances` 不变（客户端用 `luainfo` 的表认 Lua 计时器）：
 
 - `what=info` 多一个 `lua`：这份 trace 里有没有 Lua 计时器（抓取列表打标签用）。
 - `what=luainfo` → `{"lua": bool, "timers": {"<计时器 id>": {"file", "line", "c"?: true}}}`：全部 Lua 计时器的文件和行号（Lua 函数是定义行，C 函数是 0），客户端打开 trace 时取一次缓存。没有时 `{"lua": false, "timers": {}}`。
@@ -145,13 +145,13 @@
   - `{"action": "remove", "id"?}` → `{"removed"}`：不给 `id` 全部撤掉并清记录。
   - 推送事件 `lua.snap`（命中一次推一次）：`{"id", "hits", "max", "active", "capture"}`。客户端订阅 `topics` 里写 `lua.snap`。
 - `lua.profile {"action": "start", "seconds"?: 5}` → `{"started", "seconds", "note", "warning"?}`：采几秒（1–60），按函数（闭包）累计调用次数、总用时、自身用时，C 函数（UnLua 导出的 UE 接口）也算。到时间自己停；`{"action": "stop"}` 提前停。
-  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "file"?, "line", "c", "calls", "totalMs", "selfMs"}], "report"}`（默认按 `selfMs` 排；`fn` 2.8.1 起和 Lua trace 的计时器同名，见下面「Lua 函数进 trace」），`file` 是完整路径（chunkname 以 @ 开头时才有，`src` 太长会被截断），`c` 表示 C 函数；全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
+  - `{"action": "result", "sort"?: "self|total|calls", "limit"?: 50}` → 还在采时 `{"running": true, "remaining"}`；采完 `{"running": false, "startedAt", "seconds", "events", "total", "items": [{"fn", "src", "file"?, "line", "c", "calls", "totalMs", "selfMs"}], "report"}`（默认按 `selfMs` 排；`fn` 2.9.0 起和 Lua trace 的计时器同名，见下面「Lua 函数进 trace」），`file` 是完整路径（chunkname 以 @ 开头时才有，`src` 太长会被截断），`c` 表示 C 函数；全部函数写进 `Saved/UELink/lua-profile/profile-<时间>.json`。递归函数的总用时会重复计入；协程挂起的时间算在协程里的函数上。
 - `lua.leaks {"limit"?: 100, "maxVisit"?: 200000, "objectKey"?: "Object"}` → `{"items": [{"kind", "module"?, "path"?, "object"?, "class"?}], "total", "visited", "truncated", "ms", "report", "note"}`：找 Lua 还拿着、UObject 却已经没了的（专查「关了界面控件释放不掉」）。`kind`：
   - `destroyed`：从 `_G` 和注册表出发走 Lua 堆（表、函数的 upvalue、元表；弱表不算引用），找到像 UnLua 实例表（有元表、`objectKey` 字段是 userdata）却不在对象表里的表——UnLua 在对象销毁时会把它从对象表删掉。是推测，`path` 是 Lua 里拿着它的第一条路径（如 `_G.UIManager.Panels[3]`、`<upvalue Panels>`）。
   - `stale`（对象表里还有、UObject 已经不在）、`garbage`（已标记销毁）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）：对象表本身的问题，`path` 是 Lua 里另外拿着它的路径（只有对象表拿着时没有）。
   - 协程栈上的局部变量走不到。全部结果写进 `Saved/UELink/lua-leaks/leaks-<时间>.json`；大项目走一遍几百毫秒，会卡一下游戏线程。
 
-2.8.1 起 Lua 函数进 Unreal Insights trace（「装了 UnLua 时」才有，代码在 `AgentPanelLuaTrace.cpp`）。不是一个操作：客户端录 trace 时在通道串里加上下面的通道（`Trace.File`、`Trace.Start` 或命令行 `-trace=default,lua`），录下的 .utrace 用 `trace.query` 或 UE 自带的 Unreal Insights 都能看到 Lua 函数：
+2.9.0 起 Lua 函数进 Unreal Insights trace（「装了 UnLua 时」才有，代码在 `AgentPanelLuaTrace.cpp`）。不是一个操作：客户端录 trace 时在通道串里加上下面的通道（`Trace.File`、`Trace.Start` 或命令行 `-trace=default,lua`），录下的 .utrace 用 `trace.query` 或 UE 自带的 Unreal Insights 都能看到 Lua 函数：
 
 - 通道 `lua`：每个 Lua 函数是游戏线程上一个 CPU 计时器作用域，和 UE 自己的作用域嵌在一起（`Tick` → … → `Player.BP_PlayerController_C:ReceiveTick` → `UE.GetVelocity`）。通道 `luac`：C 函数（UnLua 导出的 UE 接口、Lua 标准库）也单独成块，只在 `lua` 也开着时生效；不开时 C 函数不出块，时间算进调用它的 Lua 函数，trace 也小一些。面板默认录 `lua,luac`。还要开着 `cpu` 通道（`default` 里有）。
 - 计时器的名字、文件、行号（`OutputEventType` 注册，每个函数只注册一次，之后每次调用只发 id）：
@@ -159,9 +159,9 @@
   - C 函数：Lua 标准库是 `lua.<名>` / `lua.<库>.<名>`（`lua.ipairs`、`lua.string.format`），其他（UnLua 导出的 UE 接口）是 `UE.<调用处的名字>`；文件固定 `<lua:C>`，行号 0。
 - 每帧计数器（只在 `lua` 通道开着时发；引擎只在 `counters` 通道也开着时才写进 trace，客户端录 Lua 时一并打开）：`Lua/FrameMs`（浮点，这一帧所有顶层 Lua 调用的总时长）、`Lua/Calls`（整数，这一帧的调用次数，含 C 函数）、`Lua/MemoryKB`（整数，`lua_gc(LUA_GCCOUNT)`）。
 - 开销：没在录制、或录制里没开 `lua` 通道时**零开销**——不挂钩子、不发事件和计数器、不注册每帧回调，只挂着「开始 / 停止录制」两个委托；录制开始后才每帧看一次通道开关，开了才挂调用 / 返回钩子（和快照点、采样共用一个钩子函数），停止录制时摘掉。录制期间 Lua 会变慢一些（每次调用 / 返回多一次钩子和一个 trace 事件），看占比不看绝对值。
-- 时间轴保证严格嵌套：协程切换时先结束上一个协程还开着的函数、切回来再按它的栈重新开始（同一个协程函数在每次恢复时各出现一段）；调 `coroutine.yield` 时就先结束这个协程的帧；Lua 里的 `pcall` 返回时把更深的帧一起结束；尾调用按层数对齐，被替换的帧在同一时刻结束。从 C++ 调进来又报错的，靠项目侧报错钩子 `FAgentPanelLua::CaptureError` 收尾（2.8.1 起它会先把这次调用进来的 Lua 帧结束）；没接这个钩子、或 C 里直接 `lua_yield` 的，那一帧结束时按影子栈全部收尾，只影响那一帧，录制结束时日志里打一条「有 N 帧 Lua 没正常收尾」。
+- 时间轴保证严格嵌套：协程切换时先结束上一个协程还开着的函数、切回来再按它的栈重新开始（同一个协程函数在每次恢复时各出现一段）；调 `coroutine.yield` 时就先结束这个协程的帧；Lua 里的 `pcall` 返回时把更深的帧一起结束；尾调用按层数对齐，被替换的帧在同一时刻结束。从 C++ 调进来又报错的，靠项目侧报错钩子 `FAgentPanelLua::CaptureError` 收尾（2.9.0 起它会先把这次调用进来的 Lua 帧结束）；没接这个钩子、或 C 里直接 `lua_yield` 的，那一帧结束时按影子栈全部收尾，只影响那一帧，录制结束时日志里打一条「有 N 帧 Lua 没正常收尾」。
 - IDE 的 Lua 调试器接管着钩子时收不到 Lua 函数（和快照点、采样一样不抢回来），日志里打一条警告；钩子按协程各一份，录制开始前就在跑的协程看不到。
-- `lua.profile` 2.8.1 起用同一套名字解析，`fn` 不再是一堆 `?`。
+- `lua.profile` 2.9.0 起用同一套名字解析，`fn` 不再是一堆 `?`。
 
 2.4.0 起 `asset.validate` 能一次查多个：`{"paths": [...]}`（最多 200 个）→ `{"items": [{"path", "result", "errors", "warnings", "issues": [前 5 条]}], "errors", "warnings", "report"}`，完整结果写进 `Saved/UELink/validate/<时间>.json`，`report` 是它的绝对路径。只给 `path` 时照旧回单个资源的结果。
 

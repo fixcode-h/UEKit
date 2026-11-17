@@ -1,4 +1,4 @@
-// trace.query 里和 Lua 有关的查询（Lua 性能分析 Insights 化设计稿 9.2，2.8.1 起）：
+// trace.query 里和 Lua 有关的查询（Lua 性能分析 Insights 化设计稿 9.2，2.9.0 起）：
 // - luainfo：这份 trace 里所有 Lua 计时器的文件和行号（UELink 录制时按 9.1 注册：Lua 函数的文件是 .lua，C 函数是 <lua:C>）；
 // - timers：计时器表（从 AgentPanelTrace.cpp 挪过来），加 lua（只要 Lua 计时器）、mergeC（C 函数的时间并进调用它的函数）；
 // - tree：自上而下的调用树，面板的火焰图用，UE 和 Lua 的计时器都能看。
@@ -201,7 +201,7 @@ namespace
 			{
 				O->SetBoolField(TEXT("gpu"), true);
 			}
-			// 2.8.1：Lua 计时器带来源（面板「来源」列、点开 .lua）
+			// 2.9.0：Lua 计时器带来源（面板「来源」列、点开 .lua）
 			const int32 Kind = Timers.LuaKind(R.Id);
 			if (Kind != 0)
 			{

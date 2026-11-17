@@ -9,7 +9,7 @@
 // 单体构建（unity）把同模块的 .cpp 拼成一个编译单元，文件作用域的 using 会漏进后面的文件，
 // 后面 include 的 ContentBrowserData 等引擎头里写的短名 FFrame 就变成「不明确的符号」（5.4 上实际报过 C2872）。
 // 计时器汇总和调用树都在这里自己按进出事件算，不用 CreateAggregation 之类各版本签名不一样的接口。
-// 2.8.1 起 Lua 相关的查询（luainfo、tree、timers 的 lua / mergeC）在 AgentPanelTraceLua.cpp，共用的结构在 AgentPanelTraceShared.h。
+// 2.9.0 起 Lua 相关的查询（luainfo、tree、timers 的 lua / mergeC）在 AgentPanelTraceLua.cpp，共用的结构在 AgentPanelTraceShared.h。
 #include "AgentPanelBridge.h"
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelEditorShared.h"
@@ -431,7 +431,7 @@ namespace
 			Threads.Add(MakeShared<FJsonValueObject>(O));
 		});
 		Out->SetArrayField(TEXT("threads"), Threads);
-		// 2.8.1：有没有 Lua 计时器（录制时开了 lua 通道），面板给抓取列表打「Lua」标签
+		// 2.9.0：有没有 Lua 计时器（录制时开了 lua 通道），面板给抓取列表打「Lua」标签
 		Out->SetBoolField(TEXT("lua"), TP && HasLuaTimers(*TP));
 		const IFrameProvider& FP = ReadFrameProvider(S);
 		Out->SetNumberField(TEXT("frames"), static_cast<double>(FP.GetFrameCount(TraceFrameType_Game)));
@@ -984,7 +984,7 @@ namespace AgentPanelEd
 			{
 				return QueryInstances(S, *TP, A, Out, Error);
 			}
-			// 2.8.1：Lua 计时器的文件和行号、自上而下的调用树（AgentPanelTraceLua.cpp）
+			// 2.9.0：Lua 计时器的文件和行号、自上而下的调用树（AgentPanelTraceLua.cpp）
 			if (What == TEXT("luainfo"))
 			{
 				QueryLuaInfo(*TP, Out);

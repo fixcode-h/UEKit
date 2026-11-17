@@ -51,7 +51,7 @@
 #define UELINK_DRAW_STATS 0
 #endif
 
-// ---------- Lua 函数进 Unreal Insights trace（2.8.1，AgentPanelLuaTrace.cpp / AgentPanelTraceLua.cpp） ----------
+// ---------- Lua 函数进 Unreal Insights trace（2.9.0，AgentPanelLuaTrace.cpp / AgentPanelTraceLua.cpp） ----------
 // 下面这些在 5.4 上按引擎源码写，5.8 还没在本地编过；签名对不上时只改这里。
 // 用的文件：ProfilingDebugging/CpuProfilerTrace.h、CountersTrace.h、TraceAuxiliary.h，Trace/Trace.h（都在 Core / TraceLog）。
 

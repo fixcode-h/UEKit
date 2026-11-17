@@ -23,7 +23,7 @@ void AgentPanelRegisterEmmyValues();
 void AgentPanelUnregisterEmmyValues();
 
 /**
- * 2.8.1：Lua 函数进 Unreal Insights trace（AgentPanelLuaTrace.cpp）。只挂开始 / 停止录制的委托，
+ * 2.9.0：Lua 函数进 Unreal Insights trace（AgentPanelLuaTrace.cpp）。只挂开始 / 停止录制的委托，
  * 录制开始后才每帧看 lua 通道开没开、开了才挂钩子。没编进 Lua 支持或引擎没编进 trace 时什么也不做
  */
 void AgentPanelRegisterLuaTrace();
