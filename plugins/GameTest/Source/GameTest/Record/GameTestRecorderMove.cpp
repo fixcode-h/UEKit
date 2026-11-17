@@ -221,6 +221,17 @@ bool FGameTestRecorder::OnHotkey(const FKey& InKey)
 		return false;
 	}
 
+	// 暂停问「这一格怎么认」时：Alt+K 直接接受推荐的继续（不用切到浏览器）；别的快捷键先不认
+	if (IsAskingKey())
+	{
+		if (InKey != EKeys::K)
+		{
+			return false;
+		}
+		AcceptAskedKey();
+		return true;
+	}
+
 	const TCHAR* Phase = nullptr;
 	if (InKey == EKeys::One)
 	{

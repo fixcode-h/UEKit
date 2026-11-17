@@ -489,3 +489,29 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 	}
 	return true;
 }
+
+void FGameTestRecorder::AcceptAskedKey()
+{
+	if (!KeyAsk.IsSet() || !KeyAsk->Site.IsValid())
+	{
+		EndAsk();
+		return;
+	}
+	const TSharedRef<FJsonObject> Args = MakeShared<FJsonObject>();
+	if (KeyAsk->Site->Cond.IsEmpty())
+	{
+		Args->SetStringField(TEXT("mode"), TEXT("skip"));
+	}
+	else
+	{
+		Args->SetStringField(TEXT("cond"), KeyAsk->Site->Cond);
+	}
+	TSharedPtr<FJsonObject> Result;
+	FString Error;
+	if (!AnswerKey(Args, Result, Error))
+	{
+		// 推荐的条件现在对不上（点完界面变了）：保持待定，照样继续，录完再定
+		UE_LOG(LogGameTest, Display, TEXT("录制：Alt+K 接受推荐没成（%s），这一步保持待定"), *Error);
+		EndAsk();
+	}
+}

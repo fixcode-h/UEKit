@@ -237,6 +237,8 @@ private:
 	/** 每帧：到了自动继续的时间就继续（这一步保持「待定」）。 */
 	void TickAsk();
 	void DescribeAsk(FJsonObject& OutStatus) const;
+	/** Alt+K：接受推荐的（有条件按它、没有保持待定）并继续。 */
+	void AcceptAskedKey();
 	int32 IndexOfStep(const TSharedPtr<FJsonObject>& InStep) const;
 
 	//~ 录移动和工具栏（Record/GameTestRecorderMove.cpp）
