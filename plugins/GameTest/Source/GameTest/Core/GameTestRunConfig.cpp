@@ -93,6 +93,17 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		OutConfig.UiWaitTimeoutMs = Wait;
 	}
 
+	int32 Gap = -1;
+	if (InJson.HasField(TEXT("uiStepGapMs")))
+	{
+		if (!GameTestJson::TryGetInt(InJson, TEXT("uiStepGapMs"), Gap) || Gap < 0 || Gap > MaxUiStepGapMs)
+		{
+			OutError = FString::Printf(TEXT("uiStepGapMs 要写 0–%d 的整数（毫秒，0 = UI 操作之间不额外等）"), MaxUiStepGapMs);
+			return false;
+		}
+		OutConfig.UiStepGapMs = Gap;
+	}
+
 	if (GameTestJson::TryGetString(InJson, TEXT("clickVia"), OutConfig.ClickVia) && !OutConfig.ClickVia.IsEmpty()
 		&& OutConfig.ClickVia != TEXT("code") && OutConfig.ClickVia != TEXT("pointer"))
 	{
@@ -191,6 +202,10 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (InConfig.UiWaitTimeoutMs >= 0)
 	{
 		Json->SetNumberField(TEXT("uiWaitTimeoutMs"), InConfig.UiWaitTimeoutMs);
+	}
+	if (InConfig.UiStepGapMs >= 0)
+	{
+		Json->SetNumberField(TEXT("uiStepGapMs"), InConfig.UiStepGapMs);
 	}
 	if (!InConfig.ClickVia.IsEmpty())
 	{
