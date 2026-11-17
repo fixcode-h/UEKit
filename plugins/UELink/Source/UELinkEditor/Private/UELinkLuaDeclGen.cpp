@@ -4,6 +4,7 @@
 #include "UELinkLuaDecl.h"
 
 #include "Engine/Blueprint.h"
+#include "Interfaces/IPluginManager.h"
 #include "Engine/UserDefinedEnum.h"
 #include "StructUtils/UserDefinedStruct.h"
 #include "ObjectEditorUtils.h"
@@ -314,6 +315,41 @@ namespace UELinkLuaDecl
 			return !FObjectEditorUtils::IsFunctionHiddenFromClass(Function, Class);
 		}
 
+		/**
+		 * UnLua 在 C++ 里手写导出、不走反射的方法（LuaLib_Object.cpp、LuaLib_Class.cpp）。UObject 本身几乎没有
+		 * UFUNCTION，只看反射时 UObject.lua 是空的；装了 UnLua 时把这些常用方法补进对应类的声明。
+		 */
+		void AppendUnLuaExtras(FString& Out, const UClass* Class, const FString& Local)
+		{
+			const TSharedPtr<IPlugin> UnLua = IPluginManager::Get().FindPlugin(TEXT("UnLua"));
+			if (!UnLua.IsValid() || !UnLua->IsEnabled())
+			{
+				return;
+			}
+			if (Class == UObject::StaticClass())
+			{
+				Out += TEXT("---UnLua：按路径加载对象（/Game/...）\n---@param Path string\n---@return UObject\n");
+				Out += FString::Printf(TEXT("function %s.Load(Path) end\n\n"), *Local);
+				Out += TEXT("---UnLua：对象还在、没被回收\n---@return boolean\n");
+				Out += FString::Printf(TEXT("function %s:IsValid() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@return string\nfunction %s:GetName() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@return UObject\nfunction %s:GetOuter() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@return UClass\nfunction %s:GetClass() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@return UWorld\nfunction %s:GetWorld() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@param Class UClass\n---@return boolean\nfunction %s:IsA(Class) end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---UnLua：Lua 持有引用，不被 GC 回收\nfunction %s:AddRef() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---UnLua：去掉 AddRef 加的引用\nfunction %s:RemoveRef() end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---UnLua：解除 Lua 和对象的绑定\nfunction %s:Release() end\n\n"), *Local);
+			}
+			else if (Class == UClass::StaticClass())
+			{
+				Out += TEXT("---UnLua：按路径加载类（蓝图类路径带 _C）\n---@param Path string\n---@return UClass\n");
+				Out += FString::Printf(TEXT("function %s.Load(Path) end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@param Base UClass\n---@return boolean\nfunction %s:IsChildOf(Base) end\n\n"), *Local);
+				Out += FString::Printf(TEXT("---@return UObject\nfunction %s:GetDefaultObject() end\n\n"), *Local);
+			}
+		}
+
 		FString GenerateStruct(const UStruct* Struct)
 		{
 			const FString Name = TypeName(Struct);
@@ -366,6 +402,7 @@ namespace UELinkLuaDecl
 					Emitted.Add(Function->GetFName());
 				}
 			}
+			AppendUnLuaExtras(Out, Class, Local);
 			return Out;
 		}
 
