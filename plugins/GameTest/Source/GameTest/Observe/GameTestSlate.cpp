@@ -7,6 +7,8 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/ListView.h"
+#include "Components/RichTextBlock.h"
+#include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
@@ -105,6 +107,76 @@ namespace GameTestSlateDetail
 	/** 元数据只要在，就一定比线性扫描准；只有一个控件都查不到元数据时才说明这个进程没开元数据。 */
 	bool bMetadataSeen = false;
 
+	/** 富文本的标记（`<Title>领取</>`、`<img id="x"/>`）去掉，只留显示出来的字。 */
+	FString StripRichTags(const FString& InText)
+	{
+		FString Out;
+		Out.Reserve(InText.Len());
+		bool bInTag = false;
+		for (const TCHAR Char : InText)
+		{
+			if (Char == TEXT('<'))
+			{
+				bInTag = true;
+			}
+			else if (Char == TEXT('>') && bInTag)
+			{
+				bInTag = false;
+			}
+			else if (!bInTag)
+			{
+				Out.AppendChar(Char);
+			}
+		}
+		return Out;
+	}
+
+	/**
+	 * 一个 Slate 控件自己显示的文字（不看子控件）。
+	 * `STextBlock` 直接读；类型名里带 Text 的其他控件（`SRichTextBlock`、项目或二开 UnLua 派生的文字控件）
+	 * 改从它的 UMG 控件读——Slate 层没有统一的取字接口，UMG 的 UTextBlock / URichTextBlock 有。
+	 * 只认带 Text 的类型名，是为了不对每个 Slate 控件都反查 UMG（快照、回放核对每帧都会走这里）。
+	 */
+	bool ReadOwnText(const TSharedRef<SWidget>& InWidget, FString& OutText)
+	{
+		const FName Type = InWidget->GetType();
+		if (Type == FName(TEXT("STextBlock")))
+		{
+			OutText = StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString().TrimStartAndEnd();
+			return true;
+		}
+		const FString TypeName = Type.ToString();
+		if (!TypeName.Contains(TEXT("Text")) || TypeName.Contains(TEXT("Editable")))
+		{
+			return false;
+		}
+		const UWidget* Source = FindSourceWidgetFast(*InWidget);
+		if (const URichTextBlock* Rich = Cast<URichTextBlock>(Source))
+		{
+			OutText = StripRichTags(Rich->GetText().ToString()).TrimStartAndEnd();
+			return true;
+		}
+		if (const UTextBlock* Block = Cast<UTextBlock>(Source))
+		{
+			OutText = Block->GetText().ToString().TrimStartAndEnd();
+			return true;
+		}
+		return false;
+	}
+
+	void AppendPiece(FString& InOutText, const FString& InPiece)
+	{
+		if (InPiece.IsEmpty())
+		{
+			return;
+		}
+		if (!InOutText.IsEmpty())
+		{
+			InOutText.AppendChar(TEXT(' '));
+		}
+		InOutText.Append(InPiece);
+	}
+
 	void AppendText(const TSharedRef<SWidget>& InWidget, FString& InOutText, int32 InMaxChars, int32 InDepth)
 	{
 		if (InOutText.Len() >= InMaxChars || InDepth > 32)
@@ -112,16 +184,14 @@ namespace GameTestSlateDetail
 			return;
 		}
 
-		if (InWidget->GetType() == FName(TEXT("STextBlock")))
+		FString Own;
+		if (ReadOwnText(InWidget, Own))
 		{
-			const FString Text = StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString().TrimStartAndEnd();
-			if (!Text.IsEmpty())
+			AppendPiece(InOutText, Own);
+			// 富文本的 Slate 子控件是一段段排版好的字，再往下收会重复
+			if (InWidget->GetType() != FName(TEXT("STextBlock")))
 			{
-				if (!InOutText.IsEmpty())
-				{
-					InOutText.AppendChar(TEXT(' '));
-				}
-				InOutText.Append(Text);
+				return;
 			}
 		}
 
@@ -133,6 +203,62 @@ namespace GameTestSlateDetail
 		for (int32 Index = 0; Index < Children->Num(); ++Index)
 		{
 			AppendText(Children->GetChildAt(Index), InOutText, InMaxChars, InDepth + 1);
+		}
+	}
+
+	/** 屏幕绝对坐标的矩形；几何还没算出来（尺寸为 0）时返回 false。 */
+	bool AbsoluteRect(const SWidget& InWidget, FBox2D& OutRect)
+	{
+		const FGeometry& Geometry = InWidget.GetCachedGeometry();
+		const FVector2D Pos = FVector2D(Geometry.GetAbsolutePosition());
+		const FVector2D Size = FVector2D(Geometry.GetAbsoluteSize());
+		if (Size.X < 1.0 || Size.Y < 1.0)
+		{
+			return false;
+		}
+		OutRect = FBox2D(Pos, Pos + Size);
+		return true;
+	}
+
+	/**
+	 * 叠在按钮上的文字：只收落在 `InRect` 里的文字控件（文字框至少 60% 在里面）。
+	 * 不可见的跳过：同一个 Overlay 里藏着的另一套文字（选中态、红点数字）不该算进来。
+	 */
+	void AppendTextInRect(const TSharedRef<SWidget>& InWidget, const FBox2D& InRect, FString& InOutText, int32 InMaxChars, int32 InDepth)
+	{
+		if (InOutText.Len() >= InMaxChars || InDepth > 32 || !InWidget->GetVisibility().IsVisible())
+		{
+			return;
+		}
+		FString Own;
+		if (ReadOwnText(InWidget, Own))
+		{
+			FBox2D Box;
+			if (!Own.IsEmpty() && AbsoluteRect(*InWidget, Box))
+			{
+				const FBox2D Overlap(
+					FVector2D(FMath::Max(Box.Min.X, InRect.Min.X), FMath::Max(Box.Min.Y, InRect.Min.Y)),
+					FVector2D(FMath::Min(Box.Max.X, InRect.Max.X), FMath::Min(Box.Max.Y, InRect.Max.Y)));
+				const double Area = (Box.Max.X - Box.Min.X) * (Box.Max.Y - Box.Min.Y);
+				const double Inside = FMath::Max(0.0, Overlap.Max.X - Overlap.Min.X) * FMath::Max(0.0, Overlap.Max.Y - Overlap.Min.Y);
+				if (Area > 0.0 && Inside / Area >= 0.6)
+				{
+					AppendPiece(InOutText, Own);
+				}
+			}
+			if (InWidget->GetType() != FName(TEXT("STextBlock")))
+			{
+				return;
+			}
+		}
+		FChildren* Children = InWidget->GetChildren();
+		if (Children == nullptr)
+		{
+			return;
+		}
+		for (int32 Index = 0; Index < Children->Num(); ++Index)
+		{
+			AppendTextInRect(Children->GetChildAt(Index), InRect, InOutText, InMaxChars, InDepth + 1);
 		}
 	}
 }
@@ -264,6 +390,39 @@ FString GameTestSlate::CollectText(const TSharedPtr<SWidget>& InWidget, int32 In
 	if (InWidget.IsValid())
 	{
 		GameTestSlateDetail::AppendText(InWidget.ToSharedRef(), Text, InMaxChars, 0);
+	}
+	return Text.Left(InMaxChars);
+}
+
+FString GameTestSlate::CollectTextNear(const TSharedPtr<SWidget>& InWidget, int32 InMaxChars)
+{
+	FString Text = CollectText(InWidget, InMaxChars);
+	FBox2D Rect;
+	if (!Text.IsEmpty() || !InWidget.IsValid() || !GameTestSlateDetail::AbsoluteRect(*InWidget, Rect))
+	{
+		return Text;
+	}
+	// 往上看两层父面板：游戏 UI 常把按钮和文字并排放进同一个 Overlay（文字设成 HitTestInvisible 叠在按钮上），
+	// 文字是按钮的兄弟、不是子控件。只收位置落在按钮框里的，旁边别的按钮的字不算。
+	TSharedPtr<SWidget> Skip = InWidget;
+	TSharedPtr<SWidget> Parent = InWidget->GetParentWidget();
+	const TSharedPtr<SWidget> Viewport = GetGameViewportWidget();
+	for (int32 Level = 0; Level < 2 && Parent.IsValid() && Parent != Viewport && Text.IsEmpty(); ++Level)
+	{
+		if (FChildren* Children = Parent->GetChildren())
+		{
+			for (int32 Index = 0; Index < Children->Num(); ++Index)
+			{
+				const TSharedRef<SWidget> Child = Children->GetChildAt(Index);
+				if (Skip.IsValid() && &Child.Get() == Skip.Get())
+				{
+					continue;
+				}
+				GameTestSlateDetail::AppendTextInRect(Child, Rect, Text, InMaxChars, 0);
+			}
+		}
+		Skip = Parent;
+		Parent = Parent->GetParentWidget();
 	}
 	return Text.Left(InMaxChars);
 }

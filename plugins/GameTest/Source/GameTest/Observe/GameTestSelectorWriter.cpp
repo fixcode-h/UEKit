@@ -388,7 +388,8 @@ namespace GameTestSelectorWriterDetail
 			Hint->SetStringField(TEXT("class"), InSlate->GetTypeAsString());
 		}
 
-		const FString Text = GameTestSlate::CollectText(InSlate, 40);
+		// 叠在按钮上的兄弟文字也算（CollectTextNear）：回放按文字找回时用同一个函数取字，两边一致
+		const FString Text = GameTestSlate::CollectTextNear(InSlate, 40);
 		if (!Text.IsEmpty())
 		{
 			Hint->SetStringField(TEXT("text"), Text);

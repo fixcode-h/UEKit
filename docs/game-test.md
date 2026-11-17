@@ -43,7 +43,7 @@
 - `uiWaitTimeoutMs`（可选，1.2.0-beta.6 起）这个场景里 UI 动作等界面的上限（毫秒，0 = 不限），覆盖运行配置和项目设置，见「UI 动作怎么执行」。
 - `schemaVersion`：当前是 2（1.1.0 起）。2 里 `click` / `type` 默认走真实输入（真实指针、真实按键）；1 的文件照常能跑，见下面「从旧场景迁移」。写比插件支持的更高的版本会被明确拒绝。
 - 每一步的公共字段：`action`（必填）、`target`、`note`、`timeoutMs`、`onFail`（`stop` 默认 / `continue`）、`hint`。动作不认识的字段直接报错，不静默忽略。
-- `hint`：录制写的线索（`asset` WBP 资源路径、`class`、`text`、`rect` 视口归一化 `[x, y, w, h]`、`vp` 录制时视口像素 `[宽, 高]`（1.2.5 起））。录的时候选择器核对不唯一、但按线索挑得回来时多一个 `pick`（说明），`byIndex: true` 表示按位置写的选择器只按序号点、不按文字找回（1.2.4 起），挑不回来时多一个 `ambiguous`（原因）。回放在两种情况下用它（见「UI 动作怎么执行」里的「按录制线索消歧」）：选择器命中**同一个 WBP 的几个实例**时按线索挑回录的那一个；按位置写的选择器（`#类名#序号`、`列表[序号]`）唯一命中、但文字和 `hint.text` 对不上时，在同一个容器里换成文字对得上的那个（1.2.4 起）。别的情况不拿它换目标。手写场景不用写。
+- `hint`：录制写的线索（`asset` WBP 资源路径、`class`、`text`、`rect` 视口归一化 `[x, y, w, h]`、`vp` 录制时视口像素 `[宽, 高]`（1.2.5 起）；`shot`、`screen`、`opened` 录制截图和点完打开的界面（1.3.2 起，见「录制截图」），`ocr` 面板从截图认出的字）。录的时候选择器核对不唯一、但按线索挑得回来时多一个 `pick`（说明），`byIndex: true` 表示按位置写的选择器只按序号点、不按文字找回（1.2.4 起），挑不回来时多一个 `ambiguous`（原因）。回放在两种情况下用它（见「UI 动作怎么执行」里的「按录制线索消歧」）：选择器命中**同一个 WBP 的几个实例**时按线索挑回录的那一个；按位置写的选择器（`#类名#序号`、`列表[序号]`）唯一命中、但文字和 `hint.text` 对不上时，在同一个容器里换成文字对得上的那个（1.2.4 起）。别的情况不拿它换目标。手写场景不用写。
 
 ### 选择器（`target`）
 
@@ -249,7 +249,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 ## 录制回放
 
-1. 面板上点「录制」（`gt.record.start`，可给 `name`、`keepPace`）。编辑器里 PIE 正在跑时，场景开头自动加一条 `pie.start`（同一张地图），回放能自己拉起游戏。
+1. 面板上点「录制」（`gt.record.start`，可给 `name`、`keepPace`、`shots`）。编辑器里 PIE 正在跑时，场景开头自动加一条 `pie.start`（同一张地图），回放能自己拉起游戏。
 2. 在游戏窗口里正常操作。只录发给游戏窗口（和它弹出的子窗口，如下拉菜单）的输入，编辑器其他面板上的操作不录。
 3. 需要检查的地方：按住 **Ctrl+Alt 点一个控件**，录一条断言（见下表）；或插检查点（`gt.record.mark`，可带 `screenshot: true`），之后在面板里改成 `assert`。
 4. 要录角色走路：按 **Alt+1**（或点工具栏的「录移动」）开始，走到目的地再按一次结束，见下面「录移动」。
@@ -300,6 +300,22 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 实现：在 Slate 上挂一个 `IInputProcessor`（引擎公开的输入预处理扩展点）拿原始事件，只看不吃（拾取断言那一下除外）；处理者来自 `FSlateDebugging` 的输入事件，反查 UMG 用 Widget Reflector 同一份元数据。回放时 `key` 走 `FSlateApplication::ProcessKeyDownEvent` 等入口，和真实按键同一条路（Slate → 视口 → PlayerController → EnhancedInput），所以不需要知道项目的输入资产。回放发出的合成输入不会被录进去。run 收尾时按下没松开的键全部松开。不改引擎、不改项目代码。
 
+**录制截图**（1.3.2 起）：每次在 UI 控件上按下、点在游戏画面上时截一小块图，写进那一步的 `hint`：
+
+| 字段 | 内容 |
+| --- | --- |
+| `shot` | 被点控件的截图（相对项目根）：控件框每边外扩 `clamp(0.5 × 宽或高, 24, 160)` 像素，不足 200×120 补齐，超过 640×360 整张缩小；控件描红框，点击位置画十字。点在游戏画面上时是光标周围 120×120 |
+| `shotBox` | 红框在这张图里的位置 `[x, y, w, h]`（像素）：面板 OCR 只认框里的字 |
+| `screen` | 当时游戏视口的整屏缩略图（宽 480）：顶层界面变了才存新的一张，没变的步骤指向上一张 |
+| `opened` | 按下后 2 秒内新出现的顶层界面类名（`["WBP_Shop"]`）：点这一下打开了什么 |
+
+- 截的是**按下那一刻**：按钮默认松开才触发，图里是点之前的界面。截图同步做，每次按下卡一下（几十毫秒，只在录制时有）；裁剪、描框、压 PNG、写盘在后台线程。
+- 图放 `Saved/<输出目录>/shots/<开始录制的时间>/`，不放场景根（场景跟着项目文档进版本库）。图丢了不影响回放。截不了（`-nullrhi`、窗口没了）只是没有 `shot`。
+- `shots` 参数：`false` 关掉；对象时覆盖 `padRatio`、`padMin`、`padMax`、`minWidth`、`minHeight`、`maxWidth`、`maxHeight`、`screenWidth`（0 = 不存整屏）、`gameClickBox`，写错字段名或超范围直接报错。面板在「设置 → 插件 → UE」的「GameTest 录制」里改。
+- 面板录完后用 OCR 从 `shot` 里认出按钮上的字，写进 `hint.ocr`（只用来显示步骤名、给 AI 参考；回放不看它，按文字找回只用 `hint.text`）。
+
+**按钮上的字**（1.3.2 起）：`hint.text` 先收被点控件子树里的文字（`STextBlock`，以及 UMG 是 UTextBlock / URichTextBlock 的其他文字控件，富文本去掉标记）；子树里没有字时，再收上两层父面板里**叠在这个控件框上**（文字框至少 60% 在里面）的可见文字——游戏 UI 常把按钮和文字并排放进同一个 Overlay，文字是按钮的兄弟。回放按文字找回（`GameTestHintPick`）用同一套取字。字画在贴图里的按钮没有文字可取，靠截图 OCR。
+
 一次最多录 2000 步。录完的场景是普通场景文件，可以在面板里改：把 `mark` 换成 `assert`、删掉多余的 `wait`。
 
 ## 操作（UELink `/rpc`）
@@ -321,7 +337,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.config` | `config`（可省）、`dryRun` | 运行配置（场景根的 `_settings.json`，见「运行配置和阻挡界面」）。不给 `config` 是读：`{path, exists, config, settingsUiWaitTimeoutMs}`；给 `config` 是校验后整份写回（`dryRun: true` 只校验不写），另带 `message`。格式错时报哪一条错了 |
 | `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
-| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录） | 录制状态 |
+| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
 | `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
 | `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |

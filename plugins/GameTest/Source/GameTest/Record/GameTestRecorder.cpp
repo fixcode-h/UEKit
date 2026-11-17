@@ -223,6 +223,8 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	bPickArmed = false;
 	bToolbarPressed = false;
 	Notice.Reset();
+	Shots.Begin(NextShotOptions);
+	NextShotOptions = FGameTestShotOptions();
 
 	// 运行设置 move.hotkeys=false 时不认 Alt+数字（项目自己用这些键）；配置读不了不挡录制，按默认开。
 	bHotkeys = true;
@@ -327,6 +329,7 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 	GameTestHandlerWatch::OnHandled().Remove(HandledHandle);
 	HandledHandle.Reset();
 	bRecording = false;
+	Shots.End();
 
 	OutResult = MakeShared<FJsonObject>();
 	OutResult->SetStringField(TEXT("name"), Name);
@@ -435,6 +438,7 @@ void FGameTestRecorder::Shutdown()
 	GameTestHandlerWatch::OnHandled().Remove(HandledHandle);
 	HandledHandle.Reset();
 	bRecording = false;
+	Shots.End();
 	Steps.Reset();
 	Queue.Reset();
 	UiPress.Reset();
@@ -619,6 +623,10 @@ void FGameTestRecorder::OnHandled(GameTestHandlerWatch::EKind InKind, const Game
 void FGameTestRecorder::OnTick()
 {
 	TickMove();
+	if (bRecording)
+	{
+		Shots.Tick(FPlatformTime::Seconds());
+	}
 	if (!bRecording || Queue.Num() == 0)
 	{
 		return;
@@ -776,6 +784,8 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 		{
 			GameTestSelectorWriter::ToLocalPoint(*Slate, InEvent.Position, Press.At);
 		}
+		// 按下这一刻截图（按钮默认松开才触发，图里是点之前的界面）：写进 hint.shot / screen，点完打开的界面之后补 opened
+		Shots.OnUiPress(Slate, InEvent.Position, Hint);
 		UiPress = Press;
 		return;
 	}
@@ -794,6 +804,16 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 	const TSharedRef<FJsonObject> Press = GameTestRecorderDetail::MakeStep(TEXT("key"));
 	Press->SetStringField(TEXT("key"), InEvent.Key.ToString());
 	Press->SetStringField(TEXT("phase"), TEXT("press"));
+	// 点在游戏画面上也截一块（光标周围），AI 整理时看得出点的是什么
+	if (Shots.IsEnabled())
+	{
+		const TSharedPtr<FJsonObject> ShotHint = MakeShared<FJsonObject>();
+		Shots.OnGamePress(InEvent.Position, ShotHint);
+		if (ShotHint->Values.Num() > 0)
+		{
+			Press->SetObjectField(TEXT("hint"), ShotHint);
+		}
+	}
 	AddStep(Press);
 	FHeldKey Held;
 	Held.Time = InEvent.Time;

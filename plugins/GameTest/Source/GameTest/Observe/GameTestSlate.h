@@ -54,8 +54,17 @@ public:
 	/** WBP 资源路径（`/Game/UI/WBP_Main`）：取控件类所在的包；原生类返回类路径。 */
 	static FString GetAssetPath(const UWidget& InWidget);
 
-	/** 子树里所有 `STextBlock` 的文字拼起来（最多 `InMaxChars` 字），选择器的 `text=` 和录制的 hint 用。 */
+	/**
+	 * 子树里所有文字控件的文字拼起来（最多 `InMaxChars` 字），选择器的 `text=` 用。
+	 * 认 `STextBlock`，以及 UMG 是 UTextBlock / URichTextBlock 的其他文字控件（富文本去掉标记）。
+	 */
 	static FString CollectText(const TSharedPtr<SWidget>& InWidget, int32 InMaxChars = 120);
+
+	/**
+	 * 录制的 `hint.text` 和回放按文字找回用：先收子树；子树里没字时，再收上两层父面板里**叠在这个控件框上**的文字
+	 * （按钮和文字是同一个 Overlay 里的兄弟，常见于游戏 UI）。
+	 */
+	static FString CollectTextNear(const TSharedPtr<SWidget>& InWidget, int32 InMaxChars = 40);
 
 	/**
 	 * 「挂在 Slate 上的子界面」：一个 WBP 实例没有 UMG 父面板（`GetParent()` 为空）、也不是别的 WBP 控件树的根，

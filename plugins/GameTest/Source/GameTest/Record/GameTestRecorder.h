@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Input/GameTestHandlerWatch.h"
+#include "Record/GameTestRecordShot.h"
 
 class FJsonObject;
 class FGameTestRecorderInput;
@@ -51,6 +52,12 @@ public:
 	 * `bInKeepPace`：UI 操作之间的间隔也录成 wait（默认不录，靠回放的自动等待）。
 	 */
 	bool Start(const FString& InName, bool bInStartPie, bool bInKeepPace, FString& OutError);
+
+	/** 下一次 Start 用的截图参数（`gt.record.start` 的 `shots`）；不调就按默认（开）。 */
+	void SetShotOptions(const FGameTestShotOptions& InOptions)
+	{
+		NextShotOptions = InOptions;
+	}
 
 	/** 插一条说明（`mark`），可以顺带截一张图；之后在面板里把它改成断言。 */
 	bool Mark(const FString& InText, bool bInScreenshot, FString& OutError);
@@ -224,4 +231,8 @@ private:
 
 	FDelegateHandle HandledHandle;
 	TSharedPtr<FGameTestRecorderInput> InputProcessor;
+
+	/** 录制截图（GameTestRecordShot）：点击时截控件、界面切换时存整屏缩略图、补 opened。 */
+	FGameTestRecordShots Shots;
+	FGameTestShotOptions NextShotOptions;
 };
