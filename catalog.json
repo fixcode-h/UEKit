@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.6.1",
-        "versionCode": 21,
+        "version": "2.7.0",
+        "versionCode": 22,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.6.1",
-        "asset": "UELink-2.6.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.6.1/UELink-2.6.1-src.zip",
-        "sha256": "90acc128e246cffd8021383fd3ea1c0d2187c7bb03b9847a3e565784f739d42c",
-        "size": 222961,
+        "tag": "UELink-v2.7.0",
+        "asset": "UELink-2.7.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.7.0/UELink-2.7.0-src.zip",
+        "sha256": "8f72c4e89d524b339221b3ad66fc960f93dcb6c0a00b9b41337a28dcc92dc8bc",
+        "size": 226265,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **Lua 声明里 UObject、UClass 不再是空的** — 补上 UnLua 在 C++ 里手写导出、不走反射的常用方法：UObject 的 `Load`、`IsValid`、`GetName`、`GetOuter`、`GetClass`、`GetWorld`、`IsA`、`AddRef`、`RemoveRef`、`Release`，UClass 的 `Load`、`IsChildOf`、`GetDefaultObject`（只在项目开了 UnLua 时写）"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **编辑器就绪状态** — 编辑器主窗口建好、资源注册表扫完、没有正在异步加载的包时，名片写上 `ready: true`（启动时是 `false`）和 `readyAt`，推送 `uelink.ready` 事件，日志打一行「UELink：编辑器已就绪」。面板和 Agent 不用再靠干等判断编辑器能不能用了；新操作 `editor.ready` 能看到还在等什么（主窗口、扫资源、异步加载）和剩多少着色器要编"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-17T03:55:29.903Z"
+  "updatedAt": "2026-11-17T12:49:39.194Z"
 }
