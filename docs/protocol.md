@@ -60,7 +60,7 @@
 | 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open`、`asset.redirectors` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
-| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`editor.spawn`、`editor.destroy` |
+| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
@@ -102,6 +102,11 @@
   - `actors` 是关卡编辑器里选中的 Actor（最多 50 个，`actorCount` 是实际个数）；`assets`、`folders` 是主内容浏览器里选中的（各最多 50 个）；`blueprint` 是最近激活的蓝图编辑器里打开的蓝图和它当前图表里选中的节点（节点 id 和 `bp.graph` 一致），没开蓝图编辑器时没有这个字段。
   - 只读编辑器的选中集合（`USelection`、`IContentBrowserSingleton::GetSelectedAssets`、蓝图编辑器的 `GetSelectedNodes`），不加载资源。
 - `editor.select {"actors"?: [Actor 路径], "assets"?: [资源路径], "focus"?: true}` → `{"actors": 选中了几个, "assets": 几个, "missing": [没找到的路径]}`：在编辑器里选中这些 Actor（`focus` 为 true 时视口对焦过去）、在内容浏览器里定位这些资源。打开资源还是用 `asset.open`。
+- `object.reveal {"path", "action"?: "select"|"open", "focus"?: true}` → `{"did": "actor"|"asset"|"blueprint", "path", "name", "pie"?: true}`（2.10.0 起，只在编辑器进程里有）：给任意对象路径（`GetPathName`），换算成编辑器里能选中、能打开的东西。EmmyLua 调试器变量树右键「在 UE 中选中 / 打开资产」用它，路径取自第 7 节宿主值提供者给的 `hint`。
+  - `select`（默认）：对象是 Actor 或在 Actor 里（组件、子对象）→ 在关卡里选中那个 Actor（`focus` 为 true 时视口对焦，PIE 里的 Actor 回 `"pie": true`）；是资源或资源里的子对象 → 在内容浏览器定位资源；都不是但类是蓝图生成的（UMG 控件、普通 UObject 实例、类默认对象、蓝图类本身）→ 定位它的蓝图。
+  - `open`：资源（含资源里的子对象）打开资源编辑器；Actor、控件这类实例打开它（或外层第一个蓝图类对象）的蓝图。原生类的对象、关卡本身不打开，回错误。
+  - 路径带 `:`（关卡里、Actor 里的子对象）只找内存里的，不按需加载（避免把整张地图加载进来）；资源路径找不到时加载。找不到时回错误说明原因（对象已销毁、PIE 已结束、在另一个进程里）。
+  - 注意：Lua 停在编辑器进程（PIE）的断点上时游戏线程卡在调试器里，`/rpc` 要等继续运行后才执行；客户端自己决定是等还是先提示（EmmyLua 是继续运行后再发）。
 - 推送事件 `uelink.selection`（`features` 里有 `selection`）：关卡里选中的 Actor、内容浏览器选中的资源或文件夹变了时推，最多每 0.3 秒一次，事件字段和 `editor.selection` 的回包一样（不含 `blueprint`：蓝图编辑器的节点选中没有公开的变化通知，要时再调 `editor.selection`）。客户端订阅 `topics` 里写 `uelink.selection`。
 
 2.5.0 起的 Lua 声明（只在编辑器进程里有，代码在 `UELinkLuaDecl.cpp` / `UELinkLuaDeclGen.cpp`）：后台把 UE 反射（原生类、结构体、枚举、蓝图、用户定义结构体 / 枚举）生成 EmmyLua 注解的 Lua 声明文件，给 IDE（IntelliJ-EmmyLua 的 emmylua_ls）做跳转、补全、悬停。**默认关闭**，不需要 UnLua 也能开。
@@ -280,4 +285,5 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 - **怎么接上**：UELink 不链接 emmy，项目也不用改代码。每 2 秒看一眼进程里有没有 emmy runtime 的模块（`emmy_core` / `emmy_debugger_core`，或静态链进了主程序），有并且导出了 `Emmy_RegisterHostValueProviderV2` 就注册；模块卸载或重新注入后重新注册；新版 runtime 还导出 `Emmy_HasHostValueProviderV2`，核心卸载后在同一地址重新加载（模块句柄不变）时靠它发现注册丢了再注册。旧版 runtime 没有这个导出，UELink 什么也不做。
 - **接口**：权威定义在 IntelliJ-EmmyLua 的 `docs/design/variable-view.md` 13.6，UELink 里的副本是 `UELinkCore/Private/UELinkEmmyHostValueAbi.h`，两边要同步改。`describe` 回一行（`valid`、`typeName`、`summary`、`hint`、`kind`、`expandable`），`listChildren` 分页回子项（`total`、`children[]`，每项 `name`、`type`、`value`、`typeName`、`kind`、`attrs`、`hint`、`length`、`expandable`、`childRef`），`releasePause` 在暂停结束时释放这次暂停发出的句柄。
 - **显示什么**：UObject 下面按声明类分组（最派生的在前，组内按声明顺序，和细节面板一致），Actor 多一个「组件」分组，最后是「方法 (UFunction)」（带参数和返回类型）。结构体、`TArray` / `TSet` / `TMap` 分页展开（数组下标从 1 开始，和 UnLua 一致）。软引用只显示路径，不加载。
+- **`hint` 是对象路径**：UObject 的 `describe` 和对象行的 `hint` 是 `GetPathName()` 原文（不截断），IDE 拿它调 `object.reveal`，改格式要和 IntelliJ-EmmyLua 一起改。
 - **安全**：认 Lua 值是哪个 UObject 用 UnLua 的对象表反查，不读 userdata 的内存布局；拿到指针先在活着的对象里确认（`GUObjectArray` + `IsValid`），已销毁的对象只回 `<已失效>`，不读任何属性。只在游戏线程上回答（不在时回 `NEEDS_GAME_THREAD`），GC 进行中不回答。属性内存的句柄只在发出它的那次暂停内有效，每次用之前再确认所属对象还活着。
