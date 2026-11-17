@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.5.1",
-        "versionCode": 17,
+        "version": "2.5.2",
+        "versionCode": 18,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.5.1",
-        "asset": "UELink-2.5.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.5.1/UELink-2.5.1-src.zip",
-        "sha256": "c935219b399ae834d6eceb9868f8950dd7b49cabe16608a3218f88223e163e5c",
-        "size": 220822,
+        "tag": "UELink-v2.5.2",
+        "asset": "UELink-2.5.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.5.2/UELink-2.5.2-src.zip",
+        "sha256": "25e9908d7ab8d1accc58f3c39db30bd174ca08e9e4af3ad03d9881d67932380e",
+        "size": 221494,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **2.5.0 编译不过** — 用户定义结构体的头文件路径写错（`Engine/UserDefinedStruct.h` → `StructUtils/UserDefinedStruct.h`），UELinkEditor 编译报「无法打开包括文件」"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **Lua 声明里 `UE.xxx`、`UnLua.Class()` 跳转不到** — `UE.lua` 改成 `---@class UE` 加每个类型一个字段的写法；补上 `UnLua` 全局（UnLua 自带声明里只有 `_G.UnLua = UnLua`，IDE 不认）；结构体可以直接调用构造（`UE.FVector(1, 2, 3)` 不再报不能调用）；UnLua 自带声明里 `@[opt]` 的参数改成可选，`UnLua.Class()` 不传参数不再报缺参数。更新后打开编辑器会自动重写这些文件"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-16T16:47:46.930Z"
+  "updatedAt": "2026-11-17T01:00:48.111Z"
 }
