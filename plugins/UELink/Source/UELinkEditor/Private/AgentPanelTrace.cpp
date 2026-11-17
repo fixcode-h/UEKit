@@ -14,9 +14,13 @@
 #include "AgentPanelEditorShared.h"
 #include "UELinkCompat.h"
 
+#include "CoreGlobals.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "GenericPlatform/GenericPlatformFile.h"
 #include "HAL/FileManager.h"
+#include "HAL/PlatformFileManager.h"
+#include "HAL/PlatformProcess.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
@@ -29,6 +33,9 @@
 #include "TraceServices/Model/Log.h"
 #include "TraceServices/Model/Threads.h"
 #include "TraceServices/Model/TimingProfiler.h"
+#include "Trace/DataStream.h"
+
+#include <atomic>
 
 using namespace AgentPanel;
 
@@ -43,22 +50,144 @@ namespace
 	/** GPU 泳道在请求里的编号（CPU 泳道用线程 id） */
 	constexpr int32 GpuLane = -1;
 
+	/**
+	 * 一份 trace 的读取进度，分析线程（写）和查询（游戏线程，读）共用，所以全是原子量。
+	 * 录制中（面板说这份文件还在录）读到文件末尾不结束，等新数据接着读，这样只分析一遍、一直追到最新，
+	 * 不像以前文件一变就从头重新分析（录制中文件每秒都在变，网页就永远停在「正在分析」）。
+	 */
+	struct FTraceFollow
+	{
+		/** 已经交给分析器的字节数 */
+		std::atomic<int64> ReadBytes{ 0 };
+		/** 上次看到的文件大小 */
+		std::atomic<int64> FileBytes{ 0 };
+		/** 读到了文件当前的末尾，在等新数据（录制中「已经追上」） */
+		std::atomic<bool> bAtEnd{ false };
+		/** 跟到这个时间（FPlatformTime::Seconds）为止：网页看着时每次查询续一下，没人看了就读完现有数据收尾 */
+		std::atomic<double> FollowUntil{ 0.0 };
+		/** 会话被丢弃 / 编辑器退出：马上结束读取，分析线程才能退出 */
+		std::atomic<bool> bStop{ false };
+
+		bool Following() const { return !bStop.load() && FPlatformTime::Seconds() < FollowUntil.load(); }
+	};
+	using FFollowRef = TSharedRef<FTraceFollow, ESPMode::ThreadSafe>;
+
+	/** 没人查了还跟多久：网页录制中每 1.5–3 秒问一次 info，留足余量；过了就把现有数据读完、分析结束 */
+	constexpr double FollowGrace = 30.0;
+
+	/**
+	 * 给分析器的数据流：从文件读，读到末尾时按 FTraceFollow 决定结束还是等新数据。
+	 * 在分析线程里调用，可以阻塞（Insights 看实时会话也是这样等数据的）；等的时候每 0.1 秒看一眼，停止标志一设就返回。
+	 * 文件句柄的大小在 Windows 上是打开时记下的，追新数据要重新打开才能看到新长度。
+	 */
+	class FFollowStream final : public UE::Trace::IInDataStream
+	{
+	public:
+		FFollowStream(const FString& InPath, FFollowRef InState) : Path(InPath), State(InState) {}
+
+		virtual int32 Read(void* Data, uint32 Size) override
+		{
+			for (;;)
+			{
+				if (State->bStop.load() || IsEngineExitRequested())
+				{
+					return 0;
+				}
+				if (Pos >= Known && !Refresh())
+				{
+					return 0;
+				}
+				if (Pos < Known)
+				{
+					const int64 N = FMath::Min<int64>(Known - Pos, static_cast<int64>(Size));
+					if (!Handle->Read(static_cast<uint8*>(Data), N))
+					{
+						return 0;
+					}
+					Pos += N;
+					State->ReadBytes.store(Pos);
+					State->bAtEnd.store(false);
+					return static_cast<int32>(N);
+				}
+				State->bAtEnd.store(true);
+				if (!State->Following())
+				{
+					return 0;
+				}
+				FPlatformProcess::Sleep(0.1f);
+			}
+		}
+
+		virtual void Close() override { Handle.Reset(); }
+
+	private:
+		/** 重新打开文件拿到最新长度；文件没了（被删）返回 false 结束分析 */
+		bool Refresh()
+		{
+			// 第二个参数 bAllowWrite：引擎还在写这个文件，要允许别人写才打得开
+			Handle.Reset(FPlatformFileManager::Get().GetPlatformFile().OpenRead(*Path, true));
+			if (!Handle.IsValid() || !Handle->Seek(Pos))
+			{
+				return false;
+			}
+			Known = Handle->Size();
+			State->FileBytes.store(Known);
+			return true;
+		}
+
+		FString Path;
+		FFollowRef State;
+		TUniquePtr<IFileHandle> Handle;
+		int64 Pos = 0;
+		int64 Known = 0;
+	};
+
 	struct FEntry
 	{
 		TSharedPtr<const IAnalysisSession> Session;
-		int64 Size = 0;
-		FDateTime Stamp;
+		TSharedPtr<FTraceFollow, ESPMode::ThreadSafe> Follow;
 		double LastUse = 0;
 	};
 
-	/** 分析过的会话：留最近两个（网页来回切两份 trace 时不用重分析），文件变了（还在写）就重新分析 */
-	TMap<FString, FEntry>& Sessions()
+	/** 分析过的会话：留最近两个（网页来回切两份 trace 时不用重分析）。编辑器退出时先叫停读取，分析线程才退得出来 */
+	struct FSessionCache
 	{
-		static TMap<FString, FEntry> Map;
-		return Map;
+		TMap<FString, FEntry> Map;
+		~FSessionCache()
+		{
+			for (TPair<FString, FEntry>& P : Map)
+			{
+				Drop(P.Value);
+			}
+		}
+		static void Drop(FEntry& E)
+		{
+			if (E.Follow.IsValid())
+			{
+				E.Follow->bStop.store(true);
+			}
+		}
+		void Remove(const FString& File)
+		{
+			if (FEntry* E = Map.Find(File))
+			{
+				Drop(*E);
+				Map.Remove(File);
+			}
+		}
+	};
+
+	FSessionCache& Sessions()
+	{
+		static FSessionCache Cache;
+		return Cache;
 	}
 
-	TSharedPtr<const IAnalysisSession> SessionFor(const FString& File, FString& Error)
+	/**
+	 * bLive：面板说这份文件还在录。录制中一直跟着读（只分析一遍，查询时拿到的是已经分析到的部分）；
+	 * 不在录了就读完现有数据收尾。分析完以后文件又变了（换了文件、或者录制中没人看超过 FollowGrace 又打开）才从头再分析。
+	 */
+	TSharedPtr<const IAnalysisSession> SessionFor(const FString& File, bool bLive, FEntry*& OutEntry, FString& Error)
 	{
 		IFileManager& FM = IFileManager::Get();
 		const int64 Size = FM.FileSize(*File);
@@ -67,18 +196,19 @@ namespace
 			Error = FString::Printf(TEXT("trace 文件不存在或是空的：%s"), *File);
 			return nullptr;
 		}
-		const FDateTime Stamp = FM.GetTimeStamp(*File);
-		TMap<FString, FEntry>& Map = Sessions();
-		if (FEntry* Hit = Map.Find(File))
+		FSessionCache& Cache = Sessions();
+		const double Now = FPlatformTime::Seconds();
+		if (FEntry* Hit = Cache.Map.Find(File))
 		{
-			// 文件长了（录制还在写）而上次已经分析完：重新分析一遍；还在分析就继续等它
-			const bool bChanged = Hit->Size != Size || Hit->Stamp != Stamp;
-			if (!bChanged || !Hit->Session->IsAnalysisComplete())
+			Hit->Follow->FollowUntil.store(bLive ? Now + FollowGrace : 0.0);
+			const bool bChanged = Hit->Follow->ReadBytes.load() != Size;
+			if (!Hit->Session->IsAnalysisComplete() || !bChanged)
 			{
-				Hit->LastUse = FPlatformTime::Seconds();
+				Hit->LastUse = Now;
+				OutEntry = Hit;
 				return Hit->Session;
 			}
-			Map.Remove(File);
+			Cache.Remove(File);
 		}
 		ITraceServicesModule& Module = FModuleManager::LoadModuleChecked<ITraceServicesModule>(TEXT("TraceServices"));
 		TSharedPtr<IAnalysisService> Service = Module.GetAnalysisService();
@@ -87,18 +217,23 @@ namespace
 			Error = TEXT("这个引擎的 TraceServices 没有提供分析服务");
 			return nullptr;
 		}
-		// StartAnalysis 在自己的线程里分析，马上返回；查询时没分析完就回 analyzing，网页过一会儿再来
-		TSharedPtr<const IAnalysisSession> Session = Service->StartAnalysis(*File);
+		FFollowRef Follow = MakeShared<FTraceFollow, ESPMode::ThreadSafe>();
+		Follow->FollowUntil.store(bLive ? Now + FollowGrace : 0.0);
+		Follow->FileBytes.store(Size);
+		// StartAnalysis 在自己的线程里分析，马上返回；查询时没分析完就回 analyzing 和已经分析到的部分。
+		// 数据流自己给（不用按文件路径的重载）：那样录制中读到末尾能等新数据，还知道读到了第几个字节
+		TUniquePtr<UE::Trace::IInDataStream> Stream(new FFollowStream(File, Follow));
+		TSharedPtr<const IAnalysisSession> Session = Service->StartAnalysis(0u, *File, MoveTemp(Stream));
 		if (!Session.IsValid())
 		{
 			Error = FString::Printf(TEXT("打不开这份 trace（不是 .utrace，或者是更新版本的引擎录的）：%s"), *File);
 			return nullptr;
 		}
-		while (Map.Num() >= 2)
+		while (Cache.Map.Num() >= 2)
 		{
 			FString Oldest;
 			double OldestUse = TNumericLimits<double>::Max();
-			for (const TPair<FString, FEntry>& P : Map)
+			for (const TPair<FString, FEntry>& P : Cache.Map)
 			{
 				if (P.Value.LastUse < OldestUse)
 				{
@@ -106,13 +241,13 @@ namespace
 					Oldest = P.Key;
 				}
 			}
-			Map.Remove(Oldest);
+			Cache.Remove(Oldest);
 		}
-		FEntry& E = Map.Add(File);
+		FEntry& E = Cache.Map.Add(File);
 		E.Session = Session;
-		E.Size = Size;
-		E.Stamp = Stamp;
-		E.LastUse = FPlatformTime::Seconds();
+		E.Follow = Follow;
+		E.LastUse = Now;
+		OutEntry = &E;
 		return Session;
 	}
 
@@ -307,6 +442,21 @@ namespace
 		Out->SetArrayField(TEXT("threads"), Threads);
 		const IFrameProvider& FP = ReadFrameProvider(S);
 		Out->SetNumberField(TEXT("frames"), static_cast<double>(FP.GetFrameCount(TraceFrameType_Game)));
+	}
+
+	/** 第一个游戏帧的开始时间（秒）；还没有帧时是 0 */
+	double FirstFrameTime(const IAnalysisSession& S)
+	{
+		const IFrameProvider& FP = ReadFrameProvider(S);
+		double T = 0;
+		if (FP.GetFrameCount(TraceFrameType_Game) > 0)
+		{
+			FP.EnumerateFrames(TraceFrameType_Game, uint64(0), uint64(1), [&](const TraceServices::FFrame& F)
+			{
+				T = Fin(F.StartTime);
+			});
+		}
+		return T;
 	}
 
 	void QueryFrames(const IAnalysisSession& S, TSharedPtr<FJsonObject>& Out)
@@ -917,8 +1067,11 @@ namespace AgentPanelEd
 		{
 			const FString File = FPaths::ConvertRelativePathToFull(Str(A, TEXT("file")));
 			const FString What = Str(A, TEXT("what"), TEXT("info"));
-			TSharedPtr<const IAnalysisSession> Session = SessionFor(File, Error);
-			if (!Session.IsValid())
+			bool bLive = false;
+			A->TryGetBoolField(TEXT("live"), bLive);
+			FEntry* Entry = nullptr;
+			TSharedPtr<const IAnalysisSession> Session = SessionFor(File, bLive, Entry, Error);
+			if (!Session.IsValid() || !Entry)
 			{
 				return false;
 			}
@@ -928,6 +1081,20 @@ namespace AgentPanelEd
 			const bool bDone = S.IsAnalysisComplete();
 			Out->SetBoolField(TEXT("analyzing"), !bDone);
 			Out->SetNumberField(TEXT("duration"), S.GetDurationSeconds());
+			// 读取进度（2.8.1）：没分析完时网页显示「已读 X / Y MB」，录制中追上了（caughtUp）就先把已有的部分显示出来
+			Out->SetNumberField(TEXT("readBytes"), static_cast<double>(Entry->Follow->ReadBytes.load()));
+			Out->SetNumberField(TEXT("fileBytes"), static_cast<double>(Entry->Follow->FileBytes.load()));
+			if (!bDone && Entry->Follow->Following())
+			{
+				Out->SetBoolField(TEXT("live"), true);
+			}
+			if (Entry->Follow->bAtEnd.load())
+			{
+				Out->SetBoolField(TEXT("caughtUp"), true);
+			}
+			// 第一帧的开始时间（2.8.1）：trace 的时间从进程启动算，录制中途才开始时第一帧在几百上千秒处，
+			// 面板按它把时间换成「从录制开始算」（以前网页的「已分析到第 1700 秒」其实是编辑器开了 28 分钟）
+			Out->SetNumberField(TEXT("origin"), FirstFrameTime(S));
 			if (What == TEXT("info"))
 			{
 				QueryInfo(S, Out);
