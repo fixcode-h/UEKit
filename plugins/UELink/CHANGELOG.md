@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.9.1
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### Bug 修复
+- **UE 5.8 上 UELinkCore 链接失败** — 2.9.0 新加的 Lua trace 通道用到 TraceLog 模块，模块依赖里漏了它，链接时报找不到 `FChannel::Setup`（LNK2019）；补上依赖
+
 ## v2.9.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
