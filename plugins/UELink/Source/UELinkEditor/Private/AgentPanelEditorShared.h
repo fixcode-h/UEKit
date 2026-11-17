@@ -102,4 +102,9 @@ namespace AgentPanelEd
 	void RegisterSelectionOps();
 	void StartSelectionPush();
 	void StopSelectionPush();
+	/** 2.7：编辑器就绪（UELinkEditorReady.cpp）：名片 ready 字段、uelink.ready 事件、editor.ready 操作 */
+	void PresetEditorReady();
+	void RegisterEditorReadyOps();
+	void StartEditorReady();
+	void StopEditorReady();
 }

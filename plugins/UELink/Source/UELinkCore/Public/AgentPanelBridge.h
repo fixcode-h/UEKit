@@ -64,6 +64,12 @@ public:
 	 */
 	void SetCardField(const FString& Name, const TSharedPtr<FJsonValue>& Value);
 
+	/**
+	 * 只记下名片字段、不写名片（2.7）：给引擎初始化前就要定下的字段用（编辑器的 ready: false），
+	 * 等 Start 第一次写名片时一起带上。不在这里定进程类型，免得游戏进程被写成 editor
+	 */
+	void PresetCardField(const FString& Name, const TSharedPtr<FJsonValue>& Value) { CardExtra.Add(Name, Value); }
+
 	/** 本次启动的令牌（推送通道用同一个令牌认新客户端） */
 	const FString& GetToken() const { return Token; }
 

@@ -27,9 +27,17 @@
   "protocol": 2,               // 推送通道协议号
   "features": ["log", "tests", "liveCoding"],
   "token": "…",                // 本次启动随机生成，HTTP 和推送通道都用它
-  "startedAt": "2026-11-14T02:00:00.000Z"
+  "startedAt": "2026-11-14T02:00:00.000Z",
+  "ready": true,               // 2.7 起只有编辑器进程有：编辑器可用了没有，见下
+  "readyAt": "2026-11-14T02:01:30.000Z"
 }
 ```
+
+- **编辑器就绪**（2.7 起，`features` 里有 `editorReady`）：名片出现只说明引擎初始化完、HTTP 服务起来了，这时编辑器主窗口可能还没出来、资源注册表还在扫盘。编辑器进程的名片一开始就带 `"ready": false`，主窗口建好、资源注册表扫完、没有正在异步加载的包（连续两次检查，每 0.5 秒一次）后改成 `true` 并写 `readyAt`，之后不再回退。同时推送事件 `uelink.ready {"ready": true, "readyAt", "seconds"}`（`seconds` 是从进程启动算起的秒数），日志打一行 `UELink：编辑器已就绪（启动 N 秒）`。`GET /info` 也带 `ready` / `readyAt`。
+  - 着色器、资源编译不算在就绪里（编辑器边编边能用），`editor.ready` 的回包里报剩多少，客户端自己决定等不等。
+  - 客户端：名片**没有** `ready` 字段的是 2.7 以前的 UELink、后台编辑器或 `-game` 进程，名片出现就当可用；有 `ready: false` 时等它变 `true`。
+  - 编辑器在同步加载、编着色器时游戏线程卡住，HTTP 和推送通道都暂时不回应（连接可能超时，也可能被直接拒绝），只要 `pid` 还活着就当「忙」，不要判成启动失败。
+  - `editor.ready` → `{"ready", "readyAt"?, "readySeconds"?, "waiting"?: "mainFrame|assetRegistry|asyncLoading", "seconds", "mainFrame", "assetsLoading", "asyncLoading", "shadersLeft", "assetsCompiling"}`；只在编辑器进程里有。
 
 - 进程退出时删名片；客户端读到名片后还要确认 `pid` 还活着（崩溃时名片会留下）。
 - 名片只写在 `Saved/UELink/instances/`。2.0 的兼容层（同一张名片再写一份到 `Saved/AgentPanel/instances/`、推送通道端口写到 `Saved/UEToVSLink/port.txt`）在 2.1 去掉了：客户端要 Agent 面板 UE 插件 0.11.0、UEToVS 0.6.0 及以上。
