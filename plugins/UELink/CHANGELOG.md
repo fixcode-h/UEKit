@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.6.1
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### 改进
+- **Lua 声明里 UObject、UClass 不再是空的** — 补上 UnLua 在 C++ 里手写导出、不走反射的常用方法：UObject 的 `Load`、`IsValid`、`GetName`、`GetOuter`、`GetClass`、`GetWorld`、`IsA`、`AddRef`、`RemoveRef`、`Release`，UClass 的 `Load`、`IsChildOf`、`GetDefaultObject`（只在项目开了 UnLua 时写）
+
 ## v2.6.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
