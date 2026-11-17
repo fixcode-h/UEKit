@@ -50,3 +50,27 @@
 #else
 #define UELINK_DRAW_STATS 0
 #endif
+
+// ---------- Lua 函数进 Unreal Insights trace（2.9.0，AgentPanelLuaTrace.cpp / AgentPanelTraceLua.cpp） ----------
+// 下面这些在 5.4 上按引擎源码写，5.8 还没在本地编过；签名对不上时只改这里。
+// 用的文件：ProfilingDebugging/CpuProfilerTrace.h、CountersTrace.h、TraceAuxiliary.h，Trace/Trace.h（都在 Core / TraceLog）。
+
+// 注册一个 CPU 计时器（名字、文件、行号），返回 spec id：Name 是 TCHAR*，File 是 ANSICHAR*（引擎原样写进 trace），Line 是 uint32
+#define UELINK_CPU_EVENT_TYPE(Name, File, Line) FCpuProfilerTrace::OutputEventType((Name), (File), static_cast<uint32>(Line))
+#define UELINK_CPU_BEGIN(SpecId) FCpuProfilerTrace::OutputBeginEvent(SpecId)
+#define UELINK_CPU_END() FCpuProfilerTrace::OutputEndEvent()
+// 通道开没开（通道开关没有回调，只能读这个布尔）
+#define UELINK_TRACE_CHANNEL_ON(Channel) UE_TRACE_CHANNELEXPR_IS_ENABLED(Channel)
+// 开始 / 停止录制的委托（多播；参数个数各版本不一样，绑定处用不看参数的泛型 lambda）和「现在是不是在录」
+#define UELINK_TRACE_ON_STARTED FTraceAuxiliary::OnTraceStarted
+#define UELINK_TRACE_ON_STOPPED FTraceAuxiliary::OnTraceStopped
+#define UELINK_TRACE_IS_RECORDING() FTraceAuxiliary::IsConnected()
+// 每帧计数器：名字是固定的字符串，声明一次（命名空间作用域），每帧 Set 一次；只有 counters 通道开着时引擎才写进 trace
+#define UELINK_TRACE_FLOAT_COUNTER(Var, DisplayName) TRACE_DECLARE_FLOAT_COUNTER(Var, DisplayName)
+#define UELINK_TRACE_INT_COUNTER(Var, DisplayName) TRACE_DECLARE_INT_COUNTER(Var, DisplayName)
+#define UELINK_TRACE_COUNTER_SET(Var, Value) TRACE_COUNTER_SET(Var, Value)
+// 分析端（编辑器模块）：TraceServices 计时器结构上的源文件和行号（OutputEventType 写进去的那两个）
+#define UELINK_TIMER_FILE(TimerPtr) ((TimerPtr)->File)
+#define UELINK_TIMER_LINE(TimerPtr) ((TimerPtr)->Line)
+// 计时器总数（luainfo 遍历全部计时器用）
+#define UELINK_TIMER_COUNT(ReaderPtr) ((ReaderPtr)->GetTimerCount())

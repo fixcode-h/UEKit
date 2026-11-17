@@ -503,6 +503,7 @@ public:
 	{
 		UELINK_POST_ENGINE_INIT.Remove(PostInit);
 		AgentPanelUnregisterEmmyValues();
+		AgentPanelUnregisterLuaTrace();
 		FAgentPanelBridge::Get().Stop();
 	}
 

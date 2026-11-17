@@ -32,6 +32,7 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge&) {}
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelLog.h"
 #include "AgentPanelLuaShared.h"
+#include "AgentPanelLuaTrace.h"
 #include "Containers/Ticker.h"
 #include "HAL/FileManager.h"
 #include "Internationalization/Regex.h"
@@ -843,6 +844,8 @@ void FAgentPanelLua::CaptureError(lua_State* L, const FString& Message)
 	{
 		return;
 	}
+	// 2.9.0：录 trace 时先把这次报错跳出去的 Lua 帧收尾（报错跳出没有返回事件，不收尾时间轴会错位）
+	AgentPanelLuaTrace::OnLuaError(L);
 	const int Top = lua_gettop(L);
 	luaL_traceback(L, L, nullptr, 1);
 	size_t N = 0;

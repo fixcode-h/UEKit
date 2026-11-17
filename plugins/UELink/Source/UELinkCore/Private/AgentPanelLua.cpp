@@ -34,6 +34,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 	AgentPanelRegisterLuaDevOps(B);
 	AgentPanelRegisterLuaDebugOps(B);
 	AgentPanelRegisterEmmyValues();
+	AgentPanelRegisterLuaTrace();
 }
 void AgentPanelLuaInfo(const TSharedPtr<FJsonObject>&) {}
 
@@ -1258,6 +1259,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 	AgentPanelRegisterLuaDevOps(B);
 	AgentPanelRegisterLuaDebugOps(B);
 	AgentPanelRegisterEmmyValues();
+	AgentPanelRegisterLuaTrace();
 }
 
 #endif
