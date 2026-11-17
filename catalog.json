@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.8.0",
-        "versionCode": 23,
+        "version": "2.8.1",
+        "versionCode": 24,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.8.0",
-        "asset": "UELink-2.8.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.8.0/UELink-2.8.0-src.zip",
-        "sha256": "bf94eb22f9b38bfd205d0686297ee0acb019b89efb90ed01f3841fb2d064747d",
-        "size": 229010,
+        "tag": "UELink-v2.8.1",
+        "asset": "UELink-2.8.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.8.1/UELink-2.8.1-src.zip",
+        "sha256": "1c5221cf56fec3c5586eb1f9fce7adb1e721e271d4ede08e24a70bd96e3210f4",
+        "size": 231220,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **给扩展插件读 Lua 实例表字段** — 新的 C++ 接口 `FAgentPanelLua::ReadFields`：只读对象 Lua 表上自己的字段（不走元表、不调函数），GameTest 录制列表条目时用它找能认出条目的 Lua 字段（如 `self.Data.cfgId`）\n\n### Bug 修复\n- **Lua 操作不再在 Lua 栈上留东西** — 以前每次 Lua 相关的操作都在主线程栈上多留一格，调用多了栈会一直涨"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **录制中的 trace 能实时看了** — 以前录制中的文件一直在变，每次查询都从头重新分析整个文件，网页永远停在「正在分析」；现在只分析一遍并跟着文件往下读，已经分析到的部分马上能看，新录的数据几秒内跟上（`trace.query` 的 `live`，见协议文档）\n- **trace 的时间从录制开始算** — 回包加 `origin`（第一帧的时间）和读取进度 `readBytes` / `fileBytes`：录制中途才开始时 trace 的时间是从编辑器启动算的，以前「已分析到第 1700 秒」其实是编辑器开了 28 分钟"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-17T15:51:24.986Z"
+  "updatedAt": "2026-11-17T15:55:50.173Z"
 }
