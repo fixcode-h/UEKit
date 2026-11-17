@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 struct FGameTestWidgetNode;
+class UListView;
 
 /**
  * 选择器：把一段文本解析成"树里的哪个控件"。
@@ -59,6 +60,12 @@ public:
 		TSharedPtr<FGameTestWidgetNode>& OutNode,
 		FString& OutError,
 		TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
+
+	/**
+	 * 上一次解析失败是不是因为 `列表[...]` 指向的条目还没生成（虚拟化列表没滚到）：是的话交出列表和序号并清掉记录。
+	 * 解析本身不滚（`gt.resolve` 只看不动）；回放的 UI 动作拿它把条目滚出来再等（GameTestAutoScroll）。
+	 */
+	static bool TakeUngeneratedEntry(TWeakObjectPtr<UListView>& OutList, int32& OutIndex, FString& OutListPath);
 
 	/** 解析 + 一步到位（`Resolve` 的便捷包装；@句柄 由调用方处理）。 */
 	static bool ResolveText(

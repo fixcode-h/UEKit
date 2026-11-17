@@ -406,6 +406,18 @@ namespace GameTestSelectorWriterDetail
 			Rect.Add(MakeShared<FJsonValueNumber>(Round3(Size.Y)));
 			Hint->SetArrayField(TEXT("rect"), Rect);
 		}
+		// 录制时视口的像素尺寸：回放时屏幕比例不同，按位置挑要放宽（GameTestHintPick）。
+		if (const TSharedPtr<SWidget> Viewport = GameTestSlate::GetGameViewportWidget())
+		{
+			const FVector2D ViewSize = FVector2D(Viewport->GetCachedGeometry().GetAbsoluteSize());
+			if (ViewSize.X >= 1.0 && ViewSize.Y >= 1.0)
+			{
+				TArray<TSharedPtr<FJsonValue>> Vp;
+				Vp.Add(MakeShared<FJsonValueNumber>(FMath::RoundToDouble(ViewSize.X)));
+				Vp.Add(MakeShared<FJsonValueNumber>(FMath::RoundToDouble(ViewSize.Y)));
+				Hint->SetArrayField(TEXT("vp"), Vp);
+			}
+		}
 		return Hint;
 	}
 

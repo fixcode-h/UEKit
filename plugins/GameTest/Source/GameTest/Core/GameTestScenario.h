@@ -45,6 +45,8 @@ struct GAMETEST_API FGameTestScenarioRun
 	int32 UiWaitTimeoutMs = -1;
 	/** 场景自己的点击方式（code / pointer）；空表示按运行配置。 */
 	FString ClickVia;
+	/** 场景写了 `"setup": false`：不跑运行配置里的前置步骤（专门测新号、测引导本身的场景）。 */
+	bool bSkipSetup = false;
 };
 
 /**

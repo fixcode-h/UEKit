@@ -75,7 +75,8 @@ TSharedPtr<FJsonObject> GameTestHistory::MakeEntry(const FGameTestReport& InRepo
 		if (Record.Status == EGameTestStepStatus::Failed)
 		{
 			// 第几步（从 1 数，和面板、报告里说的一致）和原因
-			Entry->SetNumberField(TEXT("failedStep"), Record.Step.Index + 1);
+			// 前置步骤失败记成第 0 步：场景本身一步都没跑
+			Entry->SetNumberField(TEXT("failedStep"), Record.Step.bSetup ? 0 : Record.Step.Index + 1);
 			Entry->SetStringField(TEXT("message"), Record.Message.Left(HistoryMaxMessageChars));
 			break;
 		}

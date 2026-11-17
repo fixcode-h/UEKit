@@ -100,6 +100,32 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		return false;
 	}
 
+	int32 Seed = 0;
+	if (InJson.HasField(TEXT("randomSeed")))
+	{
+		if (!GameTestJson::TryGetInt(InJson, TEXT("randomSeed"), Seed))
+		{
+			OutError = TEXT("randomSeed 要写整数（不固定就删掉这一项）");
+			return false;
+		}
+		OutConfig.RandomSeed = Seed;
+	}
+
+	// 前置步骤只检查是不是对象：动作和字段由开跑时的步骤解析检查（和场景步骤同一套，报错带「前置第 N 步」）。
+	if (const TArray<TSharedPtr<FJsonValue>>* SetupItems = GameTestJson::TryGetArray(InJson, TEXT("setup")))
+	{
+		for (int32 Index = 0; Index < SetupItems->Num(); ++Index)
+		{
+			const TSharedPtr<FJsonObject>* Object = nullptr;
+			if (!(*SetupItems)[Index].IsValid() || !(*SetupItems)[Index]->TryGetObject(Object) || Object == nullptr || !Object->IsValid())
+			{
+				OutError = FString::Printf(TEXT("前置步骤第 %d 条不是对象（要写成 {\"action\": ...}）"), Index + 1);
+				return false;
+			}
+			OutConfig.Setup.Add(*Object);
+		}
+	}
+
 	const TArray<TSharedPtr<FJsonValue>>* Items = GameTestJson::TryGetArray(InJson, TEXT("blockers"));
 	if (Items == nullptr)
 	{
@@ -169,6 +195,19 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (!InConfig.ClickVia.IsEmpty())
 	{
 		Json->SetStringField(TEXT("clickVia"), InConfig.ClickVia);
+	}
+	if (InConfig.RandomSeed.IsSet())
+	{
+		Json->SetNumberField(TEXT("randomSeed"), InConfig.RandomSeed.GetValue());
+	}
+	if (InConfig.Setup.Num() > 0)
+	{
+		TArray<TSharedPtr<FJsonValue>> SetupItems;
+		for (const TSharedPtr<FJsonObject>& Step : InConfig.Setup)
+		{
+			SetupItems.Add(MakeShared<FJsonValueObject>(Step));
+		}
+		Json->SetArrayField(TEXT("setup"), SetupItems);
 	}
 	TArray<TSharedPtr<FJsonValue>> Items;
 	for (const FGameTestBlockerRule& Rule : InConfig.Blockers)

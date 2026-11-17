@@ -5,6 +5,7 @@
 #include "Core/GameTestJson.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSlate.h"
+#include "Observe/GameTestTextMatch.h"
 #include "Observe/GameTestWidgetNode.h"
 
 #include "Components/Widget.h"
@@ -19,6 +20,50 @@ namespace GameTestHintPickDetail
 
 	/** 最近的和第二近的至少差这么多才挑：两个都差不多近时说明线索分不开，宁可报错。 */
 	constexpr double MinRectMargin = 0.02;
+
+	/** 录制和回放的视口宽高比差超过这么多，算换了屏幕比例（16:9 录、4:3 或带刘海的屏上放）。 */
+	constexpr double AspectTolerance = 0.03;
+
+	/** 比例变了时位置只比中心，允许的偏差放宽到这么多：锚在边上的控件会整体挪一截。 */
+	constexpr double MaxRectDistanceAspectChanged = 0.15;
+
+	/** 录制时的视口像素 `hint.vp: [宽, 高]`；老录制没有。 */
+	bool ReadViewport(const FJsonObject& InHint, FVector2D& OutSize)
+	{
+		const TArray<TSharedPtr<FJsonValue>>* Values = GameTestJson::TryGetArray(InHint, TEXT("vp"));
+		if (Values == nullptr || Values->Num() != 2 || !(*Values)[0].IsValid() || !(*Values)[1].IsValid())
+		{
+			return false;
+		}
+		OutSize = FVector2D((*Values)[0]->AsNumber(), (*Values)[1]->AsNumber());
+		return OutSize.X >= 1.0 && OutSize.Y >= 1.0;
+	}
+
+	/** 此刻游戏视口的像素尺寸。 */
+	bool CurrentViewport(FVector2D& OutSize)
+	{
+		const TSharedPtr<SWidget> Viewport = GameTestSlate::GetGameViewportWidget();
+		if (!Viewport.IsValid())
+		{
+			return false;
+		}
+		OutSize = FVector2D(Viewport->GetCachedGeometry().GetAbsoluteSize());
+		return OutSize.X >= 1.0 && OutSize.Y >= 1.0;
+	}
+
+	/** 录制时和现在的宽高比差得多不多（没录视口、取不到视口都当没变）。 */
+	bool AspectChanged(const FJsonObject& InHint)
+	{
+		FVector2D Recorded;
+		FVector2D Now;
+		if (!ReadViewport(InHint, Recorded) || !CurrentViewport(Now))
+		{
+			return false;
+		}
+		const double Want = Recorded.X / Recorded.Y;
+		const double Have = Now.X / Now.Y;
+		return FMath::Abs(Have - Want) / Want > AspectTolerance;
+	}
 
 	struct FCandidate
 	{
@@ -241,27 +286,33 @@ bool GameTestHintPick::Pick(
 		return true;
 	}
 
-	// 2. 文字完全一样的优先；一个都对不上（换了语言）就不按文字筛。
+	// 2. 按文字挑：完全一样 > 忽略数字和标点后一样 > 包含（GameTestTextMatch），只留最高那一档；
+	//    一个都对不上（换了语言）就不按文字筛。
 	FString Text;
 	if (GameTestJson::TryGetString(InHint, TEXT("text"), Text) && !Text.IsEmpty())
 	{
-		TArray<FCandidate> SameText;
+		TArray<FString> Texts;
 		for (const FCandidate& Candidate : OnScreen)
 		{
-			if (GameTestSlate::CollectText(Candidate.Slate, 40).Equals(Text))
-			{
-				SameText.Add(Candidate);
-			}
+			Texts.Add(GameTestSlate::CollectText(Candidate.Slate, 40));
 		}
-		if (SameText.Num() == 1)
+		TArray<int32> Hits;
+		const GameTestTextMatch::ETier Tier = GameTestTextMatch::FilterBest(Text, Texts, Hits);
+		if (Hits.Num() == 1)
 		{
-			OutNode = SameText[0].Node;
-			OutNote = FString::Printf(TEXT("选择器命中 %d 个，按录制时的文字「%s」挑了 %s"), InCandidates.Num(), *Text, *SameText[0].Node->Path);
+			OutNode = OnScreen[Hits[0]].Node;
+			OutNote = FString::Printf(TEXT("选择器命中 %d 个，按录制时的文字「%s」挑了 %s（%s）"), InCandidates.Num(), *Text,
+				*OutNode->Path, GameTestTextMatch::Describe(Tier));
 			return true;
 		}
-		if (SameText.Num() > 1)
+		if (Hits.Num() > 1)
 		{
-			OnScreen = MoveTemp(SameText);
+			TArray<FCandidate> Kept;
+			for (const int32 Hit : Hits)
+			{
+				Kept.Add(OnScreen[Hit]);
+			}
+			OnScreen = MoveTemp(Kept);
 		}
 	}
 
@@ -273,20 +324,27 @@ bool GameTestHintPick::Pick(
 		OutWhy = FString::Printf(TEXT("屏上有 %d 个候选，录制线索里没有位置（rect），分不出是哪一个"), OnScreen.Num());
 		return false;
 	}
+	// 屏幕比例变了（录制带了 vp 才知道）：归一化坐标会整体挪，尺寸也跟着比例变，只比中心、放宽偏差。
+	const bool bAspectChanged = AspectChanged(InHint);
+	const double MaxDistance = bAspectChanged ? MaxRectDistanceAspectChanged : MaxRectDistance;
 	const FVector2D WantCenter = WantMin + WantSize * 0.5;
 	for (FCandidate& Candidate : OnScreen)
 	{
 		const FVector2D Center = Candidate.Min + Candidate.Size * 0.5;
-		Candidate.Distance = FMath::Abs(Center.X - WantCenter.X) + FMath::Abs(Center.Y - WantCenter.Y)
-			+ 0.5 * (FMath::Abs(Candidate.Size.X - WantSize.X) + FMath::Abs(Candidate.Size.Y - WantSize.Y));
+		Candidate.Distance = FMath::Abs(Center.X - WantCenter.X) + FMath::Abs(Center.Y - WantCenter.Y);
+		if (!bAspectChanged)
+		{
+			Candidate.Distance += 0.5 * (FMath::Abs(Candidate.Size.X - WantSize.X) + FMath::Abs(Candidate.Size.Y - WantSize.Y));
+		}
 	}
 	OnScreen.Sort([](const FCandidate& InLeft, const FCandidate& InRight) { return InLeft.Distance < InRight.Distance; });
 
 	const FCandidate& Best = OnScreen[0];
-	if (Best.Distance > MaxRectDistance)
+	if (Best.Distance > MaxDistance)
 	{
-		OutWhy = FString::Printf(TEXT("屏上有 %d 个候选，离录制时的位置（%.3f, %.3f）最近的 %s 也差 %.3f，界面布局可能变了"),
-			OnScreen.Num(), WantMin.X, WantMin.Y, *DescribePick(Best), Best.Distance);
+		OutWhy = FString::Printf(TEXT("屏上有 %d 个候选，离录制时的位置（%.3f, %.3f）最近的 %s 也差 %.3f%s，界面布局可能变了"),
+			OnScreen.Num(), WantMin.X, WantMin.Y, *DescribePick(Best), Best.Distance,
+			bAspectChanged ? TEXT("（屏幕比例和录制时不同，已经放宽）") : TEXT(""));
 		return false;
 	}
 	if (OnScreen.Num() > 1 && OnScreen[1].Distance - Best.Distance < MinRectMargin)
@@ -297,7 +355,8 @@ bool GameTestHintPick::Pick(
 	}
 
 	OutNode = Best.Node;
-	OutNote = FString::Printf(TEXT("选择器命中 %d 个，按录制时的位置挑了 %s（偏差 %.3f）"), InCandidates.Num(), *Best.Node->Path, Best.Distance);
+	OutNote = FString::Printf(TEXT("选择器命中 %d 个，按录制时的位置挑了 %s（偏差 %.3f%s）"), InCandidates.Num(), *Best.Node->Path, Best.Distance,
+		bAspectChanged ? TEXT("，屏幕比例和录制时不同，只比中心") : TEXT(""));
 	return true;
 }
 
@@ -321,8 +380,9 @@ bool GameTestHintPick::Rematch(
 	{
 		return false;
 	}
+	// 原位置上的文字按三档里任一档对得上（数字、红点变了）就算没换位置，不动。
 	const FString NowText = TextOf(*InOutNode);
-	if (NowText.Equals(WantText))
+	if (GameTestTextMatch::Compare(WantText, NowText) != GameTestTextMatch::ETier::None)
 	{
 		return false;
 	}
@@ -340,8 +400,9 @@ bool GameTestHintPick::Rematch(
 	for (int32 Slot = Positionals.Num() - 1; Slot >= 0; --Slot)
 	{
 		const FPositional& Positional = Positionals[Slot];
-		TArray<TSharedPtr<FGameTestWidgetNode>> Matches;
-		TArray<int32> MatchIndices;
+		TArray<TSharedPtr<FGameTestWidgetNode>> Siblings;
+		TArray<int32> SiblingIndices;
+		TArray<FString> SiblingTexts;
 		for (int32 Index = 0; Index < MaxSiblingTries; ++Index)
 		{
 			if (Index == Positional.Index)
@@ -357,16 +418,27 @@ bool GameTestHintPick::Rematch(
 			{
 				continue;
 			}
-			if (!IsOnScreen(SlateOfNode(*Node)) || !TextOf(*Node).Equals(WantText))
+			if (!IsOnScreen(SlateOfNode(*Node)))
 			{
 				continue;
 			}
-			Matches.Add(Node);
-			MatchIndices.Add(Index);
+			Siblings.Add(Node);
+			SiblingIndices.Add(Index);
+			SiblingTexts.Add(TextOf(*Node));
 		}
-		if (Matches.Num() == 0)
+		// 兄弟里按三档挑最高的一档：有完全一样的就不看忽略数字的，免得「领取(3)」抢了「领取」。
+		TArray<int32> Hits;
+		const GameTestTextMatch::ETier Tier = GameTestTextMatch::FilterBest(WantText, SiblingTexts, Hits);
+		if (Hits.Num() == 0)
 		{
 			continue;
+		}
+		TArray<TSharedPtr<FGameTestWidgetNode>> Matches;
+		TArray<int32> MatchIndices;
+		for (const int32 Hit : Hits)
+		{
+			Matches.Add(Siblings[Hit]);
+			MatchIndices.Add(SiblingIndices[Hit]);
 		}
 
 		const FString Segment = SegmentsOf(Parsed, Positional.Hop)[Positional.Segment];
@@ -388,8 +460,8 @@ bool GameTestHintPick::Rematch(
 			}
 		}
 
-		OutNote = FString::Printf(TEXT("录制时 %s 的文字是「%s」，现在那个位置是「%s」（容器里的顺序变了）；同容器里文字对得上的是第 %d 个，点它：%s"),
-			*Segment, *WantText, *NowText.Left(40), MatchIndices[Chosen], *Matches[Chosen]->Path);
+		OutNote = FString::Printf(TEXT("录制时 %s 的文字是「%s」，现在那个位置是「%s」（容器里的顺序变了）；同容器里第 %d 个对得上（%s），点它：%s"),
+			*Segment, *WantText, *NowText.Left(40), MatchIndices[Chosen] + 1, GameTestTextMatch::Describe(Tier), *Matches[Chosen]->Path);
 		InOutNode = Matches[Chosen];
 		return true;
 	}

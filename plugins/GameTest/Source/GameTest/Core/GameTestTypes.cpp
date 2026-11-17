@@ -20,6 +20,11 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 {
 	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
 	Json->SetNumberField(TEXT("index"), Step.Index);
+	if (Step.bSetup)
+	{
+		// 前置步骤的 index 是它在前置步骤里的序号：面板按这个字段把它们和场景步骤分开显示。
+		Json->SetBoolField(TEXT("setup"), true);
+	}
 	Json->SetStringField(TEXT("action"), Step.Action.ToString());
 	Json->SetStringField(TEXT("status"), GameTestStatus::ToString(Status));
 	Json->SetStringField(TEXT("message"), Message);
