@@ -272,6 +272,15 @@ private:
 	FString ClickVia;
 	TSharedPtr<FJsonObject> MoveDefaults;
 
+	/** UI 操作间隔（毫秒），见 FGameTestRunRequest::UiStepGapMs。 */
+	int32 UiStepGapMs = 0;
+
+	/** 上一个 UI 操作结束的时刻；还没做过 UI 操作时 < 0。 */
+	double LastUiStepEndedAt = -1.0;
+
+	/** 下一步是 UI 操作、离上一个 UI 操作还不到 UiStepGapMs 时，把 NextStepNotBefore 推后并返回 true。 */
+	bool HoldForUiGap(double InNowSeconds);
+
 	/** AddStepEvent 攒下的事件：键 → 事件列表，下一步结束时并进它的 Payload。 */
 	TMap<FString, TArray<TSharedPtr<FJsonValue>>> PendingStepEvents;
 };

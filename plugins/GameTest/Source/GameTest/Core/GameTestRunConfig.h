@@ -42,7 +42,7 @@ struct GAMETEST_API FGameTestBlockerRule
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
  * ```json
- * { "uiWaitTimeoutMs": 0, "clickVia": "code", "randomSeed": 42,
+ * { "uiWaitTimeoutMs": 0, "uiStepGapMs": 1000, "clickVia": "code", "randomSeed": 42,
  *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
  *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
@@ -54,6 +54,11 @@ struct GAMETEST_API FGameTestRunConfig
 {
 	/** UI 等待上限（毫秒，0 = 不限）；-1 表示没写，按项目设置。 */
 	int32 UiWaitTimeoutMs = -1;
+	/**
+	 * 相邻两个 UI 操作之间至少隔多久（毫秒，0 = 不隔）；-1 表示没写，按默认 1000。
+	 * 和录制时的手速无关：录制的场景 stepDelayMs 写 0，真人点得快时回放会快到界面还没反应过来。
+	 */
+	int32 UiStepGapMs = -1;
 	/** click 没写 via 时的点击方式：code / pointer；空表示默认（code）。 */
 	FString ClickVia;
 	TArray<FGameTestBlockerRule> Blockers;
@@ -89,4 +94,10 @@ public:
 	static bool Save(const FGameTestRunConfig& InConfig, FString& OutError);
 
 	static const TCHAR* ActionName(EGameTestBlockerAction InAction);
+
+	/** 没写 uiStepGapMs 时的 UI 操作间隔（毫秒）。 */
+	static constexpr int32 DefaultUiStepGapMs = 1000;
+
+	/** uiStepGapMs 的上限（毫秒）：再长就该写 wait 了。 */
+	static constexpr int32 MaxUiStepGapMs = 60000;
 };

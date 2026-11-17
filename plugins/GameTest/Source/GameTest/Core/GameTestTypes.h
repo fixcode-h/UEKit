@@ -146,6 +146,11 @@ struct GAMETEST_API FGameTestRunRequest
 
 	/** move 步骤的默认设置：场景顶层的 `move` 盖在运行配置的 `move` 上，再由步骤字段覆盖。没有时为空。 */
 	TSharedPtr<FJsonObject> MoveDefaults;
+	/**
+	 * 相邻两个 UI 操作（click、drag、type……）之间至少隔多久（毫秒）：从上一个 UI 操作结束算，
+	 * 中间的 wait 等步骤用掉的时间也算进去；0 = 不隔。来自运行配置的 uiStepGapMs。
+	 */
+	int32 UiStepGapMs = 0;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

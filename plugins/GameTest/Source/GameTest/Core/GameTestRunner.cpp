@@ -47,6 +47,8 @@ bool FGameTestRunner::StartRun(
 	UiWaitTimeoutMs = InRequest.UiWaitTimeoutMs;
 	ClickVia = InRequest.ClickVia;
 	MoveDefaults = InRequest.MoveDefaults;
+	UiStepGapMs = FMath::Max(0, InRequest.UiStepGapMs);
+	LastUiStepEndedAt = -1.0;
 	PendingStepEvents.Reset();
 	Handles = InRuntimeState.Handles;
 	RootedObjects = InRuntimeState.RootedObjects;
@@ -86,6 +88,10 @@ void FGameTestRunner::Tick(double InNowSeconds)
 	while (bActive && !bStepInFlight && CurrentIndex < Queue.Num()
 		&& StepsThisTick < MaxStepsPerTick && InNowSeconds >= NextStepNotBefore)
 	{
+		if (HoldForUiGap(InNowSeconds))
+		{
+			break;
+		}
 		StartCurrentStep(InNowSeconds);
 		++StepsThisTick;
 	}
@@ -126,6 +132,49 @@ void FGameTestRunner::Tick(double InNowSeconds)
 	{
 		FinishRun();
 	}
+}
+
+namespace GameTestRunnerDetail
+{
+	/**
+	 * 算「UI 操作」的步骤：真去点、拖、输入、改界面上控件的那几种，并且写了 target。
+	 * assert、wait、find、snapshot 这类只看不动的不算，它们之间不用隔。
+	 */
+	bool IsUiOperation(const FGameTestStep& InStep)
+	{
+		static const FName UiActions[] = {
+			FName(TEXT("click")), FName(TEXT("drag")), FName(TEXT("wheel")), FName(TEXT("type")),
+			FName(TEXT("select")), FName(TEXT("scroll")), FName(TEXT("set")), FName(TEXT("key")),
+		};
+		if (InStep.Target.IsEmpty())
+		{
+			return false;
+		}
+		for (const FName& Action : UiActions)
+		{
+			if (InStep.Action == Action)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+bool FGameTestRunner::HoldForUiGap(double InNowSeconds)
+{
+	if (UiStepGapMs <= 0 || LastUiStepEndedAt < 0.0 || !Queue.IsValidIndex(CurrentIndex)
+		|| !GameTestRunnerDetail::IsUiOperation(Queue[CurrentIndex]))
+	{
+		return false;
+	}
+	const double NotBefore = LastUiStepEndedAt + UiStepGapMs / 1000.0;
+	if (InNowSeconds >= NotBefore)
+	{
+		return false;
+	}
+	NextStepNotBefore = FMath::Max(NextStepNotBefore, NotBefore);
+	return true;
 }
 
 void FGameTestRunner::StartCurrentStep(double InNowSeconds)
@@ -264,6 +313,12 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	if (InStatus == EGameTestStepStatus::Failed && !bCancelling && OnStepFailed)
 	{
 		OnStepFailed(CurrentRecord, OutputDir);
+	}
+
+	// 失败的 UI 操作也算：onFail=continue 时下一个 UI 操作同样要等界面缓过来。
+	if (GameTestRunnerDetail::IsUiOperation(CurrentRecord.Step))
+	{
+		LastUiStepEndedAt = InNowSeconds;
 	}
 
 	Report.Steps.Add(CurrentRecord);

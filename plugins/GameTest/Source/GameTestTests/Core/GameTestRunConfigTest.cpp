@@ -43,6 +43,22 @@ TEST_CLASS_WITH_FLAGS(GameTestRunConfigTest, "GameTest.RunConfig",
 		FString Error;
 		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"blockers":[]})"), Config, Error), Error));
 		ASSERT_THAT(AreEqual(-1, Config.UiWaitTimeoutMs));
+		ASSERT_THAT(AreEqual(-1, Config.UiStepGapMs));
+	}
+
+	/** UI 操作间隔：0 合法（不隔），负数、超上限、不是整数都拒绝，写回再读一致。 */
+	TEST_METHOD(Parse_UiStepGap)
+	{
+		FGameTestRunConfig Config;
+		FString Error;
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiStepGapMs":0})"), Config, Error), Error));
+		ASSERT_THAT(AreEqual(0, Config.UiStepGapMs));
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiStepGapMs":1500})"), Config, Error), Error));
+		FGameTestRunConfig Again;
+		ASSERT_THAT(IsTrue(GameTestRunConfig::FromJson(*GameTestRunConfig::ToJson(Config), Again, Error), Error));
+		ASSERT_THAT(AreEqual(1500, Again.UiStepGapMs));
+		ASSERT_THAT(IsFalse(ParseRunConfig(TEXT(R"({"uiStepGapMs":-1})"), Config, Error)));
+		ASSERT_THAT(IsFalse(ParseRunConfig(TEXT(R"({"uiStepGapMs":600000})"), Config, Error)));
 	}
 
 	TEST_METHOD(Parse_RejectsIncompleteRules)

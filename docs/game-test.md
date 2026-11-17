@@ -206,6 +206,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 ```json
 {
   "uiWaitTimeoutMs": 0,
+  "uiStepGapMs": 1000,
   "clickVia": "code",
   "randomSeed": 42,
   "setup": [
@@ -220,6 +221,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 ```
 
 `move`（1.3.0 起）是 `move` 步骤的默认设置和录制快捷键：`fallback`、`teleportCommand`、`radius`、`drive`、`forwardKey`（同 `move` 步骤的字段），`hotkeys`（默认 `true`；项目自己用 Alt+数字时写 `false`）。场景顶层也可以写 `move` 段覆盖，优先级：步骤字段 > 场景 > 运行配置。
+
+`uiStepGapMs`（1.2.6 起，毫秒，0–60000，没写按 1000）是**相邻两个 UI 操作之间至少隔多久**：UI 操作指写了 `target` 的 `click`、`drag`、`wheel`、`type`、`select`、`scroll`、`set`、`key`，从上一个 UI 操作结束（成功或失败）算到下一个开始，中间的 `wait`、`assert` 等步骤用掉的时间也算进去，不够再补。和录制时的手速无关（录的场景 `stepDelayMs` 是 0），也和 `stepDelayMs` 叠加取较晚的那个。`0` 表示不隔。
 
 `clickVia`（1.2.0-beta.7 起）是 `click` 没写 `via` 时的点击方式，`code`（默认）或 `pointer`，场景顶层的 `clickVia` 优先。
 
