@@ -259,6 +259,14 @@ TSharedPtr<FJsonObject> FAgentPanelBridge::Info() const
 	O->SetNumberField(TEXT("pid"), FPlatformProcess::GetCurrentProcessId());
 	O->SetStringField(TEXT("log"), FAgentPanelLog::Get().FilePath());
 	O->SetArrayField(TEXT("extensions"), ExtensionsJson());
+	// 2.7：编辑器就绪（编辑器模块写进名片字段的 ready / readyAt），客户端不用再读一次名片
+	for (const TCHAR* Key : {TEXT("ready"), TEXT("readyAt")})
+	{
+		if (const TSharedPtr<FJsonValue>* V = CardExtra.Find(Key))
+		{
+			O->SetField(Key, *V);
+		}
+	}
 	TArray<TSharedPtr<FJsonValue>> Worlds;
 	if (GEngine)
 	{
