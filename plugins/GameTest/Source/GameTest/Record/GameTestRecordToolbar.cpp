@@ -139,7 +139,7 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 {
 	using namespace GameTestRecordToolbarDetail;
 	const TSharedRef<FState> StateRef = State;
-	const TWeakPtr<FGameTestRecordToolbar> WeakThis = AsShared();
+	const TWeakPtr<FGameTestRecordToolbar> WeakSelf = AsShared();
 
 	auto IdleVisible = [StateRef]() { return StateRef->bMoving ? EVisibility::Collapsed : EVisibility::SelfHitTestInvisible; };
 	auto MovingVisible = [StateRef]() { return StateRef->bMoving ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed; };
@@ -174,10 +174,10 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 	const TSharedRef<SBorder> BarWidget = SNew(SBorder)
 		.BorderImage(BarBrush())
 		.Padding(FMargin(10.0f, 6.0f))
-		.OnMouseButtonDown_Lambda([WeakThis](const FGeometry&, const FPointerEvent& InEvent)
+		.OnMouseButtonDown_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
 			// 按在工具栏空白处拖动位置：按钮自己接住点击，到不了这里。
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakThis.Pin();
+			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
 			if (!This.IsValid() || !This->Bar.IsValid() || InEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 			{
 				return FReply::Unhandled();
@@ -187,9 +187,9 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			This->OffsetAtDragStart = This->Offset;
 			return FReply::Handled().CaptureMouse(This->Bar.ToSharedRef());
 		})
-		.OnMouseMove_Lambda([WeakThis](const FGeometry&, const FPointerEvent& InEvent)
+		.OnMouseMove_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakThis.Pin();
+			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
 			if (!This.IsValid() || !This->bDragging)
 			{
 				return FReply::Unhandled();
@@ -197,9 +197,9 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			This->Offset = This->OffsetAtDragStart + (FVector2D(InEvent.GetScreenSpacePosition()) - This->DragStart);
 			return FReply::Handled();
 		})
-		.OnMouseButtonUp_Lambda([WeakThis](const FGeometry&, const FPointerEvent&)
+		.OnMouseButtonUp_Lambda([WeakSelf](const FGeometry&, const FPointerEvent&)
 		{
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakThis.Pin();
+			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
 			if (!This.IsValid() || !This->bDragging)
 			{
 				return FReply::Unhandled();
@@ -252,9 +252,9 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 		+ SOverlay::Slot()
 		.HAlign(HAlign_Right)
 		.VAlign(VAlign_Top)
-		.Padding(TAttribute<FMargin>::CreateLambda([WeakThis]()
+		.Padding(TAttribute<FMargin>::CreateLambda([WeakSelf]()
 		{
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakThis.Pin();
+			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
 			const FVector2D Shift = This.IsValid() ? This->Offset : FVector2D::ZeroVector;
 			return FMargin(0.0f, FMath::Max(0.0f, 12.0f + float(Shift.Y)), FMath::Max(0.0f, 12.0f - float(Shift.X)), 0.0f);
 		}))

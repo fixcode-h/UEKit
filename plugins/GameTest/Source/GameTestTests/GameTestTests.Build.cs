@@ -15,6 +15,9 @@ public class GameTestTests : ModuleRules
 	public GameTestTests(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+		// 不合并编译：UE 5.4 上合并编译时，单测文件和探针控件拼在同一个编译单元里，
+		// 探针引用的 UMG 头（PanelSlot.h）解析出错。每个文件单独编，互不影响。
+		bUseUnity = false;
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
