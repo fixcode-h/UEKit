@@ -2,6 +2,8 @@
 
 #include "Sample/ForgeSampleScreen.h"
 
+#include "Sample/ForgeSampleLists.h"
+
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
@@ -98,6 +100,8 @@ void UForgeSampleScreen::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	// 「列表条目」页的仓库、邮件、技能栏：数据和运行时格子在这里填（配置里只有空容器）
+	ForgeSampleLists::Populate(*this);
 	BindAll();
 	ResetScreen();
 
