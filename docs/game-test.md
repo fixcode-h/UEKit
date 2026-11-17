@@ -367,7 +367,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
 | `gt.job` | run 开始、每完成一步、结束 | 和 `gt.job` 一样但不带 `steps`，多 `lastStep` 和 `phase`（`progress` / `finished`） |
-| `gt.record` | 录制开始、每录一步、录移动时每秒、停止 | 录制状态 + `phase`（`started` / `step` / `moving` / `stopped`），`last` 只有最新一步 |
+| `gt.record` | 录制开始、每录一步、录移动时每秒、快捷动作改了状态、停止 | 录制状态 + `phase`（`started` / `step` / `moving` / `quick` / `stopped`），`last` 只有最新一步；只有 `step` 表示多了一步，其余按 `steps` 计数判断，别把 `last` 再追加一遍 |
 
 ## 其他入口
 

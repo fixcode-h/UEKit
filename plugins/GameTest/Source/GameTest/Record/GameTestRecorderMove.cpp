@@ -204,7 +204,8 @@ bool FGameTestRecorder::Quick(const FString& InPhase, double InRadius, FString& 
 		SetNotice(OutError);
 	}
 	SyncToolbar();
-	Broadcast(TEXT("step"));
+	// 加了步骤的已经由 AddStep 推过 step；这里只推状态（录移动开没开、提示），面板不当成新步骤追加。
+	Broadcast(TEXT("quick"));
 	return bOk;
 }
 
@@ -468,7 +469,7 @@ void FGameTestRecorder::CancelMove(const FString& InWhy)
 	LastEventAt = FPlatformTime::Seconds();
 	SetNotice(InWhy);
 	UE_LOG(LogGameTest, Display, TEXT("录制：%s"), *InWhy);
-	Broadcast(TEXT("step"));
+	Broadcast(TEXT("quick"));
 }
 
 bool FGameTestRecorder::AddHereStep(FString& OutError)
