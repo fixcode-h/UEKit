@@ -10,6 +10,8 @@ class FJsonObject;
 class FGameTestRecorderInput;
 class FGameTestRecordToolbar;
 struct FGameTestMoveSegment;
+struct FGameTestKeySite;
+class UWorld;
 class SWidget;
 struct FKey;
 
@@ -58,6 +60,26 @@ public:
 	{
 		NextShotOptions = InOptions;
 	}
+
+	/**
+	 * 点到容器里的条目时怎么问（`gt.record.start` 的 `askKey` / `askTimeoutSec`，面板 GameTest 设置页）：
+	 * `unsure`（默认，拿不准才停下来问）/ `always`（每次都问）/ `never`（不问，录完再定）；
+	 * `InTimeoutSeconds` 停多久自动继续，0（默认）= 一直等。
+	 */
+	void SetKeyAskOptions(const FString& InMode, double InTimeoutSeconds);
+
+	/**
+	 * `gt.record.key`：给录下的一步定「条目怎么认」。`step` 省略 = 正在问的那一步；
+	 * `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` / `text` / `skip`）；
+	 * `rule` 为 true 时存成规则（以后同类条目都这么认）；`resume`（默认 true）答完继续游戏。
+	 */
+	bool AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
+
+	/** 录下的第 InStep 步（从 0 数）点到的条目站点：`gt.keys` 录制中按步取字段用。没有返回空。 */
+	TSharedPtr<FGameTestKeySite> FindKeySite(int32 InStep) const;
+
+	/** 正在暂停等人挑标识。 */
+	bool IsAskingKey() const;
 
 	/** 插一条说明（`mark`），可以顺带截一张图；之后在面板里把它改成断言。 */
 	bool Mark(const FString& InText, bool bInScreenshot, FString& OutError);
@@ -139,6 +161,25 @@ private:
 		FString Target;
 		TSharedPtr<FJsonObject> Hint;
 		FVector2D At = FVector2D(0.5, 0.5);
+		/** 点在容器条目上：按下那一刻挑的标识和候选（松开时复查）。 */
+		TSharedPtr<FGameTestKeySite> KeySite;
+	};
+
+	/** 录下的一步和它点到的条目站点（`gt.keys`、改答案用）。 */
+	struct FKeyStep
+	{
+		TWeakPtr<FJsonObject> Step;
+		TSharedPtr<FGameTestKeySite> Site;
+	};
+
+	/** 正在暂停问的那一步。 */
+	struct FKeyAsk
+	{
+		TWeakPtr<FJsonObject> Step;
+		TSharedPtr<FGameTestKeySite> Site;
+		double StartedAt = 0.0;
+		/** 游戏是我们停的（原本就停着的不动它）。 */
+		TWeakObjectPtr<UWorld> PausedWorld;
 	};
 
 	/** 正在往输入框里打的字：换了控件或做了别的操作时合成一条 type。 */
@@ -174,7 +215,8 @@ private:
 	void DropPickModifiers();
 
 	/** 处理者 → 选择器。`OutIsUi` 为 false 表示是游戏画面（没被 UI 接住）。 */
-	bool DescribeHandler(const FRawEvent& InEvent, bool& OutIsUi, FString& OutTarget, TSharedPtr<FJsonObject>& OutHint, TSharedPtr<SWidget>& OutSlate) const;
+	bool DescribeHandler(const FRawEvent& InEvent, bool& OutIsUi, FString& OutTarget, TSharedPtr<FJsonObject>& OutHint, TSharedPtr<SWidget>& OutSlate,
+		TSharedPtr<FGameTestKeySite>* OutKeySite = nullptr) const;
 
 	/** 两次操作之间隔得久，补一条 wait（UI 操作前不补，除非 keepPace）。 */
 	void AddGapWait(double InNow, bool bInUiStep);
@@ -185,6 +227,19 @@ private:
 	bool ToViewportPoint(const FVector2D& InScreenPosition, FVector2D& OutPoint) const;
 
 	void Broadcast(const TCHAR* InPhase) const;
+
+	//~ 条目怎么认（Record/GameTestRecordKeyAsk.cpp）
+	/** 点击步骤写好后：复查按下时挑的标识（值变了就换），按询问方式决定要不要停下来问。 */
+	void AfterKeyStep(const TSharedRef<FJsonObject>& InStep, const TSharedPtr<FGameTestKeySite>& InSite, bool bInMayAsk);
+	void BeginAsk(const TSharedRef<FJsonObject>& InStep, const TSharedPtr<FGameTestKeySite>& InSite);
+	/** 结束询问、恢复游戏；暂停的这段时间不算进录制间隔。 */
+	void EndAsk();
+	/** 每帧：到了自动继续的时间就继续（这一步保持「待定」）。 */
+	void TickAsk();
+	void DescribeAsk(FJsonObject& OutStatus) const;
+	/** Alt+K：接受推荐的（有条件按它、没有保持待定）并继续。 */
+	void AcceptAskedKey();
+	int32 IndexOfStep(const TSharedPtr<FJsonObject>& InStep) const;
 
 	//~ 录移动和工具栏（Record/GameTestRecorderMove.cpp）
 	void TickMove();
@@ -235,4 +290,9 @@ private:
 	/** 录制截图（GameTestRecordShot）：点击时截控件、界面切换时存整屏缩略图、补 opened。 */
 	FGameTestRecordShots Shots;
 	FGameTestShotOptions NextShotOptions;
+
+	FString AskMode = TEXT("unsure");
+	double AskTimeoutSeconds = 0.0;
+	TArray<FKeyStep> KeySteps;
+	TOptional<FKeyAsk> KeyAsk;
 };

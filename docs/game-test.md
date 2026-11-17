@@ -67,6 +67,20 @@
 | `*` / `..` / `.` | 任一子节点 / 任一后代 / 就是这个屏本身（`WBP_Hud:.` 指整个屏） |
 | `列表名[序号]` | ListView 族的第几个条目（从 0 数，只认已经生成出来的条目控件） |
 | `列表名[属性=值]` | 数据项属性等于这个值的条目（比序号稳，列表顺序变了也不会点错） |
+| `容器[条件,条件]` | 任意容器（ListView 族、格子和其他 UMG 面板、DynamicEntryBox、挂在 Slate 上的条目）里按**唯一标识**认条目（1.4.0 起），见下面「条目标识」 |
+
+**条目标识**（1.4.0 起）：方括号里写 `字段=值`，多个条件用逗号连（都要满足）。不写来源时 ListView 族看条目的**数据对象**，别的容器看**条目控件自己**；要看别处写 `@来源`：
+
+| 来源 | 读哪里 |
+| --- | --- |
+| `@item.路径` | ListView 条目的数据对象（ListView 的默认来源） |
+| `@itemLua.路径` | 数据对象绑的 UnLua 实例表 |
+| `@self.路径` | 条目控件自己的字段（非 ListView 容器的默认来源） |
+| `@lua.路径` | 条目控件绑的 UnLua 实例表 |
+| `@text=文字` | 条目里显示的文字 |
+| `@row=行`、`@col=列` | 格子（UniformGridPanel、GridPanel）里的行列 |
+
+路径可以用点进结构体（`Data.ItemId`），大小写不敏感；值按数字、字符串（忽略大小写）比较。只读字段（反射属性、Lua 表里的值），不调函数。按条件一个都找不到时报错并列出现有的值，找到多个时报错让你再加一个字段，**不退回按序号**。ListView 里命中的条目没生成（没滚到）时先滚出来再操作。
 
 Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `/` 分隔，每段在上一段的任意深度里找。只认 Slate 类型名和文字，不认指针，跨次运行稳定。
 
@@ -230,6 +244,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 `randomSeed`（1.2.5 起，可选整数）：每次开跑前用它调 `FMath::RandInit`、`FMath::SRandInit`，固定引擎全局随机（蓝图 Random 节点、`FMath::Rand` / `FRand`），日志里记一行。游戏自己的 `FRandomStream`、Lua 的 `math.random`、服务器下发的结果管不到，用前置步骤里项目的 GM 固定。
 
+`itemKeys`（1.4.0 起）是**条目怎么认**的规则：录制时点到这类条目先按它拼条件，见「列表、格子里的条目怎么认」。
+
 `blockers` 是**阻挡界面**：公告、新手引导、活动弹窗、断线重连这类不定时弹出、会挡住后面步骤的界面。运行期间（每 0.2 秒看一次）规则里的界面一出现在屏上就处理掉：
 
 | 字段 | 说明 |
@@ -265,6 +281,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `Alt+3` | 在这附近：写一条 `wait until=actorNear`（角色的类、当前位置、半径 200），检查前面的操作确实把角色带到了这里 |
 | `Alt+4` | 断言：下一次点击录成断言（和 Ctrl+Alt 点一样） |
 | `Alt+5` | 检查点（`mark`） |
+| `Alt+K` | 正在暂停问「这一格怎么认」时：接受推荐的继续（1.4.0 起） |
 
 项目自己用 Alt+数字时在运行配置写 `"move": {"hotkeys": false}`，只用工具栏和面板按钮。
 
@@ -295,7 +312,13 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | 两次游戏操作隔了 0.15 秒以上 | `wait until=seconds` |
 
 - **UI 操作前不录 `wait`**：回放的 `click` / `type` 等自己会等控件可操作，录下来的秒数只会让慢机器失败、快机器白等。游戏画面上的操作前照旧按间隔补 `wait`（游戏逻辑没有「可操作」的信号可等）。想原样复现手速时开始录制给 `keepPace: true`，所有间隔都录。
-- **选择器怎么写出来**：路径用设计器里起的控件名；运行时生成的名字（`WBP_Item_C_12` 这类）换成 `#类名#同类序号`；嵌套的 WBP 用 `>` 进去；列表条目写成 `列表[属性=值]`（能找到唯一的 Id 类属性时）或 `列表[序号]`；没有 UMG 父面板、挂在某个控件 Slate 上的子界面写成 `容器/#类名#序号>…`。写完用回放同一套解析当场核对，必须唯一、指回同一个控件；不唯一但按位置、文字挑得回来时 `hint` 里写 `pick`，挑不回来才写 `ambiguous`，这种步骤回放前要人看一眼（多半是同一个 WBP 直接加在视口上好几份，改用 `gt.inspect` 找能区分它们的父界面）。
+- **选择器怎么写出来**：路径用设计器里起的控件名；运行时生成的名字（`WBP_Item_C_12` 这类）换成 `#类名#同类序号`；嵌套的 WBP 用 `>` 进去；容器里的条目按下面「列表、格子里的条目怎么认」挑唯一标识写成 `容器[条件]`，挑不到时写 `容器[序号]`；没有 UMG 父面板、挂在某个控件 Slate 上的子界面写成 `容器/#类名#序号>…`。写完用回放同一套解析当场核对，必须唯一、指回同一个控件；不唯一但按位置、文字挑得回来时 `hint` 里写 `pick`，挑不回来才写 `ambiguous`，这种步骤回放前要人看一眼（多半是同一个 WBP 直接加在视口上好几份，改用 `gt.inspect` 找能区分它们的父界面）。
+- **列表、格子里的条目怎么认**（1.4.0 起）：点到容器里的条目时，**按下那一刻**把条目的字段（ListView 看数据对象和它的 Lua 表，别的容器看条目控件自己、Lua 表、文字、行列）和同容器其他条目的值一起读出来打分：数据对象上、唯一、像 Id 的整数或短字符串分高；像位置（index、slot）、小数、布尔、长文字、点一下就变的值分低或不要。松开后再读一次，点完就变了的（选中、数量）不当标识。
+  - 最高分够准（唯一、没变、分数 ≥ 5）就直接用（`hint.key.by = "auto"`）；运行配置 `itemKeys` 里有这类条目的规则就按规则（`rule`）。
+  - 拿不准时**暂停游戏问人**（`pending`）：推送 `gt.record { phase: "ask" }`，状态里的 `ask` 有这一步的序号、候选、截图，面板弹窗让你挑字段、组合，或选「按位置」「先按文字找」「先跳过」，用 `gt.record.key` 回答。暂停期间不录任何输入，这段时间也不算进录制间隔；游戏原本就停着的不动它。录制工具栏上同时提示「游戏已暂停」，不想切到浏览器时在游戏里按 `Alt+K` 接受推荐的继续。
+  - 什么时候问由 `gt.record.start` 的 `askKey` 定：`unsure`（默认，拿不准才问）/ `always`（每次都问）/ `never`（不问，先用分数还行的、都不行按位置，步骤标「待定」录完再定）；`askTimeoutSec` 是停多久自动继续，**默认 0 = 一直等**（面板 GameTest 设置页可改）。自动继续或停止录制时这一步保持「待定」。
+  - 回答时勾「以后都按这个认」会把规则写进运行配置的 `itemKeys`：`{"entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"]}`（`entry` 条目类名，`container` 可省略 = 这类条目在哪个容器里都按它，`by` 是条件左边的写法）。之后录到同类条目先按规则拼条件，唯一就直接用。
+  - 步骤的 `hint.key`：`from`（目标里被改写的那段前缀）、`base`（容器路径）、`pos`（按位置的写法）、`entry`（条目类名）、`count`（容器里条目数）、`by`（`auto` / `rule` / `pending` / `user` / `index` / `text`）、`cond`（用的条件）、`list`（ListView 族）、`cands`（候选：`by` 条件左边、`cond` 完整条件、`src` 来源、`v` 值、`score`、`hits` 命中几个、`unique`、`changed` 点完变了、`combo` 两个字段组合、`why` 扣分原因）。`cond` 有值时回放不按文字换位置（`hint.text` 只用于显示）。
 - 录出来的步骤不对（点的不是想要的控件、选择器有歧义）时，把光标停在那个控件上调 `gt.inspect`，看光标下的命中路径、谁接住了上一次按下、选择器该怎么写。
 
 实现：在 Slate 上挂一个 `IInputProcessor`（引擎公开的输入预处理扩展点）拿原始事件，只看不吃（拾取断言那一下除外）；处理者来自 `FSlateDebugging` 的输入事件，反查 UMG 用 Widget Reflector 同一份元数据。回放时 `key` 走 `FSlateApplication::ProcessKeyDownEvent` 等入口，和真实按键同一条路（Slate → 视口 → PlayerController → EnhancedInput），所以不需要知道项目的输入资产。回放发出的合成输入不会被录进去。run 收尾时按下没松开的键全部松开。不改引擎、不改项目代码。
@@ -337,11 +360,14 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.config` | `config`（可省）、`dryRun` | 运行配置（场景根的 `_settings.json`，见「运行配置和阻挡界面」）。不给 `config` 是读：`{path, exists, config, settingsUiWaitTimeoutMs}`；给 `config` 是校验后整份写回（`dryRun: true` 只校验不写），另带 `message`。格式错时报哪一条错了 |
 | `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
-| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」） | 录制状态 |
+| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
 | `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
+| `gt.record.key` | `step`（从 0 数；省略 = 正在问的那一步）+ `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` 只按第几个 / `text` 按位置写、回放先按文字找 / `skip` 先跳过）；`rule`（存成规则）；`resume`（默认 true，答完继续游戏）。条件在容器里不唯一或找不到时报错 | `step`、改写后的 `target`、`by`、`cond`，存了规则 `rule: true`（存不进去 `ruleError`），继续了 `resumed: true`（1.4.0 起） |
+| `gt.keys` | `step`（录制中，用按下那一刻的站点）或 `target`（现在的界面里解析）；`filter`（按路径或值筛）、`offset` / `limit`（默认 60，最多 200） | 条目的全部字段，按来源分组：`groups: [{source, title, class?, note?, fields: [{by, src, v, hits, unique?, cond?, why?}]}]`，`total`、`count`、`offset`、`hasMore`、`nextOffset`，超长时 `truncated`，没有 Lua 时 `luaNote`；另有 `key`（同 `hint.key`）、`index`（1.4.0 起） |
+| `gt.keys.preview` | `step` 或 `target` + `cond` | 在游戏画面上框出命中的条目 3 秒（唯一绿框，多个橙框）；返回 `hits`、`unique`、`includesMine`（命中里有没有点的那个）、`count`、`items: [{index, name?, offscreen?, mine?}]`（1.4.0 起） |
 | `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |
-| `gt.record.status` | `last`（默认 10） | `recording`、`hotkeys`、在录移动时 `moving: {meters, seconds, points}`、有提示时 `notice`、`pickArmed`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`，超过步数上限时 `truncated: true` |
+| `gt.record.status` | `last`（默认 10） | `recording`、`hotkeys`、在录移动时 `moving: {meters, seconds, points}`、有提示时 `notice`、`pickArmed`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`、`askKey`、`askTimeoutSec`（不是 0 时），超过步数上限时 `truncated: true`；正在问条目标识时 `ask: {step, target, pausedSec, gamePaused, container, containerClass, entryName, index, key, shot?, screen?, text?}`（1.4.0 起） |
 
 同一时间只跑一个 run（批量运行也是一个接一个）。每次 run 的报告和截图在 `Saved/GameTest/<名字>-<时间>/`（`report.json`、`*.png`）。
 
@@ -383,7 +409,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
 | `gt.job` | run 开始、每完成一步、结束 | 和 `gt.job` 一样但不带 `steps`，多 `lastStep` 和 `phase`（`progress` / `finished`） |
-| `gt.record` | 录制开始、每录一步、录移动时每秒、快捷动作改了状态、停止 | 录制状态 + `phase`（`started` / `step` / `moving` / `quick` / `stopped`），`last` 只有最新一步；只有 `step` 表示多了一步，其余按 `steps` 计数判断，别把 `last` 再追加一遍 |
+| `gt.record` | 录制开始、每录一步、录移动时每秒、快捷动作改了状态、停止 | 录制状态 + `phase`（`started` / `step` / `moving` / `quick` / `ask`（暂停问条目标识，1.4.0）/ `askEnd`（问完继续）/ `key`（改了某一步的认法）/ `stopped`），`last` 只有最新一步；只有 `step` 表示多了一步，其余按 `steps` 计数判断，别把 `last` 再追加一遍 |
 
 ## 其他入口
 

@@ -24,6 +24,12 @@ struct FGameTestWrittenTarget
 
 	/** 用回放同一套解析核对过：唯一、指回同一个控件。 */
 	bool bVerified = false;
+
+	/**
+	 * 被点控件在某个容器的条目里（1.4.0）：挑过的标识、候选、按位置的写法。录制器拿它在松开时复查、
+	 * 拿不准时问人；hint 里同样的内容在 `key`。不是条目时为空。
+	 */
+	TSharedPtr<struct FGameTestKeySite> KeySite;
 };
 
 /**
@@ -33,10 +39,12 @@ struct FGameTestWrittenTarget
  * 1. 从控件沿 `GetParent()` 走到所在 WBP 控件树的根，路径用**设计器里起的名字**；运行时生成的名字
  *    （`WBP_Item_C_12` 这类，名字等于类名加序号、又不在 WBP 的控件树里）换成 `#类名#同类序号`。
  * 2. 所在的 WBP 是嵌套的实例：先写出这个实例，再用 `>` 进去。
- * 3. 所在的 WBP 是列表条目：写成 `列表[属性=值]`（能找到唯一的 Id 类属性时）或 `列表[序号]`。
+ * 3. 所在的 WBP 是列表条目：写成 `列表[序号]`，再按标识换成 `列表[条件]`（见 6）。
  * 4. 所在的 WBP 没有 UMG 父面板、挂在某个控件的 Slate 上（DynamicEntryBox、自定义列表、Lua 挂的）：
  *    写成 `容器/#类名#同类序号`，快照把它挂在同一个容器下面（GameTestSlate::CollectAttachedUserWidgets）。
  * 5. 写完用回放同一套解析核对：必须唯一、指回同一个控件；不唯一但按线索挑得回来时记 `pick`，否则记 `ambiguous`。
+ * 6. 离被点控件最近的「容器里的条目」（列表条目、面板里名字不稳定又有同类兄弟的、挂在容器 Slate 上的）：
+ *    按规则或打分挑标识（GameTestItemKey::Decide），把按位置写的那一段换成 `容器[条件]`，hint 里记 `key`。
  */
 class GAMETEST_API GameTestSelectorWriter
 {

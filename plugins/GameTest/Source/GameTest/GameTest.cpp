@@ -8,6 +8,7 @@
 #include "Input/GameTestHandlerWatch.h"
 #include "Integration/GameTestRpc.h"
 #include "Observe/GameTestInspect.h"
+#include "Observe/GameTestKeyPreview.h"
 #include "Record/GameTestRecorder.h"
 #include "AgentPanelBridge.h"
 #include "GameTestCompat.h"
@@ -32,6 +33,7 @@ void FGameTestModule::ShutdownModule()
 {
 	UnregisterConsoleCommands();
 	FGameTestRecorder::Get().Shutdown();
+	GameTestKeyPreview::Clear();
 	GameTestHandlerWatch::Stop();
 	GameTestRpc::Unregister();
 	FAgentPanelBridge::Get().UnregisterExtension(TEXT("GameTest"));

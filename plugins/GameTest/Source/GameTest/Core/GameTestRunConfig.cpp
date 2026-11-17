@@ -152,6 +152,41 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		}
 	}
 
+	if (const TArray<TSharedPtr<FJsonValue>>* Keys = GameTestJson::TryGetArray(InJson, TEXT("itemKeys")))
+	{
+		for (int32 Index = 0; Index < Keys->Num(); ++Index)
+		{
+			const TSharedPtr<FJsonObject>* Object = nullptr;
+			if (!(*Keys)[Index].IsValid() || !(*Keys)[Index]->TryGetObject(Object) || Object == nullptr || !Object->IsValid())
+			{
+				OutError = FString::Printf(TEXT("条目规则（itemKeys）第 %d 条不是对象"), Index + 1);
+				return false;
+			}
+			FGameTestKeyRule Rule;
+			GameTestJson::TryGetString(**Object, TEXT("entry"), Rule.Entry);
+			GameTestJson::TryGetString(**Object, TEXT("container"), Rule.Container);
+			Rule.Entry.TrimStartAndEndInline();
+			Rule.Container.TrimStartAndEndInline();
+			if (const TArray<TSharedPtr<FJsonValue>>* By = GameTestJson::TryGetArray(**Object, TEXT("by")))
+			{
+				for (const TSharedPtr<FJsonValue>& Value : *By)
+				{
+					FString Field;
+					if (Value.IsValid() && Value->TryGetString(Field) && !Field.TrimStartAndEnd().IsEmpty())
+					{
+						Rule.By.Add(Field.TrimStartAndEnd());
+					}
+				}
+			}
+			if (Rule.Entry.IsEmpty() || Rule.By.Num() == 0)
+			{
+				OutError = FString::Printf(TEXT("条目规则（itemKeys）第 %d 条要写 entry（条目类名）和 by（字段数组）"), Index + 1);
+				return false;
+			}
+			OutConfig.ItemKeys.Add(MoveTemp(Rule));
+		}
+	}
+
 	const TArray<TSharedPtr<FJsonValue>>* Items = GameTestJson::TryGetArray(InJson, TEXT("blockers"));
 	if (Items == nullptr)
 	{
@@ -272,6 +307,27 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 		Items.Add(MakeShared<FJsonValueObject>(Item));
 	}
 	Json->SetArrayField(TEXT("blockers"), Items);
+	if (InConfig.ItemKeys.Num() > 0)
+	{
+		TArray<TSharedPtr<FJsonValue>> Keys;
+		for (const FGameTestKeyRule& Rule : InConfig.ItemKeys)
+		{
+			const TSharedPtr<FJsonObject> Key = MakeShared<FJsonObject>();
+			Key->SetStringField(TEXT("entry"), Rule.Entry);
+			if (!Rule.Container.IsEmpty())
+			{
+				Key->SetStringField(TEXT("container"), Rule.Container);
+			}
+			TArray<TSharedPtr<FJsonValue>> By;
+			for (const FString& Field : Rule.By)
+			{
+				By.Add(MakeShared<FJsonValueString>(Field));
+			}
+			Key->SetArrayField(TEXT("by"), By);
+			Keys.Add(MakeShared<FJsonValueObject>(Key));
+		}
+		Json->SetArrayField(TEXT("itemKeys"), Keys);
+	}
 	return Json;
 }
 

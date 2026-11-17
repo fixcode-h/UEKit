@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/GameTestRpc.h"
+#include "Integration/GameTestRpcKeys.h"
 #include "GameTestCompat.h"
 
 #include "AgentPanelBridge.h"
@@ -461,6 +462,13 @@ namespace
 			return false;
 		}
 		FGameTestRecorder::Get().SetShotOptions(ShotOptions);
+		// 点到容器条目时怎么问（1.4.0）：askKey = unsure（默认）/ always / never；askTimeoutSec 停多久自动继续，0 = 一直等
+		double AskTimeout = 0.0;
+		if (Args.IsValid())
+		{
+			GameTestJson::TryGetNumber(*Args, TEXT("askTimeoutSec"), AskTimeout);
+		}
+		FGameTestRecorder::Get().SetKeyAskOptions(Str(Args, TEXT("askKey")), AskTimeout);
 		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
@@ -689,6 +697,9 @@ void Register()
 	Add(TEXT("gt.record.move"), &RecordMove);
 	Add(TEXT("gt.record.stop"), &RecordStop);
 	Add(TEXT("gt.record.status"), &RecordStatus);
+	Add(TEXT("gt.record.key"), &GameTestRpcKeys::RecordKey);
+	Add(TEXT("gt.keys"), &GameTestRpcKeys::Keys);
+	Add(TEXT("gt.keys.preview"), &GameTestRpcKeys::Preview);
 	Add(TEXT("gt.inspect"), &Inspect);
 	Add(TEXT("gt.resolve"), &Resolve);
 	Add(TEXT("gt.history"), &History);

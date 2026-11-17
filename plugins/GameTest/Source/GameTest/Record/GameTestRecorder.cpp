@@ -9,6 +9,7 @@
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
 #include "Input/GameTestInput.h"
+#include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSelectorWriter.h"
 #include "Observe/GameTestSlate.h"
@@ -225,6 +226,8 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	Notice.Reset();
 	Shots.Begin(NextShotOptions);
 	NextShotOptions = FGameTestShotOptions();
+	KeySteps.Reset();
+	KeyAsk.Reset();
 
 	// 运行设置 move.hotkeys=false 时不认 Alt+数字（项目自己用这些键）；配置读不了不挡录制，按默认开。
 	bHotkeys = true;
@@ -293,6 +296,8 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 		return false;
 	}
 
+	// 还在等人挑标识：这一步保持「待定」，游戏恢复
+	EndAsk();
 	OnTick();
 	// 还在录移动就按「结束」处理：停止前走的那段路不丢。
 	if (MoveSegment.IsValid())
@@ -416,6 +421,7 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 		Status->SetBoolField(TEXT("truncated"), true);
 	}
 	DescribeQuick(*Status);
+	DescribeAsk(*Status);
 
 	TArray<TSharedPtr<FJsonValue>> Last;
 	for (int32 Index = FMath::Max(0, Steps.Num() - InLastSteps); Index < Steps.Num(); ++Index)
@@ -428,6 +434,8 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 
 void FGameTestRecorder::Shutdown()
 {
+	EndAsk();
+	KeySteps.Reset();
 	HideToolbar();
 	MoveSegment.Reset();
 	if (InputProcessor.IsValid() && FSlateApplication::IsInitialized())
@@ -627,6 +635,13 @@ void FGameTestRecorder::OnTick()
 	{
 		Shots.Tick(FPlatformTime::Seconds());
 	}
+	// 暂停问「这一格怎么认」期间不录任何输入（人在面板里挑字段，游戏窗口里顺手点的不算）
+	if (KeyAsk.IsSet())
+	{
+		TickAsk();
+		Queue.Reset();
+		return;
+	}
 	if (!bRecording || Queue.Num() == 0)
 	{
 		return;
@@ -637,6 +652,11 @@ void FGameTestRecorder::OnTick()
 	Queue.Reset();
 	for (int32 Index = 0; Index < Pending.Num(); ++Index)
 	{
+		// 刚停下来问「这一格怎么认」：同一批里后面的事件是暂停之后的，不录
+		if (KeyAsk.IsSet())
+		{
+			break;
+		}
 		ProcessEvent(Pending[Index], Pending.IsValidIndex(Index + 1) ? &Pending[Index + 1] : nullptr);
 	}
 }
@@ -682,7 +702,8 @@ bool FGameTestRecorder::DescribeHandler(
 	bool& OutIsUi,
 	FString& OutTarget,
 	TSharedPtr<FJsonObject>& OutHint,
-	TSharedPtr<SWidget>& OutSlate) const
+	TSharedPtr<SWidget>& OutSlate,
+	TSharedPtr<FGameTestKeySite>* OutKeySite) const
 {
 	OutIsUi = false;
 	OutTarget.Reset();
@@ -733,6 +754,10 @@ bool FGameTestRecorder::DescribeHandler(
 				OutTarget = Written.Target;
 				OutHint = Written.Hint;
 				OutSlate = Current->GetCachedWidget();
+				if (OutKeySite != nullptr)
+				{
+					*OutKeySite = Written.KeySite;
+				}
 				return true;
 			}
 			const TSharedPtr<SWidget> CurrentSlate = Current->GetCachedWidget();
@@ -767,7 +792,8 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 	FString Target;
 	TSharedPtr<FJsonObject> Hint;
 	TSharedPtr<SWidget> Slate;
-	if (!DescribeHandler(InEvent, bIsUi, Target, Hint, Slate))
+	TSharedPtr<FGameTestKeySite> KeySite;
+	if (!DescribeHandler(InEvent, bIsUi, Target, Hint, Slate, &KeySite))
 	{
 		return;
 	}
@@ -780,6 +806,7 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 		Press.StartPosition = InEvent.Position;
 		Press.Target = Target;
 		Press.Hint = Hint;
+		Press.KeySite = KeySite;
 		if (Slate.IsValid())
 		{
 			GameTestSelectorWriter::ToLocalPoint(*Slate, InEvent.Position, Press.At);
@@ -844,6 +871,7 @@ void FGameTestRecorder::ProcessMouseUp(const FRawEvent& InEvent)
 				Click->SetObjectField(TEXT("hint"), Press.Hint);
 			}
 			AddStep(Click);
+			AfterKeyStep(Click, Press.KeySite, /*bInMayAsk=*/true);
 			return;
 		}
 
@@ -892,6 +920,8 @@ void FGameTestRecorder::ProcessMouseUp(const FRawEvent& InEvent)
 			Drag->SetObjectField(TEXT("hint"), Press.Hint);
 		}
 		AddStep(Drag);
+		// 拖动不停下来问（拖到一半停游戏没意义），标识照样复查、记下，录完可以在步骤详情里改
+		AfterKeyStep(Drag, Press.KeySite, /*bInMayAsk=*/false);
 		return;
 	}
 

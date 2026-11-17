@@ -5,6 +5,7 @@
 
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestHintPick.h"
+#include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
@@ -152,8 +153,55 @@ namespace GameTestSelectorWriterDetail
 		return FString::Printf(TEXT("#%s#%d"), *ClassName, SameClassIndex);
 	}
 
-	/** 控件 → 它所在控件树的根，以及从根到它的路径段。 */
-	UWidget* WalkToRoot(UWidget& InWidget, TArray<FString>& OutSegments)
+	/**
+	 * 写选择器时碰到的「容器里的条目」（1.4.0）：离被点控件最近的那个留下来，Write 写完后按它挑标识。
+	 * 只在写选择器的这一次调用里有效（游戏线程，不重入）。
+	 */
+	TSharedPtr<FGameTestKeySite> GSite;
+	bool bCollectSites = false;
+
+	void NoteSite(int32 InDepth, int32 InOrder, UWidget* InContainer, UWidget* InEntryWidget, const UObject* InItem,
+		const FString& InBase, const FString& InPositional)
+	{
+		if (!bCollectSites || InContainer == nullptr)
+		{
+			return;
+		}
+		if (GSite.IsValid() && (GSite->Depth < InDepth || (GSite->Depth == InDepth && GSite->SegmentOrder > InOrder)))
+		{
+			return;
+		}
+		GSite = MakeShared<FGameTestKeySite>();
+		GSite->Container = InContainer;
+		GSite->Entry.Widget = InEntryWidget;
+		GSite->Entry.Item = const_cast<UObject*>(InItem);
+		GSite->bList = GameTestItemKey::IsListContainer(InContainer);
+		GSite->Base = InBase;
+		GSite->Positional = InPositional;
+		GSite->From = InPositional;
+		GSite->Depth = InDepth;
+		GSite->SegmentOrder = InOrder;
+	}
+
+	/** 名字不稳定、父面板里还有同类兄弟的控件：它就是容器里的一个条目，按位置写的那一段可以换成标识。 */
+	bool IsPanelEntry(const UWidget& InWidget)
+	{
+		const UPanelWidget* Parent = InWidget.GetParent();
+		if (Parent == nullptr || !HasUnstableName(InWidget))
+		{
+			return false;
+		}
+		int32 Same = 0;
+		for (int32 Index = 0; Index < Parent->GetChildrenCount(); ++Index)
+		{
+			const UWidget* Sibling = Parent->GetChildAt(Index);
+			Same += Sibling != nullptr && Sibling->GetClass() == InWidget.GetClass() ? 1 : 0;
+		}
+		return Same >= 2;
+	}
+
+	/** 控件 → 它所在控件树的根，以及从根到它的路径段；OutEntries 是哪几段是面板里的条目（段下标、控件）。 */
+	UWidget* WalkToRoot(UWidget& InWidget, TArray<FString>& OutSegments, TArray<TPair<int32, UWidget*>>* OutEntries = nullptr)
 	{
 		TArray<UWidget*> Chain;
 		UWidget* Current = &InWidget;
@@ -171,62 +219,34 @@ namespace GameTestSelectorWriterDetail
 		OutSegments.Reset();
 		for (int32 Index = Chain.Num() - 1; Index >= 0; --Index)
 		{
+			if (OutEntries != nullptr && IsPanelEntry(*Chain[Index]))
+			{
+				OutEntries->Emplace(OutSegments.Num(), Chain[Index]);
+			}
 			OutSegments.Add(SegmentFor(*Chain[Index]));
 		}
 		return Chain.Last();
 	}
 
-	/** 列表条目 → 它在列表里的位置写法：唯一的 Id 类属性优先，没有就用序号。 */
-	FString EntryBracket(UListView& InList, const UObject* InItem)
+	/** Describe 拼好 target 后，把这一层里面板条目的段记成站点：Base 是到父面板为止的前缀。 */
+	void NoteSegmentSites(int32 InDepth, const FString& InTarget, const FString& InRelative, const TArray<FString>& InSegments,
+		const TArray<TPair<int32, UWidget*>>& InEntries)
 	{
-		const TArray<UObject*>& Items = InList.GetListItems();
-		const int32 Index = Items.IndexOfByKey(InItem);
-		if (Index == INDEX_NONE)
+		const FString Prefix = InTarget.Left(InTarget.Len() - InRelative.Len());
+		for (const TPair<int32, UWidget*>& Entry : InEntries)
 		{
-			return FString();
-		}
-
-		if (Items.Num() <= MaxItemsForProperty)
-		{
-			const TSharedPtr<FJsonObject> Mine = GameTestSnapshot::DumpProperties(InItem);
-			if (Mine.IsValid())
+			if (Entry.Key <= 0 || Entry.Value == nullptr)
 			{
-				for (const auto& Pair : Mine->Values)
-				{
-					const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
-					const bool bIdLike = PairKey.Equals(TEXT("id"), ESearchCase::IgnoreCase) || PairKey.Equals(TEXT("key"), ESearchCase::IgnoreCase)
-						|| PairKey.Equals(TEXT("guid"), ESearchCase::IgnoreCase) || PairKey.EndsWith(TEXT("Id"), ESearchCase::CaseSensitive)
-						|| PairKey.EndsWith(TEXT("ID"), ESearchCase::CaseSensitive);
-					if (!bIdLike || !Pair.Value.IsValid() || (Pair.Value->Type != EJson::String && Pair.Value->Type != EJson::Number))
-					{
-						continue;
-					}
-
-					// 值里有方括号、`>` 的写不进选择器（会被当成下一层），跳过。
-					const FString Value = Pair.Value->AsString();
-					if (Value.IsEmpty() || Value.Contains(TEXT("[")) || Value.Contains(TEXT("]")) || Value.Contains(TEXT(">")))
-					{
-						continue;
-					}
-
-					int32 SameValue = 0;
-					for (const UObject* Other : Items)
-					{
-						const TSharedPtr<FJsonObject> OtherProps = GameTestSnapshot::DumpProperties(Other);
-						const TSharedPtr<FJsonValue> OtherValue = OtherProps.IsValid() ? OtherProps->TryGetField(PairKey) : nullptr;
-						if (OtherValue.IsValid() && OtherValue->AsString() == Value)
-						{
-							++SameValue;
-						}
-					}
-					if (SameValue == 1)
-					{
-						return FString::Printf(TEXT("[%s=%s]"), *PairKey, *Value);
-					}
-				}
+				continue;
 			}
+			TArray<FString> Head;
+			for (int32 Index = 0; Index < Entry.Key; ++Index)
+			{
+				Head.Add(InSegments[Index]);
+			}
+			const FString Base = Prefix + FString::Join(Head, TEXT("/"));
+			NoteSite(InDepth, Entry.Key, Entry.Value->GetParent(), Entry.Value, nullptr, Base, Base + TEXT("/") + InSegments[Entry.Key]);
 		}
-		return FString::Printf(TEXT("[%d]"), Index);
 	}
 
 	/** 列表条目控件 → 它所在的列表（不是条目时返回 nullptr）。 */
@@ -255,7 +275,8 @@ namespace GameTestSelectorWriterDetail
 		}
 
 		TArray<FString> Segments;
-		UWidget* Root = WalkToRoot(InWidget, Segments);
+		TArray<TPair<int32, UWidget*>> EntrySegments;
+		UWidget* Root = WalkToRoot(InWidget, Segments, &EntrySegments);
 		UUserWidget* Owner = GetTreeOwner(*Root);
 		if (!IsTreeRootOf(Owner, Root))
 		{
@@ -281,13 +302,15 @@ namespace GameTestSelectorWriterDetail
 				{
 					return false;
 				}
-				const FString Bracket = EntryBracket(*List, Item);
-				if (Bracket.IsEmpty())
+				// 先按序号写；Write 写完后按标识（数据项上唯一的字段、规则）换掉这一段（GameTestItemKey）
+				const int32 Index = List->GetListItems().IndexOfByKey(Item);
+				if (Index == INDEX_NONE)
 				{
 					OutError = TEXT("条目的数据项不在列表里（列表刚刷新？）");
 					return false;
 				}
-				OutTarget = ListTarget + Bracket;
+				OutTarget = FString::Printf(TEXT("%s[%d]"), *ListTarget, Index);
+				NoteSite(InDepth, MAX_int32, List, Standalone, Item, ListTarget, OutTarget);
 				return true;
 			}
 
@@ -301,6 +324,7 @@ namespace GameTestSelectorWriterDetail
 					return false;
 				}
 				OutTarget = ContainerTarget + TEXT("/") + AttachedSegment(*Container, *Standalone);
+				NoteSite(InDepth, MAX_int32, Container, Standalone, nullptr, ContainerTarget, OutTarget);
 				return true;
 			}
 
@@ -312,6 +336,7 @@ namespace GameTestSelectorWriterDetail
 		if (GameTestSelectorWriter::IsTopLevel(*Owner))
 		{
 			OutTarget = GameTestSnapshot::FriendlyClassName(Owner->GetClass()) + TEXT(":") + Relative;
+			NoteSegmentSites(InDepth, OutTarget, Relative, Segments, EntrySegments);
 			return true;
 		}
 
@@ -322,6 +347,7 @@ namespace GameTestSelectorWriterDetail
 			return false;
 		}
 		OutTarget = OwnerTarget + TEXT(">") + Relative;
+		NoteSegmentSites(InDepth, OutTarget, Relative, Segments, EntrySegments);
 		return true;
 	}
 
@@ -460,7 +486,13 @@ bool GameTestSelectorWriter::IsTopLevel(const UWidget& InWidget)
 bool GameTestSelectorWriter::Write(UWidget& InWidget, FGameTestWrittenTarget& OutTarget, FString& OutError)
 {
 	OutTarget = FGameTestWrittenTarget();
-	if (!GameTestSelectorWriterDetail::Describe(InWidget, 0, OutTarget.Target, OutError))
+	GameTestSelectorWriterDetail::GSite.Reset();
+	GameTestSelectorWriterDetail::bCollectSites = true;
+	const bool bDescribed = GameTestSelectorWriterDetail::Describe(InWidget, 0, OutTarget.Target, OutError);
+	GameTestSelectorWriterDetail::bCollectSites = false;
+	const TSharedPtr<FGameTestKeySite> Site = MoveTemp(GameTestSelectorWriterDetail::GSite);
+	GameTestSelectorWriterDetail::GSite.Reset();
+	if (!bDescribed)
 	{
 		return false;
 	}
@@ -468,7 +500,25 @@ bool GameTestSelectorWriter::Write(UWidget& InWidget, FGameTestWrittenTarget& Ou
 	const TSharedPtr<SWidget> Slate = InWidget.GetCachedWidget();
 	OutTarget.Hint = GameTestSelectorWriterDetail::MakeHint(&InWidget, Slate);
 
+	// 容器里的条目：按标识（规则、数据上唯一的字段）换掉按位置写的那一段；换完核对不过就退回按位置
 	FString VerifyError;
+	if (Site.IsValid() && GameTestItemKey::Decide(*Site))
+	{
+		const FString Positional = OutTarget.Target;
+		if (!Site->Cond.IsEmpty() && GameTestItemKey::Apply(*Site, Site->Cond, OutTarget.Target))
+		{
+			if (!GameTestSelectorWriterDetail::Verify(OutTarget.Target, &InWidget, Slate, VerifyError))
+			{
+				OutTarget.Target = Positional;
+				Site->From = Site->Positional;
+				Site->Cond.Reset();
+				Site->By = TEXT("pending");
+			}
+		}
+		OutTarget.KeySite = Site;
+		OutTarget.Hint->SetObjectField(TEXT("key"), GameTestItemKey::SiteToJson(*Site));
+	}
+
 	OutTarget.bVerified = GameTestSelectorWriterDetail::Verify(OutTarget.Target, &InWidget, Slate, VerifyError);
 	if (!OutTarget.bVerified)
 	{

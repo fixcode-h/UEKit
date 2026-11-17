@@ -38,6 +38,20 @@ struct GAMETEST_API FGameTestBlockerRule
 };
 
 /**
+ * 一条「条目怎么认」规则（1.4.0）：录制时点到这类条目，直接按这几个字段写标识，不再问人。
+ * 录制暂停询问时勾「以后都按这个认」写进来，面板运行设置里能改、删。
+ */
+struct GAMETEST_API FGameTestKeyRule
+{
+	/** 条目的类名（`WBP_BagSlot`，带不带 `_C` 都行）。 */
+	FString Entry;
+	/** 只在这个容器里用（选择器，如 `WBP_Bag:Root/ItemList`）；空表示这类条目在哪都按它认。 */
+	FString Container;
+	/** 条件左边（`Data.ItemId`、`@lua.cfgId`），几个都满足才算。 */
+	TArray<FString> By;
+};
+
+/**
  * 项目级的运行配置：场景根下的 `_settings.json`，跟着项目文档走（和场景一样进版本管理、全组共用），
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
@@ -47,7 +61,8 @@ struct GAMETEST_API FGameTestBlockerRule
  *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
  *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
- *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ] }
+ *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ],
+ *   "itemKeys": [ { "entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"] } ] }
  * ```
  */
 struct GAMETEST_API FGameTestRunConfig
@@ -71,6 +86,8 @@ struct GAMETEST_API FGameTestRunConfig
 	 * 原样存成 JSON（校验见 GameTestMove::ValidateDefaults）；没写时为空。
 	 */
 	TSharedPtr<FJsonObject> Move;
+	/** 条目怎么认（`itemKeys`）。 */
+	TArray<FGameTestKeyRule> ItemKeys;
 };
 
 class GAMETEST_API GameTestRunConfig
