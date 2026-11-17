@@ -42,7 +42,8 @@ struct GAMETEST_API FGameTestBlockerRule
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
  * ```json
- * { "uiWaitTimeoutMs": 0, "clickVia": "code",
+ * { "uiWaitTimeoutMs": 0, "clickVia": "code", "randomSeed": 42,
+ *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
  *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
  *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ] }
@@ -55,6 +56,10 @@ struct GAMETEST_API FGameTestRunConfig
 	/** click 没写 via 时的点击方式：code / pointer；空表示默认（code）。 */
 	FString ClickVia;
 	TArray<FGameTestBlockerRule> Blockers;
+	/** 前置步骤：从场景文件跑时先跑这几步（重置存档、清引导之类的 GM），写法和场景里的步骤一样。 */
+	TArray<TSharedPtr<FJsonObject>> Setup;
+	/** 每次开跑前用它初始化引擎的全局随机；没写就不固定。 */
+	TOptional<int32> RandomSeed;
 };
 
 class GAMETEST_API GameTestRunConfig

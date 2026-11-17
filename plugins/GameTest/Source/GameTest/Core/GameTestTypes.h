@@ -39,7 +39,15 @@ struct FGameTestStep
 	int32 TimeoutMs = 0;
 	EGameTestFailMode FailMode = EGameTestFailMode::Stop;
 	int32 Index = 0;
+	/** 运行配置里的前置步骤（`_settings.json` 的 setup）：Index 是它在前置步骤里的序号，不占场景的步骤序号。 */
+	bool bSetup = false;
 	TSharedPtr<FJsonObject> Params;
+
+	/** 给人看的「第 N 步」/「前置第 N 步」（日志、失败证据目录名）。 */
+	FString Label() const
+	{
+		return bSetup ? FString::Printf(TEXT("前置第 %d 步"), Index + 1) : FString::Printf(TEXT("第 %d 步"), Index + 1);
+	}
 };
 
 /** 一步的记录：进报告、也进 `job` 查询结果。 */

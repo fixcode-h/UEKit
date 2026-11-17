@@ -217,7 +217,7 @@ void UGameTestSubsystem::LogFinishedSteps()
 	for (int32 Index = LastLoggedStepCount; Index < Steps.Num(); ++Index)
 	{
 		const FGameTestStepRecord& Record = Steps[Index];
-		UE_LOG(LogGameTest, Display, TEXT("第 %d 步 %s %s：%s"), Record.Step.Index + 1, *Record.Step.Action.ToString(),
+		UE_LOG(LogGameTest, Display, TEXT("%s %s %s：%s"), *Record.Step.Label(), *Record.Step.Action.ToString(),
 			GameTestStatus::ToString(Record.Status), *Record.Message.Left(300));
 	}
 	LastLoggedStepCount = FMath::Max(LastLoggedStepCount, Steps.Num());
@@ -503,6 +503,47 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	// 点击方式：场景 > 运行配置 > 默认 code（不动鼠标）
 	Request.ClickVia = !InRun.ClickVia.IsEmpty() ? InRun.ClickVia : !RunConfig.ClickVia.IsEmpty() ? RunConfig.ClickVia : FString(TEXT("code"));
 
+	// 前置步骤（运行配置的 setup）：只在从场景文件跑时加在最前面，场景写了 "setup": false 的不加；
+	// 「从这一步开始运行」和 Agent 直接给步骤的临时运行没有场景路径，也不加——它们接着当前状态跑。
+	if (!InRun.Scenario.IsEmpty() && !InRun.bSkipSetup && RunConfig.Setup.Num() > 0)
+	{
+		TArray<FGameTestStep> SetupSteps;
+		TArray<FString> SetupErrors;
+		for (int32 Index = 0; Index < RunConfig.Setup.Num(); ++Index)
+		{
+			FGameTestStep Step;
+			TArray<FString> StepErrors;
+			if (GameTestActions::ParseStep(RunConfig.Setup[Index], Index, Step, StepErrors))
+			{
+				Step.bSetup = true;
+				SetupSteps.Add(Step);
+			}
+			for (const FString& Error : StepErrors)
+			{
+				SetupErrors.Add(FString::Printf(TEXT("前置第 %d 步：%s"), Index + 1, *Error));
+			}
+		}
+		if (SetupErrors.Num() > 0)
+		{
+			RestoreBackgroundThrottle();
+			OutResult = MakeShared<FJsonObject>();
+			OutResult->SetBoolField(TEXT("ok"), false);
+			OutResult->SetStringField(TEXT("error"), FString::Printf(TEXT("运行配置 %s 的前置步骤写错了：%s"),
+				*GameTestRunConfig::GetPath(), *FString::Join(SetupErrors, TEXT("；"))));
+			return false;
+		}
+		Request.Steps.Insert(SetupSteps, 0);
+	}
+
+	// 固定引擎的全局随机（蓝图 Random 节点、FMath::Rand / FRand）：抽卡、掉落走它的场景每次一样。
+	// 游戏自己的 FRandomStream、Lua 的 math.random 管不到，用前置步骤里的 GM 固定。
+	if (RunConfig.RandomSeed.IsSet())
+	{
+		FMath::RandInit(RunConfig.RandomSeed.GetValue());
+		FMath::SRandInit(RunConfig.RandomSeed.GetValue());
+		UE_LOG(LogGameTest, Display, TEXT("run '%s' 固定随机种子 %d"), *RunName, RunConfig.RandomSeed.GetValue());
+	}
+
 	FString StartError;
 	FGameTestRuntimeState RuntimeState;
 	RuntimeState.Handles = &Handles;
@@ -518,7 +559,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 			if (Runner.IsValid())
 			{
 				LogFinishedSteps();
-				UE_LOG(LogGameTest, Display, TEXT("第 %d 步 %s %s：%s"), InOutRecord.Step.Index + 1, *InOutRecord.Step.Action.ToString(),
+				UE_LOG(LogGameTest, Display, TEXT("%s %s %s：%s"), *InOutRecord.Step.Label(), *InOutRecord.Step.Action.ToString(),
 					GameTestStatus::ToString(InOutRecord.Status), *InOutRecord.Message.Left(300));
 				LastLoggedStepCount = Runner->GetReport().Steps.Num() + 1;
 			}

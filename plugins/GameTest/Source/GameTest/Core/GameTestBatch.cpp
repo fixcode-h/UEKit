@@ -93,7 +93,7 @@ void FGameTestBatch::OnRunFinished(const FGameTestReport& InReport)
 	{
 		if (Record.Status == EGameTestStepStatus::Failed)
 		{
-			Item.FailedStep = Record.Step.Index + 1;
+			Item.FailedStep = Record.Step.bSetup ? 0 : Record.Step.Index + 1;
 			Item.Message = Record.Message.Left(BatchMaxMessageChars);
 			break;
 		}

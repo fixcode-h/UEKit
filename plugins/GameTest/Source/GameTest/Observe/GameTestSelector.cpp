@@ -16,6 +16,15 @@
 
 namespace
 {
+	/** 最近一次「列表条目没生成」的记录（只在游戏线程上读写）：给回放的自动滚动用。 */
+	struct FUngeneratedEntry
+	{
+		TWeakObjectPtr<UListView> List;
+		int32 Index = INDEX_NONE;
+		FString Path;
+	};
+	FUngeneratedEntry GUngeneratedEntry;
+
 	/** 把若干节点拼成"候选：a、b、c"——解析失败时最有用的一句话。 */
 	FString DescribeCandidates(const TArray<TSharedPtr<FGameTestWidgetNode>>& InNodes, int32 InLimit = 12)
 	{
@@ -395,6 +404,9 @@ namespace GameTestSelectorDetail
 			return true;
 		}
 
+		GUngeneratedEntry.List = List;
+		GUngeneratedEntry.Index = Index;
+		GUngeneratedEntry.Path = InList->Path;
 		OutError = FString::Printf(TEXT("%s 第 %d 个条目没生成（不在可视范围内）：先 scroll index=%d 把它滚出来"), *InList->Path, Index, Index);
 		return false;
 	}
@@ -797,6 +809,7 @@ bool GameTestSelector::Resolve(
 	{
 		OutAmbiguous->Reset();
 	}
+	GUngeneratedEntry = FUngeneratedEntry();
 	if (InParsed.bHandle)
 	{
 		OutError = TEXT("句柄由调用方解析");
@@ -940,4 +953,17 @@ bool GameTestSelector::ResolveText(
 	}
 
 	return false;
+}
+
+bool GameTestSelector::TakeUngeneratedEntry(TWeakObjectPtr<UListView>& OutList, int32& OutIndex, FString& OutListPath)
+{
+	if (!GUngeneratedEntry.List.IsValid() || GUngeneratedEntry.Index == INDEX_NONE)
+	{
+		return false;
+	}
+	OutList = GUngeneratedEntry.List;
+	OutIndex = GUngeneratedEntry.Index;
+	OutListPath = GUngeneratedEntry.Path;
+	GUngeneratedEntry = FUngeneratedEntry();
+	return true;
 }

@@ -284,6 +284,8 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 	GameTestJson::TryGetInt(*Json, TEXT("uiWaitTimeoutMs"), OutRun.UiWaitTimeoutMs);
 	OutRun.ClickVia.Reset();
 	GameTestJson::TryGetString(*Json, TEXT("clickVia"), OutRun.ClickVia);
+	bool bSetup = true;
+	OutRun.bSkipSetup = GameTestJson::TryGetBool(*Json, TEXT("setup"), bSetup) && !bSetup;
 	return true;
 }
 

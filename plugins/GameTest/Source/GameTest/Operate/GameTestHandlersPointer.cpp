@@ -9,6 +9,7 @@
 #include "Observe/GameTestHitTest.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "Operate/GameTestAutoScroll.h"
 #include "Operate/GameTestCodeClick.h"
 #include "GameTest.h"
 
@@ -36,7 +37,15 @@ namespace GameTestPointerDetail
 		FVector2D LastMax = FVector2D(-1.0, -1.0);
 		uint64 LastFrame = 0;
 		int32 StableFrames = 0;
+		/** 这一步里替用户滚过的列表、滚动框（目标没滚到时先滚过去再等）。 */
+		GameTestAutoScroll::FState Scroll;
+		/** 点击点被谁挡住、从什么时候开始（引导遮罩挡久了，真实鼠标点击改用代码点击）。 */
+		FString BlockedBy;
+		double BlockedSince = 0.0;
 	};
+
+	/** 真实鼠标的点击点被同一个控件连续挡住这么久，而 pointer 不是这一步自己写的，就改用代码点击。 */
+	constexpr double PointerBlockedFallbackSeconds = 1.5;
 
 	/** 一次可操作检查的结果。 */
 	struct FActionable
@@ -46,7 +55,22 @@ namespace GameTestPointerDetail
 		FVector2D Screen = FVector2D::ZeroVector;
 		/** 选择器命中多个、按录制线索挑出来的时候写怎么挑的（进步骤结果的 `picked`）。 */
 		FString PickNote;
+		/** 等它可操作时自动滚过的列表、滚动框（进步骤结果的 `scrolled`）。 */
+		FString ScrollNote;
 	};
+
+	/** 目标是怎么找到的（按线索挑的、自动滚过的）写进步骤结果：面板步骤详情里显示「这次回放：…」。 */
+	void WriteTargetNotes(FJsonObject& InPayload, const FActionable& InTarget)
+	{
+		if (!InTarget.PickNote.IsEmpty())
+		{
+			InPayload.SetStringField(TEXT("picked"), InTarget.PickNote);
+		}
+		if (!InTarget.ScrollNote.IsEmpty())
+		{
+			InPayload.SetStringField(TEXT("scrolled"), InTarget.ScrollNote);
+		}
+	}
 
 	TSharedPtr<SWidget> SlateOf(const FGameTestWidgetNode& InNode)
 	{
@@ -103,11 +127,20 @@ namespace GameTestPointerDetail
 		FActionable& OutTarget,
 		FString& OutWhy)
 	{
+		// 「被谁挡住」只算连续挡着的：这一帧没走到命中测试（解析不到、还在动）就清掉，挡住的计时重来。
+		const FString PrevBlockedBy = MoveTemp(InOutState.BlockedBy);
+		InOutState.BlockedBy.Reset();
+
 		TSharedPtr<FGameTestWidgetNode> Node;
 		FString PickNote;
 		if (!GameTestHandlers::TryResolveTarget(InTarget, InHandles, Node, OutWhy, InHint, &PickNote))
 		{
 			InOutState.StableFrames = 0;
+			// 选择器停在没生成的列表条目上（虚拟化列表没滚到）：替用户滚过去，下一帧再解析。
+			if (GameTestAutoScroll::ScrollToUngeneratedEntry(InOutState.Scroll))
+			{
+				OutWhy += TEXT("（已自动把列表滚到这个条目，等它生成）");
+			}
 			return false;
 		}
 
@@ -144,6 +177,14 @@ namespace GameTestPointerDetail
 			return false;
 		}
 
+		// 在滚动框里但不在可见范围（录制时滚过去了，回放从头开始）：滚过去再等它稳定。
+		if (GameTestAutoScroll::ScrollIntoScrollBox(Slate, InOutState.Scroll))
+		{
+			OutWhy = FString::Printf(TEXT("找到了 %s，在滚动框的可见范围外，已自动滚过去"), *Node->Path);
+			InOutState.StableFrames = 0;
+			return false;
+		}
+
 		const FVector2D Min = FVector2D(Geometry.GetAbsolutePosition());
 		const FVector2D Max = Min + FVector2D(Geometry.GetAbsoluteSize());
 		if (GFrameCounter != InOutState.LastFrame)
@@ -172,6 +213,17 @@ namespace GameTestPointerDetail
 			if (!Hit.bTargetHit)
 			{
 				OutWhy = FString::Printf(TEXT("找到了 %s，但点击点被 %s 挡住"), *Node->Path, *Hit.TopDescription);
+				// 记下谁挡着、挡了多久；目标信息也先填好，挡久了调用方可以改用代码点击。
+				if (PrevBlockedBy != Hit.TopDescription)
+				{
+					InOutState.BlockedSince = FPlatformTime::Seconds();
+				}
+				InOutState.BlockedBy = Hit.TopDescription;
+				OutTarget.Slate = Slate;
+				OutTarget.Path = Node->Path;
+				OutTarget.PickNote = PickNote;
+				OutTarget.ScrollNote = InOutState.Scroll.Note;
+				OutTarget.Screen = FVector2D(Geometry.LocalToAbsolute(LocalSize * InAt));
 				return false;
 			}
 		}
@@ -179,6 +231,7 @@ namespace GameTestPointerDetail
 		OutTarget.Slate = Slate;
 		OutTarget.Path = Node->Path;
 		OutTarget.PickNote = PickNote;
+		OutTarget.ScrollNote = InOutState.Scroll.Note;
 		OutTarget.Screen = FVector2D(Geometry.LocalToAbsolute(LocalSize * InAt));
 		return true;
 	}
@@ -328,7 +381,9 @@ namespace GameTestPointerDetail
 				State->bHeld = false;
 			}
 		};
-		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At, Button](double)
+		// 这一步自己写了 via=pointer 是在测遮挡本身，挡住就照旧等到超时；从场景、运行配置继承来的才允许改用代码点击。
+		const bool bExplicitPointer = Params.HasField(TEXT("via"));
+		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At, Button, bExplicitPointer](double)
 		{
 			FString Message;
 			switch (State->Stage)
@@ -336,6 +391,24 @@ namespace GameTestPointerDetail
 			case EStage::Wait:
 				if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/true, State->Wait, State->Target, *Progress))
 				{
+					// 引导遮罩这类只留一个洞的界面挡住了真实鼠标：挡够久就改用代码点击（调按钮的委托，不受遮挡影响）。
+					if (!bExplicitPointer && !State->Wait.BlockedBy.IsEmpty() && State->Target.Slate.IsValid()
+						&& FPlatformTime::Seconds() - State->Wait.BlockedSince >= PointerBlockedFallbackSeconds)
+					{
+						const FString Fallback = FString::Printf(TEXT("真实鼠标的点击点被 %s 挡住 %.1f 秒，改用代码点击"),
+							*State->Wait.BlockedBy, PointerBlockedFallbackSeconds);
+						const bool bClicked = GameTestCodeClick::Click(State->Target.Slate, State->Target.Screen, *Payload, Message);
+						Payload->SetStringField(TEXT("path"), State->Target.Path);
+						Payload->SetStringField(TEXT("how"), Message);
+						Payload->SetStringField(TEXT("fallback"), Fallback);
+						WriteTargetNotes(*Payload, State->Target);
+						if (!bClicked)
+						{
+							*Failure = FString::Printf(TEXT("%s，但代码点击也失败：%s"), *Fallback, *Message);
+						}
+						UE_LOG(LogGameTest, Display, TEXT("点击 %s：%s；%s"), *State->Target.Path, *Fallback, *Message);
+						return true;
+					}
 					return false;
 				}
 				GameTestInput::MovePointerTo(State->Target.Screen, Message);
@@ -375,10 +448,7 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKey(Button, /*bInDown=*/false, Message);
 				State->bHeld = false;
 				Payload->SetStringField(TEXT("path"), State->Target.Path);
-				if (!State->Target.PickNote.IsEmpty())
-				{
-					Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
-				}
+				WriteTargetNotes(*Payload, State->Target);
 				Payload->SetNumberField(TEXT("screenX"), State->Target.Screen.X);
 				Payload->SetNumberField(TEXT("screenY"), State->Target.Screen.Y);
 				if (!State->bDownOk)
@@ -437,10 +507,7 @@ namespace GameTestPointerDetail
 			const bool bClicked = GameTestCodeClick::Click(State->Target.Slate, State->Target.Screen, *Payload, Message);
 			Payload->SetStringField(TEXT("path"), State->Target.Path);
 			Payload->SetStringField(TEXT("how"), Message);
-			if (!State->Target.PickNote.IsEmpty())
-			{
-				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
-			}
+			WriteTargetNotes(*Payload, State->Target);
 			if (!bClicked)
 			{
 				*Failure = FString::Printf(TEXT("点 %s 失败：%s"), *State->Target.Path, *Message);
@@ -612,10 +679,7 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKey(Button, /*bInDown=*/false, Message);
 				State->bHeld = false;
 				Payload->SetStringField(TEXT("path"), State->Target.Path);
-				if (!State->Target.PickNote.IsEmpty())
-				{
-					Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
-				}
+				WriteTargetNotes(*Payload, State->Target);
 				if (!State->bDownOk)
 				{
 					*Failure = State->DownFailure;
@@ -694,10 +758,7 @@ namespace GameTestPointerDetail
 			}
 			GameTestInput::SendWheel(static_cast<float>(Delta), Message);
 			Payload->SetStringField(TEXT("path"), State->Target.Path);
-			if (!State->Target.PickNote.IsEmpty())
-			{
-				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
-			}
+			WriteTargetNotes(*Payload, State->Target);
 			return true;
 		};
 		return GameTestHandlers::StepPending;
@@ -767,10 +828,7 @@ namespace GameTestPointerDetail
 				GameTestInput::SendKeyTo(EKeys::Enter, /*bInDown=*/false, State->Target.Slate, Message);
 			}
 			Payload->SetStringField(TEXT("path"), State->Target.Path);
-			if (!State->Target.PickNote.IsEmpty())
-			{
-				Payload->SetStringField(TEXT("picked"), State->Target.PickNote);
-			}
+			WriteTargetNotes(*Payload, State->Target);
 			Payload->SetStringField(TEXT("text"), Text);
 			return true;
 		};

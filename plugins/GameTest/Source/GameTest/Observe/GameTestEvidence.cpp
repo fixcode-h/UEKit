@@ -91,7 +91,7 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 	}
 	++CapturedThisRun;
 
-	const FString Dir = FPaths::Combine(InRunDir, TEXT("failures"), FString::Printf(TEXT("step-%02d"), InOutRecord.Step.Index + 1));
+	const FString Dir = FPaths::Combine(InRunDir, TEXT("failures"), FString::Printf(InOutRecord.Step.bSetup ? TEXT("setup-%02d") : TEXT("step-%02d"), InOutRecord.Step.Index + 1));
 	IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
 
 	const TSharedPtr<FJsonObject> Evidence = MakeShared<FJsonObject>();
