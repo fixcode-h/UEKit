@@ -83,6 +83,9 @@ struct FGameTestStepContext
 	/** 本次 run 里 click 没写 via 时的点击方式（code / pointer），见 FGameTestRunRequest::ClickVia。 */
 	FString ClickVia;
 
+	/** 本次 run 的 move 默认设置（运行设置和场景的 move 段合起来），move 步骤的字段盖在上面；没有时为空。 */
+	TSharedPtr<FJsonObject> MoveDefaults;
+
 	/** UI 动作该填进 DefaultTimeoutMs 的值：不限时给 -1。 */
 	int32 UiWaitDefault() const
 	{
@@ -267,6 +270,7 @@ private:
 
 	int32 UiWaitTimeoutMs = 0;
 	FString ClickVia;
+	TSharedPtr<FJsonObject> MoveDefaults;
 
 	/** AddStepEvent 攒下的事件：键 → 事件列表，下一步结束时并进它的 Payload。 */
 	TMap<FString, TArray<TSharedPtr<FJsonValue>>> PendingStepEvents;

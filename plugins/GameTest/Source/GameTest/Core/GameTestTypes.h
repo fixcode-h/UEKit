@@ -143,6 +143,9 @@ struct GAMETEST_API FGameTestRunRequest
 
 	/** click 没写 via 时用的点击方式：code（默认，调控件委托，不动鼠标）或 pointer（真实鼠标）。来源同上。 */
 	FString ClickVia = TEXT("code");
+
+	/** move 步骤的默认设置：场景顶层的 `move` 盖在运行配置的 `move` 上，再由步骤字段覆盖。没有时为空。 */
+	TSharedPtr<FJsonObject> MoveDefaults;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

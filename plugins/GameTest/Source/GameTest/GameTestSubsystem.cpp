@@ -11,6 +11,7 @@
 #include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Input/GameTestInput.h"
+#include "Operate/GameTestMove.h"
 #include "Shot/GameTestShot.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
@@ -502,6 +503,8 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		: (GetDefault<UGameTestSettings>() != nullptr ? GetDefault<UGameTestSettings>()->UiWaitTimeoutMs : 0);
 	// 点击方式：场景 > 运行配置 > 默认 code（不动鼠标）
 	Request.ClickVia = !InRun.ClickVia.IsEmpty() ? InRun.ClickVia : !RunConfig.ClickVia.IsEmpty() ? RunConfig.ClickVia : FString(TEXT("code"));
+	// move 步骤的默认设置：场景的 move 段盖在运行配置的 move 段上
+	Request.MoveDefaults = GameTestMove::MergeDefaults(RunConfig.Move, InRun.Move);
 
 	// 前置步骤（运行配置的 setup）：只在从场景文件跑时加在最前面，场景写了 "setup": false 的不加；
 	// 「从这一步开始运行」和 Agent 直接给步骤的临时运行没有场景路径，也不加——它们接着当前状态跑。

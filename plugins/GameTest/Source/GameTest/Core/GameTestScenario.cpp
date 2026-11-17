@@ -4,6 +4,7 @@
 
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunConfig.h"
+#include "Operate/GameTestMove.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -284,6 +285,12 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 	GameTestJson::TryGetInt(*Json, TEXT("uiWaitTimeoutMs"), OutRun.UiWaitTimeoutMs);
 	OutRun.ClickVia.Reset();
 	GameTestJson::TryGetString(*Json, TEXT("clickVia"), OutRun.ClickVia);
+	OutRun.Move = GameTestJson::TryGetObject(*Json, TEXT("move"));
+	if (OutRun.Move.IsValid() && !GameTestMove::ValidateDefaults(*OutRun.Move, OutError))
+	{
+		OutError = FString::Printf(TEXT("%s：%s"), *InPath, *OutError);
+		return false;
+	}
 	bool bSetup = true;
 	OutRun.bSkipSetup = GameTestJson::TryGetBool(*Json, TEXT("setup"), bSetup) && !bSetup;
 	return true;

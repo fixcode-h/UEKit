@@ -7,6 +7,8 @@
 
 class FJsonObject;
 class FGameTestRecorderInput;
+class FGameTestRecordToolbar;
+struct FGameTestMoveSegment;
 class SWidget;
 struct FKey;
 
@@ -27,6 +29,10 @@ struct FKey;
  * - 按住 Ctrl+Alt 点一个控件 → 这次点击不传给游戏，录成 `assert`（拾取断言）。
  * - UI 操作之前不录 `wait seconds`：回放的 click / type 自己会等控件可操作。游戏操作前照旧按间隔补 wait。
  *   开始录制时给 `keepPace` 则所有间隔都录。
+ *
+ * **录移动**（`Alt+1` / 工具栏 / `gt.record.move`）：开始到结束之间只记角色的轨迹，别的操作都不写步骤，
+ *   结束时写一条 `move`（见 `GameTestRecorderMove.cpp`）；中间点了界面就自动结束、这一下点击照常录。
+ * - 录制时游戏窗口右上角有一条工具栏（`GameTestRecordToolbar`），点它不录；快捷键 Alt+数字，录制器吃掉不传给游戏。
  *
  * 事件先排队、在处理器的 Tick 里统一处理：处理者是在事件路由**之后**才知道的，排队可以把两头对上。
  * 回放发出的合成输入靠 `GameTestInput::IsSendingSynthetic` 跳过，不会录进去。只在游戏线程上用。
@@ -65,6 +71,22 @@ public:
 
 	/** 模块关闭时调：还在录就丢掉，摘掉输入处理器。 */
 	void Shutdown();
+
+	/**
+	 * 录制快捷操作（`gt.record.move`、Alt+数字、工具栏共用这一个入口）：
+	 * `start` / `end` / `toggle`（录移动开始、结束）、`cancel`（放弃这段移动）、`here`（记下当前位置）、
+	 * `near`（断言在这附近，`InRadius` 默认 200）、`pick`（下一次点击录成断言）。
+	 */
+	bool Quick(const FString& InPhase, double InRadius, FString& OutError);
+
+	/** 正在录移动段。 */
+	bool IsMoving() const;
+
+	/** Alt+数字：认领了就返回 true（输入处理器吃掉这个键，不传给游戏）。 */
+	bool OnHotkey(const FKey& InKey);
+
+	/** 屏幕坐标是不是落在录制工具栏上：点工具栏不录。 */
+	bool IsOnToolbar(const FVector2D& InScreenPosition) const;
 
 	//~ 输入处理器回调（游戏线程）。返回 true 表示吃掉这个事件（只有拾取模式会吃）。
 	bool OnMouseButton(const FKey& InButton, bool bInDown, const FVector2D& InScreenPosition, bool bInPickModifiers);
@@ -127,6 +149,8 @@ private:
 		double Time = 0.0;
 		FString Target;
 		bool bTyping = false;
+		/** 在录移动段里按下的键：没写成步骤，结束移动时还按着才补一条 press。 */
+		bool bMoveOnly = false;
 	};
 
 	void OnHandled(GameTestHandlerWatch::EKind InKind, const GameTestHandlerWatch::FHandled& InRecord);
@@ -155,6 +179,22 @@ private:
 
 	void Broadcast(const TCHAR* InPhase) const;
 
+	//~ 录移动和工具栏（Record/GameTestRecorderMove.cpp）
+	void TickMove();
+	bool BeginMove(FString& OutError);
+	bool EndMove(bool bInAuto, FString& OutError);
+	void CancelMove(const FString& InWhy);
+	bool AddHereStep(FString& OutError);
+	bool AddNearStep(double InRadius, FString& OutError);
+	/** 移动段里的事件：返回 true 表示丢掉（不写步骤）；点了界面时先自动结束移动段再返回 false。 */
+	bool FilterDuringMove(const FRawEvent& InEvent);
+	/** 快捷键用掉了 Alt：删掉步骤尾巴上 Alt 的按下，松开也不录。 */
+	void ForgetHotkeyModifiers();
+	void SetNotice(const FString& InNotice);
+	void SyncToolbar();
+	void HideToolbar();
+	void DescribeQuick(FJsonObject& OutStatus) const;
+
 	bool bRecording = false;
 	bool bKeepPace = false;
 	FString Name;
@@ -169,6 +209,18 @@ private:
 	bool bMouseDownOnGame = false;
 	bool bPickActive = false;
 	TMap<FName, FHeldKey> HeldKeys;
+
+	TUniquePtr<FGameTestMoveSegment> MoveSegment;
+	TSharedPtr<FGameTestRecordToolbar> Toolbar;
+	/** 运行设置 `move.hotkeys`：项目自己用 Alt+数字时关掉。 */
+	bool bHotkeys = true;
+	/** Alt+4 / 工具栏「断言」：下一次点击录成断言（和 Ctrl+Alt 点一样）。 */
+	bool bPickArmed = false;
+	/** 按下落在工具栏上（点按钮、拖动位置）：配对的松开不管落在哪都不录。 */
+	bool bToolbarPressed = false;
+	/** 工具栏和面板上显示的一句提示（「点了界面，移动已自动结束」）。 */
+	FString Notice;
+	double NoticeAt = 0.0;
 
 	FDelegateHandle HandledHandle;
 	TSharedPtr<FGameTestRecorderInput> InputProcessor;

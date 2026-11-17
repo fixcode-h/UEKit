@@ -111,6 +111,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `console` | `command`, `expectContains` | 主模块 | 执行一条控制台命令（等价于在控制台里敲它）；给 expectContains 时输出必须包含该子串，否则本步失败（用来让世界状态可被场景判定） |
 | `input.cursor` | `x`, `y` | 主模块 | 把光标移到视口内归一化坐标（0–1），用于驱动直读鼠标位置的游戏逻辑（如瞄准）；移动的是真实光标 |
 | `key` | `key`, `phase`, `holdMs` | 主模块 | 按键：键盘键或鼠标键（UE 的键名，如 W、SpaceBar、LeftMouseButton），走 Slate 输入入口，和真实按键同一条路；phase=tap（默认，按下隔一帧松开；给 `holdMs` 时按住这么多毫秒再松开，即长按）/ press / release（按住期间还要做别的操作时用）；press 按住的 Alt / Ctrl / Shift 会带进之后的点击、滚轮、按键事件（1.2.0-beta.5 起）；鼠标键在光标当前位置按（先 input.cursor）；给 `target` 时键盘事件发给这个控件（输入框里的回车、退格、方向键），否则发给游戏视口 |
+| `move` | `to`, `toActor`, `toTag`, `yaw`, `pitch`, `radius`, `via`, `fallback`, `teleportCommand`, `drive`, `forwardKey`, `path`, `jumps`, `fly`, `client` | 主模块 | 让本地玩家的角色走到一个点（1.3.0 起），见下面「移动步骤」 |
 | `actor.get` | `class`, `tag`, `client`, `locallyControlled` | 主模块 | 在游戏世界里按 class 或 tag 找 actor（唯一命中），回报对象路径、位置、朝向与速度；多客户端会话可用 client（\"server\" 或 0 起序号）寻址世界、locallyControlled 区分本端与远端 |
 | `net.compare` | `class`, `tag`, `from`, `to`, `tolerance` | 主模块 | 跨端一致性断言：同一玩家对应的 actor 在两端世界的位姿偏差不超过 tolerance（厘米）；from/to 各可给 client 与 locallyControlled（缺省 from=server、to=client0）；给 timeoutMs 则跨帧等到一致 |
 | `assert` | `exists`, `visible`, `enabled`, `text`, `textContains`, `count`, `selected`, `selectedProperty`, `stateKey`, `equals` | 主模块（要 target） | 断言目标状态（stateKey+equals 可断言快照 state 里的任意字段）；失败信息里带实际值，不做静默通过 |
@@ -156,6 +157,48 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 等待上限（`wait until=widget / widgetGone` 也一样）按这个顺序取：步骤的 `timeoutMs` > 场景顶层的 `uiWaitTimeoutMs` > 运行配置（下一节）的 `uiWaitTimeoutMs` > 项目设置「UI 等待超时」（`UiWaitTimeoutMs`）。**默认 0 = 不限**（1.2.0-beta.6 起，以前默认 10 秒）：界面没出来就一直等，加载慢、网络慢时不误报；真卡住了在面板上点停止（`gt.stop`），等待中的这一步标失败，消息里带最后一次检查卡在哪。不限时报告里这一步的 `timeoutMs` 记 0。所以场景里不用在每个 UI 操作前插 `wait`；显式的 `wait until=widget / widgetGone` 照样保留，给「等某个界面出现但不操作它」用。
 
+### 移动步骤（`move`，1.3.0 起）
+
+让本地玩家（第一个玩家控制器）的角色走到一个点。录制时用「录移动」生成（见「录制回放」），手写或 Agent 写时只给 `to` 就行：
+
+```json
+{ "action": "move", "to": [1200, -340, 88], "yaw": 90, "pitch": -10,
+  "path": [[0, 0, 88], [420, 10, 88], [800, -200, 96], [1200, -340, 88]], "jumps": [2],
+  "hint": { "from": [0, 0, 88], "durationMs": 8200, "distance": 1460, "nav": true, "pawn": "BP_Hero_C", "map": "/Game/Maps/Town" } }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `to` | 目标点，世界坐标 `[x, y, z]`（厘米）。和 `toActor` / `toTag` 二选一 |
+| `toActor` / `toTag` | 走到某个 actor 旁边（按类名或标签，唯一命中，同 `actor.get`）；目标在动时每帧跟着它的位置 |
+| `yaw` / `pitch` | 到了以后把控制器朝向（镜头）转到这个角度。录制时自动写：后面点游戏画面的步骤靠它对准 |
+| `radius` | 到达半径（厘米）。默认：`to` 时取 `max(胶囊半径 × 2, 60)`，`toActor` 时取目标半径 + 角色半径 + 30 |
+| `via` | `auto`（默认）/ `nav`（只用导航网格）/ `path`（只按录制轨迹）/ `probe`（只探路）/ `teleport`（直接瞬移） |
+| `fallback` | `none`（默认）/ `teleport`：前面的走法都不行时瞬移 |
+| `teleportCommand` | 瞬移用的控制台指令模板，`{x}` `{y}` `{z}` `{yaw}` 会被换成目标；不写时直接 `TeleportTo` |
+| `drive` | `input`（默认，每帧 `AddMovementInput`，像推摇杆）/ `keys`（按住 `forwardKey`，默认 W，并把镜头转向下一个路点） |
+| `path` / `jumps` / `fly` | 录制的轨迹（已简化）、在哪几个点之后起跳、哪几个点是游泳 / 飞行（按三维方向走） |
+| `client` | 多端会话里用哪一端的世界，同 `actor.get` |
+
+`via: "auto"` 的顺序：
+
+1. 项目有导航网格、起点终点都投影得上、路径完整 → 寻路走（导航网格还在生成时先等最多 30 秒）；
+2. 有 `path` → 按录制轨迹走：角色离轨迹 3 米内直接接上，再远就先「探路」走到轨迹上；
+3. 没有 `path`，或上面都不行 → 整段探路；
+4. 都不行：`fallback: "teleport"` 时瞬移，否则失败，`tried` 里写清每一种为什么不行。
+
+**回放不核对起点**：角色从哪里出发都行，`hint.from` 只给人看。
+
+**怎么走**：不管路线是哪来的，都交给同一个驱动——每帧对角色调 `AddMovementInput`，和玩家输入走同一个移动组件入口，碰撞、台阶、走速、动画、联机的客户端预测都和真人一样，不需要知道项目的按键绑定。走的时候镜头转向前进方向，到了再转到 `yaw` / `pitch`。`jumps` 标的点调 `ACharacter::Jump()`。**2 秒没往前走 20 厘米算卡住**：先试一次跳，还卡就换下一种走法。
+
+**探路**（没有导航网格时）：在角色和目标之间做 A*，地面按 50 厘米一格，展开到一格才检查它——往下打射线找地面、看坡度，再用角色自己的胶囊做重叠检查；两格之间扫一次胶囊、看台阶高度。台阶高度、可行走坡度、胶囊尺寸、碰撞通道都从角色读。搜索范围是起终点连线外扩 30 米，最多查 2 万格，每帧最多 300 次查询，不卡游戏。找到后把路线拉直。**只认在地上走**：跳沟、爬梯子、游泳、要先开门的路算不出来，这些靠录制轨迹。不去现场生成引擎的导航网格：网格默认只在编辑器里烘焙，游戏里生成要改项目设置。
+
+**瞬移**：单机和监听服务器直接 `TeleportTo`；客户端直接挪会被服务器拉回，在运行设置里配 `move.teleportCommand`（项目自己的 GM 瞬移指令）。结果里 `used: "teleport"` 表示这一步路上的问题没测到。
+
+结果的 `payload`：`used`（实际用的走法：`nav` / `path` / `probe` / `teleport`，一开始就在终点附近是 `none`）、`reached`、`distance`（结束时离目标多远）、`ms`、`tried`（`[{via, why}]`，换过走法时才有）、`stuck`（卡住的位置）、`trail`（实际走的路线，最多 100 个点）、`probeCells`（探路查了多少格）。
+
+没写 `timeoutMs` 时上限按录制用时 × 3 + 10 秒（没有录制用时按距离 ÷ 走速估），在 15 秒到 10 分钟之间。
+
 ### 运行配置和阻挡界面（1.2.0-beta.6 起）
 
 场景根下的 `_settings.json` 是整个项目共用的运行配置（跟着场景进版本管理，不放 UE 的 Config；列场景时跳过它）。面板 GameTest 页「运行设置」读写它（`gt.config`），也可以直接改文件：
@@ -175,6 +218,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
   ]
 }
 ```
+
+`move`（1.3.0 起）是 `move` 步骤的默认设置和录制快捷键：`fallback`、`teleportCommand`、`radius`、`drive`、`forwardKey`（同 `move` 步骤的字段），`hotkeys`（默认 `true`；项目自己用 Alt+数字时写 `false`）。场景顶层也可以写 `move` 段覆盖，优先级：步骤字段 > 场景 > 运行配置。
 
 `clickVia`（1.2.0-beta.7 起）是 `click` 没写 `via` 时的点击方式，`code`（默认）或 `pointer`，场景顶层的 `clickVia` 优先。
 
@@ -204,7 +249,28 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 1. 面板上点「录制」（`gt.record.start`，可给 `name`、`keepPace`）。编辑器里 PIE 正在跑时，场景开头自动加一条 `pie.start`（同一张地图），回放能自己拉起游戏。
 2. 在游戏窗口里正常操作。只录发给游戏窗口（和它弹出的子窗口，如下拉菜单）的输入，编辑器其他面板上的操作不录。
 3. 需要检查的地方：按住 **Ctrl+Alt 点一个控件**，录一条断言（见下表）；或插检查点（`gt.record.mark`，可带 `screenshot: true`），之后在面板里改成 `assert`。
-4. 停止（`gt.record.stop`），写成 `recorded/<名字>.json`（`schemaVersion: 2`），重名加序号。
+4. 要录角色走路：按 **Alt+1**（或点工具栏的「录移动」）开始，走到目的地再按一次结束，见下面「录移动」。
+5. 停止（`gt.record.stop`），写成 `recorded/<名字>.json`（`schemaVersion: 2`），重名加序号。
+
+**录制工具栏和快捷键**（1.3.0 起）：录制时游戏窗口右上角有一条工具栏（可以拖动，只在录制时出现，回放时没有），点它本身不录。鼠标被游戏锁住时用快捷键，录制器自己用掉、不传给游戏：
+
+| 键 | 作用 |
+| --- | --- |
+| `Alt+1` | 录移动 / 结束移动 |
+| `Alt+0` | 放弃这段移动 |
+| `Alt+2` | 记下当前位置：写一条只有 `to` + 朝向的 `move` |
+| `Alt+3` | 在这附近：写一条 `wait until=actorNear`（角色的类、当前位置、半径 200），检查前面的操作确实把角色带到了这里 |
+| `Alt+4` | 断言：下一次点击录成断言（和 Ctrl+Alt 点一样） |
+| `Alt+5` | 检查点（`mark`） |
+
+项目自己用 Alt+数字时在运行配置写 `"move": {"hotkeys": false}`，只用工具栏和面板按钮。
+
+**录移动**：开始到结束之间每帧记角色的位置（离上一个点 50 厘米以上才记，同时记移动模式和起跳），**别的操作都不写成步骤**——WASD、转视角、跳都只体现在轨迹里。结束时轨迹简化（偏离连线不到 30 厘米的点去掉，起跳点和游泳 / 飞行的起止点保留，最多 300 个点），写成一条 `move`。
+
+- 中间**点了界面**：移动段自动结束（以那一刻的位置为终点），这一下点击照常录成 `click`。
+- 开始时按着的键（按住 Shift 跑）：在步骤里补一条松开；结束时还按着再补按下。
+- 角色换了（上车、变身、重生）、地图换了、进了过场动画（`bCinematicMode`）：这段作废，工具栏提示原因。这些位移不是角色自己走出来的，回放推摇杆复现不了。
+- 靠界面或技能传送（点地图传送）不用移动段：照常录点击，再用「在这附近」检查结果。
 
 **怎么认出点的是哪个控件**（1.1.0 起）：不看控件是什么类，看**谁接住了这次输入**。Slate 自己会告诉我们哪个控件处理了这次按下（引擎的 Slate 调试事件，Widget Reflector 看事件用的同一条通道），再把它反查成 UMG 控件、写成选择器。按钮、复选框、在蓝图或 Lua 里重写了 OnMouseButtonDown 的 WBP、UImage 绑的事件都是同一条规则，所以以前「项目的按钮不是 UButton 就只能录成坐标」的问题没有了。
 
@@ -239,7 +305,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 | 操作 | 参数 | 返回 |
 | --- | --- | --- |
-| `gt.health` | — | `version`、`process`（editor / game）、`busy`、`runId`、`editor`（PIE 状态）、`worldPresent`、`playable`、`map`、`scenarioRoot`、`outputRoot`、`record`；装了 EnhancedInput 模块时有 `activeInjections` |
+| `gt.health` | — | `version`、`process`（editor / game）、`busy`、`runId`、`editor`（PIE 状态）、`worldPresent`、`playable`、`map`、`scenarioRoot`、`outputRoot`、`record`、`nav`（`{state: missing / building / ready, world}`，1.3.0 起）；装了 EnhancedInput 模块时有 `activeInjections` |
 | `gt.actions` | — | `common`、`actions: [{name, params, targetRequired, editorOnly, summary, module}]`、`unavailable: [{name, module, plugin}]` |
 | `gt.scenarios` | `query`、`offset`、`limit`（默认 200） | `scenarios: [{name, relativePath, _note, steps, revision, tags, parseError?}]`、`total` |
 | `gt.run` | `scenario`（相对场景根）或 `steps` + `name`、`stepDelayMs`；批量：`tag`（场景的 `tags` 里有它的全部场景）或 `scenarios`（路径数组），可带 `name` | 单个：`runId`、`steps`、`scenario`、`finished`；批量：`batchId`、`scenarios`（个数）。都在后台跑 |
@@ -254,8 +320,9 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
 | `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
+| `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
 | `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |
-| `gt.record.status` | `last`（默认 10） | `recording`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`，超过步数上限时 `truncated: true` |
+| `gt.record.status` | `last`（默认 10） | `recording`、`hotkeys`、在录移动时 `moving: {meters, seconds, points}`、有提示时 `notice`、`pickArmed`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`，超过步数上限时 `truncated: true` |
 
 同一时间只跑一个 run（批量运行也是一个接一个）。每次 run 的报告和截图在 `Saved/GameTest/<名字>-<时间>/`（`report.json`、`*.png`）。
 
@@ -297,7 +364,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
 | `gt.job` | run 开始、每完成一步、结束 | 和 `gt.job` 一样但不带 `steps`，多 `lastStep` 和 `phase`（`progress` / `finished`） |
-| `gt.record` | 录制开始、每录一步、停止 | 录制状态 + `phase`（`started` / `step` / `stopped`），`last` 只有最新一步 |
+| `gt.record` | 录制开始、每录一步、录移动时每秒、停止 | 录制状态 + `phase`（`started` / `step` / `moving` / `stopped`），`last` 只有最新一步 |
 
 ## 其他入口
 
@@ -330,3 +397,5 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 - 列表条目只认已经生成的：虚拟化列表里没滚到的条目没有控件，选择器指向它会报「没找到」，先 `scroll index=…`。`列表[序号]` 在列表顺序变化时会点错（带录制线索的步骤会按文字在同容器里找回，见「容器里顺序变了按文字找回」），能用 `列表[属性=值]` 就用它。
 - `text=` 和 `hint.text` 受当前语言影响；录制优先用控件名。
 - 手柄和 CommonUI 的焦点导航：按键照旧录成 `key`，不按焦点控件录。
+- `move` 的探路只认在地上走；坐载具、骑乘、过场动画驱动的位移录不了也走不了。项目的移动组件不读 `AddMovementInput` 时用 `drive: "keys"`。
+- 录制工具栏是 UEKit「UE 里不放界面」规则的例外（用户 2026-11-17 同意），只在录制时出现。

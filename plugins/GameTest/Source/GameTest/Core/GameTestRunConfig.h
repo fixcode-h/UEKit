@@ -44,6 +44,7 @@ struct GAMETEST_API FGameTestBlockerRule
  * ```json
  * { "uiWaitTimeoutMs": 0, "clickVia": "code", "randomSeed": 42,
  *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
+ *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
  *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
  *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ] }
@@ -60,6 +61,11 @@ struct GAMETEST_API FGameTestRunConfig
 	TArray<TSharedPtr<FJsonObject>> Setup;
 	/** 每次开跑前用它初始化引擎的全局随机；没写就不固定。 */
 	TOptional<int32> RandomSeed;
+	/**
+	 * move 步骤的默认设置和录制快捷键（`fallback`、`teleportCommand`、`radius`、`drive`、`forwardKey`、`hotkeys`），
+	 * 原样存成 JSON（校验见 GameTestMove::ValidateDefaults）；没写时为空。
+	 */
+	TSharedPtr<FJsonObject> Move;
 };
 
 class GAMETEST_API GameTestRunConfig

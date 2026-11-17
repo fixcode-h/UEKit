@@ -61,7 +61,7 @@ dist/                   出包产物（已忽略）
   - 模块启动时 `FAgentPanelBridge::Get().RegisterExtension(名字, 版本宏)`，操作用 `AddExtensionOp("前缀.名字", ...)` 挂上；关闭时 `RemoveOp` / `UnregisterExtension`。
   - **不自己开 HTTP 服务、不自己写名片、不自己读令牌**（`check.mjs` 会拦 `GetHttpRouter`）：UELink 已经管了令牌、只听本机和多实例。
   - 操作名前缀一个插件一个：AssetForge 用 `forge.`，GameTest 用 `gt.`。新插件先在协议文档里登记前缀。
-- **界面在 Agent 面板的网页里做**：UE 里不放 Slate 窗口和停靠页；命令行（commandlet）和内容浏览器右键菜单可以留，右键菜单只做「马上执行」的动作，不弹窗口。插件自己的界面状态（筛选、分组、字号）归网页，插件里不加 `UDeveloperSettings` 存个人偏好。
+- **界面在 Agent 面板的网页里做**：UE 里不放 Slate 窗口和停靠页（唯一的例外是 GameTest 录制时游戏视口右上角的录制工具栏：人在游戏窗口里走路时切不到浏览器，用户 2026-11-17 同意；只在录制时出现、不存设置）；命令行（commandlet）和内容浏览器右键菜单可以留，右键菜单只做「马上执行」的动作，不弹窗口。插件自己的界面状态（筛选、分组、字号）归网页，插件里不加 `UDeveloperSettings` 存个人偏好。
 - **引擎版本差异只写在 `<插件>Compat.h`**：用 UE 自带的 `ENGINE_MAJOR_VERSION` / `ENGINE_MINOR_VERSION` 或 `UE_VERSION_NEWER_THAN` / `UE_VERSION_OLDER_THAN` 定义成插件自己的宏或内联函数；Build.cs 里用 `Target.Version`。业务代码不直接判断版本（`check.mjs` 会拦）。插件都以 5.4 为基准、同时兼容 5.8：默认写 5.4 的写法，新接口只在实测编过的 5.8 上用，中间版本不去猜。
 - **可选依赖拆成单独模块**：CommonUI、GAS、EnhancedInput、UnLua 这类不一定每个项目都开的插件，放进 `<插件><依赖>` 模块，`.uplugin` 里依赖标 `Optional`，没有时整块不编；主模块只认接口（注册表、委托），不 include 可选模块的头。
 - **UnLua 是可选的**：`UELinkCore.Build.cs` 扫项目里 UnLua 的头文件选接口（用户的 UnLua 可能是二次开发过的分支），不要假设官方 UnLua 的接口。

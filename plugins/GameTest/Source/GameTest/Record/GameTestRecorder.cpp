@@ -4,6 +4,7 @@
 
 #include "Core/GameTestHooks.h"
 #include "Core/GameTestJson.h"
+#include "Core/GameTestRunConfig.h"
 #include "Core/GameTestScenario.h"
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
@@ -13,6 +14,8 @@
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "Record/GameTestRecordMove.h"
+#include "Record/GameTestRecordToolbar.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
 
@@ -121,6 +124,11 @@ public:
 	{
 		if (!InKeyEvent.IsRepeat() && !GameTestInput::IsSendingSynthetic())
 		{
+			// 录制快捷键 Alt+数字：吃掉，不传给游戏，也不录成按键。
+			if (InKeyEvent.IsAltDown() && !InKeyEvent.IsControlDown() && FGameTestRecorder::Get().OnHotkey(InKeyEvent.GetKey()))
+			{
+				return true;
+			}
 			FGameTestRecorder::Get().OnKey(InKeyEvent.GetKey(), /*bInDown=*/true);
 		}
 		return false;
@@ -211,6 +219,19 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	bKeepPace = bInKeepPace;
 	StartedAt = FPlatformTime::Seconds();
 	LastEventAt = 0.0;
+	MoveSegment.Reset();
+	bPickArmed = false;
+	bToolbarPressed = false;
+	Notice.Reset();
+
+	// 运行设置 move.hotkeys=false 时不认 Alt+数字（项目自己用这些键）；配置读不了不挡录制，按默认开。
+	bHotkeys = true;
+	FGameTestRunConfig RunConfig;
+	FString ConfigError;
+	if (GameTestRunConfig::Load(RunConfig, ConfigError) && RunConfig.Move.IsValid())
+	{
+		RunConfig.Move->TryGetBoolField(TEXT("hotkeys"), bHotkeys);
+	}
 
 	// 编辑器里 PIE 正在跑：回放时先把同一张地图的 PIE 拉起来，场景才能单独跑。
 	if (bInStartPie && GameTestEditor::IsAvailable() && GameTestEditor::IsPieRunning())
@@ -229,6 +250,7 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	InputProcessor = MakeShared<FGameTestRecorderInput>();
 	FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
 	bRecording = true;
+	SyncToolbar();
 
 	UE_LOG(LogGameTest, Display, TEXT("开始录制「%s」（处理者来源：%s）"), *Name,
 		GameTestHandlerWatch::IsSupported() ? TEXT("Slate 调试事件") : TEXT("命中路径推断"));
@@ -270,6 +292,13 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 	}
 
 	OnTick();
+	// 还在录移动就按「结束」处理：停止前走的那段路不丢。
+	if (MoveSegment.IsValid())
+	{
+		FString MoveError;
+		EndMove(/*bInAuto=*/true, MoveError);
+	}
+	HideToolbar();
 	FlushTyping();
 
 	// 录制结束时还按着的键补一条松开：回放时不留卡住的键（打字顺带的键回放时本来就没按）。
@@ -383,6 +412,7 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 	{
 		Status->SetBoolField(TEXT("truncated"), true);
 	}
+	DescribeQuick(*Status);
 
 	TArray<TSharedPtr<FJsonValue>> Last;
 	for (int32 Index = FMath::Max(0, Steps.Num() - InLastSteps); Index < Steps.Num(); ++Index)
@@ -395,6 +425,8 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 
 void FGameTestRecorder::Shutdown()
 {
+	HideToolbar();
+	MoveSegment.Reset();
 	if (InputProcessor.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
@@ -423,6 +455,24 @@ bool FGameTestRecorder::OnMouseButton(const FKey& InButton, bool bInDown, const 
 	{
 		bPickActive = false;
 		return true;
+	}
+
+	// 点的是录制工具栏：交给工具栏自己的按钮，按下和配对的松开都不录（拖动时松开可能已经不在工具栏上）。
+	if (bInDown && IsOnToolbar(InScreenPosition))
+	{
+		bToolbarPressed = true;
+		return false;
+	}
+	if (!bInDown && bToolbarPressed)
+	{
+		bToolbarPressed = false;
+		return false;
+	}
+	// Alt+4 / 工具栏「断言」之后的下一次点击：和 Ctrl+Alt 点一样录成断言。
+	if (bInDown && bPickArmed)
+	{
+		bPickArmed = false;
+		bInPickModifiers = true;
 	}
 
 	const TSharedPtr<SWidget> Leaf = GameTestRecorderDetail::LocateLeaf(InScreenPosition);
@@ -475,6 +525,11 @@ void FGameTestRecorder::OnKey(const FKey& InKey, bool bInDown)
 void FGameTestRecorder::OnWheel(float InDelta, const FVector2D& InScreenPosition)
 {
 	if (!bRecording || Queue.Num() >= GameTestRecorderDetail::MaxQueued)
+	{
+		return;
+	}
+	// 在录制工具栏上滚轮：不录。
+	if (IsOnToolbar(InScreenPosition))
 	{
 		return;
 	}
@@ -563,6 +618,7 @@ void FGameTestRecorder::OnHandled(GameTestHandlerWatch::EKind InKind, const Game
 
 void FGameTestRecorder::OnTick()
 {
+	TickMove();
 	if (!bRecording || Queue.Num() == 0)
 	{
 		return;
@@ -581,6 +637,11 @@ void FGameTestRecorder::OnTick()
 
 void FGameTestRecorder::ProcessEvent(const FRawEvent& InEvent, const FRawEvent* InNext)
 {
+	// 录移动段里：只记轨迹，别的操作不写步骤（点了界面会先自动结束移动段，这一下照常录）。
+	if (MoveSegment.IsValid() && FilterDuringMove(InEvent))
+	{
+		return;
+	}
 	switch (InEvent.Kind)
 	{
 	case ERawKind::MouseDown:

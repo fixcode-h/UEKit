@@ -35,6 +35,7 @@ public class GameTest : ModuleRules
 		// UMG：UWidget / UUserWidget / UListView 这些被操作的对象本体。
 		// Slate / SlateCore / ApplicationCore：截图、点击入口、录制用的输入预处理器和合成按键。
 		// UELinkCore：gt.* 操作和推送事件挂在它上面。
+		// NavigationSystem：move 步骤查导航网格、算路径（引擎模块，每个项目都有，不用拆可选模块）。
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"UMG",
@@ -45,6 +46,7 @@ public class GameTest : ModuleRules
 			"DeveloperSettings",
 			"Projects",
 			"UELinkCore",
+			"NavigationSystem",
 		});
 
 		// 编辑器专属步骤的宿主模块。判据：UnrealEd 只在 Editor target 下存在，
