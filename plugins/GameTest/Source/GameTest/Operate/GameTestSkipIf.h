@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/GameTestTypes.h"
+#include "Operate/GameTestAutoScroll.h"
 
 class FJsonObject;
 class FJsonValue;
@@ -108,4 +109,6 @@ private:
 	EGameTestSkipGate LastResult = EGameTestSkipGate::Wait;
 	FString Message;
 	FString Actual;
+	/** 看的控件在列表里没滚到时替用户滚、翻找（1.7.1）；滚过什么写进跳过结果的 `scrolled`。 */
+	GameTestAutoScroll::FState Scroll;
 };

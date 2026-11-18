@@ -141,8 +141,14 @@ namespace GameTestPointerDetail
 			{
 				OutWhy += TEXT("（已自动把列表滚到这个条目，等它生成）");
 			}
+			else
+			{
+				// 认不出是第几个条目（按文字、路径认的）：把界面上的列表从头翻到底找，翻完还没有就原地等到超时
+				GameTestAutoScroll::ScanForMissing(InTarget, InHandles, InOutState.Scroll, &OutWhy);
+			}
 			return false;
 		}
+		GameTestAutoScroll::MarkFound(InOutState.Scroll);
 
 		const TSharedPtr<SWidget> Slate = SlateOf(*Node);
 		if (!Slate.IsValid())
