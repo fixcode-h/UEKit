@@ -8,7 +8,7 @@ AssetForge 插件自带的一套多页面 UMG 界面，用来练习和验证 Gam
    - `umg/WBP_ForgeSample.json` → `/Game/AgentTest/AssetForge/WBP_ForgeSample`（界面）
    - `map/Map_ForgeSample.json` → `/Game/AgentTest/AssetForge/Map_ForgeSample`（只有世界设置的空地图，GameMode 进图就显示界面）
 2. 打开 `Map_ForgeSample` 点 PIE，界面盖满屏幕、鼠标可以直接点。在别的地图里 PIE 时，控制台敲 `AssetForge.Sample` 也能打开 / 关掉它。
-3. GameTest 页：点「录制」开始录；或者直接跑 `AssetForgeSample/ForgeSample-冒烟.json`（跳页、叠两层弹窗、返回、下拉框、输入框、多层返回）、`AssetForgeSample/ForgeSample-条目标识.json`（按条目标识点列表，见下面「列表条目页」）。
+3. GameTest 页：点「录制」开始录；或者直接跑（这两个场景用 GameTest 1.9 的脚本写法：分段、参数和变量、表达式断言、循环、守护，要 GameTest 1.9.0 起） `AssetForgeSample/ForgeSample-冒烟.json`（跳页、叠两层弹窗、返回、下拉框、输入框、多层返回）、`AssetForgeSample/ForgeSample-条目标识.json`（按条目标识点列表，见下面「列表条目页」）。
 
 项目的默认世界设置类不是 `WorldSettings` 时，导入地图会报「世界设置类不一致」：把 `map/Map_ForgeSample.json` 的 `root.class` 换成项目用的那个类。
 
