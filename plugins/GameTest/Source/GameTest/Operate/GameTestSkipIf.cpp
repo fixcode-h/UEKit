@@ -8,6 +8,7 @@
 #include "Observe/GameTestCondition.h"
 #include "Observe/GameTestHintPick.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "Operate/GameTestAutoScroll.h"
 
 #include "Components/Widget.h"
 #include "Dom/JsonObject.h"
@@ -49,22 +50,6 @@ namespace GameTestSkipIfDetail
 		return Size.X >= 1.0 && Size.Y >= 1.0;
 	}
 
-	/** 选择器的屏名那一段（`WBP_Welfare:Root/…` → `WBP_Welfare`）；句柄、纯 Slate、没写屏名的返回空。 */
-	FString ScreenOf(const FString& InTarget)
-	{
-		if (InTarget.StartsWith(TEXT("@")) || InTarget.StartsWith(TEXT(">")))
-		{
-			return FString();
-		}
-		int32 Colon = INDEX_NONE;
-		if (!InTarget.FindChar(TEXT(':'), Colon) || Colon <= 0)
-		{
-			return FString();
-		}
-		const FString Screen = InTarget.Left(Colon);
-		return Screen == TEXT("*") || Screen.Contains(TEXT(">")) ? FString() : Screen;
-	}
-
 	enum class EEval : uint8
 	{
 		Holds,
@@ -91,7 +76,13 @@ namespace GameTestSkipIfDetail
 		return Target;
 	}
 
-	FEval Evaluate(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles)
+	/**
+	 * `InScroll` 给了（回放的跳过判断）时，看的控件找不到就替用户滚列表找（GameTestAutoScroll，1.7.1）：
+	 * 认得出是第几个条目的直接滚过去，认不出的把界面上的列表从头翻到底，翻完还没有就原地等。
+	 * 反面条件（不存在 / 不可见）找不到正是要的结果，不翻。
+	 */
+	FEval Evaluate(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
+		GameTestAutoScroll::FState* InScroll = nullptr)
 	{
 		FEval Out;
 		const FString Target = TargetOf(InSkipIf, InStep);
@@ -101,10 +92,29 @@ namespace GameTestSkipIfDetail
 		FString ResolveError;
 		const bool bResolved = GameTestHandlers::TryResolveTarget(Target, InHandles, Node, ResolveError, Hint);
 		const bool bOnScreen = bResolved && Node.IsValid() && IsOnScreen(*Node);
+		if (InScroll != nullptr)
+		{
+			if (bResolved)
+			{
+				GameTestAutoScroll::MarkFound(*InScroll);
+			}
+			else if (!GameTestCondition::HasNegative(InSkipIf))
+			{
+				// 紧接着解析失败就取：后面再解析别的（屏）会把「哪个条目没生成」清掉
+				if (GameTestAutoScroll::ScrollToUngeneratedEntry(*InScroll))
+				{
+					ResolveError += TEXT("（已自动把列表滚到这个条目，等它生成）");
+				}
+				else
+				{
+					GameTestAutoScroll::ScanForMissing(Target, InHandles, *InScroll, &ResolveError);
+				}
+			}
+		}
 
 		if (GameTestCondition::HasNegative(InSkipIf))
 		{
-			const FString Screen = ScreenOf(Target);
+			const FString Screen = GameTestAutoScroll::ScreenOf(Target);
 			TSharedPtr<FGameTestWidgetNode> ScreenNode;
 			FString ScreenError;
 			if (Screen.IsEmpty() || !GameTestHandlers::TryResolveTarget(Screen + TEXT(":."), InHandles, ScreenNode, ScreenError)
@@ -328,7 +338,7 @@ EGameTestSkipGate FGameTestSkipGate::Tick(double InNow)
 	}
 	LastEvalAt = InNow;
 
-	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(*SkipIf, Step, Handles);
+	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(*SkipIf, Step, Handles, &Scroll);
 	Actual = Eval.Actual;
 
 	if (Eval.Result == GameTestSkipIfDetail::EEval::Holds)
@@ -393,6 +403,10 @@ TSharedPtr<FJsonObject> FGameTestSkipGate::MakeSkipPayload(double InNow) const
 	}
 	Out->SetStringField(TEXT("target"), CondTarget);
 	Out->SetStringField(TEXT("actual"), Actual);
+	if (!Scroll.Note.IsEmpty())
+	{
+		Out->SetStringField(TEXT("scrolled"), Scroll.Note);
+	}
 	Out->SetNumberField(TEXT("waitedMs"), FMath::RoundToInt((InNow - StartedAt) * 1000.0));
 	return Out;
 }
