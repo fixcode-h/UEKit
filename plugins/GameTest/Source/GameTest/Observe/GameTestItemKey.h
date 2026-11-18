@@ -89,6 +89,11 @@ struct GAMETEST_API FGameTestKeySite
 	FString Cond;
 	/** 怎么定的：auto（够准自动挑）/ rule（规则）/ pending（拿不准，待定）/ user（人选的）/ index（人选了按位置）。 */
 	FString By;
+	/**
+	 * 按下那一刻条目的全部字段（ListFields 全量，录制器按下时填；1.6.1）。点一下列表常会刷新（最近用过的排到前面），
+	 * 松开后再读就是别的条目的值：拼条件、存字段缓存、录制中列「全部字段」都先用它。
+	 */
+	TSharedPtr<FJsonObject> PressedFields;
 	/** 写选择器时第几层发现的（越小越靠近被点的控件）。 */
 	int32 Depth = MAX_int32;
 	int32 SegmentOrder = 0;
@@ -205,8 +210,16 @@ namespace GameTestItemKey
 	/** 用某个条件（空 = 按位置）改写 target：把前缀 From 换成 `Base[条件]` 或 Positional，更新 From。前缀对不上返回 false。 */
 	GAMETEST_API bool Apply(FGameTestKeySite& InOutSite, const FString& InCond, FString& InOutTarget);
 
-	/** 规则的字段 → 这个条目上的条件（`Data.ItemId=1001`）；有字段读不到或写不进返回空。 */
-	GAMETEST_API FString CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy);
+	/**
+	 * 字段 → 这个条目上的条件（`Data.ItemId=1001`）；有字段读不到或写不进返回空。
+	 * 默认取按下那一刻的值（候选里的值、PressedFields），没有才现读：录制时松开后列表可能已经刷新，现读会拼出别的条目的值。
+	 * bInNow 只取现在的值（核对「点完变没变」用）。OutChanged 收按下和松开之间变了的字段（候选标了 bChanged 的）。
+	 */
+	GAMETEST_API FString CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy, TArray<FString>* OutChanged = nullptr,
+		bool bInNow = false);
+
+	/** 按下时存的全部字段（PressedFields）按 gt.keys 的 filter / offset / limit 取一页，形状和 ListFields 一样。 */
+	GAMETEST_API TSharedPtr<FJsonObject> PageFields(const FJsonObject& InAll, const FString& InFilter, int32 InOffset, int32 InLimit);
 
 	/** 同一个条目松开时再读一次：值变了的候选标 bChanged 并重新打分、排序。 */
 	GAMETEST_API void Recheck(UWidget* InContainer, const FGameTestKeyEntry& InEntry, TArray<FGameTestKeyCandidate>& InOutCandidates);

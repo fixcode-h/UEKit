@@ -99,10 +99,18 @@ bool FGameTestRecorder::ApplyKeyChoice(const TSharedPtr<FJsonObject>& InStep, FG
 	FString Cond;
 	if (InChoice.Mode.IsEmpty())
 	{
-		Cond = GameTestItemKey::CondFromFields(InOutSite, InChoice.By);
+		// 取按下那一刻的值：松开后列表可能刷新，现读会拿到别的条目的
+		TArray<FString> Changed;
+		Cond = GameTestItemKey::CondFromFields(InOutSite, InChoice.By, &Changed);
 		if (Cond.IsEmpty())
 		{
 			OutWhy = FString::Printf(TEXT("这一格读不到 %s"), *FString::Join(InChoice.By, TEXT("、")));
+			return false;
+		}
+		// 这一格的这个字段点一下就变（最近用过的列表、数量）：不能当标识，照常让人看一眼
+		if (Changed.Num() > 0)
+		{
+			OutWhy = FString::Printf(TEXT("这一格的 %s 点完就变了"), *FString::Join(Changed, TEXT("、")));
 			return false;
 		}
 		TArray<FGameTestKeyCond> Conds;
@@ -210,7 +218,7 @@ void FGameTestRecorder::AfterKeyStep(const TSharedRef<FJsonObject>& InStep, cons
 		{
 			// 规则拼出来的条件可能是组合，候选里不一定有：按规则的字段再拼一次，和按下时不一样就是变了
 			TArray<FString> Fields = FieldsOfCond(Before);
-			bChosenChanged = GameTestItemKey::CondFromFields(Site, Fields) != Before;
+			bChosenChanged = GameTestItemKey::CondFromFields(Site, Fields, nullptr, /*bInNow=*/true) != Before;
 		}
 		if (bChosenChanged || (Site.By == TEXT("auto") && !GameTestItemKey::IsConfident(Site.Candidates)))
 		{

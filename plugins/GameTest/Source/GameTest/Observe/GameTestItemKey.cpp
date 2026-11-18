@@ -1133,3 +1133,68 @@ void GameTestItemKey::Recheck(UWidget* InContainer, const FGameTestKeyEntry& InE
 	}
 	InOutCandidates.Sort([](const FGameTestKeyCandidate& A, const FGameTestKeyCandidate& B) { return A.Score > B.Score; });
 }
+
+TSharedPtr<FJsonObject> GameTestItemKey::PageFields(const FJsonObject& InAll, const FString& InFilter, int32 InOffset, int32 InLimit)
+{
+	const TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
+	const TArray<TSharedPtr<FJsonValue>>* Groups = nullptr;
+	TArray<TSharedPtr<FJsonValue>> OutGroups;
+	int32 Total = 0;
+	int32 Emitted = 0;
+	if (InAll.TryGetArrayField(TEXT("groups"), Groups) && Groups != nullptr)
+	{
+		for (const TSharedPtr<FJsonValue>& GroupValue : *Groups)
+		{
+			const TSharedPtr<FJsonObject>* Group = nullptr;
+			const TArray<TSharedPtr<FJsonValue>>* Fields = nullptr;
+			if (!GroupValue.IsValid() || !GroupValue->TryGetObject(Group) || Group == nullptr || !Group->IsValid()
+				|| !(*Group)->TryGetArrayField(TEXT("fields"), Fields) || Fields == nullptr)
+			{
+				continue;
+			}
+			TArray<TSharedPtr<FJsonValue>> Kept;
+			for (const TSharedPtr<FJsonValue>& FieldValue : *Fields)
+			{
+				const TSharedPtr<FJsonObject>* Field = nullptr;
+				if (!FieldValue.IsValid() || !FieldValue->TryGetObject(Field) || Field == nullptr || !Field->IsValid())
+				{
+					continue;
+				}
+				FString By;
+				(*Field)->TryGetStringField(TEXT("by"), By);
+				const TSharedPtr<FJsonValue> Value = (*Field)->TryGetField(TEXT("v"));
+				const FString Shown = !Value.IsValid() ? FString() : Value->Type == EJson::String ? Value->AsString() : GameTestItemKey::FormatValue(*Value);
+				if (!InFilter.IsEmpty() && !By.Contains(InFilter, ESearchCase::IgnoreCase) && !Shown.Contains(InFilter, ESearchCase::IgnoreCase))
+				{
+					continue;
+				}
+				++Total;
+				if (Total > InOffset && Emitted < InLimit)
+				{
+					Kept.Add(FieldValue);
+					++Emitted;
+				}
+			}
+			if (Kept.Num() > 0)
+			{
+				const TSharedPtr<FJsonObject> Copy = MakeShared<FJsonObject>();
+				Copy->Values = (*Group)->Values;
+				Copy->SetArrayField(TEXT("fields"), Kept);
+				OutGroups.Add(MakeShared<FJsonValueObject>(Copy));
+			}
+		}
+	}
+	Out->SetArrayField(TEXT("groups"), OutGroups);
+	Out->SetNumberField(TEXT("total"), Total);
+	Out->SetNumberField(TEXT("count"), Emitted);
+	Out->SetNumberField(TEXT("offset"), InOffset);
+	const bool bMore = InOffset + Emitted < Total;
+	Out->SetBoolField(TEXT("hasMore"), bMore);
+	if (bMore)
+	{
+		Out->SetNumberField(TEXT("nextOffset"), InOffset + Emitted);
+	}
+	// 按下那一刻的值：录制中列给人挑，松开后列表刷新过也不会拿到别的条目的
+	Out->SetBoolField(TEXT("pressed"), true);
+	return Out;
+}
