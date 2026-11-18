@@ -14,6 +14,8 @@
 #include "Components/TileView.h"
 #include "Components/ScrollBox.h"
 #include "Components/Widget.h"
+#include "Engine/World.h"
+#include "UObject/UObjectIterator.h"
 #include "Widgets/SWidget.h"
 
 namespace GameTestAutoScrollDetail
@@ -27,9 +29,8 @@ namespace GameTestAutoScrollDetail
 	constexpr double ScanIntervalSeconds = 0.2;
 	/** 一个容器最多翻几页：防止长度一直在涨的列表（无限滚动）翻个没完。 */
 	constexpr int32 MaxScanSteps = 300;
-	/** 一个界面最多翻几个容器、往嵌套 WBP 里找几层。 */
-	constexpr int32 MaxScanBoxes = 8;
-	constexpr int32 MaxScanDepth = 4;
+	/** 最多翻几个容器：屏上列表太多时翻不完，先翻选择器写的那个屏里的。 */
+	constexpr int32 MaxScanBoxes = 12;
 
 	void AddNote(GameTestAutoScroll::FState& InOutState, const FString& InNote)
 	{
@@ -114,28 +115,64 @@ namespace GameTestAutoScrollScan
 {
 	using FScanBox = GameTestAutoScroll::FState::FScanBox;
 
-	/** 界面上可翻的容器：列表族（含 TileView）和滚动框，嵌套的 WBP 里也找；看不见的不翻。 */
-	void Collect(UUserWidget* InRoot, int32 InDepth, TArray<UWidget*>& OutBoxes)
+	/** 真在屏上：有 Slate 控件、整条父链可见、有尺寸（对象池里藏着的、折叠的不算）。 */
+	bool IsShown(UWidget* InWidget)
 	{
-		if (InRoot == nullptr || InRoot->WidgetTree == nullptr || InDepth > GameTestAutoScrollDetail::MaxScanDepth)
+		const TSharedPtr<SWidget> Slate = InWidget != nullptr ? InWidget->GetCachedWidget() : nullptr;
+		if (!Slate.IsValid())
+		{
+			return false;
+		}
+		for (TSharedPtr<SWidget> Current = Slate; Current.IsValid(); Current = Current->GetParentWidget())
+		{
+			if (!Current->GetVisibility().IsVisible())
+			{
+				return false;
+			}
+		}
+		const FVector2D Size = FVector2D(Slate->GetCachedGeometry().GetLocalSize());
+		return Size.X >= 1.0 && Size.Y >= 1.0;
+	}
+
+	/** 一个 UserWidget 自己树里的列表族（含 TileView）和滚动框；嵌套的 UserWidget 在外层遍历里单独算。 */
+	void CollectFrom(UUserWidget* InWidget, TArray<UWidget*>& OutBoxes)
+	{
+		if (InWidget == nullptr || InWidget->WidgetTree == nullptr)
 		{
 			return;
 		}
-		InRoot->WidgetTree->ForEachWidget([&](UWidget* Widget)
+		InWidget->WidgetTree->ForEachWidget([&OutBoxes](UWidget* Widget)
 		{
-			if (Widget == nullptr || OutBoxes.Num() >= GameTestAutoScrollDetail::MaxScanBoxes || !Widget->IsVisible())
-			{
-				return;
-			}
-			if (Widget->IsA<UListView>() || Widget->IsA<UScrollBox>())
+			if (Widget != nullptr && OutBoxes.Num() < GameTestAutoScrollDetail::MaxScanBoxes
+				&& (Widget->IsA<UListView>() || Widget->IsA<UScrollBox>()) && IsShown(Widget))
 			{
 				OutBoxes.AddUnique(Widget);
 			}
-			else if (UUserWidget* Nested = Cast<UUserWidget>(Widget))
-			{
-				Collect(Nested, InDepth + 1, OutBoxes);
-			}
 		});
+	}
+
+	/**
+	 * 要翻的容器：游戏里**所有显示着的 UserWidget**（任何 UUserWidget 子类，不按名字认界面，用户 2026-11-18 定）里的列表和滚动框。
+	 * 选择器写了屏、而且这个屏找得到时，它的容器排在前面先翻（多半就在那里）。
+	 */
+	void Collect(UUserWidget* InPreferred, TArray<UWidget*>& OutBoxes)
+	{
+		CollectFrom(InPreferred, OutBoxes);
+		for (TObjectIterator<UUserWidget> It; It && OutBoxes.Num() < GameTestAutoScrollDetail::MaxScanBoxes; ++It)
+		{
+			UUserWidget* Widget = *It;
+			if (!IsValid(Widget) || Widget->IsTemplate() || Widget == InPreferred)
+			{
+				continue;
+			}
+			// 编辑器自己的界面不在游戏世界里
+			const UWorld* World = Widget->GetWorld();
+			if (World == nullptr || !World->IsGameWorld() || !IsShown(Widget))
+			{
+				continue;
+			}
+			CollectFrom(Widget, OutBoxes);
+		}
 	}
 
 	float ExtentOf(UWidget* InBox)
@@ -264,26 +301,30 @@ bool GameTestAutoScroll::ScanForMissing(const FString& InTarget, TMap<FString, T
 	{
 		return false;
 	}
+	// 选择器写了屏、屏也找得到时先翻它；没写、找不到也照样翻屏上所有 UserWidget 里的列表
+	UUserWidget* Preferred = nullptr;
 	const FString Screen = ScreenOf(InTarget);
-	if (Screen.IsEmpty())
+	if (!Screen.IsEmpty())
 	{
-		return false;
-	}
-	TSharedPtr<FGameTestWidgetNode> ScreenNode;
-	FString ScreenError;
-	if (!GameTestHandlers::TryResolveTarget(Screen + TEXT(":."), InHandles, ScreenNode, ScreenError) || !ScreenNode.IsValid())
-	{
-		// 界面还没打开：没东西可翻，照常等
-		return false;
-	}
-	UWidget* ScreenWidget = ScreenNode->Widget.Get();
-	UUserWidget* Root = Cast<UUserWidget>(ScreenWidget);
-	if (Root == nullptr && ScreenWidget != nullptr)
-	{
-		Root = ScreenWidget->GetTypedOuter<UUserWidget>();
+		TSharedPtr<FGameTestWidgetNode> ScreenNode;
+		FString ScreenError;
+		if (GameTestHandlers::TryResolveTarget(Screen + TEXT(":."), InHandles, ScreenNode, ScreenError) && ScreenNode.IsValid())
+		{
+			UWidget* ScreenWidget = ScreenNode->Widget.Get();
+			Preferred = Cast<UUserWidget>(ScreenWidget);
+			if (Preferred == nullptr && ScreenWidget != nullptr)
+			{
+				Preferred = ScreenWidget->GetTypedOuter<UUserWidget>();
+			}
+		}
 	}
 	TArray<UWidget*> Boxes;
-	Collect(Root, 0, Boxes);
+	Collect(Preferred, Boxes);
+	if (Boxes.Num() == 0)
+	{
+		// 屏上还没有列表（界面没打开）：照常等
+		return false;
+	}
 
 	// 新出现的容器接到后面；翻完的长度变了（数据晚到、追加了条目）重翻
 	for (UWidget* Box : Boxes)
@@ -339,7 +380,7 @@ bool GameTestAutoScroll::ScanForMissing(const FString& InTarget, TMap<FString, T
 	{
 		InOutState.bScanEnded = true;
 		AddNote(InOutState, TEXT("界面上的列表、滚动框都翻到底了还没找到，原地等"));
-		UE_LOG(LogGameTest, Display, TEXT("自动滚动：%s 上的列表都翻到底了，还没找到 %s，原地等"), *Screen, *InTarget);
+		UE_LOG(LogGameTest, Display, TEXT("自动滚动：屏上的列表都翻到底了，还没找到 %s，原地等"), *InTarget);
 	}
 	if (InOutWhy != nullptr && InOutState.bScanEnded)
 	{
