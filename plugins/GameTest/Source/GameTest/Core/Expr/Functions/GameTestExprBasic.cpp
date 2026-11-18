@@ -12,7 +12,7 @@ namespace
 {
 	using FArgs = TArray<FGameTestValue>;
 
-	FGameTestValue TypeError(const FString& InWhat)
+	FGameTestValue BasicTypeError(const FString& InWhat)
 	{
 		return FGameTestValue::Unresolved(InWhat, TEXT("expr_type"));
 	}
@@ -22,7 +22,7 @@ namespace
 		return InValue.TryNumber(OutNumber);
 	}
 
-	FString Str(const FGameTestValue& InValue)
+	FString ArgText(const FGameTestValue& InValue)
 	{
 		return InValue.IsString() ? InValue.GetString() : InValue.ToDisplay(100000);
 	}
@@ -65,21 +65,21 @@ namespace
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
 				const int32 Len = A[0].Len();
-				return Len >= 0 ? FGameTestValue::FromNumber(Len) : TypeError(FString::Printf(TEXT("len 不能用在 %s 上"), *A[0].TypeName()));
+				return Len >= 0 ? FGameTestValue::FromNumber(Len) : BasicTypeError(FString::Printf(TEXT("len 不能用在 %s 上"), *A[0].TypeName()));
 			});
 		GameTestExprFunctions::Add(TEXT("str"), 1, 1, TEXT("类型"), TEXT("str(x)"), TEXT("转文字"),
-			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(Str(A[0])); });
+			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0])); });
 		GameTestExprFunctions::Add(TEXT("num"), 1, 1, TEXT("类型"), TEXT("num(x)"), TEXT("转数字（整段是数字才行，从文字里取数用 number(sel)）"),
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
 				double N = 0.0;
-				return Num(A[0], N) ? FGameTestValue::FromNumber(N) : TypeError(FString::Printf(TEXT("%s 不是数字"), *A[0].ToDisplay(40)));
+				return Num(A[0], N) ? FGameTestValue::FromNumber(N) : BasicTypeError(FString::Printf(TEXT("%s 不是数字"), *A[0].ToDisplay(40)));
 			});
 		GameTestExprFunctions::Add(TEXT("int"), 1, 1, TEXT("类型"), TEXT("int(x)"), TEXT("转整数（向零取整）"),
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
 				double N = 0.0;
-				return Num(A[0], N) ? FGameTestValue::FromNumber(FMath::TruncToDouble(N)) : TypeError(FString::Printf(TEXT("%s 不是数字"), *A[0].ToDisplay(40)));
+				return Num(A[0], N) ? FGameTestValue::FromNumber(FMath::TruncToDouble(N)) : BasicTypeError(FString::Printf(TEXT("%s 不是数字"), *A[0].ToDisplay(40)));
 			});
 		GameTestExprFunctions::Add(TEXT("bool"), 1, 1, TEXT("类型"), TEXT("bool(x)"), TEXT("真值（非 0、非空、true）"),
 			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromBool(A[0].Truthy()); });
@@ -94,7 +94,7 @@ namespace
 				double Digits = 0.0;
 				if (!Num(A[0], X) || (A.Num() > 1 && !Num(A[1], Digits)))
 				{
-					return TypeError(TEXT("round 的参数要是数字"));
+					return BasicTypeError(TEXT("round 的参数要是数字"));
 				}
 				const double Scale = FMath::Pow(10.0, FMath::Clamp(FMath::RoundToDouble(Digits), 0.0, 10.0));
 				return FGameTestValue::FromNumber(FMath::RoundHalfFromZero(X * Scale) / Scale);
@@ -104,7 +104,7 @@ namespace
 			GameTestExprFunctions::Add(InName, 1, 1, TEXT("数值"), InSig, InSummary, [InFn, InName](const FArgs& A, FGameTestFlowContext&)
 			{
 				double X = 0.0;
-				return Num(A[0], X) ? FGameTestValue::FromNumber(InFn(X)) : TypeError(FString::Printf(TEXT("%s 的参数要是数字"), InName));
+				return Num(A[0], X) ? FGameTestValue::FromNumber(InFn(X)) : BasicTypeError(FString::Printf(TEXT("%s 的参数要是数字"), InName));
 			});
 		};
 		Unary(TEXT("floor"), TEXT("floor(x)"), TEXT("向下取整"), [](double X) { return FMath::FloorToDouble(X); });
@@ -118,7 +118,7 @@ namespace
 				const TArray<FGameTestValue>& Items = A.Num() == 1 && A[0].Type == EGameTestValueType::Array ? A[0].GetArray() : A;
 				if (Items.Num() == 0)
 				{
-					return TypeError(TEXT("min / max 至少要一个数"));
+					return BasicTypeError(TEXT("min / max 至少要一个数"));
 				}
 				double Best = 0.0;
 				for (int32 Index = 0; Index < Items.Num(); ++Index)
@@ -126,7 +126,7 @@ namespace
 					double X = 0.0;
 					if (!Num(Items[Index], X))
 					{
-						return TypeError(FString::Printf(TEXT("%s 不是数字"), *Items[Index].ToDisplay(40)));
+						return BasicTypeError(FString::Printf(TEXT("%s 不是数字"), *Items[Index].ToDisplay(40)));
 					}
 					Best = Index == 0 ? X : (bMax ? FMath::Max(Best, X) : FMath::Min(Best, X));
 				}
@@ -143,7 +143,7 @@ namespace
 				double Hi = 0.0;
 				if (!Num(A[0], X) || !Num(A[1], Lo) || !Num(A[2], Hi))
 				{
-					return TypeError(TEXT("clamp 的参数要是数字"));
+					return BasicTypeError(TEXT("clamp 的参数要是数字"));
 				}
 				return FGameTestValue::FromNumber(FMath::Clamp(X, FMath::Min(Lo, Hi), FMath::Max(Lo, Hi)));
 			});
@@ -155,7 +155,7 @@ namespace
 		{
 			GameTestExprFunctions::Add(InName, 2, 2, TEXT("文字"), InSig, InSummary, [InFn](const FArgs& A, FGameTestFlowContext&)
 			{
-				return FGameTestValue::FromBool(InFn(Str(A[0]), Str(A[1])));
+				return FGameTestValue::FromBool(InFn(ArgText(A[0]), ArgText(A[1])));
 			});
 		};
 		GameTestExprFunctions::Add(TEXT("contains"), 2, 2, TEXT("文字"), TEXT("contains(a, b)"), TEXT("a 里有 b（文字忽略大小写；数组按元素）"),
@@ -165,25 +165,25 @@ namespace
 				{
 					return FGameTestValue::FromBool(A[0].GetArray().ContainsByPredicate([&A](const FGameTestValue& Item) { return Item.LooseEquals(A[1]); }));
 				}
-				return FGameTestValue::FromBool(Str(A[0]).Contains(Str(A[1]), ESearchCase::IgnoreCase));
+				return FGameTestValue::FromBool(ArgText(A[0]).Contains(ArgText(A[1]), ESearchCase::IgnoreCase));
 			});
 		Pair(TEXT("startsWith"), TEXT("startsWith(a, b)"), TEXT("a 以 b 开头（忽略大小写）"),
 			[](const FString& L, const FString& R) { return L.StartsWith(R, ESearchCase::IgnoreCase); });
 		Pair(TEXT("endsWith"), TEXT("endsWith(a, b)"), TEXT("a 以 b 结尾（忽略大小写）"),
 			[](const FString& L, const FString& R) { return L.EndsWith(R, ESearchCase::IgnoreCase); });
 		GameTestExprFunctions::Add(TEXT("lower"), 1, 1, TEXT("文字"), TEXT("lower(s)"), TEXT("转小写"),
-			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(Str(A[0]).ToLower()); });
+			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0]).ToLower()); });
 		GameTestExprFunctions::Add(TEXT("upper"), 1, 1, TEXT("文字"), TEXT("upper(s)"), TEXT("转大写"),
-			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(Str(A[0]).ToUpper()); });
+			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0]).ToUpper()); });
 		GameTestExprFunctions::Add(TEXT("trim"), 1, 1, TEXT("文字"), TEXT("trim(s)"), TEXT("去掉首尾空白"),
-			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(Str(A[0]).TrimStartAndEnd()); });
+			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0]).TrimStartAndEnd()); });
 		GameTestExprFunctions::Add(TEXT("replace"), 3, 3, TEXT("文字"), TEXT("replace(s, a, b)"), TEXT("把 s 里的 a 都换成 b"),
-			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(Str(A[0]).Replace(*Str(A[1]), *Str(A[2]))); });
+			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0]).Replace(*ArgText(A[1]), *ArgText(A[2]))); });
 		GameTestExprFunctions::Add(TEXT("split"), 2, 2, TEXT("文字"), TEXT("split(s, sep)"), TEXT("按 sep 拆成数组"),
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
 				TArray<FString> Parts;
-				Str(A[0]).ParseIntoArray(Parts, *Str(A[1]), false);
+				ArgText(A[0]).ParseIntoArray(Parts, *ArgText(A[1]), false);
 				TArray<FGameTestValue> Items;
 				for (const FString& Part : Parts)
 				{
@@ -197,17 +197,17 @@ namespace
 				TArray<FString> Parts;
 				for (const FGameTestValue& Item : A[0].GetArray())
 				{
-					Parts.Add(Str(Item));
+					Parts.Add(ArgText(Item));
 				}
-				return FGameTestValue::FromString(FString::Join(Parts, *Str(A[1])));
+				return FGameTestValue::FromString(FString::Join(Parts, *ArgText(A[1])));
 			});
 		GameTestExprFunctions::Add(TEXT("format"), 1, -1, TEXT("文字"), TEXT("format(fmt, …)"), TEXT("按 {0} {1} 填参数"),
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
-				FString Out = Str(A[0]);
+				FString Out = ArgText(A[0]);
 				for (int32 Index = 1; Index < A.Num(); ++Index)
 				{
-					Out.ReplaceInline(*FString::Printf(TEXT("{%d}"), Index - 1), *Str(A[Index]));
+					Out.ReplaceInline(*FString::Printf(TEXT("{%d}"), Index - 1), *ArgText(A[Index]));
 				}
 				return FGameTestValue::FromString(Out);
 			});
@@ -223,7 +223,7 @@ namespace
 				double Z = 0.0;
 				if (!Num(A[0], X) || !Num(A[1], Y) || (A.Num() > 2 && !Num(A[2], Z)))
 				{
-					return TypeError(TEXT("vec 的参数要是数字"));
+					return BasicTypeError(TEXT("vec 的参数要是数字"));
 				}
 				return FGameTestValue::FromVector(FVector(X, Y, Z));
 			});
@@ -234,7 +234,7 @@ namespace
 				FVector R;
 				if (!Vec(A[0], L) || !Vec(A[1], R))
 				{
-					return TypeError(TEXT("dist 的参数要是向量或 Actor"));
+					return BasicTypeError(TEXT("dist 的参数要是向量或 Actor"));
 				}
 				return FGameTestValue::FromNumber(FVector::Dist(L, R));
 			});

@@ -53,7 +53,7 @@ namespace
 	}
 
 	/** 定义 + 别名上的比较 → 要判断的对象。 */
-	TSharedPtr<FJsonObject> Expand(const FJsonObject& InJson, FGameTestFlowContext& InContext, FString& OutError)
+	TSharedPtr<FJsonObject> ExpandAlias(const FJsonObject& InJson, FGameTestFlowContext& InContext, FString& OutError)
 	{
 		FString Name;
 		InJson.TryGetStringField(TEXT("alias"), Name);
@@ -113,7 +113,7 @@ namespace
 		virtual void Evaluate(const FJsonObject& InJson, FGameTestFlowContext& InContext, FGameTestCheckResult& OutResult) const override
 		{
 			FString Error;
-			const TSharedPtr<FJsonObject> Expanded = Expand(InJson, InContext, Error);
+			const TSharedPtr<FJsonObject> Expanded = ExpandAlias(InJson, InContext, Error);
 			if (!Expanded.IsValid())
 			{
 				OutResult.Unresolved = Error;

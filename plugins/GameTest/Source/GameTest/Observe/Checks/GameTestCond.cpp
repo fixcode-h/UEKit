@@ -115,7 +115,7 @@ namespace
 			: State == EGameTestCondState::Holds ? EGameTestCondState::NotHolds : EGameTestCondState::Holds;
 	}
 
-	void ValidateNode(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
+	void ValidateCondNode(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
 		const TArray<FString>& InExtraAllowed)
 	{
 		FString Text;
@@ -156,13 +156,13 @@ namespace
 				for (int32 Index = 0; Index < Items->Num(); ++Index)
 				{
 					FGameTestDiagSink::FScope Scope(InSink, FString::Printf(TEXT("%s.%d"), Key, Index));
-					ValidateNode((*Items)[Index], InScope, InSink, TArray<FString>());
+					ValidateCondNode((*Items)[Index], InScope, InSink, TArray<FString>());
 				}
 			}
 			if (Cond->HasField(TEXT("not")))
 			{
 				FGameTestDiagSink::FScope Scope(InSink, TEXT("not"));
-				ValidateNode(Cond->TryGetField(TEXT("not")), InScope, InSink, TArray<FString>());
+				ValidateCondNode(Cond->TryGetField(TEXT("not")), InScope, InSink, TArray<FString>());
 			}
 			return;
 		}
@@ -316,7 +316,7 @@ namespace GameTestCond
 	void Validate(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
 		const TArray<FString>& InExtraAllowed)
 	{
-		ValidateNode(InCond, InScope, InSink, InExtraAllowed);
+		ValidateCondNode(InCond, InScope, InSink, InExtraAllowed);
 	}
 
 	FGameTestCondResult Evaluate(const FJsonObject& InCond, FGameTestFlowContext& InContext, const FGameTestValue* InSubject)
