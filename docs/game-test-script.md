@@ -367,7 +367,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 ## 11. 报告的变化
 
 - 每步 `id`、`path`；报告仍是按执行顺序的平铺列表：块结束时记一条 `block: true` 的记录，块里的步骤各记各的，面板按 `path` 前缀挂到块下面；循环里的记录带 `iter`（从 0）。没走的分支不记录，`disabled` 的步骤记 `disabled`，没轮到的记 `skipped`。
-- `payload.guards`、`payload.invoke`、`payload.object`、`payload.cond`（判断的每一项：`path`、`holds`、`actual`、`unresolved?`）、`payload.vars`（这一步用到的变量值）。
+- `payload.guards`、`payload.invoke`、`payload.object`、`payload.cond`（判断的每一项：`path`、`holds`、`actual`、`unresolved?`）、`payload.vars`（1.11.2 起：这一步引用的 `$变量` 和它写的变量——`set` 的 `var`、`saveAs`、循环的 `as`——在这一步结束时的值，`{名字: 值}`；块不列子步骤的；只有通过 / 失败的步骤有；取不到的不写；超过 300 字的值给截过的文字，一步合计约 2000 字，超出标 `_truncated: true`）。
 - 历史（`history.json`）按 id 记失败步骤；旧记录按序号显示。
 
 ## 12. 错误码（`gt.validate` 和运行失败的 `code`）

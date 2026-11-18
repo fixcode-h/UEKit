@@ -180,6 +180,8 @@ private:
 
 	//~ 记录、推送
 	void AddRecord(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const FString& InMessage, double InStartedAt, double InNowSeconds, const TSharedPtr<FJsonObject>& InPayload, bool bInBlock);
+	/** 报告 `payload.vars`（1.11.2）：这一步用到、写到的变量此刻的值并进 payload。 */
+	TSharedPtr<FJsonObject> WithStepVars(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const TSharedPtr<FJsonObject>& InPayload) const;
 	void Emit(const TCHAR* InPhase, const FGameTestNode* InNode, const TCHAR* InStatus = nullptr, int32 InIter = -1, const FString& InGuard = FString(), double InMs = -1.0);
 	void SetAt(const FGameTestNode& InNode);
 	/** 断点、单步、to、from：要不要在这个节点前停下。 */

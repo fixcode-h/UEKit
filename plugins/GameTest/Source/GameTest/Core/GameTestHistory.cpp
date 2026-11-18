@@ -77,6 +77,11 @@ TSharedPtr<FJsonObject> GameTestHistory::MakeEntry(const FGameTestReport& InRepo
 			// 第几步（从 1 数，和面板、报告里说的一致）和原因
 			// 前置步骤失败记成第 0 步：场景本身一步都没跑
 			Entry->SetNumberField(TEXT("failedStep"), Record.Step.bSetup ? 0 : Record.Step.Index + 1);
+			// 块里的步骤 Index 是它在所在槽里的序号，和顶层的第几步分不开：再记路径（steps.1.do.3），面板按它对到步骤上
+			if (!Record.Step.bSetup && !Record.Step.Path.IsEmpty())
+			{
+				Entry->SetStringField(TEXT("failedPath"), Record.Step.Path);
+			}
 			Entry->SetStringField(TEXT("message"), Record.Message.Left(HistoryMaxMessageChars));
 			break;
 		}
