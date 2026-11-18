@@ -2,6 +2,7 @@
 
 #include "CQTest.h"
 
+#include "Core/Flow/GameTestGuards.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunConfig.h"
 
