@@ -37,7 +37,15 @@ namespace GameTestHandlers
 
 		if (InTarget.StartsWith(TEXT("@")))
 		{
-			const FString Handle = InTarget.RightChop(1);
+			// `@句柄>子路径`（1.9.0）：循环 each 的 `$item>BtnClaim` 会被换成 `@__v_…>BtnClaim`，从这个控件自己的树往下走。
+			FString Handle = InTarget.RightChop(1);
+			FString Tail;
+			int32 Hop = INDEX_NONE;
+			if (Handle.FindChar(TEXT('>'), Hop))
+			{
+				Tail = Handle.Mid(Hop);
+				Handle.LeftInline(Hop);
+			}
 			if (InHandles == nullptr)
 			{
 				OutMessage = TEXT("句柄表不可用");
@@ -59,8 +67,27 @@ namespace GameTestHandlers
 			}
 
 			// 句柄每次重新采一遍子树：拿到的永远是此刻的状态与条目，而不是捕获那一刻的快照。
-			OutNode = GameTestSnapshot::CaptureSubtree(Widget, FString(), /*InIsScreenRoot=*/false);
-			return OutNode.IsValid();
+			if (Tail.IsEmpty())
+			{
+				OutNode = GameTestSnapshot::CaptureSubtree(Widget, FString(), /*InIsScreenRoot=*/false);
+				return OutNode.IsValid();
+			}
+			// 带子路径：把句柄控件当成一个屏，子路径照「屏名:路径」的规则走（`>>` 进 Slate 时从它自己开始）。
+			const TSharedPtr<FGameTestWidgetNode> Root = GameTestSnapshot::CaptureSubtree(Widget, FString(), /*InIsScreenRoot=*/true, /*bInLight=*/true);
+			if (!Root.IsValid())
+			{
+				OutMessage = FString::Printf(TEXT("句柄 '%s' 的控件树采不到"), *Handle);
+				return false;
+			}
+			const FString Rest = Tail.StartsWith(TEXT(">>")) ? TEXT("*:.") + Tail : TEXT("*:") + Tail.RightChop(1);
+			TArray<TSharedPtr<FGameTestWidgetNode>> Scope;
+			Scope.Add(Root);
+			if (!GameTestSelector::ResolveText(Scope, Rest, OutNode, OutMessage))
+			{
+				OutMessage = FString::Printf(TEXT("在 %s 里找 %s：%s"), *Widget->GetName(), *Tail, *OutMessage);
+				return false;
+			}
+			return true;
 		}
 
 		UWorld* World = GameTestWorld::FindGameWorld();

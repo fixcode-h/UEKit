@@ -7,6 +7,7 @@
 
 class FJsonObject;
 class FJsonValue;
+class FGameTestFlowContext;
 class FGameTestSkipGate;
 class UWidget;
 class UWorld;
@@ -22,6 +23,12 @@ struct FGameTestStepContext
 {
 	const FGameTestStep* Step = nullptr;
 	UWorld* World = nullptr;
+
+	/**
+	 * 脚本上下文（1.9.0）：变量、对象、只读闸门、本次 run 的日志序号。动作里求值、调接口、存 saveAs 都用它。
+	 * 执行器持有，一次 run 里地址不变；gt.step 单步也会给一个。
+	 */
+	FGameTestFlowContext* Flow = nullptr;
 
 	/** 名称句柄表，由子系统持有——跨 HTTP 调用（=跨 run）也要能用 `@句柄`。 */
 	TMap<FString, TWeakObjectPtr<UWidget>>* Handles = nullptr;
