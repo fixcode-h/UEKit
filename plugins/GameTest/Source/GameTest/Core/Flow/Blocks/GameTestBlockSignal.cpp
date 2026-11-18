@@ -68,10 +68,10 @@ namespace
 			double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			const FSignalData* Data = InNode.GetData<FSignalData>();
-			FString Summary;
-			if (!CondHolds(Data, InContext, Summary))
+			FString CondSay;
+			if (!CondHolds(Data, InContext, CondSay))
 			{
-				Out.Message = FString::Printf(TEXT("条件不成立，不%s（%s）"), *Key.ToString(), *Summary);
+				Out.Message = FString::Printf(TEXT("条件不成立，不%s（%s）"), *Key.ToString(), *CondSay);
 				return EGameTestBlockStep::Done;
 			}
 			if (Signal == EGameTestFlowSignal::Return)

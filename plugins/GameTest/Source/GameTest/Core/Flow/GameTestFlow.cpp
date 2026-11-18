@@ -872,10 +872,10 @@ void FGameTestFlow::FinishGuard(int32 InFrame, double InNowSeconds)
 	case EGameTestGuardAfter::Fail:
 	{
 		List.Index++;
-		const FString Message = FString::Printf(TEXT("守护「%s」出现，按 after=fail 算失败"), *Guard.Label());
-		AddRecord(Node, EGameTestStepStatus::Failed, Message, InNowSeconds, InNowSeconds, nullptr, Node.IsBlock());
+		const FString FailMessage = FString::Printf(TEXT("守护「%s」出现，按 after=fail 算失败"), *Guard.Label());
+		AddRecord(Node, EGameTestStepStatus::Failed, FailMessage, InNowSeconds, InNowSeconds, nullptr, Node.IsBlock());
 		Emit(TEXT("leave"), &Node, TEXT("failed"));
-		PropagateFailure(Frame.InterruptedFrame, Message, InNowSeconds);
+		PropagateFailure(Frame.InterruptedFrame, FailMessage, InNowSeconds);
 		break;
 	}
 	case EGameTestGuardAfter::Retry:

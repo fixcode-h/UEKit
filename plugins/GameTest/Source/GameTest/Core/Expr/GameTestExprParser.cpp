@@ -745,12 +745,12 @@ TSharedPtr<const FGameTestExpr> FGameTestExpr::Parse(const FString& InText, FStr
 		return nullptr;
 	}
 	FParser Parser(Tokens);
-	const TSharedPtr<FGameTestExprNode> Root = Parser.Run(OutError);
-	if (!Root.IsValid())
+	const TSharedPtr<FGameTestExprNode> Parsed = Parser.Run(OutError);
+	if (!Parsed.IsValid())
 	{
 		return nullptr;
 	}
-	return MakeShared<const FGameTestExpr>(InText, Root.ToSharedRef());
+	return MakeShared<const FGameTestExpr>(InText, Parsed.ToSharedRef());
 }
 
 FGameTestExpr::FGameTestExpr(const FString& InText, TSharedRef<FGameTestExprNode> InRoot)

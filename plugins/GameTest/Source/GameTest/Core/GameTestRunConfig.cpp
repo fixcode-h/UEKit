@@ -21,7 +21,7 @@
 namespace
 {
 	/** 守护的 do 里 call 子脚本相对场景根：校验用的解析器要知道场景根。 */
-	FString ScenarioRootDir()
+	FString RunConfigScenarioRoot()
 	{
 		return FPaths::GetPath(GameTestRunConfig::GetPath());
 	}
@@ -74,7 +74,7 @@ namespace
 		{
 			OutConfig.Guards = Working->TryGetField(TEXT("guards"));
 			FGameTestDiagSink Sink;
-			FGameTestScriptParser Parser(ScenarioRootDir(), Sink, OutConfig.ScriptOptions);
+			FGameTestScriptParser Parser(RunConfigScenarioRoot(), Sink, OutConfig.ScriptOptions);
 			GameTestGuards::ParseList(OutConfig.Guards, TEXT("global"), TEXT("guards"), Parser, OutConfig.ParsedGuards);
 			if (Sink.HasErrors())
 			{

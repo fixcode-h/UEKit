@@ -306,34 +306,34 @@ bool FGameTestObjectLocator::Parse(const FJsonObject& InJson, FGameTestObjectLoc
 	{
 		OutErrors.Add(TEXT("定位器要写 class（类名或路径）"));
 	}
-	FString In;
-	if (InJson.TryGetStringField(TEXT("in"), In) && !In.IsEmpty())
+	FString InText;
+	if (InJson.TryGetStringField(TEXT("in"), InText) && !InText.IsEmpty())
 	{
-		OutLocator.In = In;
-		if (In != TEXT("world") && In != TEXT("widgets") && In != TEXT("all") && !In.StartsWith(TEXT("@")) && !In.StartsWith(TEXT("$")))
+		OutLocator.In = InText;
+		if (InText != TEXT("world") && InText != TEXT("widgets") && InText != TEXT("all") && !InText.StartsWith(TEXT("@")) && !InText.StartsWith(TEXT("$")))
 		{
-			OutErrors.Add(FString::Printf(TEXT("in 写成了 %s：只能是 world、widgets、all 或 @来源路径"), *In));
+			OutErrors.Add(FString::Printf(TEXT("in 写成了 %s：只能是 world、widgets、all 或 @来源路径"), *InText));
 		}
 	}
-	const TSharedPtr<FJsonObject>* Key = nullptr;
-	if (InJson.TryGetObjectField(TEXT("key"), Key) && Key != nullptr && (*Key).IsValid())
+	const TSharedPtr<FJsonObject>* KeyJson = nullptr;
+	if (InJson.TryGetObjectField(TEXT("key"), KeyJson) && KeyJson != nullptr && (*KeyJson).IsValid())
 	{
-		for (const auto& Pair : (*Key)->Values)
+		for (const auto& Pair : (*KeyJson)->Values)
 		{
 			OutLocator.Key.Emplace(FString(*Pair.Key), Pair.Value);
 		}
 	}
 	InJson.TryGetStringField(TEXT("component"), OutLocator.Component);
-	const TSharedPtr<FJsonValue> Near = InJson.TryGetField(TEXT("near"));
-	if (Near.IsValid() && !Near->IsNull())
+	const TSharedPtr<FJsonValue> NearJson = InJson.TryGetField(TEXT("near"));
+	if (NearJson.IsValid() && !NearJson->IsNull())
 	{
-		OutLocator.Near = Near;
+		OutLocator.Near = NearJson;
 	}
-	const TSharedPtr<FJsonValue> Client = InJson.TryGetField(TEXT("client"));
-	if (Client.IsValid() && !Client->IsNull())
+	const TSharedPtr<FJsonValue> ClientJson = InJson.TryGetField(TEXT("client"));
+	if (ClientJson.IsValid() && !ClientJson->IsNull())
 	{
 		double Number = 0;
-		OutLocator.Client = Client->TryGetNumber(Number) ? FString::FromInt((int32)Number) : Client->AsString();
+		OutLocator.Client = ClientJson->TryGetNumber(Number) ? FString::FromInt((int32)Number) : ClientJson->AsString();
 	}
 	return OutErrors.Num() == 0;
 }
