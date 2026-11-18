@@ -15,7 +15,7 @@
 
 namespace
 {
-	const TCHAR* const Kind = TEXT("gametest-api");
+	const TCHAR* const ApiFileKind = TEXT("gametest-api");
 	constexpr int32 FormatVersion = 1;
 
 	/** 比较内容时去掉扫描时间：只有接口真的变了才算变。 */
@@ -154,7 +154,7 @@ bool GameTestApiFile::WriteSection(const FString& InSrc, const TSharedRef<FJsonO
 
 	// 固定字段顺序：kind、version 在前，便于人看
 	const TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
-	Out->SetStringField(TEXT("kind"), Kind);
+	Out->SetStringField(TEXT("kind"), ApiFileKind);
 	Out->SetNumberField(TEXT("version"), FormatVersion);
 	for (const TCHAR* Src : { TEXT("cpp"), TEXT("lua") })
 	{

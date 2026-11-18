@@ -479,25 +479,25 @@ FGameTestValue FGameTestValue::FromJson(const TSharedPtr<FJsonValue>& InJson)
 		return FromString(InJson->AsString());
 	case EJson::Array:
 	{
-		TArray<FGameTestValue> Items;
+		TArray<FGameTestValue> ArrayItems;
 		for (const TSharedPtr<FJsonValue>& Item : InJson->AsArray())
 		{
-			Items.Add(FromJson(Item));
+			ArrayItems.Add(FromJson(Item));
 		}
-		return FromArray(MoveTemp(Items));
+		return FromArray(MoveTemp(ArrayItems));
 	}
 	case EJson::Object:
 	{
 		const TSharedPtr<FJsonObject> Object = InJson->AsObject();
-		TMap<FString, FGameTestValue> Fields;
+		TMap<FString, FGameTestValue> MapFields;
 		if (Object.IsValid())
 		{
 			for (const auto& Pair : Object->Values)
 			{
-				Fields.Add(GAMETEST_JSON_KEY(Pair.Key), FromJson(Pair.Value));
+				MapFields.Add(GAMETEST_JSON_KEY(Pair.Key), FromJson(Pair.Value));
 			}
 		}
-		return FromMap(MoveTemp(Fields));
+		return FromMap(MoveTemp(MapFields));
 	}
 	default:
 		return Null();
