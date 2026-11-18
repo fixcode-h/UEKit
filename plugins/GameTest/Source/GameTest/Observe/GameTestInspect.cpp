@@ -6,6 +6,7 @@
 #include "Observe/GameTestSelectorWriter.h"
 #include "Observe/GameTestSlate.h"
 
+#include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/PanelWidget.h"
@@ -61,6 +62,26 @@ namespace GameTestInspectDetail
 			Current = Current->GetParent();
 		}
 		return InWidget;
+	}
+
+	/**
+	 * 控件所在的界面（WBP）：`screen` 是它的选择器、`screenClass` 是类名。面板抓控件时按它列「所在界面的变量」，
+	 * 选到的是按钮时 gt.vars 只列得出按钮自己的属性。点到的本身就是界面时不写。
+	 */
+	void WriteScreen(const UWidget& InWidget, FJsonObject& OutResult)
+	{
+		UUserWidget* Screen = InWidget.GetTypedOuter<UUserWidget>();
+		if (Screen == nullptr)
+		{
+			return;
+		}
+		OutResult.SetStringField(TEXT("screenClass"), Screen->GetClass()->GetName());
+		FGameTestWrittenTarget Written;
+		FString WriteError;
+		if (GameTestSelectorWriter::Write(*Screen, Written, WriteError))
+		{
+			OutResult.SetStringField(TEXT("screen"), Written.Target);
+		}
 	}
 
 	/** 控件在视口里的归一化 [x, y, w, h]：面板在实时画面上画框用。几何还没算出来（刚创建）时不写。 */
@@ -165,6 +186,7 @@ bool GameTestInspect::Inspect(const TOptional<FVector2D>& InNormalizedPoint, TSh
 		OutResult->SetStringField(TEXT("widgetClass"), Owner->GetClass()->GetName());
 		OutResult->SetStringField(TEXT("kind"), GameTestInspectDetail::KindOf(*Owner));
 		GameTestInspectDetail::WriteRect(*Owner, ViewGeometry, ViewSize, *OutResult);
+		GameTestInspectDetail::WriteScreen(*Owner, *OutResult);
 		FGameTestWrittenTarget Written;
 		FString WriteError;
 		if (GameTestSelectorWriter::Write(*Owner, Written, WriteError))

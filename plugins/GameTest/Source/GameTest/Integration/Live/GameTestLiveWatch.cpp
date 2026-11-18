@@ -44,7 +44,7 @@ namespace GameTestLiveWatchDetail
 	/** 只读、和游戏状态有关的查询；会动手的操作（gt.step、gt.run……）不许挂进来。 */
 	const TCHAR* const ReadOnlyOps[] = { TEXT("gt.resolve"), TEXT("gt.vars"), TEXT("gt.inspect") };
 
-	constexpr int32 MaxWatches = 8;
+	constexpr int32 MaxWatches = 32;
 	constexpr int32 MaxItems = 16;
 	constexpr double DefaultTtlSeconds = 60.0;
 	constexpr double MaxTtlSeconds = 600.0;
