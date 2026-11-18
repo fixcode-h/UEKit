@@ -252,12 +252,12 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | | `Object.Set(obj, path, value)` | | 只许可构造的值类型；网络同步属性在服务器改（`client` 指定） |
 | | `Object.Call(obj, fn, args)` → 值 | 看函数 | 等于 `invoke` |
 | 界面 | `Widget.IsShown(cls 或 sel)` → bool | ✓ | 按继承 UUserWidget 认，子类也算 |
-| | `Widget.Find(cls, key?)` → obj、`Widget.List()` → [{class, name, z}]、`Widget.Top()` → obj | ✓ | `Top` = 最上层可见、可交互的界面（按视口 ZOrder，再按创建先后） |
+| | `Widget.Find(cls, key?)` → obj、`Widget.List()` → [{class, name, z, visible, obj}]、`Widget.Top()` → obj | ✓ | `Top` = 最上层可见、可交互的界面（按视口 ZOrder，再按创建先后）；`Find` 同类开了几个取最上面的 |
 | | `Widget.Focused()` → obj | ✓ | 当前键盘焦点所在控件 |
 | | `Widget.State(sel)` → {exists, visible, enabled, text, checked, selected} | ✓ | |
 | | `Widget.Text(sel)` → string、`Widget.Number(sel)` → number、`Widget.Items(sel)` → [obj]、`Widget.ItemCount(sel)` → int | ✓ | 条目含没滚到的（ListView 按数据对象） |
 | | `Widget.Close(sel)`、`Widget.CallFn(sel, fn)` | | 同 `widget.close` / `widget.call` |
-| | `Widget.InputMode()` → `game` / `ui` / `gameAndUi`、`Widget.CursorVisible()` → bool | ✓ | 判断现在键盘、鼠标在给谁 |
+| | `Widget.InputMode()` → `game` / `ui` / `gameAndUi`、`Widget.CursorVisible()` → bool | ✓ | 判断现在键盘、鼠标在给谁（5.4 读不到输入模式本身：视口忽略输入算 `ui`，否则光标显示算 `gameAndUi`） |
 | 玩家 | `Player.Pawn(client?)` / `Player.Controller(client?)` / `Player.State(client?)` → obj | ✓ | |
 | | `Player.Location()` → vec、`Player.Rotation()` → rot | ✓ | |
 | | `Player.Teleport(vec, rot?)` | | 准备状态用；走路用 `move` |
@@ -266,9 +266,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | Actor | `Actor.Location(obj)` → vec、`Actor.Distance(a, b)` → float、`Actor.Near(cls, point, radius)` → [obj]、`Actor.HasTag(obj, tag)` → bool、`Actor.IsHidden(obj)` → bool | ✓ | |
 | | `Actor.Destroy(obj)` | | |
 | 动画 | `Anim.IsMontagePlaying(obj, montage?)` → bool、`Anim.CurrentMontage(obj)` → string | ✓ | 技能、交互动作有没有播 |
-| 能力系统（可选模块 GameTestGAS，开了 GameplayAbilities 才有） | `Ability.Attribute(obj, "Set.Attr")` → float、`Ability.HasTag(obj, tag)` → bool、`Ability.IsActive(obj, abilityCls 或 tag)` → bool、`Ability.Cooldown(obj, tag)` → float | ✓ | |
+| 能力系统（可选模块 GameTestGAS，开了 GameplayAbilities 才有；`obj` 必填，本地玩家写 `@pawn`） | `Ability.Attribute(obj, "Set.Attr")` → float、`Ability.HasTag(obj, tag)` → bool、`Ability.IsActive(obj, abilityCls 或 tag)` → bool、`Ability.Cooldown(obj, tag)` → float | ✓ | |
 | | `Ability.Activate(obj, abilityCls 或 tag)` → bool、`Ability.ApplyEffect(obj, effectCls, level?)`、`Ability.SetAttribute(obj, "Set.Attr", value)` | | 准备状态用 |
-| 世界 | `World.Map()` → string、`World.IsLoaded()` → bool、`World.Streaming(level?)` → {loaded, visible} | ✓ | 切图、流送关卡加载完没有 |
+| 世界 | `World.Map()` → string、`World.IsLoaded()` → bool、`World.Streaming(level?)` → {loaded, visible, count} | ✓ | 切图、流送关卡加载完没有 |
 | | `World.TimeSeconds()`、`World.RealSeconds()` → float、`World.IsPaused()` → bool、`World.TimeDilation()` → float | ✓ | |
 | | `World.Open(map, options?)`、`World.SetPaused(bool)`、`World.SetTimeDilation(x)` | | `Open` 会等到新地图加载完 |
 | 网络 | `Net.Mode()` → `standalone` / `listen` / `dedicated` / `client`、`Net.IsServer()` → bool、`Net.PlayerCount()` → int、`Net.Ping(client?)` → float | ✓ | |
@@ -281,9 +281,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | 存档 | `SaveGame.Exists(slot, user?)` → bool | ✓ | |
 | | `SaveGame.Delete(slot, user?)` | | 重置状态 |
 | Lua | `Lua.Get(module, path)` → 值、`Lua.Global(name)` → 值、`Lua.Loaded(module)` → bool | ✓ | 模块按 require 路径；没加载的不主动加载 |
-| | `Lua.Call(module, fn, args)` → 值 | | 受 `allowLuaInvoke` |
+| | `Lua.Call(module, fn, args)` → 值 | | 受 `allowLuaInvoke`；多个返回值给数组 |
 | | `Lua.Errors(since?)` → [{message, traceback, at}] | ✓ | 只 Lua 报错（含被 pcall 接住但打了日志的） |
-| 日志 | `Log.Mark()` → mark | | 记下当前位置，给 `since` 用 |
+| 日志 | `Log.Mark()` → {log, lua} | | 记下日志和 Lua 报错的当前位置，给 `since` 用 |
 | | `Log.Contains(text, category?, since?)` → bool、`Log.Count(text, category?, since?)` → int、`Log.Errors(since?)` → [{category, verbosity, message}] | ✓ | `since` 省略 = 本次 run 开始；Errors 含 Error、Ensure、Lua 报错 |
 | 等待 | `Wait.Seconds(n)`、`Wait.Frames(n)`、`Wait.Until(cond, timeoutMs)`、`Wait.Loading(timeoutMs?)` | | `Loading`：等地图、流送关卡加载完，且没有异步加载中的包（`IsAsyncLoading`） |
 | 性能 | `Perf.Fps()` → float、`Perf.FrameMs()` → float、`Perf.MemoryMB()` → float | ✓ | 冒烟检查用 |
@@ -342,9 +342,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.step`（变化） | `step` 可以是块（`if` / `loop` / `group` / `call`…）、可带 `vars` / `params` | 单步同原来；块：后台跑成临时 run，回 `runId` |
 | `gt.resolve`（变化） | 原有 + `conds: [{id?, cond}]`、`exprs: [{id?, expr}]`、`vars` | `conds: [{id, holds, parts: [{path, holds, actual, unresolved?}]}]`、`exprs: [{id, value?, type?, unresolved?, error?}]`。不等待、不稳住，只看这一刻 |
 | `gt.validate` | `scenario`（路径）或 `script`（整份 JSON）、`deep`（默认 true：查函数、选择器、路径，需要编辑器或游戏进程） | `ok`、`errors` / `warnings`：`[{id?, path, code, message}]`、`checked: {steps, calls, functions, selectors, exprs}`。不开游戏也能跑（选择器查 WBP 资产，运行时生成的条目只查到容器） |
-| `gt.vars` | `scope`：`widget`（`target` 或 `class`）/ `class`（`name`）/ `subsystem`（`name`，省略列全部子系统）/ `player`（`which`：`gi gs gm ps pc pawn hud`）/ `object`（定位器）/ `lua`（`module`）；`values`（游戏开着时带此刻的值）、`functions`（默认 true）、`filter`、`offset` / `limit`（默认 60，最多 200） | `owner: {class, asset?, luaModule?}`、`groups: [{src: "cpp" / "bp" / "lua", title, class?, asset?, file?, items: [{name, path, type, kind: "prop" / "fn", readOnly, sig?, args?: [{name, type, constructible, why?}], callable?, why?, note?, line?, value?, dim?}]}]`、`total`、`hasMore`、`nextOffset`、`truncated?`。组顺序固定 C++ → 蓝图 → Lua；C++ 组按声明类分小节（离它最近的在前，引擎基类 `UUserWidget` / `AActor` / `UObject` 标 `collapsed`）；`dim`：像动画、计时（Anim / Time / Tick / Hover）的。Lua 组只有游戏开着时由实例表给出（文件扫描由面板做、按同样结构合并）。最多 12000 字 |
+| `gt.vars` | `scope`：`widget`（`target` 或 `class`）/ `class`（`name`）/ `subsystem`（`name`，省略列全部子系统）/ `player`（`which`：`gi gs gm ps pc pawn hud`）/ `object`（定位器）/ `lua`（`module`）；`values`（游戏开着时带此刻的值）、`functions`（默认 true）、`filter`、`offset` / `limit`（默认 60，最多 200） | `owner: {class, asset?, luaModule?}`、`groups: [{src: "cpp" / "bp" / "lua", title, class?, asset?, file?, items: [{name, path, type, kind: "prop" / "fn", readOnly, sig?, args?: [{name, type, constructible, why?}], callable?, why?, note?, line?, value?, dim?}]}]`、`total`、`hasMore`、`nextOffset`、`truncated?`。组顺序固定 C++ → 蓝图 → Lua；C++ 组按声明类分小节（离它最近的在前，引擎基类 `UUserWidget` / `AActor` / `UObject` 标 `collapsed`）；`dim`：像动画、计时（Anim / Time / Tick / Hover）的。Lua 组只有游戏开着时由实例表给出（文件扫描由面板做、按同样结构合并）。`subsystem` 不写 `name` 时返回 `subsystems: [{name, path, type, kind: "obj"}]`（游戏开着时）。最多 12000 字 |
 | `gt.widgets` | `asset`（WBP 路径）或 `class`；`filter`、`offset` / `limit`（默认 200） | `asset`、`class`、`parent`（原生父类）、`selector`（整个屏 `WBP_X:.`）、`treeFrom?`（控件树继承自父 WBP 时是父 WBP 的路径）、`luaModule?`、`nodes: [{name, class, selector, depth, isVariable, text?, visibility?, container?: {entryClass?}, userWidget?}]`（`userWidget: true` 是嵌套的 WBP，里面的控件用 `>` 进去，再按它的类调一次）、`total`、`hasMore?`、`nextOffset?`、`truncated?`。只在编辑器进程（GameTestEditor 模块）。读资产的 WidgetTree，不用开游戏。最多 12000 字 |
-| `gt.api` | `query`、`category`、`src`（`builtin` / `cpp` / `lua`）、`readOnly`、`offset` / `limit`（默认 60） | `items: [{name, category, src, display?, sig, args, returns, readOnly, note?, file?, line?}]`、`rejected`（`src` 不是 builtin 时）、`total`、`hasMore` |
+| `gt.api` | `query`、`category`、`src`（`builtin` / `cpp` / `lua`）、`readOnly`、`offset` / `limit`（默认 60） | `items: [{name, category, src, display?, sig, args, returns, readOnly, waits?, note?, file?, line?}]`、`rejected`（`src` 不是 builtin 时；不写 `src` 时有就带）、`total`、`hasMore`、`nextOffset?`、`truncated?`、`loadError?`（`_api.json` 读不了，自带接口照常列）。`_api.json` 改了（面板写 Lua 段）按修改时间自动重读 |
 | `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
 
 ### 推送

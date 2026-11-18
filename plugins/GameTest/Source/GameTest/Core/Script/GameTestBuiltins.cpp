@@ -25,10 +25,28 @@ namespace GameTestBuiltin
 	void RegisterCheckWidget();
 	void RegisterCheckValue();
 	//~ 取值来源与成员访问（Observe/Sources）
+	void RegisterSourcePlayer();
+	void RegisterSourceSubsystem();
+	void RegisterSourceActor();
+	void RegisterSourceObject();
+	void RegisterSourceLua();
+	void RegisterSourceCVar();
+	void RegisterMemberReflect();
+	void RegisterMemberLua();
 	//~ 表达式函数（Core/Expr/Functions）
 	void RegisterExprBasic();
 	void RegisterExprWidget();
 	//~ 接口（Api/Builtin）
+	void RegisterApiObject();
+	void RegisterApiWidget();
+	void RegisterApiPlayer();
+	void RegisterApiWorld();
+	void RegisterApiGlobal();
+	void RegisterApiLua();
+	void RegisterApiLog();
+	void RegisterApiWait();
+	void RegisterApiRuntime();
+	void RegisterApiProject();
 }
 
 void GameTestBuiltins::EnsureRegistered()
@@ -59,10 +77,28 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterCheckValue();
 
 	//~ 取值来源与成员访问
+	GameTestBuiltin::RegisterSourcePlayer();
+	GameTestBuiltin::RegisterSourceSubsystem();
+	GameTestBuiltin::RegisterSourceActor();
+	GameTestBuiltin::RegisterSourceObject();
+	GameTestBuiltin::RegisterSourceLua();
+	GameTestBuiltin::RegisterSourceCVar();
+	GameTestBuiltin::RegisterMemberReflect();
+	GameTestBuiltin::RegisterMemberLua();
 
 	//~ 表达式函数
 	GameTestBuiltin::RegisterExprBasic();
 	GameTestBuiltin::RegisterExprWidget();
 
 	//~ 接口
+	GameTestBuiltin::RegisterApiObject();
+	GameTestBuiltin::RegisterApiWidget();
+	GameTestBuiltin::RegisterApiPlayer();
+	GameTestBuiltin::RegisterApiWorld();
+	GameTestBuiltin::RegisterApiGlobal();
+	GameTestBuiltin::RegisterApiLua();
+	GameTestBuiltin::RegisterApiLog();
+	GameTestBuiltin::RegisterApiWait();
+	GameTestBuiltin::RegisterApiRuntime();
+	GameTestBuiltin::RegisterApiProject();
 }

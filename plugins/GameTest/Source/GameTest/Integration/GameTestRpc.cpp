@@ -2,6 +2,7 @@
 
 #include "Integration/GameTestRpc.h"
 #include "Integration/GameTestRpcKeys.h"
+#include "Integration/GameTestRpcScript.h"
 #include "GameTestCompat.h"
 
 #include "AgentPanelBridge.h"
@@ -792,6 +793,8 @@ void Register()
 	Add(TEXT("gt.resolve"), &Resolve);
 	Add(TEXT("gt.history"), &History);
 	Add(TEXT("gt.config"), &Config);
+	Add(TEXT("gt.api"), &GameTestRpcScript::Api);
+	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)

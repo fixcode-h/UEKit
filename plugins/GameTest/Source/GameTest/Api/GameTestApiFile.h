@@ -43,6 +43,9 @@ public:
 	/** 读全部接口和改名表。文件不存在算成功（没有项目接口）；格式错返回 false 并写清楚。 */
 	static bool Load(TArray<FGameTestProjectApi>& OutItems, TMap<FString, FString>& OutRenamed, FString& OutError);
 
+	/** 某一段（`cpp` / `lua`）扫描时被拒的函数（`gt.api` 给面板显示「为什么没认」）。没有文件或没有这段时为空。 */
+	static TArray<TSharedPtr<FJsonValue>> LoadRejected(const FString& InSrc);
+
 	/**
 	 * 换掉一段（`cpp` / `lua`），别的段和 `renamed` 原样保留。内容和原来一样（不比 `scannedAt`）时不写盘，
 	 * 免得每次启动编辑器都在版本库里留一个只改了时间的差异。bDryRun 只比较不落盘。
