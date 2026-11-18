@@ -72,6 +72,7 @@ dist/                   出包产物（已忽略）
 - **凭据不进仓库**：令牌、密码、API key 不写进代码、测试、文档和提交说明。临时文件只放 `.tmp/`（已忽略）或系统临时目录，用完清理。
 - **任何输入都不能让编辑器崩溃**：插件跑在用户的编辑器进程里，一次空指针就是整个编辑器崩掉、未保存的工作全丢。`TSharedPtr` / `UObject*` 用之前判空，取不到就返回 false 并写清原因（资产不存在、配置缺字段、没有差异都是正常情况）。JSON 尤其注意：`GetObjectField` 缺字段、`AsObject()` 类型不对都返回空指针，不许链式 `->`（`check.mjs` 会拦），用 `TryGetObjectField` 或先存变量判 `IsValid()`；会把输出置回 nullptr 的函数（如 `ForgePropertyCodec::ExportStructDelta` 没有差异时）在声明处写明，调用方判空。UELink 的 `Dispatch` 兜底了返回体为空的情况，但别依赖它。
 - 注释用中文，写「为什么」。文件一律 UTF-8 不带 BOM（`check.mjs` 会拦）。
+- **函数签名写在一行里**（用户 2026-11-18 定）：函数声明和定义的参数表不按一个参数一行换行，返回类型、名字、全部参数、`const` / `override` 写在同一行；只有参数超过 8 个才允许换行。默认值里的注释挪到函数上方。`check.mjs` 会拦（`scripts/sig-wrap.mjs`）。
 
 ## 操作（/rpc）的写法
 
