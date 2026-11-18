@@ -349,6 +349,10 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
 | `gt.pick`（1.10.0） | `action`：`start`（开始抓：`frames` 默认 true、`fps` 0.5–10 默认 2、`maxWidth` 默认 640、`quality` 30–95 默认 70、`ttlMs` 默认 60000、`withFrame` 马上带一帧）/ `stop` / `at`（`x`、`y` 视口归一化坐标，面板画面上点的那一下）/ `frame`（马上截一帧） | `start`：`active`、`recording`（录制中时游戏里的 Ctrl+Alt 点归录制器）、`frame?`、`frameError?`；`at`：同 `gt.inspect`，偏向按钮 / 勾选框（点到按钮里的文字时往上最多 4 层换成按钮），多 `via: "panel"`；没有 UMG 控件时多 `actor: {class, name, label?, nativeClass?}`（玩家视角射线打到的 Actor）；`frame`：`{jpg, width, height}`（jpg 是 base64）。会话是租约：面板隔一会儿再 `start` 续上，到 `ttlMs` 没续就停，不会一直截图 |
 | `gt.watch`（1.10.0） | `id`（面板起的名字）、`items: {键: {op, args}}`（`op` 只能是只读的 `gt.resolve` / `gt.vars` / `gt.inspect`，最多 16 项）、`intervalMs`（100–5000，默认 200）、`ttlMs`（默认 60000）；`stop: true` 取消 | `id`、`results: {键: 操作的返回或 {error}}`（登记时马上回一份完整的）、`intervalMs`。之后每隔 `intervalMs` 重算，变了的键才推 `gt.watch` 事件。同一个 id 再登记就是换查询兼续租；最多 32 个，满了挤掉最早的 |
+| `gt.editrec.start`（1.11.0） | `name` | 开始录 UE 编辑器操作（第 15 节），返回同 `gt.editrec.status`。只在开着界面的编辑器进程（GameTestEditor 模块）；正在录游戏操作时拒绝 |
+| `gt.editrec.stop`（1.11.0） | `save`（默认 true） | 同 `gt.record.stop`：`name`、`target: "editor"`、`steps`、`seconds`、`path?`（场景根下 `recorded/<名字>.json`，标签 `recorded`、`editor`）、`absolutePath?`、`preview`（前 20 步） |
+| `gt.editrec.status`（1.11.0） | `last`（默认 20） | `recording`、`target: "editor"`、`name`、`steps`、`seconds`、`modal?`（录到的模态框标题）、`last` |
+| `gt.editrec.mark`（1.11.0） | `text` | 插一条 `mark` |
 
 ### 推送
 
@@ -357,6 +361,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already`）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
 | `gt.pick`（1.10.0） | 抓取中：画面变了（按 `fps`）；游戏里按住 Ctrl+Alt 点了一下（这一下不传给游戏） | `kind`：`frame`（`jpg`、`width`、`height`）/ `picked`（同 `gt.pick action=at` 的返回，`via: "game"`；没抓到时只有 `error`） |
 | `gt.watch`（1.10.0） | 登记的查询结果变了 | `id`、`seq`、`results: {变了的键: 结果}` |
+| `gt.record`（变化，1.11.0） | 录编辑器操作也推这个主题 | 同游戏录制，多 `target: "editor"`；`gt.editrec.status` 的字段 |
 | `gt.job`（变化） | 同原来 | 多 `at`（当前步骤 id）、`guards`（{id: 次数}，面板画在守护右上角的圆底角标上，超过 999 显示 999+） |
 
 ## 11. 报告的变化
@@ -396,3 +401,29 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 执行器只认「节点」：栈帧 = {块实现, 块状态, 子节点位置}；等待、守护、超时、`onFail`、报告、推送是执行器的公共逻辑，块不自己处理。
 - 每个扩展点的注册表能列出全部实现（名字、说明、参数），`gt.actions`、`gt.api`、`gt.validate` 和面板的节点面板都从注册表生成，不另写清单。
 - 面板 UE 插件同理：节点类型、条件编辑行、接口选择器按「一种一个文件 + 注册表」写（`gt-script/blocks/*.ts`、`gt-cond/checks/*.tsx`），数据层 `gt-script.ts` 只做 v3 读写和结构操作，不含界面。
+
+## 15. 录 UE 编辑器操作（`editor.*`，1.11.0）
+
+定稿 10.1。录制和回放都在 GameTestEditor 模块（类型 Editor），主模块不依赖编辑器；游戏进程、后台编辑器里没有 `editor.*`，写了会被告知「只能在开着界面的编辑器里跑」。
+
+**能按语义录就不按界面录**：
+
+| 操作 | 录成 | 听哪个事件 | 回放 |
+| --- | --- | --- | --- |
+| 打开关卡 / 资源 | `editor.open {map}` / `{asset}` | `FEditorDelegates::OnMapOpened`、`UAssetEditorSubsystem::OnAssetEditorOpened` | 关卡同 `level.load`；资源经 UELink `asset.open` |
+| 关卡里选中 Actor | `editor.select {actors: ["actor:<标签>"]}` | `USelection::SelectionChangedEvent`（静下来 0.15 秒再看最终选中了谁；空选中、刚放的 Actor 被自动选中不录） | 经 UELink `editor.select`（还收 `assets`、`focus`） |
+| 改属性 | `editor.prop {object, path, value}`，`hint.from` 是改之前的值 | `FCoreUObjectDelegates::OnObjectPropertyChanged`（拖滑条的中间值不录，连着改同一个属性合成一步） | 自己包一个事务（`FScopedTransaction`）写进去，编辑器里 Ctrl+Z 能撤销 |
+| 放 Actor | `editor.spawn {class, location, rotation?, label}` | `GEngine->OnLevelActorAdded`（只认编辑器关卡；下一帧写，标签和位置已定） | 经 UELink `editor.spawn`，标签设成 `label`；关卡里已有同标签的直接失败（多半是上次回放留下的） |
+| 保存 | `editor.save {assets: [包名]}` | `UPackage::PackageSavedWithContextEvent`（自动保存不录） | 经 UELink `asset.save` |
+| 编译蓝图 | `editor.compile {asset}` | `GEditor->OnBlueprintPreCompile`（同一个蓝图两秒内只录一次） | 经 UELink `bp.compile`，编译有错就失败，`payload.compile` 是编译结果 |
+| 快捷键 | `editor.command {name, asset?}` | 反查 `FUICommandInfo`（`FInputBindingManager`） | 按名字找命令，在资源编辑器 → 其他开着的资源编辑器 → 关卡编辑器的命令表里执行；`console` 是控制台命令 |
+| 其他点击 | `editor.click {tab, widget, text?, nth?, suggest?}` | `IInputProcessor` | 每 0.2 秒找一次，找到就点控件中心 |
+| Ctrl+Alt 点 | `editor.assert {tab, widget, text?, nth?}` | 同上（这一下不传给编辑器） | 等到这个控件出现；也能写 `asset` + `check`（`compiled` / `saved` / `open`）查资源状态 |
+
+- **对象怎么写**：关卡里的 Actor 写 `actor:<大纲里的标签>`，组件写 `actor:<标签>/<组件名>`；资源（含蓝图类默认对象 `Default__X_C`）写对象路径。
+- **界面控件怎么写**：不写 Slate 路径（布局一换就变），写 `tab`（停靠页标签链，外到里用 `>` 连，例如 `WBP_Shop>Details`；不在停靠页里时改写 `window`，窗口标题里包含的字）、`widget`（Slate 类型，SButton…）、`text`（控件里的字）、`nth`（同样条件的第几个，从 0 数）。
+- **点击和快捷键先挂 0.5 秒**：这段时间里有了语义事件（点「编译」按钮引出编译事件、Ctrl+S 引出保存）就只留语义步骤。视口、细节面板、大纲、内容浏览器、图表里的点击不录（它们引出的选中、改属性另有事件）；游戏界面里的操作归游戏录制。
+- **换成命令**：按钮上的字和某个命令的显示名对得上时，`editor.click` 带 `suggest: {commands: ["上下文.命令"…], asset?}`，面板提示「这个按钮背后是命令，换成命令更稳」，换成 `editor.command`。
+- **模态框**：录到模态框插一条 `mark` 提醒。模态框是嵌套消息循环，回放时 GameTest 的每帧回调能不能在里面跑**还没在本地 5.4 / 5.8 验证**；`editor.click` 点出模态框时会停在这一下，直到模态框关掉。
+- **改资产的脚本**：会改关卡和资源，建议在干净的工作区跑，跑完不想要就撤销或还原。
+- 步骤的 `hint.via`：`event`（编辑器事件）、`ui`（界面点击）、`key`（快捷键）、`pick`（Ctrl+Alt 点）；`hint.label` 是给人看的名字。
