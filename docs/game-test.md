@@ -321,7 +321,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 2. 在游戏窗口里正常操作。只录发给游戏窗口（和它弹出的子窗口，如下拉菜单）的输入，编辑器其他面板上的操作不录。
 3. 需要检查的地方：按住 **Ctrl+Alt 点一个控件**，录一条断言（见下表）；或插检查点（`gt.record.mark`，可带 `screenshot: true`），之后在面板里改成 `assert`。
 4. 要录角色走路：按 **Alt+1**（或点工具栏的「录移动」）开始，走到目的地再按一次结束，见下面「录移动」。
-5. 停止（`gt.record.stop`），写成 `recorded/<名字>.json`（`schemaVersion: 2`），重名加序号。
+5. 停止（`gt.record.stop`），写成 `recorded/<名字>.json`（`schemaVersion: 3`），重名加序号。`gt.record.start` 给 `group: true` 时（1.10.0 起）录到的步骤装进一个步骤段（`{"action": "group", "name": 录制名, "recorded": true, "do": [...]}`），开头的 `pie.start` 留在段外。
+6. **从这里接着录**（1.10.0 起）：`gt.record.start` 给 `insert: {scenario, after}`，录到的步骤作为一个步骤段插进已有场景 `scenario`（相对场景根）里 id 为 `after` 的步骤后面（块里的步骤也找；`after` 省略 = 主流程最后），不另存新文件，也不加 `pie.start`。开始时核对场景和 id，对不上直接报错（id 是面板存盘时补的，先存盘）；停止时重新读文件再插，录制期间这一步被删了就插在主流程最后并在结果的 `warning` 里说明；场景写不进去时录到的段另存成新文件，不丢。
 
 **录制工具栏和快捷键**（1.3.0 起）：录制时有一条悬浮的工具栏小窗口（1.5.0 起是编辑器的独立小窗口、不是游戏界面：默认停在游戏视口中下方并跟着视口走，按住左边的把手或空白处可以拖到任何地方，包括拖出游戏视口、拖到别的显示器，拖过就留在那里直到这次录制结束；不抢焦点，点它游戏不失焦；只在录制时出现，回放时没有），点它、拖它本身都不录。鼠标被游戏锁住时用快捷键，录制器自己用掉、不传给游戏：
 
@@ -333,6 +334,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `Alt+3` | 在这附近：写一条 `wait until=actorNear`（角色的类、当前位置、半径 200），检查前面的操作确实把角色带到了这里 |
 | `Alt+4` | 断言：下一次点击录成断言（和 Ctrl+Alt 点一样） |
 | `Alt+5` | 检查点（`mark`） |
+| `Alt+6` | 等到（1.10.0 起）：下一次点到的控件录成 `wait until=cond`：按钮等它能点（`{target, enabled: true}`），别的控件等它出现（`{target, visible: true}`）；点到按钮里的字或图标时往外找几层按按钮录。这一下点击不传给游戏 |
+| `Alt+7` | 按状态分支（1.10.0 起）：下一次点到的控件录成空的 `if branch=state`，各条路的步骤在面板里填。分法和面板「一键分路」一样：按钮是「能点 / 显示但不能点 / 其余」，复选框「勾上 / 其余」，别的「显示 / 其余」。这一下点击不传给游戏 |
 | `Alt+K` | 正在暂停问「这一格怎么认」时：接受推荐的继续（1.4.0 起） |
 
 项目自己用 Alt+数字时在运行配置写 `"move": {"hotkeys": false}`，只用工具栏和面板按钮。
@@ -414,14 +417,14 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.config` | `config`（可省）、`dryRun` | 运行配置（场景根的 `_settings.json`，见「运行配置和阻挡界面」）。不给 `config` 是读：`{path, exists, config, settingsUiWaitTimeoutMs}`；给 `config` 是校验后整份写回（`dryRun: true` 只校验不写），另带 `message`。格式错时报哪一条错了 |
 | `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的。`checks`（1.7.0 起，带 `skipIf` 的步骤数组，最多 50 个）：只判断跳过条件此刻成不成立，回 `checks: [{index, holds, say, actual?, error?}]`，和回放同一套判断 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
-| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」）、`inferSkip`（`suggest` 默认 / `auto` / `off`）、`stateWindowMs`（默认 2000）（1.7.0 起，见「已达成就跳过」） | 录制状态 |
+| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」）、`inferSkip`（`suggest` 默认 / `auto` / `off`）、`stateWindowMs`（默认 2000）（1.7.0 起，见「已达成就跳过」）、`group`（默认 false，录成一个步骤段）、`insert`（`{scenario, after?}`，从这里接着录）（1.10.0 起，见「录制回放」） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
-| `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
+| `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消）/ `wait`（下一次点到的控件录成「等到」）/ `branch`（录成空的按状态分支）（1.10.0 起；三者只留最后选的一个，同一个再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
 | `gt.record.key` | `step`（从 0 数；省略 = 正在问的那一步）+ `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` 只按第几个 / `text` 按位置写、回放先按文字找 / `skip` 先跳过）；`rule`（存成规则）；`all`（1.5.0 起，这次录制里同一列表已录的其他步骤也按同样的字段 / 认法改写）；`resume`（默认 true，答完继续游戏）。条件在容器里不唯一或找不到时报错。录制中随时可以传 `step` 改前面的步骤（候选在那一步的 `hint.key.cands`） | `step`、改写后的 `target`、`by`、`cond`，存了规则 `rule: true`（存不进去 `ruleError`），继续了 `resumed: true`（1.4.0 起）；`all` 时 `applied`（另外改了几步）、`skipped`（`[{step, why}]` 改不了的）（1.5.0 起） |
 | `gt.keys` | `step`（录制中，用按下那一刻的站点）或 `target`（现在的界面里解析）；`filter`（按路径或值筛）、`offset` / `limit`（默认 60，最多 200） | 条目的全部字段，按来源分组：`groups: [{source, title, class?, note?, fields: [{by, src, v, hits, unique?, cond?, why?}]}]`，`total`、`count`、`offset`、`hasMore`、`nextOffset`，超长时 `truncated`，没有 Lua 时 `luaNote`；另有 `key`（同 `hint.key`）、`index`（1.4.0 起） |
 | `gt.keys.preview` | `step` 或 `target` + `cond` | 在游戏画面上框出命中的条目 3 秒（唯一绿框，多个橙框）；返回 `hits`、`unique`、`includesMine`（命中里有没有点的那个）、`count`、`items: [{index, name?, offscreen?, mine?}]`（1.4.0 起） |
-| `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |
-| `gt.record.status` | `last`（默认 10） | `recording`、`hotkeys`、在录移动时 `moving: {meters, seconds, points}`、有提示时 `notice`、`pickArmed`、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；在录时还有 `name`、`steps`、`seconds`、`keepPace`、`last`、`askKey`、`askTimeoutSec`（不是 0 时），超过步数上限时 `truncated: true`；正在问条目标识时 `ask: {step, target, pausedSec, gamePaused, container, containerClass, entryName, index, key, shot?, screen?, text?}`（1.4.0 起） |
+| `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步）；接着录时 `inserted: true`、`after`，插不到原位置或另存了新文件时 `warning`（1.10.0 起） |
+| `gt.record.status` | `last`（默认 10） | `recording`、`hotkeys`、在录移动时 `moving: {meters, seconds, points}`、有提示时 `notice`、`pickArmed`（1.10.0 起同时有 `pickKind`：`assert` / `wait` / `branch`）、`handlerSource`（`slateDebugging`：处理者来自 Slate 调试事件，准；`hitPath`：这个进程没编 Slate 调试，按命中路径推断，录不到打字）；停止后 `saved`（刚存到的场景，接着录时是原场景，1.10.0 起）；在录时还有 `name`、`group`、`insert: {scenario, after?}`（1.10.0 起）、`steps`、`seconds`、`keepPace`、`last`、`askKey`、`askTimeoutSec`（不是 0 时），超过步数上限时 `truncated: true`；正在问条目标识时 `ask: {step, target, pausedSec, gamePaused, container, containerClass, entryName, index, key, shot?, screen?, text?}`（1.4.0 起） |
 
 同一时间只跑一个 run（批量运行也是一个接一个）。每次 run 的报告和截图在 `Saved/GameTest/<名字>-<时间>/`（`report.json`、`*.png`）。
 

@@ -362,6 +362,10 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("断言"), TEXT("Alt+4"), StateRef, [] { RunQuick(TEXT("pick")); }) ]
 		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
+		[ MakeButton(TEXT("等到"), TEXT("Alt+6"), StateRef, [] { RunQuick(TEXT("wait")); }) ]
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
+		[ MakeButton(TEXT("分支"), TEXT("Alt+7"), StateRef, [] { RunQuick(TEXT("branch")); }) ]
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("检查点"), TEXT("Alt+5"), StateRef, [] { FString Error; FGameTestRecorder::Get().Mark(FString(), false, Error); }) ]
 		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.0f, 0.0f)
 		[ MakeSeparator() ]
@@ -465,7 +469,7 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 				SNew(STextBlock)
 				.Text_Lambda([StateRef]()
 				{
-					return FText::FromString(StateRef->bPickArmed ? FString(TEXT("下一次点击录成断言")) : StateRef->Notice);
+					return FText::FromString(StateRef->bPickArmed ? StateRef->PickHint : StateRef->Notice);
 				})
 				.Font(Font(8))
 				.ColorAndOpacity(NoticeColor)

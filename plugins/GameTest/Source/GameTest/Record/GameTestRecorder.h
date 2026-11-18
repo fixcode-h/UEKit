@@ -13,7 +13,9 @@ class FGameTestRecordToolbar;
 struct FGameTestMoveSegment;
 struct FGameTestKeySite;
 class UWorld;
+class UWidget;
 class SWidget;
+class FJsonValue;
 struct FKey;
 
 /**
@@ -69,6 +71,19 @@ public:
 	 */
 	void SetKeyAskOptions(const FString& InMode, double InTimeoutSeconds);
 
+	/**
+	 * 下一次录制录成什么样（`gt.record.start` 的 `group` / `insert`，1.10.0）：
+	 * `bInGroup` 时录到的步骤装进一个步骤段（`group`，`recorded: true`），存成新文件；
+	 * `InInsertScenario` 不空时是「从这里接着录」：录到的段插进这个场景（相对场景根），`InInsertAfter` 是插在哪一步后面（步骤 id，空 = 主流程最后），
+	 * 不另存新文件。开始录制时核对场景和 id 在不在，停止时重新读文件再插（录制期间别人改了也不覆盖），id 没了就插在最后并在结果里说明。
+	 */
+	void SetSegmentOptions(bool bInGroup, const FString& InInsertScenario, const FString& InInsertAfter)
+	{
+		bNextGroup = bInGroup;
+		NextInsertScenario = InInsertScenario;
+		NextInsertAfter = InInsertAfter;
+	}
+
 	/** 下一次录制怎么推断跳过条件（`gt.record.start inferSkip` / `stateWindowMs`，1.6.0）。 */
 	void SetStateOptions(EGameTestInferSkip InMode, int32 InWindowMs)
 	{
@@ -114,7 +129,8 @@ public:
 	/**
 	 * 录制快捷操作（`gt.record.move`、Alt+数字、工具栏共用这一个入口）：
 	 * `start` / `end` / `toggle`（录移动开始、结束）、`cancel`（放弃这段移动）、`here`（记下当前位置）、
-	 * `near`（断言在这附近，`InRadius` 默认 200）、`pick`（下一次点击录成断言）。
+	 * `near`（断言在这附近，`InRadius` 默认 200）、`pick`（下一次点击录成断言）、
+	 * `wait`（Alt+6，下一次点到的控件录成「等到」）、`branch`（Alt+7，下一次点到的控件录成空的「按状态分支」）。
 	 */
 	bool Quick(const FString& InPhase, double InRadius, FString& OutError);
 
@@ -134,6 +150,18 @@ public:
 	void OnTick();
 
 private:
+	/** 拾取点（Ctrl+Alt 点、Alt+4 / 6 / 7 之后的下一次点击）录成什么：这一下点击都不传给游戏。 */
+	enum class EPick : uint8
+	{
+		None,
+		/** 断言控件可见（和文字）：Ctrl+Alt 点、Alt+4 */
+		Assert,
+		/** `wait until=cond`：等到这个控件能点（按钮）或出现（其他）：Alt+6 */
+		Wait,
+		/** 空的按状态分支（`if branch=state`），各条路在面板里填：Alt+7 */
+		Branch,
+	};
+
 	enum class ERawKind : uint8
 	{
 		MouseDown,
@@ -154,6 +182,8 @@ private:
 		FVector2D Position = FVector2D::ZeroVector;
 		float Delta = 0.0f;
 		TCHAR Character = 0;
+		/** PickDown 录成什么 */
+		EPick Pick = EPick::Assert;
 		double Time = 0.0;
 		/** 入队时的帧号：处理者只配给同一帧入队的事件，别的窗口里没入队的事件不会把处理者错配过来。 */
 		uint64 Frame = 0;
@@ -233,6 +263,19 @@ private:
 	void ProcessKeyUp(const FRawEvent& InEvent);
 	void ProcessChar(const FRawEvent& InEvent);
 	void ProcessPick(const FRawEvent& InEvent);
+
+	//~ 拾取录成等到 / 按状态分支、录成步骤段、接着录（Record/GameTestRecordSegment.cpp）
+	/** 拾取的控件录成 `wait until=cond`（Alt+6）或空的 `if branch=state`（Alt+7）。 */
+	void AddPickBlock(EPick InPick, UWidget& InWidget, double InTime);
+	/** 开始录制时核对「接着录」的场景和插入位置；不接着录时什么都不做。 */
+	bool PrepareInsert(FString& OutError);
+	/** 录到的步骤装成一个步骤段。 */
+	TSharedRef<FJsonObject> MakeSegment(const TArray<TSharedPtr<FJsonValue>>& InSteps) const;
+	/** 停止时把段插进「接着录」的场景并写回；结果写进 OutResult（path、inserted、after、warning）。 */
+	bool SaveIntoScenario(const TArray<TSharedPtr<FJsonValue>>& InSteps, FJsonObject& OutResult, FString& OutError);
+	/** 拾取模式的提示文字（工具栏、面板上显示）。 */
+	FString DescribePickArmed() const;
+	static const TCHAR* PickName(EPick InPick);
 	/** 拾取用的 Ctrl、Alt 按下时已经录成了 key：从步骤尾巴上删掉，松开也不录。 */
 	void DropPickModifiers();
 
@@ -303,8 +346,18 @@ private:
 	TSharedPtr<FGameTestRecordToolbar> Toolbar;
 	/** 运行设置 `move.hotkeys`：项目自己用 Alt+数字时关掉。 */
 	bool bHotkeys = true;
-	/** Alt+4 / 工具栏「断言」：下一次点击录成断言（和 Ctrl+Alt 点一样）。 */
-	bool bPickArmed = false;
+	/** Alt+4 / 6 / 7（工具栏「断言」「等到」「分支」）：下一次点击录成什么（Ctrl+Alt 点固定是断言）。 */
+	EPick PickArmed = EPick::None;
+
+	/** 这次录制装成步骤段、接着录到哪个场景的哪一步后面（SetSegmentOptions，开始时从 Next* 取）。 */
+	bool bGroup = false;
+	FString InsertScenario;
+	FString InsertAfter;
+	bool bNextGroup = false;
+	FString NextInsertScenario;
+	FString NextInsertAfter;
+	/** 上一次停止时存到的场景（相对场景根）：停止后的状态和推送里带上，面板据此刷新编辑页。 */
+	FString LastSaved;
 	/** 按下落在工具栏上（点按钮、拖动位置）：配对的松开不管落在哪都不录。 */
 	bool bToolbarPressed = false;
 	/** 工具栏和面板上显示的一句提示（「点了界面，移动已自动结束」）。 */
