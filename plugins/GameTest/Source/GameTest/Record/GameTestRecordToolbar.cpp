@@ -9,30 +9,28 @@
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Dom/JsonObject.h"
 #include "Engine/GameViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
+#include "GenericPlatform/GenericApplication.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/SBoxPanel.h"
-#include "Widgets/SOverlay.h"
+#include "Widgets/SViewport.h"
+#include "Widgets/SWindow.h"
 #include "Widgets/Text/STextBlock.h"
 
 namespace GameTestRecordToolbarDetail
 {
-	/** 盖在游戏上面：比游戏自己的界面（通常 0–100）高，也比 run 时的高亮框高。 */
-	constexpr int32 ZOrder = 10050;
-
 	const FLinearColor TextColor(0.92f, 0.92f, 0.94f, 1.0f);
 	const FLinearColor DimColor(0.62f, 0.64f, 0.68f, 1.0f);
 	const FLinearColor RecordColor(0.94f, 0.33f, 0.31f, 1.0f);
 	const FLinearColor MoveColor(0.35f, 0.68f, 0.98f, 1.0f);
 	const FLinearColor NoticeColor(0.98f, 0.76f, 0.35f, 1.0f);
 
-	/** 默认位置离视口底边的距离：留出游戏底部常见的技能栏、聊天框边缘，又不至于飘到画面中间。 */
+	/** 默认位置离视口底边的距离（Slate 单位，按视口的 DPI 缩放）：留出游戏底部常见的技能栏、聊天框边缘，又不至于飘到画面中间。 */
 	constexpr double BottomGap = 56.0;
-	/** 拖动时离视口四边至少留这么多，工具栏不会被拖出画面找不回来。 */
-	constexpr double EdgeGap = 4.0;
 
 	/** 把手：两道竖线，告诉用户这里可以按住拖。不接点击，按下落到外层的工具栏底上处理。 */
 	TSharedRef<SWidget> MakeGrip()
@@ -51,10 +49,10 @@ namespace GameTestRecordToolbarDetail
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.0f, 0.0f, 0.0f, 0.0f) [ Line() ];
 	}
 
-	/** 半透明深色圆角底，和面板深色主题的浮层接近；不依赖编辑器样式，游戏进程里也有。 */
+	/** 深色底，和面板深色主题的浮层接近；不依赖编辑器样式，独立游戏进程里也有。窗口本身不透明，所以底色也不透明。 */
 	const FSlateBrush* BarBrush()
 	{
-		static const FSlateRoundedBoxBrush Brush(FLinearColor(0.07f, 0.07f, 0.09f, 0.88f), 8.0f, FLinearColor(1.0f, 1.0f, 1.0f, 0.10f), 1.0f);
+		static const FSlateRoundedBoxBrush Brush(FLinearColor(0.07f, 0.07f, 0.09f, 1.0f), 6.0f, FLinearColor(1.0f, 1.0f, 1.0f, 0.12f), 1.0f);
 		return &Brush;
 	}
 
@@ -83,6 +81,8 @@ namespace GameTestRecordToolbarDetail
 	{
 		return SNew(SButton)
 			.ButtonStyle(&ButtonStyle())
+			// 按钮不拿键盘焦点：点完焦点还在游戏上，录按键、Alt+数字不受影响。
+			.IsFocusable(false)
 			.OnClicked_Lambda([InOnClick]()
 			{
 				InOnClick();
@@ -117,70 +117,132 @@ void FGameTestRecordToolbar::Sync(const FState& InState)
 	*State = InState;
 
 	UGameViewportClient* Current = GameTestWorld::FindGameViewport();
-	if (Current == Viewport.Get() && Root.IsValid())
+	if (Current != Viewport.Get() || !Window.IsValid())
+	{
+		Hide();
+		if (Current == nullptr || !Open(Current))
+		{
+			return;
+		}
+	}
+	FollowViewport();
+}
+
+bool FGameTestRecordToolbar::Open(UGameViewportClient* InViewport)
+{
+	if (InViewport == nullptr || !FSlateApplication::IsInitialized())
+	{
+		return false;
+	}
+	// 父窗口取游戏视口所在的窗口：PIE 在关卡视口里时是编辑器主窗口，单独窗口 PIE / 独立游戏时是游戏窗口。
+	// 做成它的子窗口：始终在它上面、跟着它最小化，父窗口关了（停止 PIE）子窗口一起关。
+	TSharedPtr<SWindow> Parent;
+	const TSharedPtr<SViewport> ViewportWidget = InViewport->GetGameViewportWidget();
+	if (ViewportWidget.IsValid())
+	{
+		Parent = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.ToSharedRef());
+	}
+	if (!Parent.IsValid())
+	{
+		Parent = InViewport->GetWindow();
+	}
+	if (!Parent.IsValid())
+	{
+		return false;
+	}
+
+	bPlaced = false;
+	bDragging = false;
+	const TSharedRef<SWindow> NewWindow = SNew(SWindow)
+		.Title(FText::FromString(TEXT("GameTest 录制")))
+		.Type(EWindowType::Normal)
+		.SizingRule(ESizingRule::Autosized)
+		.CreateTitleBar(false)
+		.UseOSWindowBorder(false)
+		.HasCloseButton(false)
+		.SupportsMaximize(false)
+		.SupportsMinimize(false)
+		.LayoutBorder(FMargin(0.0f))
+		.UserResizeBorder(FMargin(0.0f))
+		.SaneWindowPlacement(false)
+		// 不抢焦点：点工具栏时游戏窗口保持激活，键盘焦点留在游戏上。
+		.ActivationPolicy(EWindowActivationPolicy::Never)
+		.FocusWhenFirstShown(false)
+		[
+			Build()
+		];
+	Window = NewWindow;
+	Viewport = InViewport;
+
+	// 父窗口关掉时子窗口跟着关：清掉引用，下一帧 Sync 按需重开。
+	const TWeakPtr<FGameTestRecordToolbar> WeakSelf = AsShared();
+	NewWindow->SetOnWindowClosed(FOnWindowClosed::CreateLambda([WeakSelf](const TSharedRef<SWindow>& InClosed)
+	{
+		const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
+		if (This.IsValid() && This->Window.Get() == &InClosed.Get())
+		{
+			This->Window.Reset();
+			This->Bar.Reset();
+			This->bDragging = false;
+		}
+	}));
+	FSlateApplication::Get().AddWindowAsNativeChild(NewWindow, Parent.ToSharedRef(), /*bShowImmediately=*/true);
+	FollowViewport();
+	return true;
+}
+
+void FGameTestRecordToolbar::FollowViewport()
+{
+	using namespace GameTestRecordToolbarDetail;
+	if (bPlaced || bDragging || !Window.IsValid())
 	{
 		return;
 	}
-	Hide();
-	if (Current == nullptr)
+	UGameViewportClient* Current = Viewport.Get();
+	const TSharedPtr<SViewport> ViewportWidget = Current != nullptr ? Current->GetGameViewportWidget() : nullptr;
+	if (!ViewportWidget.IsValid())
 	{
 		return;
 	}
-	Root = Build();
-	Current->AddViewportWidgetContent(Root.ToSharedRef(), GameTestRecordToolbarDetail::ZOrder);
-	Viewport = Current;
+	// 视口的屏幕位置和大小（屏幕像素）；第一次排版前是 0，等下一帧。
+	const FGeometry& Geometry = ViewportWidget->GetCachedGeometry();
+	const FVector2D ViewportPos = FVector2D(Geometry.GetAbsolutePosition());
+	const FVector2D ViewportSize = FVector2D(Geometry.GetAbsoluteSize());
+	if (ViewportSize.X <= 0.0 || ViewportSize.Y <= 0.0)
+	{
+		return;
+	}
+	const FVector2D WindowSize = FVector2D(Window->GetSizeInScreen());
+	const FVector2D Target(
+		FMath::RoundToDouble(ViewportPos.X + (ViewportSize.X - WindowSize.X) * 0.5),
+		FMath::RoundToDouble(ViewportPos.Y + ViewportSize.Y - WindowSize.Y - BottomGap * double(Geometry.Scale)));
+	// 位置没变就不动：MoveWindowTo 每帧调会让系统窗口一直重绘。
+	if (FVector2D::Distance(Target, FVector2D(Window->GetPositionInScreen())) > 0.5)
+	{
+		Window->MoveWindowTo(Target);
+	}
 }
 
 void FGameTestRecordToolbar::Hide()
 {
-	if (UGameViewportClient* Current = Viewport.Get())
-	{
-		if (Root.IsValid())
-		{
-			Current->RemoveViewportWidgetContent(Root.ToSharedRef());
-		}
-	}
-	Root.Reset();
+	const TSharedPtr<SWindow> Old = Window;
+	Window.Reset();
 	Bar.Reset();
 	Viewport.Reset();
 	bDragging = false;
+	if (Old.IsValid() && FSlateApplication::IsInitialized())
+	{
+		Old->RequestDestroyWindow();
+	}
 }
 
 bool FGameTestRecordToolbar::Contains(const FVector2D& InScreenPosition) const
 {
-	if (!Bar.IsValid() || Bar->GetVisibility() == EVisibility::Collapsed)
+	if (!Window.IsValid() || !Window->IsVisible())
 	{
 		return false;
 	}
-	const FGeometry& Geometry = Bar->GetCachedGeometry();
-	const FVector2D Local = FVector2D(Geometry.AbsoluteToLocal(InScreenPosition));
-	const FVector2D Size = FVector2D(Geometry.GetLocalSize());
-	return Size.X > 0.0 && Local.X >= 0.0 && Local.Y >= 0.0 && Local.X <= Size.X && Local.Y <= Size.Y;
-}
-
-FVector2D FGameTestRecordToolbar::ToRootLocal(const FVector2D& InScreenPosition) const
-{
-	if (!Root.IsValid())
-	{
-		return InScreenPosition;
-	}
-	return FVector2D(Root->GetCachedGeometry().AbsoluteToLocal(InScreenPosition));
-}
-
-FVector2D FGameTestRecordToolbar::PlacedPosition() const
-{
-	using namespace GameTestRecordToolbarDetail;
-	if (!Root.IsValid() || !Bar.IsValid())
-	{
-		return FVector2D::ZeroVector;
-	}
-	const FVector2D Area = FVector2D(Root->GetCachedGeometry().GetLocalSize());
-	const FVector2D Size = FVector2D(Bar->GetDesiredSize());
-	const FVector2D Want = bPlaced ? Position : FVector2D((Area.X - Size.X) * 0.5, Area.Y - Size.Y - BottomGap);
-	// 每帧按当前视口大小夹一次：窗口缩小、工具栏变宽（切到「结束移动」）时都不会出画面。视口比工具栏还窄时贴左上。
-	const double MaxX = FMath::Max(EdgeGap, Area.X - Size.X - EdgeGap);
-	const double MaxY = FMath::Max(EdgeGap, Area.Y - Size.Y - EdgeGap);
-	return FVector2D(FMath::Clamp(Want.X, EdgeGap, MaxX), FMath::Clamp(Want.Y, EdgeGap, MaxY));
+	return Window->GetRectInScreen().ContainsPoint(InScreenPosition);
 }
 
 TSharedRef<SWidget> FGameTestRecordToolbar::Build()
@@ -223,37 +285,41 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 		.BorderImage(BarBrush())
 		.Padding(FMargin(8.0f, 6.0f, 10.0f, 6.0f))
 		.Cursor(EMouseCursor::GrabHand)
-		// 视口第一次排版前拿不到大小，先藏一帧，免得在左上角闪一下再跳到中下方。
-		.Visibility_Lambda([WeakSelf]()
-		{
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
-			const bool bLaidOut = This.IsValid() && This->Root.IsValid() && This->Root->GetCachedGeometry().GetLocalSize().X > 0.0f;
-			return bLaidOut ? EVisibility::Visible : EVisibility::Hidden;
-		})
 		.OnMouseButtonDown_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
-			// 按在把手、状态文字或工具栏空白处开始拖：按钮自己接住点击，到不了这里。
+			// 按在把手、状态文字或工具栏空白处开始拖整个窗口：按钮自己接住点击，到不了这里。
 			// 录制器那边看到按下点在工具栏上就不录，配对的松开也跳过，所以拖动不会变成步骤。
 			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
-			if (!This.IsValid() || !This->Bar.IsValid() || InEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+			if (!This.IsValid() || !This->Bar.IsValid() || !This->Window.IsValid() || InEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 			{
 				return FReply::Unhandled();
 			}
-			This->Position = This->PlacedPosition();
+			FDisplayMetrics Metrics;
+			FSlateApplication::Get().GetCachedDisplayMetrics(Metrics);
+			const FPlatformRect& Desktop = Metrics.VirtualDisplayRect;
+			This->DesktopMin = FVector2D(double(Desktop.Left), double(Desktop.Top));
+			This->DesktopMax = FVector2D(double(Desktop.Right), double(Desktop.Bottom));
+			This->GrabOffset = FVector2D(InEvent.GetScreenSpacePosition()) - FVector2D(This->Window->GetPositionInScreen());
 			This->bPlaced = true;
-			This->GrabOffset = This->ToRootLocal(FVector2D(InEvent.GetScreenSpacePosition())) - This->Position;
 			This->bDragging = true;
 			return FReply::Handled().CaptureMouse(This->Bar.ToSharedRef());
 		})
 		.OnMouseMove_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
 			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
-			if (!This.IsValid() || !This->bDragging)
+			if (!This.IsValid() || !This->bDragging || !This->Window.IsValid())
 			{
 				return FReply::Unhandled();
 			}
-			// 不在这里夹边界：PlacedPosition 每帧夹，拖回来时工具栏还跟着鼠标走。
-			This->Position = This->ToRootLocal(FVector2D(InEvent.GetScreenSpacePosition())) - This->GrabOffset;
+			FVector2D Target = FVector2D(InEvent.GetScreenSpacePosition()) - This->GrabOffset;
+			// 只夹在整个桌面里（可以拖出游戏视口、拖到别的显示器），不让窗口整个出屏幕找不回来。
+			const FVector2D Size = FVector2D(This->Window->GetSizeInScreen());
+			if (This->DesktopMax.X > This->DesktopMin.X && This->DesktopMax.Y > This->DesktopMin.Y)
+			{
+				Target.X = FMath::Clamp(Target.X, This->DesktopMin.X, FMath::Max(This->DesktopMin.X, This->DesktopMax.X - Size.X));
+				Target.Y = FMath::Clamp(Target.Y, This->DesktopMin.Y, FMath::Max(This->DesktopMin.Y, This->DesktopMax.Y - Size.Y));
+			}
+			This->Window->MoveWindowTo(Target);
 			return FReply::Handled();
 		})
 		.OnMouseButtonUp_Lambda([WeakSelf](const FGeometry&, const FPointerEvent&)
@@ -264,8 +330,6 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 				return FReply::Unhandled();
 			}
 			This->bDragging = false;
-			// 松手时把夹过的位置存回去，下次拖从看得见的地方开始。
-			This->Position = This->PlacedPosition();
 			return FReply::Handled().ReleaseMouseCapture();
 		})
 		[
@@ -310,20 +374,5 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			]
 		];
 	Bar = BarWidget;
-
-	// 外层铺满视口但不挡游戏的输入：只有工具栏本身接点击。工具栏按左上角定位，位置每帧从 PlacedPosition 取。
-	return SNew(SOverlay)
-		.Visibility(EVisibility::SelfHitTestInvisible)
-		+ SOverlay::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Top)
-		.Padding(TAttribute<FMargin>::CreateLambda([WeakSelf]()
-		{
-			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
-			const FVector2D At = This.IsValid() ? This->PlacedPosition() : FVector2D::ZeroVector;
-			return FMargin(float(At.X), float(At.Y), 0.0f, 0.0f);
-		}))
-		[
-			BarWidget
-		];
+	return BarWidget;
 }
