@@ -152,6 +152,9 @@ private:
 	TUniquePtr<FGameTestRunner> Runner;
 	TUniquePtr<FGameTestHighlightHolder, FGameTestHighlightHolderDeleter> Highlight;
 
+	/** 已经框过的 touch 序号（执行器的序号只增不减）：同一个 touch 只框一次，到点摘掉后不再重画。 */
+	int64 HighlightedSerial = -1;
+
 	/** 本次会话的 run 历史（`gt.runs` 的回查范围）；每次收尾的完整报告也同时落盘。 */
 	GameTestRunStore RunHistory;
 
