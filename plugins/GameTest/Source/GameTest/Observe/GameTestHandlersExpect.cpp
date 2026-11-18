@@ -7,6 +7,7 @@
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
 #include "Observe/GameTestActor.h"
+#include "Observe/GameTestCondition.h"
 #include "Observe/GameTestItemMatch.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -328,12 +329,6 @@ namespace GameTestHandlers
 	{
 		const FJsonObject& Params = *InContext.Step->Params;
 
-		TArray<FString> Mismatches;
-		TArray<FString> Actuals;
-
-		bool bExpectExists = true;
-		const bool bChecksExists = GameTestJson::TryGetBool(Params, TEXT("exists"), bExpectExists);
-
 		TSharedPtr<FGameTestWidgetNode> Node;
 		FString ResolveError;
 		const bool bResolved = TryResolveTarget(InContext.Step->Target, InContext.Handles, Node, ResolveError);
@@ -346,207 +341,31 @@ namespace GameTestHandlers
 			InContext.TouchedMax = Node->Position + Node->Size;
 		}
 
-		if (bChecksExists && bResolved != bExpectExists)
+		// 条件判断和「已达成就跳过」共用一份（GameTestCondition），断言只管把结果写成通过 / 失败。
+		FGameTestConditionCheck Check;
+		GameTestCondition::Check(Params, bResolved ? Node.Get() : nullptr, ResolveError, Check);
+
+		if (Check.Count == 0)
 		{
-			Mismatches.Add(bExpectExists
-				? FString::Printf(TEXT("期望控件存在，但没有解析到：%s"), *ResolveError)
-				: TEXT("期望控件不存在，但它还在"));
+			InContext.Message = TEXT("assert 至少要给一个条件（exists / visible / enabled / text / textContains / textLike / checked / count / selected / selectedProperty+equals / stateKey+equals / field+equals / image / any）");
+			return StepFailed;
+		}
+
+		if (!Check.Holds())
+		{
+			InContext.Message = FString::Printf(TEXT("断言失败：%s；实际：%s"),
+				*FString::Join(Check.Mismatches, TEXT("；")),
+				Check.Actuals.Num() > 0 ? *FString::Join(Check.Actuals, TEXT("、")) : TEXT("（无）"));
+			return StepFailed;
 		}
 
 		if (!bResolved)
 		{
-			if (bChecksExists && !bExpectExists && Mismatches.Num() == 0)
-			{
-				InContext.Message = TEXT("断言通过：目标确实不存在");
-				return StepSucceeded;
-			}
-
-			InContext.Message = FString::Printf(TEXT("断言失败：%s"), *FString::Join(Mismatches, TEXT("；")));
-			return StepFailed;
+			InContext.Message = TEXT("断言通过：目标确实不存在");
+			return StepSucceeded;
 		}
-
-		int32 CheckCount = bChecksExists ? 1 : 0;
-
-		bool bExpectVisible = true;
-		if (GameTestJson::TryGetBool(Params, TEXT("visible"), bExpectVisible))
-		{
-			++CheckCount;
-			const bool bActual = IsActuallyVisible(*Node);
-			Actuals.Add(FString::Printf(TEXT("visible=%s（%s）"), bActual ? TEXT("true") : TEXT("false"), *Node->Visibility));
-			if (bActual != bExpectVisible)
-			{
-				Mismatches.Add(FString::Printf(TEXT("期望 visible=%s，实际 %s（visibility=%s）"),
-					bExpectVisible ? TEXT("true") : TEXT("false"), bActual ? TEXT("true") : TEXT("false"), *Node->Visibility));
-			}
-		}
-
-		bool bExpectEnabled = true;
-		if (GameTestJson::TryGetBool(Params, TEXT("enabled"), bExpectEnabled))
-		{
-			++CheckCount;
-			Actuals.Add(FString::Printf(TEXT("enabled=%s"), Node->bEnabled ? TEXT("true") : TEXT("false")));
-			if (Node->bEnabled != bExpectEnabled)
-			{
-				Mismatches.Add(FString::Printf(TEXT("期望 enabled=%s，实际 %s"),
-					bExpectEnabled ? TEXT("true") : TEXT("false"), Node->bEnabled ? TEXT("true") : TEXT("false")));
-			}
-		}
-
-		FString ExpectedText;
-		if (GameTestJson::TryGetString(Params, TEXT("text"), ExpectedText))
-		{
-			++CheckCount;
-			Actuals.Add(FString::Printf(TEXT("text='%s'"), *Node->Text));
-			if (!Node->Text.Equals(ExpectedText, ESearchCase::CaseSensitive))
-			{
-				Mismatches.Add(FString::Printf(TEXT("期望 text='%s'，实际 '%s'"), *ExpectedText, *Node->Text));
-			}
-		}
-
-		FString TextContains;
-		if (GameTestJson::TryGetString(Params, TEXT("textContains"), TextContains))
-		{
-			++CheckCount;
-			Actuals.Add(FString::Printf(TEXT("text='%s'"), *Node->Text));
-			if (!Node->Text.Contains(TextContains, ESearchCase::IgnoreCase))
-			{
-				Mismatches.Add(FString::Printf(TEXT("期望 text 含 '%s'，实际 '%s'"), *TextContains, *Node->Text));
-			}
-		}
-
-		int32 ExpectedCount = 0;
-		if (GameTestJson::TryGetInt(Params, TEXT("count"), ExpectedCount))
-		{
-			++CheckCount;
-			UWidget* Widget = Node->Widget.Get();
-			if (Widget == nullptr || !Widget->IsA<UListView>())
-			{
-				Mismatches.Add(TEXT("count 只能用在列表上，目标不是 ListView"));
-			}
-			else
-			{
-				Actuals.Add(FString::Printf(TEXT("count=%d"), Node->Items.Num()));
-				if (Node->Items.Num() != ExpectedCount)
-				{
-					Mismatches.Add(FString::Printf(TEXT("期望 count=%d，实际 %d"), ExpectedCount, Node->Items.Num()));
-				}
-			}
-		}
-
-		bool bExpectSelected = true;
-		if (GameTestJson::TryGetBool(Params, TEXT("selected"), bExpectSelected))
-		{
-			++CheckCount;
-			bool bAnySelected = false;
-			for (const TSharedPtr<FGameTestListItem>& Item : Node->Items)
-			{
-				if (Item.IsValid() && Item->bSelected)
-				{
-					bAnySelected = true;
-					break;
-				}
-			}
-
-			Actuals.Add(FString::Printf(TEXT("selected=%s"), bAnySelected ? TEXT("true") : TEXT("false")));
-			if (bAnySelected != bExpectSelected)
-			{
-				Mismatches.Add(FString::Printf(TEXT("期望 selected=%s，实际 %s"),
-					bExpectSelected ? TEXT("true") : TEXT("false"), bAnySelected ? TEXT("true") : TEXT("false")));
-			}
-		}
-
-		FString SelectedProperty;
-		if (GameTestJson::TryGetString(Params, TEXT("selectedProperty"), SelectedProperty))
-		{
-			++CheckCount;
-
-			const TSharedPtr<FJsonValue> ExpectedValue = Params.TryGetField(TEXT("equals"));
-			if (!ExpectedValue.IsValid())
-			{
-				Mismatches.Add(TEXT("selectedProperty 需要配套的 equals"));
-			}
-			else
-			{
-				FString ActualText = TEXT("（没有选中项）");
-				bool bMatched = false;
-				for (const TSharedPtr<FGameTestListItem>& Item : Node->Items)
-				{
-					if (!Item.IsValid() || !Item->bSelected || !Item->Properties.IsValid())
-					{
-						continue;
-					}
-
-					if (const TSharedPtr<FJsonValue> Value = GameTestItemMatch::FindProperty(*Item->Properties, SelectedProperty))
-					{
-						ActualText = Value->AsString();
-						bMatched = GameTestItemMatch::ValuesEqual(*Value, *ExpectedValue);
-					}
-					break;
-				}
-
-				Actuals.Add(FString::Printf(TEXT("selected.%s=%s"), *SelectedProperty, *ActualText));
-				if (!bMatched)
-				{
-					Mismatches.Add(FString::Printf(TEXT("期望选中项的 %s=%s，实际 %s"),
-						*SelectedProperty, *ExpectedValue->AsString(), *ActualText));
-				}
-			}
-		}
-
-		// 通用状态断言：读快照 `state` 的字段（容器类的当前值都走这条，见 design D5）。
-		FString StateKey;
-		if (GameTestJson::TryGetString(Params, TEXT("stateKey"), StateKey))
-		{
-			++CheckCount;
-
-			const TSharedPtr<FJsonValue> ExpectedValue = Params.TryGetField(TEXT("equals"));
-			if (!ExpectedValue.IsValid())
-			{
-				Mismatches.Add(TEXT("stateKey 需要配套的 equals（要比较的值）"));
-			}
-			else if (!Node->State.IsValid())
-			{
-				Mismatches.Add(FString::Printf(TEXT("%s（%s）在快照里没有 state（它不是有状态控件）"), *Node->Path, *Node->ClassName));
-			}
-			else if (const TSharedPtr<FJsonValue> ActualValue = Node->State->TryGetField(StateKey))
-			{
-				Actuals.Add(FString::Printf(TEXT("%s=%s"), *StateKey, *ActualValue->AsString()));
-				if (!GameTestItemMatch::ValuesEqual(*ActualValue, *ExpectedValue))
-				{
-					Mismatches.Add(FString::Printf(TEXT("期望 state.%s=%s，实际 %s"),
-						*StateKey, *ExpectedValue->AsString(), *ActualValue->AsString()));
-				}
-			}
-			else
-			{
-				// 字段名写错是硬错误——把该节点实际有的字段列出来，省一次瞎猜。
-				TArray<FString> Keys;
-				for (const auto& Pair : Node->State->Values)
-				{
-					const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
-					Keys.Add(PairKey);
-				}
-				Mismatches.Add(FString::Printf(TEXT("state 里没有字段 '%s'（实际有：%s）"),
-					*StateKey, Keys.Num() > 0 ? *FString::Join(Keys, TEXT("、")) : TEXT("（空）")));
-			}
-		}
-
-		if (CheckCount == 0)
-		{
-			InContext.Message = TEXT("assert 至少要给一个条件（exists / visible / enabled / text / textContains / count / selected / selectedProperty+equals / stateKey+equals）");
-			return StepFailed;
-		}
-
-		if (Mismatches.Num() > 0)
-		{
-			InContext.Message = FString::Printf(TEXT("断言失败：%s；实际：%s"),
-				*FString::Join(Mismatches, TEXT("；")),
-				Actuals.Num() > 0 ? *FString::Join(Actuals, TEXT("、")) : TEXT("（无）"));
-			return StepFailed;
-		}
-
 		InContext.Message = FString::Printf(TEXT("断言通过：%s（%s）"),
-			*Node->Path, Actuals.Num() > 0 ? *FString::Join(Actuals, TEXT("、")) : TEXT("存在"));
+			*Node->Path, Check.Actuals.Num() > 0 ? *FString::Join(Check.Actuals, TEXT("、")) : TEXT("存在"));
 		return StepSucceeded;
 	}
 

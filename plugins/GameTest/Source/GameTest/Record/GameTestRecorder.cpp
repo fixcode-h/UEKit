@@ -227,6 +227,9 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	Notice.Reset();
 	Shots.Begin(NextShotOptions);
 	NextShotOptions = FGameTestShotOptions();
+	StateWatch.Begin(NextInferSkip, NextStateWindowMs);
+	NextInferSkip = EGameTestInferSkip::Auto;
+	NextStateWindowMs = FGameTestRecordState::DefaultWindowMs;
 	KeySteps.Reset();
 	KeyAsk.Reset();
 	KeyChoices.Reset();
@@ -329,6 +332,9 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 		AddStep(Release);
 	}
 	HeldKeys.Reset();
+	// 最后一下还没看完的按现在收尾，再给自动加了跳过条件的步骤算连带跳过
+	StateWatch.Finish(Steps);
+	StateWatch.End();
 
 	if (InputProcessor.IsValid() && FSlateApplication::IsInitialized())
 	{
@@ -452,6 +458,7 @@ void FGameTestRecorder::Shutdown()
 	HandledHandle.Reset();
 	bRecording = false;
 	Shots.End();
+	StateWatch.End();
 	Steps.Reset();
 	Queue.Reset();
 	UiPress.Reset();
@@ -638,7 +645,13 @@ void FGameTestRecorder::OnTick()
 	TickMove();
 	if (bRecording)
 	{
-		Shots.Tick(FPlatformTime::Seconds());
+		const double Now = FPlatformTime::Seconds();
+		Shots.Tick(Now);
+		const FString StateNotice = StateWatch.Tick(Now, [this](const TSharedPtr<FJsonObject>& InStep) { return IndexOfStep(InStep); });
+		if (!StateNotice.IsEmpty())
+		{
+			SetNotice(StateNotice);
+		}
 	}
 	// 暂停问「这一格怎么认」期间不录任何输入（人在面板里挑字段，游戏窗口里顺手点的不算）
 	if (KeyAsk.IsSet())
@@ -818,6 +831,8 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 		}
 		// 按下这一刻截图（按钮默认松开才触发，图里是点之前的界面）：写进 hint.shot / screen，点完打开的界面之后补 opened
 		Shots.OnUiPress(Slate, InEvent.Position, Hint);
+		// 读一遍所在界面的状态：点完再比，推断这一下是为了让界面变成什么样（已达成就跳过）
+		StateWatch.OnUiPress(Slate);
 		UiPress = Press;
 		return;
 	}
@@ -876,10 +891,12 @@ void FGameTestRecorder::ProcessMouseUp(const FRawEvent& InEvent)
 				Click->SetObjectField(TEXT("hint"), Press.Hint);
 			}
 			AddStep(Click);
+			StateWatch.OnClick(Click);
 			AfterKeyStep(Click, Press.KeySite, /*bInMayAsk=*/true);
 			return;
 		}
 
+		StateWatch.OnCancel();
 		// 拖动：终点落在某个 UMG 控件上就录 toTarget，否则录按视口归一化的位移。
 		const TSharedRef<FJsonObject> Drag = GameTestRecorderDetail::MakeStep(TEXT("drag"));
 		Drag->SetStringField(TEXT("target"), Press.Target);

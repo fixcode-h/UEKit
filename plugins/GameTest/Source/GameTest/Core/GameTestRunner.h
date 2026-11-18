@@ -7,6 +7,7 @@
 
 class FJsonObject;
 class FJsonValue;
+class FGameTestSkipGate;
 class UWidget;
 class UWorld;
 struct FGameTestWidgetNode;
@@ -210,7 +211,18 @@ public:
 
 private:
 	void StartCurrentStep(double InNowSeconds);
+	/** 真去执行这一步（调动作）：没有跳过条件时开步就调，有的话等跳过判断说「没达成」再调。 */
+	void RunHandler(double InNowSeconds);
 	void CompleteCurrentStep(EGameTestStepStatus InStatus, const FString& InMessage, double InNowSeconds);
+
+	//~ 已达成就跳过（1.6.0，GameTestSkipIf）
+	/** 跳过判断走一帧：跳过就记 already 并连带跳过 also 步，没达成就 RunHandler，还在等就看有没有超时。 */
+	void TickSkipGate(double InNowSeconds);
+	/** 这一步做成功了：带跳过条件且要核对的，先等条件成立（TickVerify）再算通过；否则直接通过。 */
+	void FinishSucceeded(const FString& InMessage, double InNowSeconds);
+	void TickVerify(double InNowSeconds);
+	/** 跳过的那一步之后连带跳过 InAlso 步（记 already，「随第 N 步跳过」）。 */
+	void SkipAlong(int32 InAlso, const FGameTestStep& InLeader, double InNowSeconds);
 
 	/** 把这一步解析到的目标记进「刚碰过的控件」（没有目标就清掉）。 */
 	void RecordTouch(const FGameTestStepContext& InContext);
@@ -283,4 +295,17 @@ private:
 
 	/** AddStepEvent 攒下的事件：键 → 事件列表，下一步结束时并进它的 Payload。 */
 	TMap<FString, TArray<TSharedPtr<FJsonValue>>> PendingStepEvents;
+
+	/** 已达成就跳过的跑法（见 FGameTestRunRequest::SkipIf）。 */
+	FGameTestSkipOptions SkipOptions;
+	/** 正在判断这一步是否已达成（还没调动作）；判断完清掉。 */
+	TSharedPtr<FGameTestSkipGate> SkipGate;
+	/** 判断的结论（「没达成…，照常做」），进步骤结果的 payload.skipCheck。 */
+	FString SkipGateNote;
+	/** 做完了、正在核对条件成立（verify）。 */
+	bool bVerifying = false;
+	TSharedPtr<FJsonObject> VerifySkipIf;
+	FString VerifyMessage;
+	int32 VerifyTimeoutMs = 0;
+	double LastVerifyAt = -1.0;
 };

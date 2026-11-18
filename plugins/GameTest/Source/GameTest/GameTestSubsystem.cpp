@@ -13,6 +13,7 @@
 #include "Input/GameTestInput.h"
 #include "Observe/GameTestKeyPreview.h"
 #include "Operate/GameTestMove.h"
+#include "Operate/GameTestSkipIf.h"
 #include "Shot/GameTestShot.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
@@ -506,6 +507,22 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	Request.MoveDefaults = GameTestMove::MergeDefaults(RunConfig.Move, InRun.Move);
 	// UI 操作间隔：运行配置 > 默认 1 秒（和录制时的手速无关，录的场景 stepDelayMs 是 0）
 	Request.UiStepGapMs = RunConfig.UiStepGapMs >= 0 ? RunConfig.UiStepGapMs : GameTestRunConfig::DefaultUiStepGapMs;
+	// 已达成就跳过：运行配置 > 场景顶层 > 这次运行的「全部照做」（两处都在读文件时校验过，这里不会失败）
+	{
+		FString SkipError;
+		if (RunConfig.SkipIf.IsValid())
+		{
+			GameTestSkipIf::ApplyOptions(*RunConfig.SkipIf, Request.SkipIf, SkipError);
+		}
+		if (InRun.SkipIf.IsValid())
+		{
+			GameTestSkipIf::ApplyOptions(*InRun.SkipIf, Request.SkipIf, SkipError);
+		}
+		if (InRun.bIgnoreSkipIf)
+		{
+			Request.SkipIf.bEnabled = false;
+		}
+	}
 
 	// 前置步骤（运行配置的 setup）：只在从场景文件跑时加在最前面，场景写了 "setup": false 的不加；
 	// 「从这一步开始运行」和 Agent 直接给步骤的临时运行没有场景路径，也不加——它们接着当前状态跑。

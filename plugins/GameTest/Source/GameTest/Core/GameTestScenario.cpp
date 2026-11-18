@@ -5,6 +5,7 @@
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunConfig.h"
 #include "Operate/GameTestMove.h"
+#include "Operate/GameTestSkipIf.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -293,6 +294,16 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 	}
 	bool bSetup = true;
 	OutRun.bSkipSetup = GameTestJson::TryGetBool(*Json, TEXT("setup"), bSetup) && !bSetup;
+	OutRun.SkipIf = Json->TryGetField(TEXT("skipIf"));
+	if (OutRun.SkipIf.IsValid())
+	{
+		FGameTestSkipOptions Options;
+		if (!GameTestSkipIf::ApplyOptions(*OutRun.SkipIf, Options, OutError))
+		{
+			OutError = FString::Printf(TEXT("%s：%s"), *InPath, *OutError);
+			return false;
+		}
+	}
 	return true;
 }
 
