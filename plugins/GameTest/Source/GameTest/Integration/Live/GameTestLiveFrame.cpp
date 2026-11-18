@@ -88,7 +88,7 @@ bool GameTestLiveFrame::Capture(int32 InMaxWidth, int32 InQuality, uint32 InLast
 	}
 
 	// 画面没变（游戏停着、界面静止）就不压也不推：省编码，也省推送通道
-	OutHash = FCrc::MemCrc32(Region.GetData(), Region.Num() * sizeof(FColor));
+	OutHash = FCrc::MemCrc32(Region.GetData(), static_cast<int32>(Region.Num() * sizeof(FColor)));
 	if (InLastHash != 0 && OutHash == InLastHash)
 	{
 		return true;

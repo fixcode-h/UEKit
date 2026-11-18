@@ -11,6 +11,7 @@
 #include "Observe/GameTestSelectorWriter.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
+#include "GameTestCompat.h"
 
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
@@ -111,8 +112,12 @@ namespace GameTestRecordSegmentDetail
 	/** 在对象的每个数组字段里找（块的 do / then / else、elif 的每一项、守护的 do……）；hint 是录制的线索，不是步骤，不进去找。 */
 	bool InsertInObject(FJsonObject& InOutObject, const FString& InId, const TSharedPtr<FJsonValue>& InSegment)
 	{
+		// 先抄出键再改：循环里会 SetArrayField；5.8 起 Values 的键是 TSharedString，不能直接 GetKeys 进 TArray<FString>
 		TArray<FString> Keys;
-		InOutObject.Values.GetKeys(Keys);
+		for (const auto& Pair : InOutObject.Values)
+		{
+			Keys.Add(GAMETEST_JSON_KEY(Pair.Key));
+		}
 		for (const FString& Key : Keys)
 		{
 			if (Key == TEXT("hint"))
