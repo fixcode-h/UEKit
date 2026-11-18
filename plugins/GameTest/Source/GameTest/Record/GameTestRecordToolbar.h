@@ -51,6 +51,9 @@ private:
 	/** 没拖过时把窗口摆到游戏视口中下方（视口移动、缩放后每帧跟上）。 */
 	void FollowViewport();
 
+	/** 把窗口大小改成正好包住工具栏（每帧，差一个像素以上才改）。 */
+	void FitToContent();
+
 	TSharedRef<SWidget> Build();
 
 	TSharedRef<FState> State = MakeShared<FState>();
