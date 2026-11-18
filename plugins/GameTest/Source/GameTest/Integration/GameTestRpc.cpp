@@ -479,20 +479,20 @@ namespace
 			GameTestJson::TryGetNumber(*Args, TEXT("askTimeoutSec"), AskTimeout);
 		}
 		FGameTestRecorder::Get().SetKeyAskOptions(Str(Args, TEXT("askKey")), AskTimeout);
-		// 推断跳过条件（1.6.0）：inferSkip = auto（默认，高把握的直接写 skipIf）/ suggest（只列候选）/ off；stateWindowMs 点完看多久
+		// 推断跳过条件（1.6.0）：inferSkip = suggest（默认，1.8.0 起：只列候选，人来加）/ auto（高把握的直接写 skipIf）/ off；stateWindowMs 点完看多久
 		const FString InferSkip = Str(Args, TEXT("inferSkip"));
-		EGameTestInferSkip InferMode = EGameTestInferSkip::Auto;
-		if (InferSkip == TEXT("suggest"))
+		EGameTestInferSkip InferMode = EGameTestInferSkip::Suggest;
+		if (InferSkip == TEXT("auto"))
 		{
-			InferMode = EGameTestInferSkip::Suggest;
+			InferMode = EGameTestInferSkip::Auto;
 		}
 		else if (InferSkip == TEXT("off"))
 		{
 			InferMode = EGameTestInferSkip::Off;
 		}
-		else if (!InferSkip.IsEmpty() && InferSkip != TEXT("auto"))
+		else if (!InferSkip.IsEmpty() && InferSkip != TEXT("suggest"))
 		{
-			Error = TEXT("inferSkip 只能是 auto（默认）、suggest 或 off");
+			Error = TEXT("inferSkip 只能是 suggest（默认）、auto 或 off");
 			return false;
 		}
 		FGameTestRecorder::Get().SetStateOptions(InferMode, Int(Args, TEXT("stateWindowMs"), FGameTestRecordState::DefaultWindowMs));

@@ -14,9 +14,9 @@ class UWidget;
 /** 录制时推断跳过条件的模式（`gt.record.start inferSkip`）。 */
 enum class EGameTestInferSkip : uint8
 {
-	/** 高把握（≥ AutoScore）的直接写成 skipIf，其余只列候选（默认，用户 2026-11-18 定）。 */
+	/** 高把握（≥ AutoScore）的直接写成 skipIf，其余只列候选。 */
 	Auto,
-	/** 只列候选（hint.state），不写 skipIf。 */
+	/** 只列候选（hint.state），不写 skipIf（默认，1.8.0 起；用户 2026-11-18 定「默认不跳过，需要用户设置」）。 */
 	Suggest,
 	/** 不看状态。 */
 	Off,
@@ -141,10 +141,10 @@ private:
 	bool VerifyAuto(const TSharedPtr<FJsonObject>& InStep, const FGameTestStateCandidate& InCandidate) const;
 
 	bool bActive = false;
-	EGameTestInferSkip Mode = EGameTestInferSkip::Auto;
+	EGameTestInferSkip Mode = EGameTestInferSkip::Suggest;
 	double WindowSeconds = 2.0;
 	TOptional<FPending> Pressing;
 	TOptional<FPending> Watching;
-	/** 自动加了 skipIf 的步骤，停止时算 also。 */
+	/** 有候选的步骤，停止时算 also（写了 skipIf 的写进去，没写的记成 hint.state.also 建议值）。 */
 	TArray<TWeakPtr<FJsonObject>> AutoSteps;
 };

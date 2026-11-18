@@ -228,7 +228,7 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	Shots.Begin(NextShotOptions);
 	NextShotOptions = FGameTestShotOptions();
 	StateWatch.Begin(NextInferSkip, NextStateWindowMs);
-	NextInferSkip = EGameTestInferSkip::Auto;
+	NextInferSkip = EGameTestInferSkip::Suggest;
 	NextStateWindowMs = FGameTestRecordState::DefaultWindowMs;
 	KeySteps.Reset();
 	KeyAsk.Reset();
