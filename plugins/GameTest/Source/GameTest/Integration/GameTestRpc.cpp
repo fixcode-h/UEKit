@@ -795,6 +795,7 @@ void Register()
 	Add(TEXT("gt.config"), &Config);
 	Add(TEXT("gt.api"), &GameTestRpcScript::Api);
 	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
+	Add(TEXT("gt.validate"), &GameTestRpcScript::Validate);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
