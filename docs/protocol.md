@@ -77,6 +77,24 @@
   - 都没给：泳道的根。
   - `mergeC: true` 时 C 函数节点不出现，独占时间并进父节点，它下面回调进来的 Lua 函数挂到父节点下。
 
+2.11.0 起 `trace.query` 是**异步操作**：编辑器在游戏线程上只找会话（必要时开始分析），计算交给线程池，算完再回 HTTP 回复（客户端照常等回复，不用改）。同时最多算 4 个查询、多的排队；单次查询最多 20 秒，超了照样 `ok: true`，回已经算出的部分并带 `truncated: true`、`truncatedNote`（中文，说明怎么缩小范围）。编辑器退出时排队的查询回「编辑器正在退出，查询取消了」。`GET /info` 的 `ops` 照旧列出 `trace.query`。
+
+2.11.0 新增和扩充的 what（时间都是 trace 时间、秒；耗时毫秒；`t0` / `t1` 是范围，`lanes` 是泳道 id 数组，GPU 是 -1）。录制时没开对应通道、或者 UE 启动时没加需要的参数时返回 `ok: false` 并说明要开什么；`UELinkCompat.h` 里某类的 `UELINK_TRACE_*` 关掉时返回「编译时关掉了」：
+
+- `frames {"type"?: "render"}`：`type=render` 取渲染帧，默认游戏帧。
+- `counters {"stats": true}`：不给 `names` 时，列表每条多 `n`、`min`、`max`、`avg`、`first`、`last`、`firstT`、`lastT`（范围内原始值，不降采样）。
+- `framestats {"type"?, "f0"?, "f1"?, "lanes"?}` → `{"type", "f0", "count", "total", "ms": [帧时长], "lanes": [{"id", "name", "busy": [每帧忙的毫秒]}]}`：每帧每条线程深度 0 的块落在这一帧里的时间（两位小数）。不给 `lanes` 时是 GPU 和名字带 GameThread / RenderThread / RHIThread 的线程。GPU 的帧和游戏帧不完全对齐（GPU 晚一两帧），客户端看分布不逐帧对。
+- `framediff {"frames": [帧号], "base"?: [帧号], "lanes"?, "top"?, "type"?}` → `{"base": {"frames", "ms"}, "frames": [{"frame", "start", "ms", "items": [{"id", "name", "excl", "base", "gpu"?, "file"?, "line"?, "c"?}]}]}`：每个目标帧里独占时间比基线（基线帧的平均）涨得最多的计时器（只列涨了的，最多 `top` 个，默认 8）。不给 `base` 时取帧时长排在 P40–P60 的帧（最多 120 帧）当基线；`frames` 最多 200 帧。开始时间落在这一帧里的块记它的独占时间。
+- `session` → `{"name", "platform"?, "app"?, "commandLine"?, "branch"?, "build"?, "changelist"?, "config"?, "target"?, "gameFrames", "renderFrames", "threads", "counters", "has": {"cpu", "gpu", "lua", "regions", "memtags", "allocs", "loads", "files", "tasks", "switches", "net"}}`。
+- `regions {"t0"?, "t1"?, "filter"?, "top"?}` → `{"items": [{"text", "start", "ms", "depth"}], "total"}`（`region` 通道）。
+- `memtags {"t0"?, "t1"?, "name"?, "tracker"?: "Default", "px"?}` → `{"tracker", "items": [{"name", "avgKB", "peakKB", "firstKB", "lastKB", "t"?, "v"?}]}`（`memtag` 通道，UE 要 `-llm`）。`name` 按名字筛；和某个标签同名时那一项带降采样走势 `t` / `v`（KB，每段取最大）。
+- `allocs {"at"? | "t0"/"t1", "groupBy"?: "tag|callstack|size", "filter"?, "top"?, "depth"?}` → `{"mode": "live|growth", "groupBy", "totalKB", "totalCount", "groups", "items": [{"key", "kb", "count", "maxKB", "stack"?: [帧]}], "partial"?}`（`memalloc` 通道，UE 要用 `-trace=memory` 启动）。给 `at`：那一刻还活着的分配；不给：`t0` 到 `t1` 之间分配、到 `t1` 还没释放的。`stack` 是这一组一个调用栈样本最上面 `depth` 层（跳过分配器自己的帧；符号没解析出来时是地址）。超时时 `partial: true`。
+- `loads {"t0"?, "t1"?, "sort"?: "time|size", "filter"?, "top"?}` → `{"packages", "mainMs", "asyncMs", "items": [{"package", "mainMs", "asyncMs", "kb", "exports"}], "types": [{"type", "totalMs", "count", "maxMs"}]}`（`loadtime`、`assetloadtime` 通道）。
+- `files {"t0"?, "t1"?, "sort"?: "time|size", "filter"?, "top"?}` → `{"ops", "files", "items": [{"path", "op", "start", "ms", "kb", "failed"?}], "byFile": [{"path", "ms", "kb", "ops"}]}`（`file` 通道）。
+- `tasks {"t0"?, "t1"?, "sort"?: "exec|wait", "filter"?, "top"?}` → `{"tasks", "names", "items": [{"name", "count", "execMs", "execMaxMs", "waitMs", "waitMaxMs"}], "slowest": [{"name", "start", "execMs", "waitMs", "lane"}]}`（`task` 通道）。`wait` 是从发起到开始执行的排队时间。
+- `switches {"t0"?, "t1"?, "lanes"?}` → `{"items": [{"lane", "name", "runMs", "runShare", "switches"}]}`（`contextswitch` 通道，Windows 要管理员权限）：每条线程真正在 CPU 上跑的时间。
+- `net {"t0"?, "t1"?}` → `{"instances": [{"instance", "server", "connections": [{"name", "address", "out"?: {"packets", "kb", "maxBytes", "kbPerSec"}, "in"?: {…}}]}]}`（`net` 通道）。
+
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
 
