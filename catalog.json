@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.10.1",
-        "versionCode": 28,
+        "version": "2.10.2",
+        "versionCode": 29,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.10.1",
-        "asset": "UELink-2.10.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.10.1/UELink-2.10.1-src.zip",
-        "sha256": "ae269f8ba96ffa1a6f03ca72f2fe7a34680946da45e1edf5a29e852e4ddf2e17",
-        "size": 252558,
+        "tag": "UELink-v2.10.2",
+        "asset": "UELink-2.10.2-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.10.2/UELink-2.10.2-src.zip",
+        "sha256": "bf5bf9bfaa883d7608b5e075f75f3071d23056d97affd0724722fb5d6f1fce45",
+        "size": 252891,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **UELinkCore 编译报「Expected AgentPanelLuaTrace.h to be first header included」** — Lua trace 的源文件没把同名头文件放在第一个 include，UBT 的头文件顺序检查直接报错；调整了 include 顺序"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **打开 Lua 声明后编辑器偶尔崩溃** — 资源变化后处理「变了的蓝图」时，查资源注册表会同步触发资源新增 / 删除事件，事件又往正在遍历的列表里加东西，编辑器崩在 `StartDirtyAssetPass`；现在先把列表整个取出来再处理，中途新来的留到下一遍\n- **蓝图声明关着时不再白查资源** — 保存地图、改资源等事件在蓝图开关关着时直接忽略，不再每次都去查资源注册表"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T03:39:43.323Z"
+  "updatedAt": "2026-11-18T03:48:09.007Z"
 }
