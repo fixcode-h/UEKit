@@ -35,7 +35,7 @@ struct FKey;
  *
  * **录移动**（`Alt+1` / 工具栏 / `gt.record.move`）：开始到结束之间只记角色的轨迹，别的操作都不写步骤，
  *   结束时写一条 `move`（见 `GameTestRecorderMove.cpp`）；中间点了界面就自动结束、这一下点击照常录。
- * - 录制时游戏窗口右上角有一条工具栏（`GameTestRecordToolbar`），点它不录；快捷键 Alt+数字，录制器吃掉不传给游戏。
+ * - 录制时游戏视口中下方悬浮一条可拖动的工具栏（`GameTestRecordToolbar`），点它不录；快捷键 Alt+数字，录制器吃掉不传给游戏。
  *
  * 事件先排队、在处理器的 Tick 里统一处理：处理者是在事件路由**之后**才知道的，排队可以把两头对上。
  * 回放发出的合成输入靠 `GameTestInput::IsSendingSynthetic` 跳过，不会录进去。只在游戏线程上用。

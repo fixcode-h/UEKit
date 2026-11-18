@@ -12,6 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
@@ -27,6 +28,28 @@ namespace GameTestRecordToolbarDetail
 	const FLinearColor RecordColor(0.94f, 0.33f, 0.31f, 1.0f);
 	const FLinearColor MoveColor(0.35f, 0.68f, 0.98f, 1.0f);
 	const FLinearColor NoticeColor(0.98f, 0.76f, 0.35f, 1.0f);
+
+	/** 默认位置离视口底边的距离：留出游戏底部常见的技能栏、聊天框边缘，又不至于飘到画面中间。 */
+	constexpr double BottomGap = 56.0;
+	/** 拖动时离视口四边至少留这么多，工具栏不会被拖出画面找不回来。 */
+	constexpr double EdgeGap = 4.0;
+
+	/** 把手：两道竖线，告诉用户这里可以按住拖。不接点击，按下落到外层的工具栏底上处理。 */
+	TSharedRef<SWidget> MakeGrip()
+	{
+		static const FSlateRoundedBoxBrush GripBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.28f), 1.0f);
+		auto Line = []()
+		{
+			return SNew(SBox).WidthOverride(2.0f).HeightOverride(14.0f)
+				[
+					SNew(SBorder).BorderImage(&GripBrush).Padding(0.0f)
+				];
+		};
+		return SNew(SHorizontalBox)
+			.Visibility(EVisibility::HitTestInvisible)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ Line() ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.0f, 0.0f, 0.0f, 0.0f) [ Line() ];
+	}
 
 	/** 半透明深色圆角底，和面板深色主题的浮层接近；不依赖编辑器样式，游戏进程里也有。 */
 	const FSlateBrush* BarBrush()
@@ -135,6 +158,31 @@ bool FGameTestRecordToolbar::Contains(const FVector2D& InScreenPosition) const
 	return Size.X > 0.0 && Local.X >= 0.0 && Local.Y >= 0.0 && Local.X <= Size.X && Local.Y <= Size.Y;
 }
 
+FVector2D FGameTestRecordToolbar::ToRootLocal(const FVector2D& InScreenPosition) const
+{
+	if (!Root.IsValid())
+	{
+		return InScreenPosition;
+	}
+	return FVector2D(Root->GetCachedGeometry().AbsoluteToLocal(InScreenPosition));
+}
+
+FVector2D FGameTestRecordToolbar::PlacedPosition() const
+{
+	using namespace GameTestRecordToolbarDetail;
+	if (!Root.IsValid() || !Bar.IsValid())
+	{
+		return FVector2D::ZeroVector;
+	}
+	const FVector2D Area = FVector2D(Root->GetCachedGeometry().GetLocalSize());
+	const FVector2D Size = FVector2D(Bar->GetDesiredSize());
+	const FVector2D Want = bPlaced ? Position : FVector2D((Area.X - Size.X) * 0.5, Area.Y - Size.Y - BottomGap);
+	// 每帧按当前视口大小夹一次：窗口缩小、工具栏变宽（切到「结束移动」）时都不会出画面。视口比工具栏还窄时贴左上。
+	const double MaxX = FMath::Max(EdgeGap, Area.X - Size.X - EdgeGap);
+	const double MaxY = FMath::Max(EdgeGap, Area.Y - Size.Y - EdgeGap);
+	return FVector2D(FMath::Clamp(Want.X, EdgeGap, MaxX), FMath::Clamp(Want.Y, EdgeGap, MaxY));
+}
+
 TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 {
 	using namespace GameTestRecordToolbarDetail;
@@ -173,18 +221,28 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 
 	const TSharedRef<SBorder> BarWidget = SNew(SBorder)
 		.BorderImage(BarBrush())
-		.Padding(FMargin(10.0f, 6.0f))
+		.Padding(FMargin(8.0f, 6.0f, 10.0f, 6.0f))
+		.Cursor(EMouseCursor::GrabHand)
+		// 视口第一次排版前拿不到大小，先藏一帧，免得在左上角闪一下再跳到中下方。
+		.Visibility_Lambda([WeakSelf]()
+		{
+			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
+			const bool bLaidOut = This.IsValid() && This->Root.IsValid() && This->Root->GetCachedGeometry().GetLocalSize().X > 0.0f;
+			return bLaidOut ? EVisibility::Visible : EVisibility::Hidden;
+		})
 		.OnMouseButtonDown_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
-			// 按在工具栏空白处拖动位置：按钮自己接住点击，到不了这里。
+			// 按在把手、状态文字或工具栏空白处开始拖：按钮自己接住点击，到不了这里。
+			// 录制器那边看到按下点在工具栏上就不录，配对的松开也跳过，所以拖动不会变成步骤。
 			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
 			if (!This.IsValid() || !This->Bar.IsValid() || InEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 			{
 				return FReply::Unhandled();
 			}
+			This->Position = This->PlacedPosition();
+			This->bPlaced = true;
+			This->GrabOffset = This->ToRootLocal(FVector2D(InEvent.GetScreenSpacePosition())) - This->Position;
 			This->bDragging = true;
-			This->DragStart = FVector2D(InEvent.GetScreenSpacePosition());
-			This->OffsetAtDragStart = This->Offset;
 			return FReply::Handled().CaptureMouse(This->Bar.ToSharedRef());
 		})
 		.OnMouseMove_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
@@ -194,7 +252,8 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			{
 				return FReply::Unhandled();
 			}
-			This->Offset = This->OffsetAtDragStart + (FVector2D(InEvent.GetScreenSpacePosition()) - This->DragStart);
+			// 不在这里夹边界：PlacedPosition 每帧夹，拖回来时工具栏还跟着鼠标走。
+			This->Position = This->ToRootLocal(FVector2D(InEvent.GetScreenSpacePosition())) - This->GrabOffset;
 			return FReply::Handled();
 		})
 		.OnMouseButtonUp_Lambda([WeakSelf](const FGeometry&, const FPointerEvent&)
@@ -205,6 +264,8 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 				return FReply::Unhandled();
 			}
 			This->bDragging = false;
+			// 松手时把夹过的位置存回去，下次拖从看得见的地方开始。
+			This->Position = This->PlacedPosition();
 			return FReply::Handled().ReleaseMouseCapture();
 		})
 		[
@@ -212,6 +273,10 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			+ SVerticalBox::Slot().AutoHeight()
 			[
 				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 8.0f, 0.0f)
+				[
+					MakeGrip()
+				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 8.0f, 0.0f)
 				[
 					SNew(STextBlock)
@@ -246,17 +311,17 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 		];
 	Bar = BarWidget;
 
-	// 外层铺满视口但不挡游戏的输入：只有工具栏本身接点击。
+	// 外层铺满视口但不挡游戏的输入：只有工具栏本身接点击。工具栏按左上角定位，位置每帧从 PlacedPosition 取。
 	return SNew(SOverlay)
 		.Visibility(EVisibility::SelfHitTestInvisible)
 		+ SOverlay::Slot()
-		.HAlign(HAlign_Right)
+		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Top)
 		.Padding(TAttribute<FMargin>::CreateLambda([WeakSelf]()
 		{
 			const TSharedPtr<FGameTestRecordToolbar> This = WeakSelf.Pin();
-			const FVector2D Shift = This.IsValid() ? This->Offset : FVector2D::ZeroVector;
-			return FMargin(0.0f, FMath::Max(0.0f, 12.0f + float(Shift.Y)), FMath::Max(0.0f, 12.0f - float(Shift.X)), 0.0f);
+			const FVector2D At = This.IsValid() ? This->PlacedPosition() : FVector2D::ZeroVector;
+			return FMargin(float(At.X), float(At.Y), 0.0f, 0.0f);
 		}))
 		[
 			BarWidget
