@@ -21,13 +21,7 @@ namespace GameTestHandlers
 	 * 放在这里（而不是某个子域的匿名 namespace）是因为观察与交互两个子域都要用：
 	 * 各写一份必然漂移。
 	 */
-	bool TryResolveTarget(
-		const FString& InTarget,
-		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutMessage,
-		const FJsonObject* InHint,
-		FString* OutPickNote)
+	bool TryResolveTarget(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutMessage, const FJsonObject* InHint, FString* OutPickNote)
 	{
 		if (InTarget.IsEmpty())
 		{

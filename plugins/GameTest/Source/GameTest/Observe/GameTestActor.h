@@ -32,12 +32,7 @@ public:
 	 * `InLocallyControlled` 有值时再筛"是不是本端玩家控制的那台"——多客户端会话里，
 	 * 同一类 actor 在每端世界里各有本地/远端两份，这个筛子是把它们分开的唯一稳定判据。
 	 */
-	static AActor* ResolveOne(
-		UWorld& InWorld,
-		const FString& InClassName,
-		const FString& InTag,
-		const TOptional<bool>& InLocallyControlled,
-		FString& OutError);
+	static AActor* ResolveOne(UWorld& InWorld, const FString& InClassName, const FString& InTag, const TOptional<bool>& InLocallyControlled, FString& OutError);
 
 	/** actor → 对象路径、位置、朝向（Yaw 及完整 Rotator）、速度（大小与向量）。 */
 	static TSharedPtr<FJsonObject> ToJson(const AActor& InActor);

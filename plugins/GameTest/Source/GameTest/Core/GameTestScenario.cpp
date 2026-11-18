@@ -83,10 +83,7 @@ void GameTestScenario::ApplyLegacyDefaults(const TSharedPtr<FJsonObject>& InJson
 	}
 }
 
-bool GameTestScenario::CollectSteps(
-	const TSharedPtr<FJsonObject>& InJson,
-	TArray<TSharedPtr<FJsonObject>>& OutSteps,
-	TArray<FString>& OutErrors)
+bool GameTestScenario::CollectSteps(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& OutSteps, TArray<FString>& OutErrors)
 {
 	OutSteps.Reset();
 

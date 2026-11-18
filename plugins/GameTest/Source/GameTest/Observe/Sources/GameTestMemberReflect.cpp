@@ -23,8 +23,7 @@ namespace
 			return InBase.GetObject() != nullptr;
 		}
 
-		virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext,
-			FGameTestValue& OutValue) const override
+		virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
 		{
 			UObject* Object = InBase.GetObject();
 			if (Object == nullptr)
@@ -50,8 +49,7 @@ namespace
 			return false;
 		}
 
-		virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs,
-			FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
+		virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
 		{
 			UObject* Object = InBase.GetObject();
 			UFunction* Function = Object != nullptr ? GameTestReflectValue::FindFunction(Object->GetClass(), InName) : nullptr;

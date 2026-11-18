@@ -364,11 +364,7 @@ void GameTestSnapshot::CaptureScreens(UWorld* InWorld, TArray<TSharedPtr<FGameTe
 	});
 }
 
-TSharedPtr<FJsonObject> GameTestSnapshot::ScreensToJson(
-	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-	bool bInIncludeGeometry,
-	bool bInIncludeProps,
-	int32 InMaxNodes)
+TSharedPtr<FJsonObject> GameTestSnapshot::ScreensToJson(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, bool bInIncludeGeometry, bool bInIncludeProps, int32 InMaxNodes)
 {
 	const TSharedPtr<FJsonObject> Root = MakeShared<FJsonObject>();
 	Root->SetNumberField(TEXT("screenCount"), InScreens.Num());

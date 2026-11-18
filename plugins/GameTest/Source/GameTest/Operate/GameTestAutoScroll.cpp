@@ -286,8 +286,7 @@ void GameTestAutoScroll::MarkFound(FState& InOutState)
 	InOutState.MissingSince = -1.0;
 }
 
-bool GameTestAutoScroll::ScanForMissing(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-	FState& InOutState, FString* InOutWhy)
+bool GameTestAutoScroll::ScanForMissing(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FState& InOutState, FString* InOutWhy)
 {
 	using namespace GameTestAutoScrollDetail;
 	using namespace GameTestAutoScrollScan;

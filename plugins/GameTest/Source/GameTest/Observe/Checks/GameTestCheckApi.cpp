@@ -13,8 +13,7 @@
 namespace
 {
 	/** `args` 写对象按名字给，写数组按顺序给，求值后排成接口参数的顺序。 */
-	bool BuildArgs(const FGameTestApiDesc& InDesc, const FJsonObject& InJson, FGameTestFlowContext& InContext, TArray<FGameTestValue>& OutArgs,
-		FString& OutError)
+	bool BuildArgs(const FGameTestApiDesc& InDesc, const FJsonObject& InJson, FGameTestFlowContext& InContext, TArray<FGameTestValue>& OutArgs, FString& OutError)
 	{
 		FName Code;
 		const TSharedPtr<FJsonValue> Raw = InJson.TryGetField(TEXT("args"));

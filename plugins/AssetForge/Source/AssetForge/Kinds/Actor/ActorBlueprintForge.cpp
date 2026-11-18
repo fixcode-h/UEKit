@@ -114,11 +114,7 @@ namespace
 	}
 
 	/** 把一个 SCS 节点读成配置节点（含子树）。 */
-	void ReadComponentInto(
-		const USCS_Node* InNode,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath)
+	void ReadComponentInto(const USCS_Node* InNode, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath)
 	{
 		OutNode.Name = InNode->GetVariableName().ToString();
 		OutNode.ClassName = (InNode->ComponentClass != nullptr)
@@ -149,10 +145,7 @@ namespace
 	}
 
 	/** 把 SCS 的根节点集合读成配置树的 children。 */
-	void ReadRootComponents(
-		const USimpleConstructionScript* InSCS,
-		FForgeNode& OutRoot,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadRootComponents(const USimpleConstructionScript* InSCS, FForgeNode& OutRoot, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		OutRoot.ClassName = ComponentRootClass;
 		OutRoot.Name = TEXT("Components");
@@ -186,10 +179,7 @@ namespace
 	 * 导出恒为空、配置永不收敛（object-blueprint 踩过同一个坑、同一处修法）。它与组件树共用
 	 * `root` 节点：`root.props` 是 Actor 自己的属性，`root.children` 是组件树。
 	 */
-	void ReadClassDefaults(
-		const UBlueprint* InBlueprint,
-		FForgeNode& OutRoot,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadClassDefaults(const UBlueprint* InBlueprint, FForgeNode& OutRoot, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		if (InBlueprint == nullptr
 			|| InBlueprint->ParentClass == nullptr
@@ -229,13 +219,7 @@ namespace
 	// ---- 同步 ----
 
 	/** 把一棵配置子树同步到 SCS：按变量名匹配。返回是否有改动。 */
-	bool SyncComponents(
-		USimpleConstructionScript* InSCS,
-		UBlueprint* InBlueprint,
-		USCS_Node* InParentNode,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	bool SyncComponents(USimpleConstructionScript* InSCS, UBlueprint* InBlueprint, USCS_Node* InParentNode, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		bool bChanged = false;
 
@@ -342,10 +326,7 @@ namespace
 	}
 
 	/** 计划阶段的校验：组件类能不能解析、属性写不写得进去。 */
-	void ValidateSubtree(
-		const FForgeNode& InNode,
-		const FString& InNodePath,
-		FForgeReport& OutReport)
+	void ValidateSubtree(const FForgeNode& InNode, const FString& InNodePath, FForgeReport& OutReport)
 	{
 		for (const FForgeNode& ChildConfig : InNode.Children)
 		{

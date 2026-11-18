@@ -23,49 +23,109 @@
 
 namespace GameTestRecordToolbarDetail
 {
-	const FLinearColor TextColor(0.92f, 0.92f, 0.94f, 1.0f);
-	const FLinearColor DimColor(0.62f, 0.64f, 0.68f, 1.0f);
-	const FLinearColor RecordColor(0.94f, 0.33f, 0.31f, 1.0f);
-	const FLinearColor MoveColor(0.35f, 0.68f, 0.98f, 1.0f);
-	const FLinearColor NoticeColor(0.98f, 0.76f, 0.35f, 1.0f);
+	// 颜色是线性空间（Slate 画的时候再转 sRGB），取值对着 UE 编辑器深色主题的面板和按钮调：
+	// 底色约等于编辑器面板的 #1A1A1A，按钮平时透明、悬停才出底色，和编辑器工具栏按钮一个手感。
+	const FLinearColor PanelColor(0.010f, 0.010f, 0.011f, 1.0f);
+	const FLinearColor OutlineColor(1.0f, 1.0f, 1.0f, 0.09f);
+	const FLinearColor TextColor(0.86f, 0.86f, 0.88f, 1.0f);
+	const FLinearColor DimColor(0.36f, 0.37f, 0.40f, 1.0f);
+	const FLinearColor RecordColor(0.90f, 0.12f, 0.10f, 1.0f);
+	const FLinearColor MoveColor(0.16f, 0.48f, 0.95f, 1.0f);
+	const FLinearColor NoticeColor(0.95f, 0.58f, 0.13f, 1.0f);
 
 	/** 默认位置离视口底边的距离（Slate 单位，按视口的 DPI 缩放）：留出游戏底部常见的技能栏、聊天框边缘，又不至于飘到画面中间。 */
 	constexpr double BottomGap = 56.0;
 
-	/** 把手：两道竖线，告诉用户这里可以按住拖。不接点击，按下落到外层的工具栏底上处理。 */
+	/** 一排控件的统一高度：按钮、把手、分隔线都按它对齐，整条只有一行高。 */
+	constexpr float RowHeight = 24.0f;
+
+	/** 把手：2×3 个小点，告诉用户这里可以按住拖。不接点击，按下落到外层的工具栏底上处理。 */
 	TSharedRef<SWidget> MakeGrip()
 	{
-		static const FSlateRoundedBoxBrush GripBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.28f), 1.0f);
-		auto Line = []()
+		static const FSlateRoundedBoxBrush DotBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.30f), 1.5f);
+		auto Dot = []()
 		{
-			return SNew(SBox).WidthOverride(2.0f).HeightOverride(14.0f)
-				[
-					SNew(SBorder).BorderImage(&GripBrush).Padding(0.0f)
-				];
+			return SNew(SBox).WidthOverride(3.0f).HeightOverride(3.0f) [ SNew(SBorder).BorderImage(&DotBrush).Padding(0.0f) ];
 		};
-		return SNew(SHorizontalBox)
+		auto Column = [&Dot]()
+		{
+			return SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight() [ Dot() ]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 2.0f) [ Dot() ]
+				+ SVerticalBox::Slot().AutoHeight() [ Dot() ];
+		};
+		return SNew(SBox)
 			.Visibility(EVisibility::HitTestInvisible)
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ Line() ]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(2.0f, 0.0f, 0.0f, 0.0f) [ Line() ];
+			.HeightOverride(RowHeight)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth() [ Column() ]
+				+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f, 0.0f, 0.0f) [ Column() ]
+			];
 	}
 
-	/** 深色底，和面板深色主题的浮层接近；不依赖编辑器样式，独立游戏进程里也有。窗口本身不透明，所以底色也不透明。 */
+	/** 竖分隔线：把「状态」和「操作」分成两组，和编辑器工具栏的分组线一样细。 */
+	TSharedRef<SWidget> MakeSeparator()
+	{
+		static const FSlateRoundedBoxBrush LineBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.10f), 0.0f);
+		return SNew(SBox).WidthOverride(1.0f).HeightOverride(16.0f).Visibility(EVisibility::HitTestInvisible) [ SNew(SBorder).BorderImage(&LineBrush).Padding(0.0f) ];
+	}
+
+	/** 录制红点（录移动时变蓝）：一个实心小圆，慢慢明暗呼吸，一眼看出还在录。不用「●」字符，字体回退时大小和基线会跑。 */
+	TSharedRef<SWidget> MakeRecordDot(TSharedRef<FGameTestRecordToolbar::FState> InState)
+	{
+		static const FSlateRoundedBoxBrush CircleBrush(FLinearColor::White, 4.0f);
+		return SNew(SBox)
+			.WidthOverride(8.0f)
+			.HeightOverride(8.0f)
+			.Visibility(EVisibility::HitTestInvisible)
+			[
+				SNew(SBorder)
+				.BorderImage(&CircleBrush)
+				.Padding(0.0f)
+				.BorderBackgroundColor_Lambda([InState]()
+				{
+					const FLinearColor Base = InState->bMoving ? MoveColor : RecordColor;
+					// 1.6 秒一个来回，亮度在 55%–100% 之间：动得看得见，又不至于晃眼。
+					const float Pulse = 0.775f + 0.225f * FMath::Sin(float(FPlatformTime::Seconds()) * 3.9f);
+					return FSlateColor(Base.CopyWithNewOpacity(Pulse));
+				})
+			];
+	}
+
+	/** 工具栏底：圆角深色面板加一圈很淡的描边。不依赖编辑器样式，独立游戏进程里也有。窗口不透明，所以底色也不透明。 */
 	const FSlateBrush* BarBrush()
 	{
-		static const FSlateRoundedBoxBrush Brush(FLinearColor(0.07f, 0.07f, 0.09f, 1.0f), 6.0f, FLinearColor(1.0f, 1.0f, 1.0f, 0.12f), 1.0f);
+		static const FSlateRoundedBoxBrush Brush(PanelColor, 6.0f, OutlineColor, 1.0f);
 		return &Brush;
 	}
 
+	/** 普通按钮：平时透明只有字，悬停出浅底、按下再深一点，和编辑器工具栏按钮一样不抢眼。 */
 	const FButtonStyle& ButtonStyle()
 	{
 		static const FButtonStyle Style = []
 		{
 			FButtonStyle Out;
-			Out.SetNormal(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.06f), 6.0f));
-			Out.SetHovered(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.14f), 6.0f));
-			Out.SetPressed(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.22f), 6.0f));
-			Out.SetNormalPadding(FMargin(8.0f, 4.0f));
-			Out.SetPressedPadding(FMargin(8.0f, 5.0f, 8.0f, 3.0f));
+			Out.SetNormal(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.0f), 4.0f));
+			Out.SetHovered(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.08f), 4.0f));
+			Out.SetPressed(FSlateRoundedBoxBrush(FLinearColor(1.0f, 1.0f, 1.0f, 0.14f), 4.0f));
+			Out.SetNormalPadding(FMargin(8.0f, 0.0f));
+			Out.SetPressedPadding(FMargin(8.0f, 1.0f, 8.0f, 0.0f));
+			return Out;
+		}();
+		return Style;
+	}
+
+	/** 「停止」按钮：淡红底，放在最右边，和其他操作区分开，不容易误点又一眼找得到。 */
+	const FButtonStyle& StopButtonStyle()
+	{
+		static const FButtonStyle Style = []
+		{
+			FButtonStyle Out = ButtonStyle();
+			Out.SetNormal(FSlateRoundedBoxBrush(RecordColor.CopyWithNewOpacity(0.16f), 4.0f));
+			Out.SetHovered(FSlateRoundedBoxBrush(RecordColor.CopyWithNewOpacity(0.28f), 4.0f));
+			Out.SetPressed(FSlateRoundedBoxBrush(RecordColor.CopyWithNewOpacity(0.40f), 4.0f));
 			return Out;
 		}();
 		return Style;
@@ -76,33 +136,44 @@ namespace GameTestRecordToolbarDetail
 		return FCoreStyle::GetDefaultFontStyle(bInBold ? "Bold" : "Regular", InSize);
 	}
 
-	/** 按钮：点了走录制器的同一个入口（和快捷键、面板按钮一样），出错显示在工具栏的提示行。 */
-	TSharedRef<SWidget> MakeButton(const FString& InLabel, const FString& InKeys, TSharedRef<FGameTestRecordToolbar::FState> InState, TFunction<void()> InOnClick)
+	/** 按钮：点了走录制器的同一个入口（和快捷键、面板按钮一样），出错显示在工具栏的提示行。快捷键用暗色小字跟在后面。 */
+	TSharedRef<SWidget> MakeButton(const FString& InLabel, const FString& InKeys, TSharedRef<FGameTestRecordToolbar::FState> InState, TFunction<void()> InOnClick, const FButtonStyle& InStyle, const FLinearColor& InLabelColor)
 	{
-		return SNew(SButton)
-			.ButtonStyle(&ButtonStyle())
-			// 按钮不拿键盘焦点：点完焦点还在游戏上，录按键、Alt+数字不受影响。
-			.IsFocusable(false)
-			.OnClicked_Lambda([InOnClick]()
-			{
-				InOnClick();
-				return FReply::Handled();
-			})
+		return SNew(SBox)
+			.HeightOverride(RowHeight)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				SNew(SButton)
+				.ButtonStyle(&InStyle)
+				// 按钮不拿键盘焦点：点完焦点还在游戏上，录按键、Alt+数字不受影响。
+				.IsFocusable(false)
+				.VAlign(VAlign_Center)
+				.ToolTipText(InKeys.IsEmpty() ? FText::GetEmpty() : FText::FromString(FString::Printf(TEXT("%s（%s）"), *InLabel, *InKeys)))
+				.OnClicked_Lambda([InOnClick]()
+				{
+					InOnClick();
+					return FReply::Handled();
+				})
 				[
-					SNew(STextBlock).Text(FText::FromString(InLabel)).Font(Font(9)).ColorAndOpacity(TextColor)
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(5.0f, 0.0f, 0.0f, 0.0f)
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString(InKeys))
-					.Font(Font(8))
-					.ColorAndOpacity(DimColor)
-					.Visibility_Lambda([InState]() { return InState->bHotkeys ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+					[
+						SNew(STextBlock).Text(FText::FromString(InLabel)).Font(Font(9)).ColorAndOpacity(InLabelColor)
+					]
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(5.0f, 1.0f, 0.0f, 0.0f)
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(InKeys))
+						.Font(Font(7))
+						.ColorAndOpacity(DimColor)
+						.Visibility_Lambda([InState, bHasKeys = !InKeys.IsEmpty()]() { return (bHasKeys && InState->bHotkeys) ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+					]
 				]
 			];
+	}
+
+	TSharedRef<SWidget> MakeButton(const FString& InLabel, const FString& InKeys, TSharedRef<FGameTestRecordToolbar::FState> InState, TFunction<void()> InOnClick)
+	{
+		return MakeButton(InLabel, InKeys, InState, MoveTemp(InOnClick), ButtonStyle(), TextColor);
 	}
 
 	void RunQuick(const TCHAR* InPhase)
@@ -125,7 +196,30 @@ void FGameTestRecordToolbar::Sync(const FState& InState)
 			return;
 		}
 	}
+	FitToContent();
 	FollowViewport();
+}
+
+void FGameTestRecordToolbar::FitToContent()
+{
+	if (!Window.IsValid() || !Bar.IsValid())
+	{
+		return;
+	}
+	// 窗口大小自己按工具栏算：Slate 的自动尺寸窗口在一些机器上第一次建出来比内容高好几倍、之后也不缩回去，
+	// 工具栏下面空一大片。这里每帧拿工具栏想要的大小（上一帧排版的结果）换成屏幕像素，差一个像素以上才改。
+	const FVector2D Desired = FVector2D(Bar->GetDesiredSize());
+	if (Desired.X <= 0.0 || Desired.Y <= 0.0)
+	{
+		return;
+	}
+	const double Scale = double(Window->GetDPIScaleFactor()) * double(FSlateApplication::Get().GetApplicationScale());
+	const FVector2D Target(FMath::CeilToDouble(Desired.X * Scale), FMath::CeilToDouble(Desired.Y * Scale));
+	const FVector2D Current = FVector2D(Window->GetSizeInScreen());
+	if (FMath::Abs(Target.X - Current.X) > 1.0 || FMath::Abs(Target.Y - Current.Y) > 1.0)
+	{
+		Window->Resize(Target);
+	}
 }
 
 bool FGameTestRecordToolbar::Open(UGameViewportClient* InViewport)
@@ -156,7 +250,9 @@ bool FGameTestRecordToolbar::Open(UGameViewportClient* InViewport)
 	const TSharedRef<SWindow> NewWindow = SNew(SWindow)
 		.Title(FText::FromString(TEXT("GameTest 录制")))
 		.Type(EWindowType::Normal)
-		.SizingRule(ESizingRule::Autosized)
+		// 固定尺寸、由 FitToContent 按工具栏大小改：不用 Autosized，见 FitToContent 的说明。
+		.SizingRule(ESizingRule::FixedSize)
+		.ClientSize(FVector2D(640.0, 32.0))
 		.CreateTitleBar(false)
 		.UseOSWindowBorder(false)
 		.HasCloseButton(false)
@@ -187,6 +283,7 @@ bool FGameTestRecordToolbar::Open(UGameViewportClient* InViewport)
 		}
 	}));
 	FSlateApplication::Get().AddWindowAsNativeChild(NewWindow, Parent.ToSharedRef(), /*bShowImmediately=*/true);
+	FitToContent();
 	FollowViewport();
 	return true;
 }
@@ -256,34 +353,37 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 
 	const TSharedRef<SWidget> Idle = SNew(SHorizontalBox)
 		.Visibility_Lambda(IdleVisible)
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("录移动"), TEXT("Alt+1"), StateRef, [] { RunQuick(TEXT("start")); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("记下位置"), TEXT("Alt+2"), StateRef, [] { RunQuick(TEXT("here")); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("在这附近"), TEXT("Alt+3"), StateRef, [] { RunQuick(TEXT("near")); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("断言"), TEXT("Alt+4"), StateRef, [] { RunQuick(TEXT("pick")); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("检查点"), TEXT("Alt+5"), StateRef, [] { FString Error; FGameTestRecorder::Get().Mark(FString(), false, Error); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.0f, 0.0f)
+		[ MakeSeparator() ]
+		+ SHorizontalBox::Slot().AutoWidth()
 		[ MakeButton(TEXT("停止"), FString(), StateRef, []
 			{
 				TSharedPtr<FJsonObject> Result;
 				FString Error;
 				FGameTestRecorder::Get().Stop(/*bInSave=*/true, Result, Error);
-			}) ];
+			}, StopButtonStyle(), FLinearColor(1.0f, 0.62f, 0.60f, 1.0f)) ];
 
 	const TSharedRef<SWidget> Moving = SNew(SHorizontalBox)
 		.Visibility_Lambda(MovingVisible)
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("结束移动"), TEXT("Alt+1"), StateRef, [] { RunQuick(TEXT("end")); }) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(2.0f, 0.0f)
+		+ SHorizontalBox::Slot().AutoWidth().Padding(1.0f, 0.0f)
 		[ MakeButton(TEXT("放弃"), TEXT("Alt+0"), StateRef, [] { RunQuick(TEXT("cancel")); }) ];
 
 	const TSharedRef<SBorder> BarWidget = SNew(SBorder)
 		.BorderImage(BarBrush())
-		.Padding(FMargin(8.0f, 6.0f, 10.0f, 6.0f))
+		.Padding(FMargin(8.0f, 4.0f, 4.0f, 4.0f))
+		.VAlign(VAlign_Top)
 		.Cursor(EMouseCursor::GrabHand)
 		.OnMouseButtonDown_Lambda([WeakSelf](const FGeometry&, const FPointerEvent& InEvent)
 		{
@@ -337,28 +437,30 @@ TSharedRef<SWidget> FGameTestRecordToolbar::Build()
 			+ SVerticalBox::Slot().AutoHeight()
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 8.0f, 0.0f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 10.0f, 0.0f)
 				[
 					MakeGrip()
 				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 8.0f, 0.0f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 7.0f, 0.0f)
 				[
-					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("●")))
-					.Font(Font(10))
-					.ColorAndOpacity_Lambda([StateRef]() { return FSlateColor(StateRef->bMoving ? MoveColor : RecordColor); })
+					MakeRecordDot(StateRef)
 				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 10.0f, 0.0f)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.0f, 0.0f, 4.0f, 0.0f)
 				[
 					SNew(STextBlock)
 					.Text_Lambda([StateRef]() { return FText::FromString(StateRef->Status); })
 					.Font(Font(9, /*bInBold=*/true))
 					.ColorAndOpacity(TextColor)
 				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6.0f, 0.0f)
+				[
+					MakeSeparator()
+				]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ Idle ]
 				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ Moving ]
 			]
-			+ SVerticalBox::Slot().AutoHeight().Padding(0.0f, 4.0f, 0.0f, 0.0f)
+			// 提示行：只在有提示时出现，和上面的状态文字左对齐（让过把手和红点）。
+			+ SVerticalBox::Slot().AutoHeight().Padding(33.0f, 0.0f, 4.0f, 3.0f)
 			[
 				SNew(STextBlock)
 				.Text_Lambda([StateRef]()

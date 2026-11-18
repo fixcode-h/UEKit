@@ -309,14 +309,7 @@ bool GameTestOps::SelectListItem(UListView* InList, int32 InIndex, bool bInAdd, 
 	return true;
 }
 
-bool GameTestOps::Scroll(
-	UWidget* InWidget,
-	const FString& InMode,
-	double InValue,
-	int32 InIndex,
-	UWidget* InTargetWidget,
-	FString& OutMessage,
-	TSharedPtr<FJsonObject>& OutPayload)
+bool GameTestOps::Scroll(UWidget* InWidget, const FString& InMode, double InValue, int32 InIndex, UWidget* InTargetWidget, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload)
 {
 	if (InWidget == nullptr)
 	{
@@ -691,12 +684,7 @@ bool GameTestOps::SetListItemExpansion(UTreeView* InTree, UObject* InItem, bool 
 	return true;
 }
 
-bool GameTestOps::AddWidgetToViewport(
-	UWorld* InWorld,
-	const FString& InClassPath,
-	int32 InZOrder,
-	UUserWidget*& OutWidget,
-	FString& OutMessage)
+bool GameTestOps::AddWidgetToViewport(UWorld* InWorld, const FString& InClassPath, int32 InZOrder, UUserWidget*& OutWidget, FString& OutMessage)
 {
 	OutWidget = nullptr;
 

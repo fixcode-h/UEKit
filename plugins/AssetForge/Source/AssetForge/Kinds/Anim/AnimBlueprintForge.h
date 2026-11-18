@@ -38,14 +38,8 @@ namespace AnimBlueprintForge
 	/** 状态节点的 class 名。 */
 	constexpr TCHAR const* StateClass = TEXT("State");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 会就地归一化文档（摘掉骨架等扩展字段的默认写法）。 */
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }

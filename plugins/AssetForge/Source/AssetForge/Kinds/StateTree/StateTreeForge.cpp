@@ -93,13 +93,7 @@ namespace
 
 	/** 读 Extra 里的枚举字段；缺失用默认，取值错误给诊断。 */
 	template <typename TEnum>
-	void ReadEnumField(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const TCHAR* InField,
-		TEnum InDefault,
-		TEnum& OutValue,
-		FForgeReport& OutReport,
-		const FString& InFieldPath)
+	void ReadEnumField(const TSharedPtr<FJsonObject>& InExtra, const TCHAR* InField, TEnum InDefault, TEnum& OutValue, FForgeReport& OutReport, const FString& InFieldPath)
 	{
 		OutValue = InDefault;
 
@@ -120,13 +114,7 @@ namespace
 		OutValue = static_cast<TEnum>(Value);
 	}
 
-	void ReadNumberField(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const TCHAR* InField,
-		double InDefault,
-		double& OutValue,
-		FForgeReport& OutReport,
-		const FString& InFieldPath)
+	void ReadNumberField(const TSharedPtr<FJsonObject>& InExtra, const TCHAR* InField, double InDefault, double& OutValue, FForgeReport& OutReport, const FString& InFieldPath)
 	{
 		OutValue = InDefault;
 
@@ -141,13 +129,7 @@ namespace
 		}
 	}
 
-	void ReadBoolField(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const TCHAR* InField,
-		bool InDefault,
-		bool& OutValue,
-		FForgeReport& OutReport,
-		const FString& InFieldPath)
+	void ReadBoolField(const TSharedPtr<FJsonObject>& InExtra, const TCHAR* InField, bool InDefault, bool& OutValue, FForgeReport& OutReport, const FString& InFieldPath)
 	{
 		OutValue = InDefault;
 
@@ -209,12 +191,7 @@ namespace
 		TSharedPtr<FJsonObject> Props;
 	};
 
-	bool ParseNodeDefinition(
-		const TSharedPtr<FJsonObject>& InJson,
-		const FNodeCategory& InCategory,
-		const FString& InFieldPath,
-		FNodeDefinition& OutDefinition,
-		FForgeReport& OutReport)
+	bool ParseNodeDefinition(const TSharedPtr<FJsonObject>& InJson, const FNodeCategory& InCategory, const FString& InFieldPath, FNodeDefinition& OutDefinition, FForgeReport& OutReport)
 	{
 		FString Type;
 		if (!InJson.IsValid() || !InJson->TryGetStringField(Field::Type, Type))
@@ -266,11 +243,7 @@ namespace
 	}
 
 	/** 校验一组节点定义（dry-run 与真跑共用同一门）。 */
-	void ValidateNodeList(
-		const TArray<TSharedPtr<FJsonValue>>& InDefinitions,
-		const FNodeCategory& InCategory,
-		const FString& InFieldPath,
-		FForgeReport& OutReport)
+	void ValidateNodeList(const TArray<TSharedPtr<FJsonValue>>& InDefinitions, const FNodeCategory& InCategory, const FString& InFieldPath, FForgeReport& OutReport)
 	{
 		TSet<FString> SeenNames;
 
@@ -316,11 +289,7 @@ namespace
 	}
 
 	/** 初始化一个新节点（C++ 结构或蓝图 wrapper），Outer 归列表宿主。 */
-	bool InitializeNewNode(
-		FStateTreeEditorNode& OutNode,
-		UObject& InOuter,
-		const FNodeDefinition& InDefinition,
-		FString& OutError)
+	bool InitializeNewNode(FStateTreeEditorNode& OutNode, UObject& InOuter, const FNodeDefinition& InDefinition, FString& OutError)
 	{
 		if (InDefinition.Struct != nullptr)
 		{
@@ -373,12 +342,7 @@ namespace
 	 * `Node` 模板也同步写一份：编辑器 Details 同时展示两层，且"重置"会从模板取值——
 	 * 让两层保持一致，无论从哪一层看都与配置相同。
 	 */
-	void SyncNodeProps(
-		FStateTreeEditorNode& InOutNode,
-		UObject& InOuter,
-		const FNodeDefinition& InDefinition,
-		FForgeReport& OutReport,
-		const FString& InFieldPath)
+	void SyncNodeProps(FStateTreeEditorNode& InOutNode, UObject& InOuter, const FNodeDefinition& InDefinition, FForgeReport& OutReport, const FString& InFieldPath)
 	{
 		InOutNode.SetNodeName(InDefinition.Name.IsEmpty() ? NAME_None : FName(*InDefinition.Name));
 
@@ -426,13 +390,7 @@ namespace
 	 * 「名字」是节点自身的显式名（`FStateTreeNodeBase::Name`，即上次导入留下的名字）；
 	 * 位置兜底让「给未命名节点补名字」这种编辑不会重建节点。
 	 */
-	void SyncNodeList(
-		UObject& InOuter,
-		TArray<FStateTreeEditorNode>& InOutNodes,
-		const TArray<TSharedPtr<FJsonValue>>& InDefinitions,
-		const FNodeCategory& InCategory,
-		FForgeReport& OutReport,
-		const FString& InFieldPath)
+	void SyncNodeList(UObject& InOuter, TArray<FStateTreeEditorNode>& InOutNodes, const TArray<TSharedPtr<FJsonValue>>& InDefinitions, const FNodeCategory& InCategory, FForgeReport& OutReport, const FString& InFieldPath)
 	{
 		TMap<FString, int32> ExistingByName;
 		TArray<bool> Used;
@@ -708,11 +666,7 @@ namespace
 		}
 	}
 
-	void ComputeStatePlan(
-		const FForgeNode& InTarget,
-		const FForgeNode& InCurrent,
-		const FString& InNodePath,
-		TArray<FForgePlanEntry>& OutPlan)
+	void ComputeStatePlan(const FForgeNode& InTarget, const FForgeNode& InCurrent, const FString& InNodePath, TArray<FForgePlanEntry>& OutPlan)
 	{
 		if (!AreExtraEqual(InTarget.Extra, InCurrent.Extra))
 		{
@@ -877,10 +831,7 @@ namespace
 
 	// ---- 校验（dry-run 与真跑共用）----
 
-	void ValidateTransitions(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const FString& InFieldPath,
-		FForgeReport& OutReport)
+	void ValidateTransitions(const TSharedPtr<FJsonObject>& InExtra, const FString& InFieldPath, FForgeReport& OutReport)
 	{
 		const TArray<TSharedPtr<FJsonValue>>* Transitions = nullptr;
 		if (!InExtra.IsValid() || !InExtra->TryGetArrayField(Field::Transitions, Transitions) || Transitions == nullptr)
@@ -940,10 +891,7 @@ namespace
 		}
 	}
 
-	void ValidateStateRecursive(
-		const FForgeNode& InState,
-		const FString& InFieldPath,
-		FForgeReport& OutReport)
+	void ValidateStateRecursive(const FForgeNode& InState, const FString& InFieldPath, FForgeReport& OutReport)
 	{
 		ValidateConfigName(InState.Name, InFieldPath + TEXT(".name"), OutReport);
 
@@ -1000,17 +948,9 @@ namespace
 	// ---- 同步：第一遍（结构 / 字段 / 节点 / 参数）----
 
 	/** 递归入口（`SyncStateChildren` 也要用它，先声明）。 */
-	void SyncStateContents(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InPath);
+	void SyncStateContents(UStateTreeState& InOutState, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InPath);
 
-	void SyncStateFields(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	void SyncStateFields(UStateTreeState& InOutState, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InPath)
 	{
 		const TSharedPtr<FJsonObject>& Extra = InTarget.Extra;
 
@@ -1191,11 +1131,7 @@ namespace
 		}
 	}
 
-	void SyncStateChildren(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	void SyncStateChildren(UStateTreeState& InOutState, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InPath)
 	{
 		TMap<FString, UStateTreeState*> ExistingByName;
 		for (const TObjectPtr<UStateTreeState>& Child : InOutState.Children)
@@ -1237,11 +1173,7 @@ namespace
 		InOutState.Children = MoveTemp(NewChildren);
 	}
 
-	void SyncStateContents(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	void SyncStateContents(UStateTreeState& InOutState, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InPath)
 	{
 		SyncStateFields(InOutState, InTarget, OutReport, InPath);
 		SyncStateChildren(InOutState, InTarget, OutReport, InPath);
@@ -1273,12 +1205,7 @@ namespace
 	}
 
 	/** 转移目标：内建目标（Succeeded 等）或状态路径。 */
-	bool ResolveStateLinkTarget(
-		const FString& InTo,
-		const TMap<FString, UStateTreeState*>& InStatesByPath,
-		FStateTreeStateLink& OutLink,
-		EStateTreeTransitionType& OutType,
-		FString& OutError)
+	bool ResolveStateLinkTarget(const FString& InTo, const TMap<FString, UStateTreeState*>& InStatesByPath, FStateTreeStateLink& OutLink, EStateTreeTransitionType& OutType, FString& OutError)
 	{
 		static const TMap<FString, EStateTreeTransitionType> BuiltIn = {
 			{ TEXT("Succeeded"), EStateTreeTransitionType::Succeeded },
@@ -1310,12 +1237,7 @@ namespace
 		return false;
 	}
 
-	void SyncStateReferences(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		const TMap<FString, UStateTreeState*>& InStatesByPath,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	void SyncStateReferences(UStateTreeState& InOutState, const FForgeNode& InTarget, const TMap<FString, UStateTreeState*>& InStatesByPath, FForgeReport& OutReport, const FString& InPath)
 	{
 		const TSharedPtr<FJsonObject>& Extra = InTarget.Extra;
 
@@ -1486,12 +1408,7 @@ namespace
 		}
 	}
 
-	void SyncReferencesRecursive(
-		UStateTreeState& InOutState,
-		const FForgeNode& InTarget,
-		const TMap<FString, UStateTreeState*>& InStatesByPath,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	void SyncReferencesRecursive(UStateTreeState& InOutState, const FForgeNode& InTarget, const TMap<FString, UStateTreeState*>& InStatesByPath, FForgeReport& OutReport, const FString& InPath)
 	{
 		SyncStateReferences(InOutState, InTarget, InStatesByPath, OutReport, InPath);
 
@@ -1520,10 +1437,7 @@ namespace
 
 	// ---- 同步：顶层（评估器 / 全局任务 / 树参数 / 绑定）----
 
-	void SyncGlobalNodes(
-		UStateTreeEditorData& InOutEditorData,
-		const FForgeDocument& InDocument,
-		FForgeReport& OutReport)
+	void SyncGlobalNodes(UStateTreeEditorData& InOutEditorData, const FForgeDocument& InDocument, FForgeReport& OutReport)
 	{
 		const TSharedPtr<FJsonObject>& Extra = InDocument.Extra;
 
@@ -1584,10 +1498,7 @@ namespace
 			TEXT("globalTasksCompletion"));
 	}
 
-	void SyncBindings(
-		UStateTreeEditorData& InOutEditorData,
-		const FForgeDocument& InDocument,
-		FForgeReport& OutReport)
+	void SyncBindings(UStateTreeEditorData& InOutEditorData, const FForgeDocument& InDocument, FForgeReport& OutReport)
 	{
 		FStateTreeEditorPropertyBindings* Bindings = InOutEditorData.GetPropertyEditorBindings();
 		if (Bindings == nullptr)

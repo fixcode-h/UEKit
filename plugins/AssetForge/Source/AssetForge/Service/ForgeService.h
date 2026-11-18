@@ -127,10 +127,7 @@ namespace ForgeService
 	 * 多轮推进，直到某一轮毫无进展。`bInShowProgress` 时弹可取消的进度框。
 	 * 不想卡住编辑器的（面板作业）用 `FForgeBatchRunner` 每帧走一步。
 	 */
-	ASSETFORGE_API FForgeBatchResult ImportConfigs(
-		const TArray<FString>& InConfigPaths,
-		bool bInDryRun,
-		bool bInShowProgress);
+	ASSETFORGE_API FForgeBatchResult ImportConfigs(const TArray<FString>& InConfigPaths, bool bInDryRun, bool bInShowProgress);
 
 	/** 批量导出（不支持的资产计入 Skipped，不算失败）。 */
 	ASSETFORGE_API FForgeBatchResult ExportAssets(const TArray<FString>& InAssetPaths, bool bInShowProgress);

@@ -97,10 +97,7 @@ public:
 	static bool Validate(const TSharedPtr<FJsonObject>& InJson, TArray<FString>& OutErrors);
 
 	/** 取步骤数组（每条是原始 JSON，交给动作表解析）。校验不通过时返回 false。 */
-	static bool CollectSteps(
-		const TSharedPtr<FJsonObject>& InJson,
-		TArray<TSharedPtr<FJsonObject>>& OutSteps,
-		TArray<FString>& OutErrors);
+	static bool CollectSteps(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& OutSteps, TArray<FString>& OutErrors);
 
 	/** 取场景名；没有就退回给定的备选（通常是文件名）。 */
 	static FString GetName(const TSharedPtr<FJsonObject>& InJson, const FString& InFallback);

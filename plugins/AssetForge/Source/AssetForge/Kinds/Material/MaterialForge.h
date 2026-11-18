@@ -54,14 +54,8 @@ namespace MaterialForge
 	/** `root.class` 的短名写法——材质自己就是根节点，没有父类一说。 */
 	constexpr TCHAR const* MaterialClass = TEXT("Material");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 会就地归一化文档（摘掉属性里显式写出的默认值）。 */
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }

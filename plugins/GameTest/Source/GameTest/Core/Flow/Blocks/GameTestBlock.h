@@ -87,12 +87,10 @@ public:
 	virtual TSharedRef<FGameTestBlockState> Enter(const FGameTestNode& InNode, FGameTestFlowContext& InContext) const;
 
 	/** 走一步：刚进块时调一次，之后每跑完一串子节点、或上次返回 Pending 的下一帧再调。 */
-	virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-		double InNowSeconds, FGameTestBlockTick& Out) const = 0;
+	virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const = 0;
 
 	/** 子节点里发出的信号：接住返回 true（loop 接 break / continue，call 接 return），之后照常调 Tick。 */
-	virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState,
-		FGameTestFlowContext& InContext) const
+	virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext) const
 	{
 		return false;
 	}

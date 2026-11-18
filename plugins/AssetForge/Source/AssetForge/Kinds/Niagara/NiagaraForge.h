@@ -29,14 +29,8 @@ namespace NiagaraForge
 	/** 配置根节点的 class 占位值。 */
 	constexpr TCHAR const* SystemRootClass = TEXT("NiagaraSystem");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 会就地归一化文档（删掉显式写出的默认值）。 */
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }

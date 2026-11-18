@@ -18,21 +18,13 @@ namespace ForgeDoc
 	constexpr int32 CurrentSchemaVersion = 1;
 
 	/** 解析一份配置文档；诊断带字段级路径。 */
-	ASSETFORGE_API bool Parse(
-		const TSharedPtr<FJsonObject>& InJson,
-		const FString& InSourcePath,
-		FForgeDocument& OutDocument,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API bool Parse(const TSharedPtr<FJsonObject>& InJson, const FString& InSourcePath, FForgeDocument& OutDocument, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	/** 把文档写回 JSON（保留 Extra 里的未识别字段）。 */
 	ASSETFORGE_API TSharedPtr<FJsonObject> ToJson(const FForgeDocument& InDocument);
 
 	/** 单节点解析/序列化，供导出方向与测试直接使用。 */
-	ASSETFORGE_API bool ParseNode(
-		const TSharedPtr<FJsonObject>& InJson,
-		const FString& InNodePath,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API bool ParseNode(const TSharedPtr<FJsonObject>& InJson, const FString& InNodePath, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	ASSETFORGE_API TSharedPtr<FJsonObject> NodeToJson(const FForgeNode& InNode);
 }

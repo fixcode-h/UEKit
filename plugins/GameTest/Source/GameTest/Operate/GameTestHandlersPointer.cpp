@@ -117,15 +117,7 @@ namespace GameTestPointerDetail
 	 * 一帧的可操作检查：解析 → 可见 → 尺寸 → 可用 → 稳定 →（需要时）点击点没被挡住。
 	 * 不满足时 `OutWhy` 写还差什么（超时消息里拼出去，「被谁挡住」「哪一层是 Collapsed」比一句超时有用）。
 	 */
-	bool CheckActionable(
-		const FString& InTarget,
-		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-		const FJsonObject* InHint,
-		const FVector2D& InAt,
-		bool bInNeedHit,
-		FWaitState& InOutState,
-		FActionable& OutTarget,
-		FString& OutWhy)
+	bool CheckActionable(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, const FJsonObject* InHint, const FVector2D& InAt, bool bInNeedHit, FWaitState& InOutState, FActionable& OutTarget, FString& OutWhy)
 	{
 		// 「被谁挡住」只算连续挡着的：这一帧没走到命中测试（解析不到、还在动）就清掉，挡住的计时重来。
 		const FString PrevBlockedBy = MoveTemp(InOutState.BlockedBy);
@@ -264,12 +256,7 @@ namespace GameTestPointerDetail
 	}
 
 	/** 点击 / 拖动共用的按键核对：这次按下有没有人接、接的是不是目标。 */
-	bool CheckDownHandler(
-		uint64 InSerialBefore,
-		const TSharedPtr<SWidget>& InTarget,
-		const FString& InPath,
-		FJsonObject& OutPayload,
-		FString& OutFailure)
+	bool CheckDownHandler(uint64 InSerialBefore, const TSharedPtr<SWidget>& InTarget, const FString& InPath, FJsonObject& OutPayload, FString& OutFailure)
 	{
 		if (!GameTestHandlerWatch::IsSupported())
 		{

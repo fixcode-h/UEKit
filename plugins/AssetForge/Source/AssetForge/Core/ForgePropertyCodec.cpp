@@ -155,12 +155,7 @@ FProperty* FindCodecProperty(const UStruct* InStruct, const FString& InName)
 	return nullptr;
 }
 
-void ValidateProperties(
-	const UStruct* InStruct,
-	const TSharedPtr<FJsonObject>& InJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath,
-	bool bInStructRecursion)
+void ValidateProperties(const UStruct* InStruct, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, bool bInStructRecursion)
 {
 	if (InStruct == nullptr || !InJson.IsValid())
 	{
@@ -350,14 +345,7 @@ TSharedPtr<FJsonValue> ShortenFloatFields(const FProperty* InProperty, const TSh
 	return InValue;
 }
 
-void ExportStructDelta(
-	const UStruct* InStruct,
-	const void* InData,
-	const void* InDefaultData,
-	TSharedPtr<FJsonObject>& OutJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath,
-	const TArray<FName>* InExcludedPropertyNames)
+void ExportStructDelta(const UStruct* InStruct, const void* InData, const void* InDefaultData, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, const TArray<FName>* InExcludedPropertyNames)
 {
 	if (InStruct == nullptr || InData == nullptr)
 	{
@@ -432,12 +420,7 @@ void ExportStructDelta(
 	}
 }
 
-void ExportForcedProperties(
-	const UObject* InObject,
-	const TArray<FName>& InPropertyNames,
-	TSharedPtr<FJsonObject>& InOutJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ExportForcedProperties(const UObject* InObject, const TArray<FName>& InPropertyNames, TSharedPtr<FJsonObject>& InOutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	if (InObject == nullptr || InPropertyNames.Num() == 0)
 	{
@@ -495,14 +478,7 @@ void ExportForcedProperties(
  * **按索引复用同类的旧对象**：每次导入都换一批新对象，资产就永远处于"刚被改过"的状态，
  * 导出→导入的回环不再是空计划。
  */
-void ImportInstancedObjectArray(
-	UObject* InOwner,
-	const FArrayProperty& InArrayProperty,
-	const FObjectPropertyBase& InInnerObject,
-	void* InArrayPtr,
-	const TArray<TSharedPtr<FJsonValue>>& InJsonArray,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ImportInstancedObjectArray(UObject* InOwner, const FArrayProperty& InArrayProperty, const FObjectPropertyBase& InInnerObject, void* InArrayPtr, const TArray<TSharedPtr<FJsonValue>>& InJsonArray, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	if (InOwner == nullptr)
 	{
@@ -596,13 +572,7 @@ void ImportInstancedObjectArray(
 	}
 }
 
-void ImportStructProperties(
-	const UStruct* InStruct,
-	void* InData,
-	const TSharedPtr<FJsonObject>& InJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath,
-	UObject* InOwner)
+void ImportStructProperties(const UStruct* InStruct, void* InData, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, UObject* InOwner)
 {
 	if (InStruct == nullptr || InData == nullptr || !InJson.IsValid())
 	{
@@ -701,12 +671,7 @@ void ResetToDefaults(UObject* InObject)
 	}
 }
 
-void ExportDeltaProperties(
-	const UObject* InObject,
-	TSharedPtr<FJsonObject>& OutJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath,
-	const TArray<FName>* InExcludedPropertyNames)
+void ExportDeltaProperties(const UObject* InObject, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, const TArray<FName>* InExcludedPropertyNames)
 {
 	if (InObject != nullptr)
 	{
@@ -721,11 +686,7 @@ void ExportDeltaProperties(
 	}
 }
 
-void ImportProperties(
-	UObject* InObject,
-	const TSharedPtr<FJsonObject>& InJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ImportProperties(UObject* InObject, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	if (InObject != nullptr)
 	{

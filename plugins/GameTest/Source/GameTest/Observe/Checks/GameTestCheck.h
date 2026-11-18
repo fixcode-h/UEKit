@@ -95,15 +95,13 @@ namespace GameTestCompare
 	 * （由条件树传进来，比较不依赖表达式模块）。没写比较时按真值算。
 	 * 多个比较都要成立。`OutSay` 是不成立时的一句（「期望 >= 500，实际 120」）。
 	 */
-	GAMETEST_API bool Evaluate(const FJsonObject& InJson, const FGameTestValue& InActual,
-		TFunctionRef<FGameTestValue(const TSharedPtr<class FJsonValue>&)> InResolve, FString& OutSay);
+	GAMETEST_API bool Evaluate(const FJsonObject& InJson, const FGameTestValue& InActual, TFunctionRef<FGameTestValue(const TSharedPtr<class FJsonValue>&)> InResolve, FString& OutSay);
 
 	/**
 	 * 判断用的一步到位版本：期望值按 `InContext` 解析（`$var`、`=表达式`），结论、实际值、不成立的原因写进 `OutResult`；
 	 * 实际值取不到（Unresolved）时算不成立并记下原因。各判断（value / api / expr / widget）共用。
 	 */
-	GAMETEST_API void EvaluateInto(const FJsonObject& InJson, const FGameTestValue& InActual, FGameTestFlowContext& InContext,
-		FGameTestCheckResult& OutResult);
+	GAMETEST_API void EvaluateInto(const FJsonObject& InJson, const FGameTestValue& InActual, FGameTestFlowContext& InContext, FGameTestCheckResult& OutResult);
 
 	/** 给人看的比较（「>= 500」「等于 "已领取"」），Describe 用。 */
 	GAMETEST_API FString Describe(const FJsonObject& InJson);

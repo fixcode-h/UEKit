@@ -235,8 +235,7 @@ namespace
 	}
 
 	/** key 的值先求好（$var、表达式）：同一次定位里每个候选比的是同一个值。 */
-	bool ResolveKey(const FGameTestObjectLocator& InLocator, FGameTestFlowContext& InContext,
-		TArray<TPair<FString, FGameTestValue>>& OutKey, FString& OutError)
+	bool ResolveKey(const FGameTestObjectLocator& InLocator, FGameTestFlowContext& InContext, TArray<TPair<FString, FGameTestValue>>& OutKey, FString& OutError)
 	{
 		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InLocator.Key)
 		{

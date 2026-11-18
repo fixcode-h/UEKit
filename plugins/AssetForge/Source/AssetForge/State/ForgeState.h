@@ -95,10 +95,7 @@ namespace ForgeState
 	 * 深度判定：跑一次 dry-run。`OutReport` 非空时回填那份计划（forge.plan 顺手返回，不必再算一遍）。
 	 * 结论为「已同步」时刷新清单记录。
 	 */
-	ASSETFORGE_API EForgeSyncState DeepCheck(
-		const FString& InConfigPath,
-		const FString& InAssetPath,
-		FForgeReport* OutReport = nullptr);
+	ASSETFORGE_API EForgeSyncState DeepCheck(const FString& InConfigPath, const FString& InAssetPath, FForgeReport* OutReport = nullptr);
 
 	/**
 	 * 变更戳：配置文件与资产文件的修改时间拼成的一串。任一边被写过它就变——

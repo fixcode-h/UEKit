@@ -181,11 +181,7 @@ namespace
 
 	// ---- 解析：配置文档 → 中间表示 ----
 
-	bool ReadStateMachineSpec(
-		const FForgeNode& InNode,
-		FStateMachineSpec& OutSpec,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	bool ReadStateMachineSpec(const FForgeNode& InNode, FStateMachineSpec& OutSpec, FForgeReport& OutReport, const FString& InPath)
 	{
 		if (InNode.Name.IsEmpty())
 		{
@@ -319,11 +315,7 @@ namespace
 		return true;
 	}
 
-	bool ReadDocumentSpec(
-		const FForgeDocument& InDocument,
-		TArray<FStateMachineSpec>& OutSpecs,
-		FString& OutSkeletonPath,
-		FForgeReport& OutReport)
+	bool ReadDocumentSpec(const FForgeDocument& InDocument, TArray<FStateMachineSpec>& OutSpecs, FString& OutSkeletonPath, FForgeReport& OutReport)
 	{
 		if (InDocument.Root.ClassName != AnimGraphRootClass)
 		{
@@ -578,13 +570,7 @@ namespace
 	 * 状态内部图（`UAnimationStateGraph`）由 `PostPlacedNewNode` 建好并自带一个结果节点，
 	 * 这里只需要再放一个序列播放器并连到结果上。
 	 */
-	UAnimStateNode* CreateStateNode(
-		UAnimationStateMachineGraph* InStateMachineGraph,
-		const FStateSpec& InSpec,
-		UAnimSequenceBase* InSequence,
-		int32 InIndex,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	UAnimStateNode* CreateStateNode(UAnimationStateMachineGraph* InStateMachineGraph, const FStateSpec& InSpec, UAnimSequenceBase* InSequence, int32 InIndex, FForgeReport& OutReport, const FString& InPath)
 	{
 		UAnimStateNode* StateNode = NewObject<UAnimStateNode>(InStateMachineGraph);
 		StateNode->CreateNewGuid();
@@ -649,12 +635,7 @@ namespace
 		return StateNode;
 	}
 
-	void CreateTransitionNode(
-		UAnimationStateMachineGraph* InStateMachineGraph,
-		UAnimStateNode* InFromState,
-		UAnimStateNode* InToState,
-		const FTransitionSpec& InSpec,
-		int32 InIndex)
+	void CreateTransitionNode(UAnimationStateMachineGraph* InStateMachineGraph, UAnimStateNode* InFromState, UAnimStateNode* InToState, const FTransitionSpec& InSpec, int32 InIndex)
 	{
 		UAnimStateTransitionNode* TransitionNode = NewObject<UAnimStateTransitionNode>(InStateMachineGraph);
 		TransitionNode->CreateNewGuid();
@@ -690,12 +671,7 @@ namespace
 		}
 	}
 
-	bool SyncStateMachine(
-		UBlueprint* InBlueprint,
-		UAnimGraphNode_StateMachineBase* InStateMachineNode,
-		const FStateMachineSpec& InSpec,
-		FForgeReport& OutReport,
-		const FString& InPath)
+	bool SyncStateMachine(UBlueprint* InBlueprint, UAnimGraphNode_StateMachineBase* InStateMachineNode, const FStateMachineSpec& InSpec, FForgeReport& OutReport, const FString& InPath)
 	{
 		UAnimationStateMachineGraph* StateMachineGraph = InStateMachineNode->EditorStateMachineGraph;
 		if (StateMachineGraph == nullptr)

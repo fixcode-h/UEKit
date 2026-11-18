@@ -74,32 +74,17 @@ namespace UmgAnimationCodec
 	 * 在整棵树里唯一（引擎按名绑定，同名控件会让运行时绑错）；channel 在白名单里；
 	 * keys 非空、字段完整。任何一条失败都会给出 `animations[i].tracks[j]` 形式的字段路径。
 	 */
-	ASSETFORGE_API bool ParseAnimations(
-		const FForgeDocument& InDocument,
-		TArray<FUmgAnimation>& OutAnimations,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ParseAnimations(const FForgeDocument& InDocument, TArray<FUmgAnimation>& OutAnimations, FForgeReport& OutReport);
 
 	/** 比较配置动画与资产现有动画，产出计划（Create / Update / Delete）。 */
-	ASSETFORGE_API void ComputePlan(
-		const TArray<FUmgAnimation>& InTarget,
-		const TArray<FUmgAnimation>& InCurrent,
-		TArray<FForgePlanEntry>& OutPlan);
+	ASSETFORGE_API void ComputePlan(const TArray<FUmgAnimation>& InTarget, const TArray<FUmgAnimation>& InCurrent, TArray<FForgePlanEntry>& OutPlan);
 
 	/** 把资产里的动画读成结构（导出与计划共用）。 */
-	ASSETFORGE_API void ReadAnimations(
-		UWidgetBlueprint& InBlueprint,
-		TArray<FUmgAnimation>& OutAnimations,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API void ReadAnimations(UWidgetBlueprint& InBlueprint, TArray<FUmgAnimation>& OutAnimations, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	/** 导出：把资产的动画写进文档的 Extra（字段 `animations`；无动画时不写）。 */
-	ASSETFORGE_API void ExportToDocument(
-		UWidgetBlueprint& InBlueprint,
-		FForgeDocument& OutDocument,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API void ExportToDocument(UWidgetBlueprint& InBlueprint, FForgeDocument& OutDocument, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	/** 真跑：按名增量——命中整体重建该动画的 MovieScene 与绑定、缺的建、多的删。 */
-	ASSETFORGE_API bool Sync(
-		UWidgetBlueprint& InBlueprint,
-		const TArray<FUmgAnimation>& InTarget,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API bool Sync(UWidgetBlueprint& InBlueprint, const TArray<FUmgAnimation>& InTarget, TArray<FForgeDiagnostic>& OutDiagnostics);
 }

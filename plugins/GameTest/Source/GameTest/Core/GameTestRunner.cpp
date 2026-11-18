@@ -17,11 +17,7 @@
 #include "Dom/JsonValue.h"
 #include "Misc/DateTime.h"
 
-bool FGameTestRunner::StartRun(
-	const FGameTestRunRequest& InRequest,
-	const FGameTestRuntimeState& InRuntimeState,
-	FGameTestOnFinished InOnFinished,
-	FString& OutError)
+bool FGameTestRunner::StartRun(const FGameTestRunRequest& InRequest, const FGameTestRuntimeState& InRuntimeState, FGameTestOnFinished InOnFinished, FString& OutError)
 {
 	if (bActive)
 	{

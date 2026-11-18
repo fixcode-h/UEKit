@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { listPlugins, pickPlugins, readChangelog, readVersionMacro, semver, walk } from './lib.mjs'
+import { findWrappedSignatures } from './sig-wrap.mjs'
 
 const errors = []
 const all = listPlugins()
@@ -98,6 +99,11 @@ for (const p of plugins) {
       const first = text.match(/^\s*#\s*include\s*[<"]([^>"]+)[>"]/m)?.[1]
       if (headerNames.has(`${base}.h`) && first && first.replace(/^.*\//, '') !== `${base}.h`)
         fail(`${rel} 的第一个 include 是 ${first}：先 include 同名头文件 ${base}.h，UBT 会按顺序检查直接报错`)
+    }
+    // 函数签名写一行，参数超过 8 个才换行（见 sig-wrap.mjs）
+    if (/\.(h|cpp|inl)$/.test(f)) {
+      const wrapped = findWrappedSignatures(text)
+      if (wrapped.length) fail(`${rel} 第 ${wrapped.join('、')} 行的函数签名换行了：参数不超过 8 个时写在一行里`)
     }
     // CQTest 的测试类是 struct 定义，结尾少了分号时本文件报 C1004「意外的文件尾」，合并编译时还会连累下一个文件
     // （UE 5.4 上表现成 UMG 的 PanelSlot.h 语法错误，GameTest 1.3.0 就是这样）

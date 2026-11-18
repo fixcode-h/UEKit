@@ -67,8 +67,7 @@ namespace GameTestInvokeLocal
 	}
 
 	/** Lua：`@luaMod.模块`（模块上的函数）或绑在对象上的实例表（`@lua` 配 target、或反射里没有这个函数的对象）。 */
-	FGameTestValue CallLua(FGameTestFlowContext& InFlow, UObject* InSelf, const FString& InModule, const FString& InFunction,
-		const FGameTestValue& InArgs, TSharedPtr<FJsonObject>& OutPayload)
+	FGameTestValue CallLua(FGameTestFlowContext& InFlow, UObject* InSelf, const FString& InModule, const FString& InFunction, const FGameTestValue& InArgs, TSharedPtr<FJsonObject>& OutPayload)
 	{
 		if (!InFlow.Options.bAllowLuaInvoke)
 		{
@@ -93,8 +92,7 @@ namespace GameTestInvokeLocal
 		return Value;
 	}
 
-	FGameTestValue CallOnObject(FGameTestFlowContext& InFlow, UObject* InTarget, const FString& InFunction, const FGameTestValue& InArgs,
-		TSharedPtr<FJsonObject>& OutPayload)
+	FGameTestValue CallOnObject(FGameTestFlowContext& InFlow, UObject* InTarget, const FString& InFunction, const FGameTestValue& InArgs, TSharedPtr<FJsonObject>& OutPayload)
 	{
 		UFunction* Function = GameTestReflectValue::FindFunction(InTarget->GetClass(), InFunction);
 		if (Function == nullptr)

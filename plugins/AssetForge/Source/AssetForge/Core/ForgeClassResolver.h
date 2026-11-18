@@ -32,11 +32,7 @@ struct ASSETFORGE_API FForgeClassResolver
 	 * 短名解析：依次尝试 `InPrefixes` 里的每个前缀（形如 `/Script/UMG.`），都失败后
 	 * 再按"已加载类里同名"兜底。短名不做全路径解析——那是 Resolve 的事。
 	 */
-	static UClass* ResolveShortName(
-		const FString& InShortName,
-		const TArray<FString>& InPrefixes,
-		UClass* InRequiredBase,
-		FString& OutError);
+	static UClass* ResolveShortName(const FString& InShortName, const TArray<FString>& InPrefixes, UClass* InRequiredBase, FString& OutError);
 
 private:
 	/** 按"类名"在已加载的 UClass 里查找（UnrealSharp 的运行时类只有这条路）。同名多个视为失败并记日志。 */

@@ -32,19 +32,9 @@ namespace
 {
 	// SyncWidget 管「一个控件的属性 + 它的子节点」，SyncChildren 管「面板的子控件集合」。
 	// 两者互相递归（面板要同步子控件，子控件又要同步自己的子树），所以先声明后定义。
-	bool SyncWidget(
-		UWidget* InWidget,
-		const FForgeNode& InTarget,
-		UWidgetTree* InTree,
-		FForgeReport& OutReport,
-		const FString& InNodePath);
+	bool SyncWidget(UWidget* InWidget, const FForgeNode& InTarget, UWidgetTree* InTree, FForgeReport& OutReport, const FString& InNodePath);
 
-	bool SyncChildren(
-		UPanelWidget* InPanel,
-		UWidgetTree* InTree,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InNodePath);
+	bool SyncChildren(UPanelWidget* InPanel, UWidgetTree* InTree, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InNodePath);
 
 	FString JoinNodePath(const FString& InParentPath, const FString& InName)
 	{
@@ -255,11 +245,7 @@ namespace
 	 * 结果是包已建好却没能保存，留下一个半成品。校验前置就没有这个问题。
 	 * 插槽的可用字段由**父控件**的槽类型决定，所以父类要往下传。
 	 */
-	void ValidateSubtree(
-		FForgeNode& InNode,
-		UClass* InParentWidgetClass,
-		const FString& InNodePath,
-		FForgeReport& OutReport)
+	void ValidateSubtree(FForgeNode& InNode, UClass* InParentWidgetClass, const FString& InNodePath, FForgeReport& OutReport)
 	{
 		FString ClassError;
 		UClass* WidgetClass = UmgWidgetCodec::ResolveWidgetClass(InNode.ClassName, ClassError);
@@ -332,12 +318,7 @@ namespace
 		}
 	}
 
-	UWidget* CreateChildWidget(
-		UPanelWidget* InParent,
-		UWidgetTree* InTree,
-		const FForgeNode& InNode,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	UWidget* CreateChildWidget(UPanelWidget* InParent, UWidgetTree* InTree, const FForgeNode& InNode, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		FString ClassError;
 		UClass* WidgetClass = UmgWidgetCodec::ResolveWidgetClass(InNode.ClassName, ClassError);
@@ -401,12 +382,7 @@ namespace
 		return bChanged;
 	}
 
-	bool SyncWidget(
-		UWidget* InWidget,
-		const FForgeNode& InTarget,
-		UWidgetTree* InTree,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	bool SyncWidget(UWidget* InWidget, const FForgeNode& InTarget, UWidgetTree* InTree, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		if (InWidget == nullptr)
 		{
@@ -433,12 +409,7 @@ namespace
 		return false;
 	}
 
-	bool SyncChildren(
-		UPanelWidget* InPanel,
-		UWidgetTree* InTree,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	bool SyncChildren(UPanelWidget* InPanel, UWidgetTree* InTree, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		bool bChanged = false;
 

@@ -71,11 +71,7 @@ TEST_CLASS_WITH_FLAGS(TextureForgeTest, "AssetForge.Texture",
 		return false;
 	}
 
-	static FString MakeRoot(
-		const FString& InClass,
-		const FString& InSource,
-		const FString& InProps = TEXT("{}"),
-		const FString& InChildren = FString())
+	static FString MakeRoot(const FString& InClass, const FString& InSource, const FString& InProps = TEXT("{}"), const FString& InChildren = FString())
 	{
 		const FString SourceField = InSource.IsEmpty()
 			? FString()

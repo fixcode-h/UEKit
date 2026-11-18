@@ -32,12 +32,7 @@ namespace
 	 * 读 `from` / `to` 对象。对象缺省时按缺省值构造：from = 服务器世界（交给 ResolveWorld 决定），
 	 * to = client 0。
 	 */
-	bool ParseNetCompareSide(
-		const TSharedPtr<FJsonObject>& InObject,
-		bool bInDefaultToFirstClient,
-		const TCHAR* InSideName,
-		FNetCompareSide& OutSide,
-		FString& OutError)
+	bool ParseNetCompareSide(const TSharedPtr<FJsonObject>& InObject, bool bInDefaultToFirstClient, const TCHAR* InSideName, FNetCompareSide& OutSide, FString& OutError)
 	{
 		OutSide = FNetCompareSide();
 
@@ -92,14 +87,7 @@ namespace
 	}
 
 	/** 比较同一玩家对应 actor 在两端世界的位姿；结果同时写进 payload 与消息。 */
-	ENetCompareOutcome EvaluateNetCompare(
-		const FString& InClassName,
-		const FString& InTag,
-		const FNetCompareSide& InFrom,
-		const FNetCompareSide& InTo,
-		double InTolerance,
-		const TSharedPtr<FJsonObject>& InOutPayload,
-		FString& OutMessage)
+	ENetCompareOutcome EvaluateNetCompare(const FString& InClassName, const FString& InTag, const FNetCompareSide& InFrom, const FNetCompareSide& InTo, double InTolerance, const TSharedPtr<FJsonObject>& InOutPayload, FString& OutMessage)
 	{
 		InOutPayload->SetNumberField(TEXT("tolerance"), InTolerance);
 

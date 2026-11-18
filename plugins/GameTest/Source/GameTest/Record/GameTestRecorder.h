@@ -237,8 +237,7 @@ private:
 	void DropPickModifiers();
 
 	/** 处理者 → 选择器。`OutIsUi` 为 false 表示是游戏画面（没被 UI 接住）。 */
-	bool DescribeHandler(const FRawEvent& InEvent, bool& OutIsUi, FString& OutTarget, TSharedPtr<FJsonObject>& OutHint, TSharedPtr<SWidget>& OutSlate,
-		TSharedPtr<FGameTestKeySite>* OutKeySite = nullptr) const;
+	bool DescribeHandler(const FRawEvent& InEvent, bool& OutIsUi, FString& OutTarget, TSharedPtr<FJsonObject>& OutHint, TSharedPtr<SWidget>& OutSlate, TSharedPtr<FGameTestKeySite>* OutKeySite = nullptr) const;
 
 	/** 两次操作之间隔得久，补一条 wait（UI 操作前不补，除非 keepPace）。 */
 	void AddGapWait(double InNow, bool bInUiStep);
@@ -258,8 +257,7 @@ private:
 	/** 同一列表（条目类 + 容器）的键 */
 	static FString KeyChoiceId(const FGameTestKeySite& InSite);
 	/** 把认法套到这次录制里同一列表已录的其他步骤上，结果写进 `applied` / `skipped`。 */
-	void ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite, const FString& InChoiceId,
-		const FKeyChoice& InChoice, FJsonObject& OutResult);
+	void ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite, const FString& InChoiceId, const FKeyChoice& InChoice, FJsonObject& OutResult);
 	void BeginAsk(const TSharedRef<FJsonObject>& InStep, const TSharedPtr<FGameTestKeySite>& InSite);
 	/** 结束询问、恢复游戏；暂停的这段时间不算进录制间隔。 */
 	void EndAsk();

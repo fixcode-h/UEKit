@@ -32,10 +32,7 @@ namespace ForgeDiffSnapshot
 	 *
 	 * @return 副本；`InTarget` 为空或复制失败时为空。
 	 */
-	ASSETFORGE_API UObject* MakeConfiguredCopy(
-		UObject* InTarget,
-		const FForgeDocument& InDocument,
-		const ForgeKindRegistry::FForgeDiffSupport& InSupport);
+	ASSETFORGE_API UObject* MakeConfiguredCopy(UObject* InTarget, const FForgeDocument& InDocument, const ForgeKindRegistry::FForgeDiffSupport& InSupport);
 
 	/**
 	 * 对象的包是不是瞬态包。
@@ -46,9 +43,7 @@ namespace ForgeDiffSnapshot
 	ASSETFORGE_API bool IsTransientObject(const UObject* InObject);
 
 	/** 按 kind 的差异来源找到被比较的对象（资产自身 / 蓝图 CDO / 地图的世界设置）；资产不存在时为空。 */
-	ASSETFORGE_API UObject* ResolveTarget(
-		const FString& InAssetPath,
-		const ForgeKindRegistry::FForgeDiffSupport& InSupport);
+	ASSETFORGE_API UObject* ResolveTarget(const FString& InAssetPath, const ForgeKindRegistry::FForgeDiffSupport& InSupport);
 
 	/**
 	 * 属性差异（JSON）：
@@ -58,9 +53,5 @@ namespace ForgeDiffSnapshot
 	 * （面板从 git 取上次提交的配置传进来：「这次改配置改了哪些属性」）。
 	 * 不支持的 kind、资产还不存在时 `supported=false` 并写清原因：空列表会被读成「没有差异」。
 	 */
-	ASSETFORGE_API TSharedRef<FJsonObject> DiffProperties(
-		const FString& InAssetPath,
-		const FForgeDocument& InCurrent,
-		const FForgeDocument* InBaseline,
-		int32 InMaxChanges);
+	ASSETFORGE_API TSharedRef<FJsonObject> DiffProperties(const FString& InAssetPath, const FForgeDocument& InCurrent, const FForgeDocument* InBaseline, int32 InMaxChanges);
 }

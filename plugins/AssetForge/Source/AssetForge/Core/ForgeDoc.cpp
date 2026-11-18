@@ -26,12 +26,7 @@ namespace
 		return InParentPath.IsEmpty() ? InField : FString::Printf(TEXT("%s.%s"), *InParentPath, *InField);
 	}
 
-	bool ReadRequiredString(
-		const TSharedPtr<FJsonObject>& InJson,
-		const TCHAR* InField,
-		const FString& InPath,
-		FString& OutValue,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	bool ReadRequiredString(const TSharedPtr<FJsonObject>& InJson, const TCHAR* InField, const FString& InPath, FString& OutValue, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		if (InJson->TryGetStringField(InField, OutValue) && !OutValue.IsEmpty())
 		{
@@ -45,12 +40,7 @@ namespace
 		return false;
 	}
 
-	bool ReadRequiredInt(
-		const TSharedPtr<FJsonObject>& InJson,
-		const TCHAR* InField,
-		const FString& InPath,
-		int32& OutValue,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	bool ReadRequiredInt(const TSharedPtr<FJsonObject>& InJson, const TCHAR* InField, const FString& InPath, int32& OutValue, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		if (InJson->TryGetNumberField(InField, OutValue))
 		{
@@ -65,11 +55,7 @@ namespace
 	}
 }
 
-bool ParseNode(
-	const TSharedPtr<FJsonObject>& InJson,
-	const FString& InNodePath,
-	FForgeNode& OutNode,
-	TArray<FForgeDiagnostic>& OutDiagnostics)
+bool ParseNode(const TSharedPtr<FJsonObject>& InJson, const FString& InNodePath, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics)
 {
 	if (!InJson.IsValid())
 	{
@@ -216,11 +202,7 @@ TSharedPtr<FJsonObject> NodeToJson(const FForgeNode& InNode)
 	return Json;
 }
 
-bool Parse(
-	const TSharedPtr<FJsonObject>& InJson,
-	const FString& InSourcePath,
-	FForgeDocument& OutDocument,
-	TArray<FForgeDiagnostic>& OutDiagnostics)
+bool Parse(const TSharedPtr<FJsonObject>& InJson, const FString& InSourcePath, FForgeDocument& OutDocument, TArray<FForgeDiagnostic>& OutDiagnostics)
 {
 	if (!InJson.IsValid())
 	{

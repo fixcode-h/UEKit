@@ -66,9 +66,7 @@ namespace
 	}
 }
 
-FGameTestFlow::FGameTestFlow(const TSharedRef<const FGameTestScript>& InScript, TUniquePtr<FGameTestFlowContext>&& InContext,
-	const TSharedPtr<FJsonObject>& InParams, const TArray<TSharedRef<FGameTestGuardDef>>& InGlobalGuards, const FGameTestDebugOptions& InDebug,
-	FGameTestReport& InReport)
+FGameTestFlow::FGameTestFlow(const TSharedRef<const FGameTestScript>& InScript, TUniquePtr<FGameTestFlowContext>&& InContext, const TSharedPtr<FJsonObject>& InParams, const TArray<TSharedRef<FGameTestGuardDef>>& InGlobalGuards, const FGameTestDebugOptions& InDebug, FGameTestReport& InReport)
 	: Script(InScript)
 	, Context(MoveTemp(InContext))
 	, GlobalGuards(InGlobalGuards)
@@ -702,8 +700,7 @@ bool FGameTestFlow::InGuard() const
 	return false;
 }
 
-bool FGameTestFlow::TryStartGuard(bool bWaiting, const TArray<FString>& InTargets, const FGameTestNode* InInterrupted, int32 InInterruptedFrame,
-	bool bInBlock, double InNowSeconds, bool& bOutPending)
+bool FGameTestFlow::TryStartGuard(bool bWaiting, const TArray<FString>& InTargets, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock, double InNowSeconds, bool& bOutPending)
 {
 	bOutPending = false;
 	TArray<TSharedRef<FGameTestGuardDef>> Active;
@@ -729,8 +726,7 @@ bool FGameTestFlow::TryStartGuard(bool bWaiting, const TArray<FString>& InTarget
 	return true;
 }
 
-void FGameTestFlow::StartGuard(const TSharedRef<FGameTestGuardDef>& InGuard, const TCHAR* InAt, const FGameTestNode* InInterrupted,
-	int32 InInterruptedFrame, bool bInBlock, double InNowSeconds)
+void FGameTestFlow::StartGuard(const TSharedRef<FGameTestGuardDef>& InGuard, const TCHAR* InAt, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock, double InNowSeconds)
 {
 	FString Error;
 	if (!Monitor.BeginHandle(*InGuard, InNowSeconds, Error))
@@ -984,8 +980,7 @@ void FGameTestFlow::SetAt(const FGameTestNode& InNode)
 
 //~ 记录、推送 ---------------------------------------------------------------
 
-void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const FString& InMessage, double InStartedAt,
-	double InNowSeconds, const TSharedPtr<FJsonObject>& InPayload, bool bInBlock)
+void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const FString& InMessage, double InStartedAt, double InNowSeconds, const TSharedPtr<FJsonObject>& InPayload, bool bInBlock)
 {
 	FGameTestStepRecord Record;
 	Record.Step = InNode.Step;

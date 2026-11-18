@@ -19,17 +19,10 @@ namespace ForgeDiff
 	 * 计算计划。InNodePath 是当前节点自身的路径（根传 `root`），
 	 * 递归时子节点拼成 `root/Canvas/HealthBar`。
 	 */
-	ASSETFORGE_API void ComputePlan(
-		const FForgeNode& InTarget,
-		const FForgeNode& InCurrent,
-		const FString& InNodePath,
-		TArray<FForgePlanEntry>& OutPlan);
+	ASSETFORGE_API void ComputePlan(const FForgeNode& InTarget, const FForgeNode& InCurrent, const FString& InNodePath, TArray<FForgePlanEntry>& OutPlan);
 
 	/** 便捷入口：以 `root` 为起点比较两棵树。 */
-	ASSETFORGE_API void ComputeRootPlan(
-		const FForgeNode& InTarget,
-		const FForgeNode& InCurrent,
-		TArray<FForgePlanEntry>& OutPlan);
+	ASSETFORGE_API void ComputeRootPlan(const FForgeNode& InTarget, const FForgeNode& InCurrent, TArray<FForgePlanEntry>& OutPlan);
 
 	/**
 	 * 两组属性之间的字段级差异描述，无差异返回 InPath 本身。
@@ -38,8 +31,5 @@ namespace ForgeDiff
 	 * 形如 `props.WaitTime.DefaultValue（配置 2 → 资产 3.5）`。材质图那种不走树模型的
 	 * kind 自己算计划时复用它，免得再写一份判等规则。
 	 */
-	ASSETFORGE_API FString DescribeObjectDiff(
-		const TSharedPtr<FJsonObject>& InTarget,
-		const TSharedPtr<FJsonObject>& InCurrent,
-		const FString& InPath);
+	ASSETFORGE_API FString DescribeObjectDiff(const TSharedPtr<FJsonObject>& InTarget, const TSharedPtr<FJsonObject>& InCurrent, const FString& InPath);
 }

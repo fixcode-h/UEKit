@@ -20,8 +20,7 @@ namespace GameTestPathText
 	 * `@来源[选择器].路径` 整条文字 → 来源名、选择器原文、段（`@sub.UQuestSubsystem.ActiveQuests`、`@actor[tag=Boss].Health`）。
 	 * 不以 `@` 开头返回 false。
 	 */
-	GAMETEST_API bool ParseSource(const FString& InText, FName& OutSource, FString& OutSelector, TArray<FGameTestPathSegment>& OutSegments,
-		FString& OutError);
+	GAMETEST_API bool ParseSource(const FString& InText, FName& OutSource, FString& OutSelector, TArray<FGameTestPathSegment>& OutSegments, FString& OutError);
 
 	/** 整条 `@来源…` 文字直接取值（解析 + GameTestPath::ResolveSource）。解析不了时 Unresolved（expr_syntax）。 */
 	GAMETEST_API FGameTestValue ResolveSourceText(const FString& InText, class FGameTestFlowContext& InContext);

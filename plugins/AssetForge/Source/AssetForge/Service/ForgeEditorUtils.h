@@ -70,12 +70,7 @@ namespace ForgeEditorUtils
 	 * 别人的种类（这时才算 `ForeignKind`）；都不是就是 `ParseFailed`。
 	 * `InSupportedKinds` 由调用方给（而不是内部查管道），这样测试能自带一份名单。
 	 */
-	ASSETFORGE_API FForgeConfigClassification ClassifyConfig(
-		bool bInParsed,
-		const FForgeDocument& InDocument,
-		const FForgeReport& InReport,
-		const TSharedPtr<FJsonObject>& InRawJson,
-		const TArray<FString>& InSupportedKinds);
+	ASSETFORGE_API FForgeConfigClassification ClassifyConfig(bool bInParsed, const FForgeDocument& InDocument, const FForgeReport& InReport, const TSharedPtr<FJsonObject>& InRawJson, const TArray<FString>& InSupportedKinds);
 
 	/** 读一份配置文件再分类（`ForgeService::DescribeConfig` 用）。 */
 	ASSETFORGE_API FForgeConfigClassification ClassifyConfigAtPath(const FString& InAbsolutePath);

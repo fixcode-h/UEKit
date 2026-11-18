@@ -65,12 +65,7 @@ namespace
 	}
 
 	/** 把一行读成节点。 */
-	void ReadRowInto(
-		UDataTable* InTable,
-		const UScriptStruct* InRowStruct,
-		const FName InRowName,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadRowInto(UDataTable* InTable, const UScriptStruct* InRowStruct, const FName InRowName, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		OutNode.ClassName = RowClassPlaceholder;
 		OutNode.Name = InRowName.ToString();

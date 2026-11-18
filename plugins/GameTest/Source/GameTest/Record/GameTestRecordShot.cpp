@@ -138,8 +138,7 @@ namespace GameTestRecordShotDetail
 	}
 
 	/** 后台线程：缩小、描框、压 PNG 写盘。框的坐标是相对裁剪区的原始像素。 */
-	void SaveAsync(TArray<FColor>&& InPixels, const FIntPoint& InSize, const FIntPoint& InTo, const TOptional<FIntRect>& InFrame,
-		const FString& InPath)
+	void SaveAsync(TArray<FColor>&& InPixels, const FIntPoint& InSize, const FIntPoint& InTo, const TOptional<FIntRect>& InFrame, const FString& InPath)
 	{
 		Async(EAsyncExecution::ThreadPool, [Pixels = MoveTemp(InPixels), InSize, InTo, InFrame, InPath]()
 		{

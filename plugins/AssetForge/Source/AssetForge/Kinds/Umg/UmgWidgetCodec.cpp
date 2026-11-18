@@ -66,11 +66,7 @@ UClass* ResolveWidgetClass(const FString& InClassName, FString& OutError)
 	return FForgeClassResolver::ResolveShortName(InClassName, ShortNamePrefixes, UWidget::StaticClass(), OutError);
 }
 
-void ExportWidget(
-	UWidget* InWidget,
-	FForgeNode& OutNode,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InNodePath)
+void ExportWidget(UWidget* InWidget, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath)
 {
 	if (InWidget == nullptr)
 	{
@@ -120,11 +116,7 @@ void ExportWidget(
 	}
 }
 
-void ImportWidgetInto(
-	UWidget* InWidget,
-	const FForgeNode& InNode,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InNodePath)
+void ImportWidgetInto(UWidget* InWidget, const FForgeNode& InNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath)
 {
 	if (InWidget == nullptr)
 	{

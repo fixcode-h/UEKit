@@ -81,8 +81,7 @@ namespace GameTestSkipIfDetail
 	 * 认得出是第几个条目的直接滚过去，认不出的把界面上的列表从头翻到底，翻完还没有就原地等。
 	 * 反面条件（不存在 / 不可见）找不到正是要的结果，不翻。
 	 */
-	FEval Evaluate(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-		GameTestAutoScroll::FState* InScroll = nullptr)
+	FEval Evaluate(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, GameTestAutoScroll::FState* InScroll = nullptr)
 	{
 		FEval Out;
 		const FString Target = TargetOf(InSkipIf, InStep);
@@ -296,16 +295,14 @@ int32 GameTestSkipIf::Also(const FJsonObject& InSkipIf)
 	return FMath::Clamp(Value, 0, MaxAlso);
 }
 
-bool GameTestSkipIf::Holds(const FJsonObject& InSkipIf, const FGameTestStep& InStep,
-	TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FString& OutActual)
+bool GameTestSkipIf::Holds(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FString& OutActual)
 {
 	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(InSkipIf, InStep, InHandles);
 	OutActual = Eval.Actual;
 	return Eval.Result == GameTestSkipIfDetail::EEval::Holds;
 }
 
-FGameTestSkipGate::FGameTestSkipGate(const FGameTestStep& InStep, const TSharedPtr<FJsonObject>& InSkipIf,
-	TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, const FGameTestSkipOptions& InOptions, double InNow)
+FGameTestSkipGate::FGameTestSkipGate(const FGameTestStep& InStep, const TSharedPtr<FJsonObject>& InSkipIf, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, const FGameTestSkipOptions& InOptions, double InNow)
 	: Step(InStep)
 	, SkipIf(InSkipIf)
 	, Handles(InHandles)

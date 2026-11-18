@@ -68,11 +68,7 @@ UClass* FForgeClassResolver::Resolve(const FString& InClassReference, UClass* In
 	return nullptr;
 }
 
-UClass* FForgeClassResolver::ResolveShortName(
-	const FString& InShortName,
-	const TArray<FString>& InPrefixes,
-	UClass* InRequiredBase,
-	FString& OutError)
+UClass* FForgeClassResolver::ResolveShortName(const FString& InShortName, const TArray<FString>& InPrefixes, UClass* InRequiredBase, FString& OutError)
 {
 	OutError.Reset();
 

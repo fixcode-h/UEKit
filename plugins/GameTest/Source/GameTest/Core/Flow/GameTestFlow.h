@@ -172,19 +172,15 @@ private:
 	/** 生效的守护（块内层 → 脚本 → 全局）。 */
 	void CollectGuards(TArray<TSharedRef<FGameTestGuardDef>>& OutGuards) const;
 	bool InGuard() const;
-	void StartGuard(const TSharedRef<FGameTestGuardDef>& InGuard, const TCHAR* InAt, const FGameTestNode* InInterrupted, int32 InInterruptedFrame,
-		bool bInBlock, double InNowSeconds);
+	void StartGuard(const TSharedRef<FGameTestGuardDef>& InGuard, const TCHAR* InAt, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock, double InNowSeconds);
 	/** Poll 一遍守护，有要处理的就开始处理。`bOutPending`：有守护在稳住。 */
-	bool TryStartGuard(bool bWaiting, const TArray<FString>& InTargets, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock,
-		double InNowSeconds, bool& bOutPending);
+	bool TryStartGuard(bool bWaiting, const TArray<FString>& InTargets, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock, double InNowSeconds, bool& bOutPending);
 	int32 CurrentIter() const;
 	int32 ListDepth() const;
 
 	//~ 记录、推送
-	void AddRecord(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const FString& InMessage, double InStartedAt, double InNowSeconds,
-		const TSharedPtr<FJsonObject>& InPayload, bool bInBlock);
-	void Emit(const TCHAR* InPhase, const FGameTestNode* InNode, const TCHAR* InStatus = nullptr, int32 InIter = -1, const FString& InGuard = FString(),
-		double InMs = -1.0);
+	void AddRecord(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const FString& InMessage, double InStartedAt, double InNowSeconds, const TSharedPtr<FJsonObject>& InPayload, bool bInBlock);
+	void Emit(const TCHAR* InPhase, const FGameTestNode* InNode, const TCHAR* InStatus = nullptr, int32 InIter = -1, const FString& InGuard = FString(), double InMs = -1.0);
 	void SetAt(const FGameTestNode& InNode);
 	/** 断点、单步、to、from：要不要在这个节点前停下。 */
 	bool ShouldPauseAt(const FGameTestNode& InNode);

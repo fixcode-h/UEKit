@@ -27,13 +27,7 @@ namespace ForgeManifest
 		FString AssetMTimeUtc;
 	};
 
-	ASSETFORGE_API bool Load(
-		const FString& InManifestPath,
-		TMap<FString, FManifestEntry>& OutEntries,
-		FString& OutError);
+	ASSETFORGE_API bool Load(const FString& InManifestPath, TMap<FString, FManifestEntry>& OutEntries, FString& OutError);
 
-	ASSETFORGE_API bool Save(
-		const FString& InManifestPath,
-		const TMap<FString, FManifestEntry>& InEntries,
-		FString& OutError);
+	ASSETFORGE_API bool Save(const FString& InManifestPath, const TMap<FString, FManifestEntry>& InEntries, FString& OutError);
 }

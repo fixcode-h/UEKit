@@ -82,11 +82,7 @@ TEST_CLASS_WITH_FLAGS(FontForgeTest, "AssetForge.Font",
 		})"), *InClass, *InProps, *InChildren);
 	}
 
-	static FString MakeFace(
-		const FString& InName,
-		const FString& InTypeface,
-		const FString& InSource,
-		const FString& InProps = TEXT("{}"))
+	static FString MakeFace(const FString& InName, const FString& InTypeface, const FString& InSource, const FString& InProps = TEXT("{}"))
 	{
 		return FString::Printf(TEXT(R"({
 			"class": "FontFace",

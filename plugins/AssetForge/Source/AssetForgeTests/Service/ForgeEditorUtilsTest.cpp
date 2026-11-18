@@ -32,10 +32,7 @@ TEST_CLASS_WITH_FLAGS(ForgeEditorUtilsTest, "AssetForge.Editor.Utils",
 	}
 
 	/** 分类入参：文档加载结果、文档、报告、原始 JSON、支持的 kind 名单。 */
-	static ForgeEditorUtils::FForgeConfigClassification Classify(
-		const bool bInParsed,
-		const TSharedPtr<FJsonObject>& InRawJson,
-		const TArray<FString>& InSupportedKinds)
+	static ForgeEditorUtils::FForgeConfigClassification Classify(const bool bInParsed, const TSharedPtr<FJsonObject>& InRawJson, const TArray<FString>& InSupportedKinds)
 	{
 		FForgeDocument Document;
 		Document.Kind = TEXT("umg-widget");

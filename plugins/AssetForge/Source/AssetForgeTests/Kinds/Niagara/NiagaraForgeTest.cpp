@@ -29,11 +29,7 @@ TEST_CLASS_WITH_FLAGS(NiagaraForgeTest, "AssetForge.Niagara",
 		TEXT("/Niagara/DefaultAssets/Templates/Emitters/SimpleSpriteBurst");
 
 	/** 造一份最小文档：只换 children 与 root.props 两段；asset 指向必定不存在的路径——dry-run 不碰盘。 */
-	static bool ParseDocument(
-		const FString& InChildren,
-		const FString& InRootProps,
-		FForgeDocument& OutDocument,
-		FString* OutError = nullptr)
+	static bool ParseDocument(const FString& InChildren, const FString& InRootProps, FForgeDocument& OutDocument, FString* OutError = nullptr)
 	{
 		const FString PropsField = InRootProps.IsEmpty()
 			? FString()

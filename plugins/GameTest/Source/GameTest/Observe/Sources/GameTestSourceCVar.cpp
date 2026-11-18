@@ -16,8 +16,7 @@ namespace
 		virtual FString GetSummary() const override { return TEXT("控制台变量"); }
 		virtual FString GetSyntax() const override { return TEXT("@cvar.<名字>（如 @cvar.r.ScreenPercentage）"); }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			TArray<FString> Parts;

@@ -24,14 +24,8 @@ public:
 	static TSharedPtr<FJsonValue> FindProperty(const FJsonObject& InProperties, const FString& InPropertyName);
 
 	/** 返回第一个 `InProperty` 等于 `InExpected` 的条目下标；没有命中返回 INDEX_NONE。 */
-	static int32 FindIndexByProperty(
-		const TArray<TSharedPtr<FGameTestListItem>>& InItems,
-		const FString& InProperty,
-		const FJsonValue& InExpected);
+	static int32 FindIndexByProperty(const TArray<TSharedPtr<FGameTestListItem>>& InItems, const FString& InProperty, const FJsonValue& InExpected);
 
 	/** 失败消息里的"实际值"清单——AI 一次就能改对，不用来回猜。 */
-	static FString DescribeProperty(
-		const TArray<TSharedPtr<FGameTestListItem>>& InItems,
-		const FString& InPropertyName,
-		int32 InLimit);
+	static FString DescribeProperty(const TArray<TSharedPtr<FGameTestListItem>>& InItems, const FString& InPropertyName, int32 InLimit);
 };

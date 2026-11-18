@@ -53,14 +53,7 @@ public:
 	static bool HasLiveSlateList(const UListView& InList);
 
 	/** mode：offset / end / start / widget（ScrollBox）或 index（ListView）。 */
-	static bool Scroll(
-		UWidget* InWidget,
-		const FString& InMode,
-		double InValue,
-		int32 InIndex,
-		UWidget* InTargetWidget,
-		FString& OutMessage,
-		TSharedPtr<FJsonObject>& OutPayload);
+	static bool Scroll(UWidget* InWidget, const FString& InMode, double InValue, int32 InIndex, UWidget* InTargetWidget, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload);
 
 	/** 通用赋值：滑条/微调框数值、复选、下拉选项、展开态、菜单开合、按键选择。 */
 	static bool SetValue(UWidget* InWidget, const FJsonObject& InParams, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload);
@@ -80,12 +73,7 @@ public:
 	 */
 	static UClass* ResolveWidgetClass(const FString& InClassPath, UClass* InRequiredBase, FString& OutError);
 
-	static bool AddWidgetToViewport(
-		UWorld* InWorld,
-		const FString& InClassPath,
-		int32 InZOrder,
-		UUserWidget*& OutWidget,
-		FString& OutMessage);
+	static bool AddWidgetToViewport(UWorld* InWorld, const FString& InClassPath, int32 InZOrder, UUserWidget*& OutWidget, FString& OutMessage);
 
 	static bool RemoveWidget(UUserWidget* InWidget, FString& OutMessage);
 

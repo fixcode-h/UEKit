@@ -85,12 +85,7 @@ bool GameTestActor::MatchesClass(const AActor& InActor, const FString& InClassNa
 	return false;
 }
 
-AActor* GameTestActor::ResolveOne(
-	UWorld& InWorld,
-	const FString& InClassName,
-	const FString& InTag,
-	const TOptional<bool>& InLocallyControlled,
-	FString& OutError)
+AActor* GameTestActor::ResolveOne(UWorld& InWorld, const FString& InClassName, const FString& InTag, const TOptional<bool>& InLocallyControlled, FString& OutError)
 {
 	if (InClassName.IsEmpty() && InTag.IsEmpty())
 	{

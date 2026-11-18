@@ -715,13 +715,7 @@ void FGameTestRecorder::ProcessEvent(const FRawEvent& InEvent, const FRawEvent* 
 	}
 }
 
-bool FGameTestRecorder::DescribeHandler(
-	const FRawEvent& InEvent,
-	bool& OutIsUi,
-	FString& OutTarget,
-	TSharedPtr<FJsonObject>& OutHint,
-	TSharedPtr<SWidget>& OutSlate,
-	TSharedPtr<FGameTestKeySite>* OutKeySite) const
+bool FGameTestRecorder::DescribeHandler(const FRawEvent& InEvent, bool& OutIsUi, FString& OutTarget, TSharedPtr<FJsonObject>& OutHint, TSharedPtr<SWidget>& OutSlate, TSharedPtr<FGameTestKeySite>* OutKeySite) const
 {
 	OutIsUi = false;
 	OutTarget.Reset();

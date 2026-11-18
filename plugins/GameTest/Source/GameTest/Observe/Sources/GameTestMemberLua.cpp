@@ -22,8 +22,7 @@ namespace
 			return InBase.GetObject() != nullptr && GameTestLuaBridge::IsAvailable();
 		}
 
-		virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext,
-			FGameTestValue& OutValue) const override
+		virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
 		{
 			UObject* Object = InBase.GetObject();
 			FGameTestLuaValue Lua;
@@ -38,8 +37,7 @@ namespace
 			return true;
 		}
 
-		virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs,
-			FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
+		virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const override
 		{
 			UObject* Object = InBase.GetObject();
 			FGameTestLuaValue Probe;

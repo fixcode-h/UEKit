@@ -150,8 +150,7 @@ bool GameTestLuaBridge::IsAvailable()
 	return FAgentPanelBridge::Get().HasOp(TEXT("lua.get"));
 }
 
-bool GameTestLuaBridge::Read(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, FGameTestLuaValue& OutValue, FString& OutError,
-	bool bInFunctions)
+bool GameTestLuaBridge::Read(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, FGameTestLuaValue& OutValue, FString& OutError, bool bInFunctions)
 {
 	if (!IsAvailable())
 	{
@@ -171,8 +170,7 @@ bool GameTestLuaBridge::Read(UWorld* InWorld, UObject* InSelf, const TArray<TSha
 	return true;
 }
 
-bool GameTestLuaBridge::Write(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, const TSharedPtr<FJsonValue>& InValue,
-	FString& OutError)
+bool GameTestLuaBridge::Write(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, const TSharedPtr<FJsonValue>& InValue, FString& OutError)
 {
 	if (!IsAvailable())
 	{
@@ -217,8 +215,7 @@ bool GameTestLuaBridge::IsModuleLoaded(UWorld* InWorld, const FString& InModule,
 	return true;
 }
 
-bool GameTestLuaBridge::Call(UWorld* InWorld, UObject* InSelf, const FString& InModule, const TArray<TSharedPtr<FJsonValue>>& InFunctionKeys,
-	const TArray<TSharedPtr<FJsonValue>>& InArgs, TArray<FGameTestLuaValue>& OutResults, FString& OutError)
+bool GameTestLuaBridge::Call(UWorld* InWorld, UObject* InSelf, const FString& InModule, const TArray<TSharedPtr<FJsonValue>>& InFunctionKeys, const TArray<TSharedPtr<FJsonValue>>& InArgs, TArray<FGameTestLuaValue>& OutResults, FString& OutError)
 {
 	if (!IsAvailable())
 	{

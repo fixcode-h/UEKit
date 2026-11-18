@@ -95,8 +95,7 @@ public:
 	 * 连带跳过几步（纯逻辑，单测用）：`InIndex` 这一步点完打开了 `InOpened` 这些界面，后面紧挨着的、目标在这些界面上的步骤
 	 * （中间的 wait 一起算）都是为了处理这些界面——这一步跳过了，它们也不会出现。阻挡界面规则管的界面不算（回放时自动关）。
 	 */
-	static int32 ComputeAlso(const TArray<TSharedRef<FJsonObject>>& InSteps, int32 InIndex, const TArray<FString>& InOpened,
-		const TArray<FString>& InBlockerScreens);
+	static int32 ComputeAlso(const TArray<TSharedRef<FJsonObject>>& InSteps, int32 InIndex, const TArray<FString>& InOpened, const TArray<FString>& InBlockerScreens);
 
 	/** 候选排序并挑出自动写的那个（分最高且 ≥ AutoScore；没有返回 INDEX_NONE）。纯逻辑，单测用。 */
 	static int32 SortAndPick(TArray<FGameTestStateCandidate>& InOutCandidates);

@@ -44,12 +44,7 @@ namespace ForgePropertyCodec
 	 * 要求它们可配会让「导出 → 导入」永远不收敛（`FLightmassWorldInfoSettings::EmissiveBoost`
 	 * 就是这样撞上的）。顶层字段仍然要求可配。
 	 */
-	ASSETFORGE_API void ValidateProperties(
-		const UStruct* InStruct,
-		const TSharedPtr<FJsonObject>& InJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath,
-		bool bInStructRecursion = false);
+	ASSETFORGE_API void ValidateProperties(const UStruct* InStruct, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, bool bInStructRecursion = false);
 
 	/**
 	 * 把对象上所有走配置通道的属性重置成 CDO 的值。
@@ -84,14 +79,7 @@ namespace ForgePropertyCodec
 	 * 把与默认数据不同的可编辑属性写进 OutJson。InDefaultData 可为 nullptr（那样就写全量）。
 	 * 注意：一个属性都没写出来时 OutJson 会被置回 nullptr（哪怕调用前已经 MakeShared 过），调用方用之前必须判 IsValid()。
 	 */
-	ASSETFORGE_API void ExportStructDelta(
-		const UStruct* InStruct,
-		const void* InData,
-		const void* InDefaultData,
-		TSharedPtr<FJsonObject>& OutJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath,
-		const TArray<FName>* InExcludedPropertyNames = nullptr);
+	ASSETFORGE_API void ExportStructDelta(const UStruct* InStruct, const void* InData, const void* InDefaultData, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, const TArray<FName>* InExcludedPropertyNames = nullptr);
 
 	/**
 	 * 把 JSON 里的属性写进一块结构体数据。
@@ -100,13 +88,7 @@ namespace ForgePropertyCodec
 	 * 的对象数组」（GE 的 `GEComponents`、输入映射的修饰器这类）时，新建的元素要以它做 Outer。
 	 * 那种数组交给 `FJsonObjectConverter` 会撞引擎的 `ClassWithin` 检查，见实现里的说明。
 	 */
-	ASSETFORGE_API void ImportStructProperties(
-		const UStruct* InStruct,
-		void* InData,
-		const TSharedPtr<FJsonObject>& InJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath,
-		UObject* InOwner = nullptr);
+	ASSETFORGE_API void ImportStructProperties(const UStruct* InStruct, void* InData, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, UObject* InOwner = nullptr);
 
 	/** 把一块结构体数据重置成默认值（结构体的默认实例或全零，取引擎给的那个）。 */
 	ASSETFORGE_API void ResetStructToDefaults(const UStruct* InStruct, void* InData);
@@ -120,12 +102,7 @@ namespace ForgePropertyCodec
 	 * 配置的 children 表达，且结构内部含 FName，走 JSON 通道只会每次导出产生一条"无法转换"
 	 * 的警告）。排除项不导出、不产生诊断；导入侧仍由各 kind 自己明确拒绝。
 	 */
-	ASSETFORGE_API void ExportDeltaProperties(
-		const UObject* InObject,
-		TSharedPtr<FJsonObject>& OutJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath,
-		const TArray<FName>* InExcludedPropertyNames = nullptr);
+	ASSETFORGE_API void ExportDeltaProperties(const UObject* InObject, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath, const TArray<FName>* InExcludedPropertyNames = nullptr);
 
 	/**
 	 * 强制导出指定的属性：哪怕值等于默认，也写进 JSON（值取自 InObject）。
@@ -133,17 +110,8 @@ namespace ForgePropertyCodec
 	 * 给「关键参数」用——纹理的压缩/寻址/mip 这类设置是配置读者要一眼看到、要能直接改的，
 	 * 藏进 delta 省略里对读者不友好。名字按 `FindCodecProperty` 解析（带 `b` 前缀的容错）。
 	 */
-	ASSETFORGE_API void ExportForcedProperties(
-		const UObject* InObject,
-		const TArray<FName>& InPropertyNames,
-		TSharedPtr<FJsonObject>& InOutJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API void ExportForcedProperties(const UObject* InObject, const TArray<FName>& InPropertyNames, TSharedPtr<FJsonObject>& InOutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 
 	/** 把 JSON 里的属性写进对象；单个属性失败不影响其余属性。 */
-	ASSETFORGE_API void ImportProperties(
-		UObject* InObject,
-		const TSharedPtr<FJsonObject>& InJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API void ImportProperties(UObject* InObject, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 }

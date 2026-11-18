@@ -100,8 +100,7 @@ namespace
 		return true;
 	}
 
-	void WritePayload(FGameTestFlowContext& InContext, const UObject* InTarget, const UFunction& InFunction,
-		const TSharedPtr<FJsonObject>& InArgs, const FGameTestValue& InReturned, double InMs)
+	void WritePayload(FGameTestFlowContext& InContext, const UObject* InTarget, const UFunction& InFunction, const TSharedPtr<FJsonObject>& InArgs, const FGameTestValue& InReturned, double InMs)
 	{
 		if (!InContext.StepPayload.IsValid())
 		{

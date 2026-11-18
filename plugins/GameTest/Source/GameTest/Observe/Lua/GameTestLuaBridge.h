@@ -49,8 +49,7 @@ public:
 	 * 读 Lua 值。Self 非空时从这个对象的实例表开始（`@lua.x`），否则从全局表开始（`@luaG.x`）。
 	 * Keys 是一段段的键（字符串或数字）。路径中途是 nil、不是表时返回 false 并写原因。
 	 */
-	static bool Read(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, FGameTestLuaValue& OutValue, FString& OutError,
-		bool bInFunctions = false);
+	static bool Read(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, FGameTestLuaValue& OutValue, FString& OutError, bool bInFunctions = false);
 
 	/** 读模块表（只看 package.loaded，不主动 require：读值不该触发加载）。没加载时返回 false，原因写「还没 require」。 */
 	static bool ReadModule(UWorld* InWorld, const FString& InModule, const TArray<TSharedPtr<FJsonValue>>& InKeys, FGameTestLuaValue& OutValue, FString& OutError);
@@ -62,16 +61,14 @@ public:
 	 * 写 Lua 字段（UELink `lua.set`）：`InSelf` 不为空时从它绑的实例表开始，否则 `InKeys` 从全局开始
 	 * （模块字段写 `["package","loaded",模块,…]`）。值是表时整个换掉。
 	 */
-	static bool Write(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, const TSharedPtr<FJsonValue>& InValue,
-		FString& OutError);
+	static bool Write(UWorld* InWorld, UObject* InSelf, const TArray<TSharedPtr<FJsonValue>>& InKeys, const TSharedPtr<FJsonValue>& InValue, FString& OutError);
 
 	/**
 	 * 调 Lua 函数。Self 非空时函数在实例表上找、以方法调（obj:Fn(...)）；Module 非空时在模块表上找（按点调 M.Fn(...)）；
 	 * 都空时从全局表找。InFunctionKeys 是函数的路径（一般就一段函数名）。Args 按顺序（JSON 对象、数组会转成表）。
 	 * 返回值最多 20 个，按顺序写进 OutResults。
 	 */
-	static bool Call(UWorld* InWorld, UObject* InSelf, const FString& InModule, const TArray<TSharedPtr<FJsonValue>>& InFunctionKeys,
-		const TArray<TSharedPtr<FJsonValue>>& InArgs, TArray<FGameTestLuaValue>& OutResults, FString& OutError);
+	static bool Call(UWorld* InWorld, UObject* InSelf, const FString& InModule, const TArray<TSharedPtr<FJsonValue>>& InFunctionKeys, const TArray<TSharedPtr<FJsonValue>>& InArgs, TArray<FGameTestLuaValue>& OutResults, FString& OutError);
 
 	/** Lua 报错的当前序号（标记「从这之后」用）。 */
 	static uint64 ErrorSeq();

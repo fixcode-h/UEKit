@@ -203,8 +203,7 @@ namespace
 			return MakeShared<FLoopState>();
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			FLoopState& State = static_cast<FLoopState&>(InState);
 			const FLoopData* Data = InNode.GetData<FLoopData>();
@@ -350,8 +349,7 @@ namespace
 			return EGameTestBlockStep::Failed;
 		}
 
-		virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState,
-			FGameTestFlowContext& InContext) const override
+		virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext) const override
 		{
 			if (InSignal != EGameTestFlowSignal::Break && InSignal != EGameTestFlowSignal::Continue)
 			{
@@ -446,8 +444,7 @@ namespace
 		}
 
 		/** 设好这一轮的循环变量。each 的条目没生成时滚过去，`bWait` = true 让执行器下一帧再来。 */
-		static bool Prepare(const FLoopData& InData, FLoopState& InState, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutWait,
-			bool& OutEnd, FString& OutError)
+		static bool Prepare(const FLoopData& InData, FLoopState& InState, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutWait, bool& OutEnd, FString& OutError)
 		{
 			InContext.SetLocal(TEXT("index"), FGameTestValue::FromNumber(InState.Iter));
 			if (InData.Mode == ELoopMode::In)
