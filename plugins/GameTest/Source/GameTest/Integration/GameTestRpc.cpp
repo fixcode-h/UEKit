@@ -45,6 +45,7 @@ namespace
 	TArray<FString> RegisteredOps;
 	FDelegateHandle JobHandle;
 	FDelegateHandle RecordHandle;
+	FDelegateHandle FlowHandle;
 
 	FString Str(const TSharedPtr<FJsonObject>& Args, const TCHAR* Name)
 	{
@@ -695,7 +696,7 @@ namespace
 	}
 
 	/**
-	 * 项目运行配置（场景根的 _settings.json：阻挡界面规则、UI 等待上限）。
+	 * 项目运行配置（场景根的 _settings.json：守护、UI 等待上限、脚本开关）。
 	 * 不带 config 是读；带 config 是校验后整份写回（dryRun 只校验不落盘），面板 GameTest 页「运行设置」用。
 	 */
 	bool Config(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
@@ -707,7 +708,17 @@ namespace
 		const bool bDryRun = Bool(Args, TEXT("dryRun"), false);
 		if (bWrite)
 		{
-			if (!GameTestRunConfig::FromJson(**Incoming, RunConfig, Error))
+			// 面板只发它认得的字段：文件里别的字段（api、objectKeys…，面板别的页或手写的）原样留着，不被这次写回抹掉。
+			const TSharedRef<FJsonObject> Merged = MakeShared<FJsonObject>(**Incoming);
+			if (IFileManager::Get().FileExists(*Path))
+			{
+				FString ReadError;
+				if (const TSharedPtr<FJsonObject> Existing = GameTestJson::ParseObjectFromFile(Path, ReadError))
+				{
+					GameTestRunConfig::PreserveUnknown(*Merged, *Existing);
+				}
+			}
+			if (!GameTestRunConfig::FromJson(*Merged, RunConfig, Error))
 			{
 				return false;
 			}
@@ -801,12 +812,17 @@ void Register()
 	{
 		FAgentPanelBridge::Get().PublishEvent(TEXT("gt.record"), InEvent);
 	});
+	FlowHandle = GameTestHooks::OnFlowEvent().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
+	{
+		FAgentPanelBridge::Get().PublishEvent(TEXT("gt.flow"), InEvent);
+	});
 }
 
 void Unregister()
 {
 	GameTestHooks::OnJobChanged().Remove(JobHandle);
 	GameTestHooks::OnRecordChanged().Remove(RecordHandle);
+	GameTestHooks::OnFlowEvent().Remove(FlowHandle);
 	for (const FString& Name : RegisteredOps)
 	{
 		FAgentPanelBridge::Get().RemoveOp(Name);

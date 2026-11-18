@@ -3,9 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Flow/GameTestDebugOptions.h"
+#include "Core/Script/GameTestScriptOptions.h"
 
 class FJsonObject;
 class UWidget;
+struct FGameTestGuardDef;
+struct FGameTestScript;
 class UWorld;
 
 /**
@@ -198,6 +202,25 @@ struct GAMETEST_API FGameTestRunRequest
 
 	/** 已达成就跳过的跑法（运行配置 > 场景 > 这次运行的「全部照做」）。 */
 	FGameTestSkipOptions SkipIf;
+
+	//~ 1.9.0 脚本 -----------------------------------------------------------
+	/**
+	 * 解析好的脚本（v3 的块、守护、变量都在里面）。为空时执行器把 Steps 包成只有主流程的脚本——1.x 的调用方不用改。
+	 * 用 TSharedPtr<FGameTestScript> 而不是值：节点树大、同一个子脚本被 call 多次时共享。
+	 */
+	TSharedPtr<const FGameTestScript> Script;
+	/** gt.run 的 params（场景 params 的实参）。 */
+	TSharedPtr<FJsonObject> Params;
+	/** 场景根（绝对路径）：call、_api.json、_vars.json 相对它。 */
+	FString ScenarioRoot;
+	/** 运行配置里的脚本开关（allowLuaInvoke、allowLuaInCond、maxCallDepth、稳住默认值）。 */
+	FGameTestScriptOptions ScriptOptions;
+	/** 全局守护（运行配置的 guards），解析好的。 */
+	TArray<TSharedRef<FGameTestGuardDef>> Guards;
+	/** 断点、from / to、pauseOnFail。 */
+	FGameTestDebugOptions Debug;
+	/** 运行配置的 randomSeed：脚本自己的随机（FGameTestFlowContext::Random）也用它，没写就按时间。 */
+	TOptional<int32> RandomSeed;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

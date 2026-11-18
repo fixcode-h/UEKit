@@ -65,6 +65,9 @@ struct GAMETEST_API FGameTestNode
 
 	const FGameTestNodeList* FindList(const FString& InKey) const;
 
+	/** 子树里（不含自己）有没有这个 id / 路径的节点。 */
+	bool Contains(const FString& InKey) const;
+
 	/** 子树里叶子的个数（进度条估算用，循环只按一轮算）。 */
 	int32 CountLeaves() const;
 
@@ -107,4 +110,10 @@ struct GAMETEST_API FGameTestScript
 
 	/** 主流程叶子数（进度估算）。 */
 	int32 CountLeaves() const;
+
+	/**
+	 * 1.x 的平铺步骤包成脚本（gt.step、临时步骤、没走解析器的调用方）：每步一个叶子，路径 `steps.N` / `setup.N`。
+	 * 已经过 GameTestActions::ParseStep 的步骤，不再校验。
+	 */
+	static TSharedRef<FGameTestScript> FromSteps(const TArray<FGameTestStep>& InSteps);
 };

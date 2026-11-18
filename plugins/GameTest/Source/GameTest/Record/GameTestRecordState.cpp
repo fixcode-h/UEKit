@@ -252,18 +252,13 @@ void FGameTestRecordState::Finish(TArray<TSharedRef<FJsonObject>>& InOutSteps)
 	}
 	Pressing.Reset();
 
+	// 守护会处理的界面（弹窗、引导）：录到的「点一下关掉它」不算步骤要等的界面。
 	TArray<FString> BlockerScreens;
 	FGameTestRunConfig RunConfig;
 	FString ConfigError;
 	if (GameTestRunConfig::Load(RunConfig, ConfigError))
 	{
-		for (const FGameTestBlockerRule& Rule : RunConfig.Blockers)
-		{
-			if (Rule.bEnabled)
-			{
-				BlockerScreens.Add(Rule.Widget);
-			}
-		}
+		BlockerScreens = GameTestRunConfig::GuardScreens(RunConfig);
 	}
 	for (const TWeakPtr<FJsonObject>& Weak : AutoSteps)
 	{

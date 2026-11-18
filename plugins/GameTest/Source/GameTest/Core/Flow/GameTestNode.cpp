@@ -56,6 +56,18 @@ const FGameTestNodeList* FGameTestNode::FindList(const FString& InKey) const
 	return nullptr;
 }
 
+bool FGameTestNode::Contains(const FString& InKey) const
+{
+	for (const FGameTestNodeList& List : Lists)
+	{
+		if (FindIn(List, InKey))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 int32 FGameTestNode::CountLeaves() const
 {
 	if (bDisabled)
@@ -102,4 +114,33 @@ const FGameTestNode* FGameTestScript::FindNode(const FString& InKey) const
 int32 FGameTestScript::CountLeaves() const
 {
 	return CountIn(Setup) + CountIn(Steps);
+}
+
+TSharedRef<FGameTestScript> FGameTestScript::FromSteps(const TArray<FGameTestStep>& InSteps)
+{
+	TSharedRef<FGameTestScript> Script = MakeShared<FGameTestScript>();
+	for (const FGameTestStep& Step : InSteps)
+	{
+		FGameTestNodeList& List = Step.bSetup ? Script->Setup : Script->Steps;
+		List.Key = Step.bSetup ? TEXT("setup") : TEXT("steps");
+		TSharedRef<FGameTestNode> Node = MakeShared<FGameTestNode>();
+		Node->Action = Step.Action;
+		Node->Json = Step.Params;
+		Node->Step = Step;
+		Node->Id = Step.Id;
+		Node->Path = Step.Path.IsEmpty() ? FString::Printf(TEXT("%s.%d"), *List.Key, List.Nodes.Num()) : Step.Path;
+		Node->Step.Path = Node->Path;
+		Node->Retries = Step.FailMode == EGameTestFailMode::Retry ? 1 : 0;
+		if (Step.Params.IsValid())
+		{
+			Step.Params->TryGetBoolField(TEXT("disabled"), Node->bDisabled);
+			Step.Params->TryGetBoolField(TEXT("expectNoErrors"), Node->bExpectNoErrors);
+			if (Step.Params->TryGetNumberField(TEXT("retries"), Node->Retries))
+			{
+				Node->Retries = FMath::Clamp(Node->Retries, 0, 100);
+			}
+		}
+		List.Nodes.Add(Node);
+	}
+	return Script;
 }

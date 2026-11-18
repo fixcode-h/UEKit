@@ -25,3 +25,9 @@ GameTestHooks::FOnJobChanged& GameTestHooks::OnRecordChanged()
 	static FOnJobChanged Delegate;
 	return Delegate;
 }
+
+GameTestHooks::FOnJobChanged& GameTestHooks::OnFlowEvent()
+{
+	static FOnJobChanged Delegate;
+	return Delegate;
+}

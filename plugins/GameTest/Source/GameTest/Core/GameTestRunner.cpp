@@ -2,7 +2,12 @@
 
 #include "Core/GameTestRunner.h"
 
+#include "Api/GameTestProjectApis.h"
+#include "GameTest.h"
 #include "Core/GameTestAction.h"
+#include "Core/GameTestLogTap.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Lua/GameTestLuaBridge.h"
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestCondition.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -24,7 +29,7 @@ bool FGameTestRunner::StartRun(
 		return false;
 	}
 
-	if (InRequest.Steps.Num() == 0)
+	if (InRequest.Steps.Num() == 0 && !InRequest.Script.IsValid())
 	{
 		OutError = TEXT("没有步骤可执行");
 		return false;
@@ -38,9 +43,8 @@ bool FGameTestRunner::StartRun(
 	Report.StartedAtUtc = FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
 	StartedAtSeconds = FPlatformTime::Seconds();
 
-	Queue = InRequest.Steps;
-	CurrentIndex = 0;
 	CurrentRecord = FGameTestStepRecord();
+	bHaveNextLeaf = false;
 	PendingPredicate = nullptr;
 	OnFinished = MoveTemp(InOnFinished);
 	OutputDir = InRequest.OutputDir;
@@ -59,6 +63,51 @@ bool FGameTestRunner::StartRun(
 	RootedObjects = InRuntimeState.RootedObjects;
 	OnStepFailed = InRuntimeState.OnStepFailed;
 	bCancelling = false;
+
+	// 脚本上下文：一次 run 一个，归 Flow 持有，地址整个 run 不变（跨帧接口捕获了它）。
+	TUniquePtr<FGameTestFlowContext> FlowContext = MakeUnique<FGameTestFlowContext>();
+	FlowContext->World = GameTestWorld::FindGameWorld();
+	FlowContext->Options = InRequest.ScriptOptions;
+	FlowContext->Handles = Handles;
+	FlowContext->ScenarioRoot = InRequest.ScenarioRoot;
+	FlowContext->OutputDir = OutputDir;
+	FlowContext->NowSeconds = StartedAtSeconds;
+	FlowContext->RunStartedAt = StartedAtSeconds;
+	FlowContext->LogTap = InRuntimeState.LogTap;
+	FlowContext->RunLogSeq = InRuntimeState.LogTap ? InRuntimeState.LogTap->GetSeq() : 0;
+	FlowContext->RunLuaErrorSeq = GameTestLuaBridge::ErrorSeq();
+	FlowContext->Random.Initialize(InRequest.RandomSeed.IsSet() ? InRequest.RandomSeed.GetValue() : static_cast<int32>(FPlatformTime::Cycles()));
+	// 项目接口（_api.json）改了就重读：开跑时看一次，跑的过程中不再读盘。
+	const FString ApiError = GameTestProjectApis::Refresh();
+	if (!ApiError.IsEmpty())
+	{
+		UE_LOG(LogGameTest, Warning, TEXT("%s"), *ApiError);
+	}
+
+	const TSharedRef<const FGameTestScript> Script = InRequest.Script.IsValid()
+		? InRequest.Script.ToSharedRef()
+		: TSharedRef<const FGameTestScript>(FGameTestScript::FromSteps(InRequest.Steps));
+	Flow = MakeUnique<FGameTestFlow>(Script, MoveTemp(FlowContext), InRequest.Params, InRequest.Guards, InRequest.Debug, Report);
+	if (!Flow->GetStartError().IsEmpty())
+	{
+		OutError = Flow->GetStartError();
+		Flow.Reset();
+		return false;
+	}
+	if (InRuntimeState.OnFlowEvent)
+	{
+		const FString RunId = InRequest.RunId;
+		const TFunction<void(const TSharedRef<FJsonObject>&)> Push = InRuntimeState.OnFlowEvent;
+		Flow->OnFlowEvent = [RunId, Push](const TSharedRef<FJsonObject>& InEvent)
+		{
+			InEvent->SetStringField(TEXT("runId"), RunId);
+			Push(InEvent);
+		};
+	}
+	Flow->OnStepEvent = [this](const FString& InKey, const TSharedPtr<FJsonObject>& InEvent)
+	{
+		AddStepEvent(InKey, InEvent);
+	};
 
 	bActive = true;
 	bStepInFlight = false;
@@ -89,16 +138,44 @@ void FGameTestRunner::Tick(double InNowSeconds)
 
 	constexpr int32 MaxStepsPerTick = 64;
 	int32 StepsThisTick = 0;
+	// 游戏世界会在 run 中途换（pie.start、开图）：每帧给脚本上下文换上当前的。
+	Flow->GetContext().World = GameTestWorld::FindGameWorld();
+	Flow->GetContext().NowSeconds = InNowSeconds;
 
-	while (bActive && !bStepInFlight && CurrentIndex < Queue.Num()
-		&& StepsThisTick < MaxStepsPerTick && InNowSeconds >= NextStepNotBefore)
+	while (bActive && !bStepInFlight && StepsThisTick < MaxStepsPerTick && InNowSeconds >= NextStepNotBefore)
 	{
+		if (!bHaveNextLeaf)
+		{
+			const EGameTestFlowNext Next = Flow->Next(InNowSeconds, NextLeaf);
+			if (Next == EGameTestFlowNext::Done)
+			{
+				FinishRun();
+				return;
+			}
+			if (Next == EGameTestFlowNext::Wait)
+			{
+				break;
+			}
+			bHaveNextLeaf = true;
+		}
 		if (HoldForUiGap(InNowSeconds))
 		{
 			break;
 		}
+		bHaveNextLeaf = false;
 		StartCurrentStep(InNowSeconds);
 		++StepsThisTick;
+	}
+
+	// 等待中的守护（每 0.2 秒看一次，Flow 自己节流）：有要处理的就中止这一步，下一帧先跑守护的 do。
+	if (bActive && bStepInFlight && Flow->PollGuardsWhileWaiting(CurrentRecord.Step, InNowSeconds))
+	{
+		AbortStepForGuard();
+		if (Flow->IsFinished())
+		{
+			FinishRun();
+		}
+		return;
 	}
 
 	// 跨帧动作：本帧求值一次谓词。完成之后**不要在这里 return**——
@@ -141,7 +218,7 @@ void FGameTestRunner::Tick(double InNowSeconds)
 		}
 	}
 
-	if (bActive && !bStepInFlight && CurrentIndex >= Queue.Num())
+	if (bActive && !bStepInFlight && !bHaveNextLeaf && Flow->IsFinished())
 	{
 		FinishRun();
 	}
@@ -176,8 +253,7 @@ namespace GameTestRunnerDetail
 
 bool FGameTestRunner::HoldForUiGap(double InNowSeconds)
 {
-	if (UiStepGapMs <= 0 || LastUiStepEndedAt < 0.0 || !Queue.IsValidIndex(CurrentIndex)
-		|| !GameTestRunnerDetail::IsUiOperation(Queue[CurrentIndex]))
+	if (UiStepGapMs <= 0 || LastUiStepEndedAt < 0.0 || !bHaveNextLeaf || !GameTestRunnerDetail::IsUiOperation(NextLeaf.Step))
 	{
 		return false;
 	}
@@ -192,16 +268,25 @@ bool FGameTestRunner::HoldForUiGap(double InNowSeconds)
 
 void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 {
-	const FGameTestStep& Step = Queue[CurrentIndex];
+	CurrentStep = NextLeaf.Step;
+	const FGameTestStep& Step = CurrentStep;
 
 	CurrentRecord = FGameTestStepRecord();
 	CurrentRecord.Step = Step;
 	CurrentRecord.StartedAt = InNowSeconds;
+	CurrentRecord.Iter = NextLeaf.Iter;
 	PendingPredicate = nullptr;
 	PendingFailure.Reset();
 	SkipGate.Reset();
 	SkipGateNote.Reset();
 	bVerifying = false;
+
+	// 填值求值（$var、=表达式）失败：动作不调，直接记失败。
+	if (!NextLeaf.PreError.IsEmpty())
+	{
+		CompleteCurrentStep(EGameTestStepStatus::Failed, NextLeaf.PreError, InNowSeconds);
+		return;
+	}
 
 	// 已达成就跳过：先判断，判断完（没达成）才调动作。判断要等界面出来，上限和 UI 等待一样（步骤写了 timeoutMs 按它）。
 	const TSharedPtr<FJsonObject> SkipIf = SkipOptions.bEnabled ? GameTestSkipIf::Get(Step.Params) : nullptr;
@@ -222,7 +307,7 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 
 void FGameTestRunner::RunHandler(double InNowSeconds)
 {
-	const FGameTestStep& Step = Queue[CurrentIndex];
+	const FGameTestStep& Step = CurrentStep;
 	const int32 TimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : DefaultStepTimeoutMs;
 
 	// 超时值写回记录：消息里要能报出真正的上限。
@@ -240,6 +325,7 @@ void FGameTestRunner::RunHandler(double InNowSeconds)
 	Context.UiWaitTimeoutMs = UiWaitTimeoutMs;
 	Context.ClickVia = ClickVia;
 	Context.MoveDefaults = MoveDefaults;
+	Context.Flow = Flow.IsValid() ? &Flow->GetContext() : nullptr;
 
 	EGameTestStepStatus Status = EGameTestStepStatus::Failed;
 
@@ -332,8 +418,6 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	SkipGate.Reset();
 	bVerifying = false;
 
-	const bool bStopAfterFailure = (InStatus == EGameTestStepStatus::Failed)
-		&& CurrentRecord.Step.FailMode == EGameTestFailMode::Stop;
 
 	// run 期间攒下的事件（关掉的阻挡界面等）归到这一步：失败证据和报告里都看得到。
 	if (PendingStepEvents.Num() > 0)
@@ -373,18 +457,36 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	}
 
 	Report.Steps.Add(CurrentRecord);
-	++CurrentIndex;
-
-	if (bStopAfterFailure)
+	// onFail（continue / retry / 往外传给块）、expectNoErrors 由 Flow 处理；它可能把这条记录改成失败。
+	if (Flow.IsValid() && !bCancelling)
 	{
-		FinishRun();
-		return;
+		Flow->OnLeafFinished(Report.Steps.Last(), InNowSeconds);
+		if (Flow->IsFinished())
+		{
+			FinishRun();
+			return;
+		}
 	}
 
 	// 成功才停：失败要么已经收尾（Stop），要么让人立刻看到现场（Continue），都不该再等。
-	if (InStatus == EGameTestStepStatus::Succeeded && StepDelayMs > 0 && CurrentIndex < Queue.Num())
+	if (Report.Steps.Last().Status == EGameTestStepStatus::Succeeded && StepDelayMs > 0)
 	{
 		NextStepNotBefore = InNowSeconds + StepDelayMs / 1000.0;
+	}
+}
+
+void FGameTestRunner::AbortStepForGuard()
+{
+	bStepInFlight = false;
+	PendingPredicate = nullptr;
+	PendingFailure.Reset();
+	SkipGate.Reset();
+	bVerifying = false;
+	if (PendingCleanup)
+	{
+		const TFunction<void()> Cleanup = MoveTemp(PendingCleanup);
+		PendingCleanup = nullptr;
+		Cleanup();
 	}
 }
 
@@ -427,17 +529,14 @@ void FGameTestRunner::FinishRun()
 		return;
 	}
 
-	// 没轮到执行的步骤如实标成跳过，而不是从报告里消失。
-	for (int32 Index = CurrentIndex; Index < Queue.Num(); ++Index)
+	// 没轮到执行的步骤如实标成跳过、还开着的块记失败，而不是从报告里消失。
+	if (Flow.IsValid())
 	{
-		FGameTestStepRecord Skipped;
-		Skipped.Step = Queue[Index];
-		Skipped.Status = EGameTestStepStatus::Skipped;
-		Skipped.Message = TEXT("未执行（前一步失败或整次 run 被取消）");
-		Skipped.StartedAt = 0.0;
-		Skipped.FinishedAt = 0.0;
-		Report.Steps.Add(Skipped);
+		Flow->Abort(TEXT("未执行（前一步失败或整次 run 被取消）"), FPlatformTime::Seconds());
+		const TSharedPtr<FJsonObject> Guards = Flow->GuardCounts();
+		Report.Guards = Guards.IsValid() && Guards->Values.Num() > 0 ? Guards : nullptr;
 	}
+	bHaveNextLeaf = false;
 
 	Report.FinishedAtUtc = FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
 	Report.DurationMs = (FPlatformTime::Seconds() - StartedAtSeconds) * 1000.0;
@@ -449,7 +548,6 @@ void FGameTestRunner::FinishRun()
 	bHasReport = true;
 	SkipGate.Reset();
 	bVerifying = false;
-	CurrentIndex = Queue.Num();
 	NextStepNotBefore = 0.0;
 
 	if (OnFinished)
@@ -564,23 +662,9 @@ void FGameTestRunner::TickVerify(double InNowSeconds)
 
 void FGameTestRunner::SkipAlong(int32 InAlso, const FGameTestStep& InLeader, double InNowSeconds)
 {
-	if (!bActive)
+	// 连带跳过的是同一串里接下来的几步（块里也一样），由 Flow 记录并前进。
+	if (bActive && Flow.IsValid())
 	{
-		return;
-	}
-	for (int32 Count = 0; Count < InAlso && CurrentIndex < Queue.Num(); ++Count)
-	{
-		FGameTestStepRecord Record;
-		Record.Step = Queue[CurrentIndex];
-		Record.Status = EGameTestStepStatus::Already;
-		Record.Message = FString::Printf(TEXT("随%s跳过（那一步已达成）"), *InLeader.Label());
-		Record.StartedAt = InNowSeconds;
-		Record.FinishedAt = InNowSeconds;
-		const TSharedPtr<FJsonObject> Skip = MakeShared<FJsonObject>();
-		Skip->SetNumberField(TEXT("with"), InLeader.Index);
-		Record.Payload = MakeShared<FJsonObject>();
-		Record.Payload->SetObjectField(TEXT("skip"), Skip);
-		Report.Steps.Add(Record);
-		++CurrentIndex;
+		Flow->SkipAlong(InAlso, InLeader, InNowSeconds);
 	}
 }

@@ -278,6 +278,7 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 	}
 
 	ApplyLegacyDefaults(Json, OutRun.Steps);
+	OutRun.Json = Json;
 	OutRun.Name = GetName(Json, FPaths::GetBaseFilename(InPath));
 	OutRun.Revision = GetRevision(Json);
 	OutRun.StepDelayMs = -1;

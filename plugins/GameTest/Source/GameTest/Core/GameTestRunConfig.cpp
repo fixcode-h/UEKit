@@ -2,7 +2,12 @@
 
 #include "Core/GameTestRunConfig.h"
 
+#include "Core/Flow/GameTestGuards.h"
+#include "Core/Flow/GameTestScriptParser.h"
 #include "Core/GameTestJson.h"
+#include "Core/Script/GameTestDiag.h"
+#include "GameTest.h"
+#include "GameTestCompat.h"
 #include "GameTestSettings.h"
 #include "Operate/GameTestMove.h"
 #include "Operate/GameTestSkipIf.h"
@@ -15,24 +20,83 @@
 
 namespace
 {
-	bool ParseAction(const FString& InName, EGameTestBlockerAction& OutAction)
+	/** 守护的 do 里 call 子脚本相对场景根：校验用的解析器要知道场景根。 */
+	FString ScenarioRootDir()
 	{
-		if (InName.IsEmpty() || InName == TEXT("close"))
+		return FPaths::GetPath(GameTestRunConfig::GetPath());
+	}
+
+	/** 守护、脚本开关（1.9.0）。 */
+	bool ParseScriptSection(const FJsonObject& InJson, FGameTestRunConfig& OutConfig, FString& OutError)
+	{
+		bool bFlag = false;
+		if (InJson.HasField(TEXT("allowLuaInvoke")))
 		{
-			OutAction = EGameTestBlockerAction::Close;
-			return true;
+			if (!InJson.TryGetBoolField(TEXT("allowLuaInvoke"), bFlag))
+			{
+				OutError = TEXT("allowLuaInvoke 要写 true / false");
+				return false;
+			}
+			OutConfig.ScriptOptions.bAllowLuaInvoke = bFlag;
 		}
-		if (InName == TEXT("call"))
+		if (InJson.HasField(TEXT("allowLuaInCond")))
 		{
-			OutAction = EGameTestBlockerAction::Call;
-			return true;
+			if (!InJson.TryGetBoolField(TEXT("allowLuaInCond"), bFlag))
+			{
+				OutError = TEXT("allowLuaInCond 要写 true / false");
+				return false;
+			}
+			OutConfig.ScriptOptions.bAllowLuaInCond = bFlag;
 		}
-		if (InName == TEXT("command"))
+		if (InJson.HasField(TEXT("maxCallDepth")))
 		{
-			OutAction = EGameTestBlockerAction::Command;
-			return true;
+			int32 Depth = 0;
+			if (!GameTestJson::TryGetInt(InJson, TEXT("maxCallDepth"), Depth) || Depth < 1 || Depth > 32)
+			{
+				OutError = TEXT("maxCallDepth 要写 1–32 的整数（call 最多嵌套几层）");
+				return false;
+			}
+			OutConfig.ScriptOptions.MaxCallDepth = Depth;
 		}
-		return false;
+
+		// 只有 blockers：1.9.0 之前的写法，改写成 guards；两个都有说明是改写后又被旧工具写回了 blockers，报错让人处理。
+		TSharedPtr<FJsonObject> Working = MakeShared<FJsonObject>(InJson);
+		if (InJson.HasField(TEXT("blockers")))
+		{
+			if (InJson.HasField(TEXT("guards")))
+			{
+				OutError = TEXT("blockers 已改成 guards，见 docs/game-test-script.md 第 5.1 节：把 blockers 里的规则挪进 guards 后删掉 blockers");
+				return false;
+			}
+			OutConfig.bMigratedBlockers = GameTestGuards::MigrateBlockers(*Working, OutConfig.MigrationNotes);
+		}
+		if (Working->HasField(TEXT("guards")))
+		{
+			OutConfig.Guards = Working->TryGetField(TEXT("guards"));
+			FGameTestDiagSink Sink;
+			FGameTestScriptParser Parser(ScenarioRootDir(), Sink, OutConfig.ScriptOptions);
+			GameTestGuards::ParseList(OutConfig.Guards, TEXT("global"), TEXT("guards"), Parser, OutConfig.ParsedGuards);
+			if (Sink.HasErrors())
+			{
+				TArray<FString> Lines;
+				Sink.AppendErrorLines(Lines);
+				OutError = FString::Printf(TEXT("守护写错了：%s"), *FString::Join(Lines, TEXT("；")));
+				return false;
+			}
+		}
+		OutConfig.Raw = Working;
+		return true;
+	}
+
+	/** 以 .bak、.bak.1… 备份原文件（不覆盖已有的备份）。 */
+	FString BackupPath(const FString& InPath)
+	{
+		FString Candidate = InPath + TEXT(".bak");
+		for (int32 Index = 1; IFileManager::Get().FileExists(*Candidate) && Index < 1000; ++Index)
+		{
+			Candidate = FString::Printf(TEXT("%s.bak.%d"), *InPath, Index);
+		}
+		return Candidate;
 	}
 }
 
@@ -46,17 +110,41 @@ FString GameTestRunConfig::GetPath()
 	return UGameTestSettings::ResolveScenarioRootDir() / FileName();
 }
 
-const TCHAR* GameTestRunConfig::ActionName(EGameTestBlockerAction InAction)
+const TArray<FString>& GameTestRunConfig::KnownFields()
 {
-	switch (InAction)
+	static const TArray<FString> Fields = {
+		TEXT("uiWaitTimeoutMs"), TEXT("uiStepGapMs"), TEXT("clickVia"), TEXT("randomSeed"), TEXT("move"), TEXT("skipIf"), TEXT("setup"),
+		TEXT("itemKeys"), TEXT("guards"), TEXT("allowLuaInvoke"), TEXT("allowLuaInCond"), TEXT("maxCallDepth"), TEXT("blockers"),
+	};
+	return Fields;
+}
+
+void GameTestRunConfig::PreserveUnknown(FJsonObject& InOutIncoming, const FJsonObject& InExisting)
+{
+	for (const auto& Pair : InExisting.Values)
 	{
-	case EGameTestBlockerAction::Call:
-		return TEXT("call");
-	case EGameTestBlockerAction::Command:
-		return TEXT("command");
-	default:
-		return TEXT("close");
+		const FString Key = GAMETEST_JSON_KEY(Pair.Key);
+		if (!KnownFields().Contains(Key) && !InOutIncoming.HasField(Key))
+		{
+			InOutIncoming.SetField(Key, Pair.Value);
+		}
 	}
+}
+
+TArray<FString> GameTestRunConfig::GuardScreens(const FGameTestRunConfig& InConfig)
+{
+	TArray<FString> Screens;
+	for (const TSharedRef<FGameTestGuardDef>& Guard : InConfig.ParsedGuards)
+	{
+		if (!Guard->bDisabled)
+		{
+			for (const FString& Screen : Guard->Screens)
+			{
+				Screens.AddUnique(Screen);
+			}
+		}
+	}
+	return Screens;
 }
 
 bool GameTestRunConfig::Load(FGameTestRunConfig& OutConfig, FString& OutError)
@@ -77,6 +165,22 @@ bool GameTestRunConfig::Load(FGameTestRunConfig& OutConfig, FString& OutError)
 	{
 		OutError = FString::Printf(TEXT("运行配置 %s：%s"), *Path, *OutError);
 		return false;
+	}
+	if (OutConfig.bMigratedBlockers)
+	{
+		// 一次性改写文件：原文件留备份，改不了（只读、P4 没签出）也照样按改写后的跑，下次再试。
+		const FString Backup = BackupPath(Path);
+		FString SaveError;
+		if (IFileManager::Get().Copy(*Backup, *Path) == COPY_OK && Save(OutConfig, SaveError))
+		{
+			UE_LOG(LogGameTest, Display, TEXT("运行配置 %s 的 blockers 已改写成 guards（原文件存为 %s）：%s"), *Path, *Backup,
+				*FString::Join(OutConfig.MigrationNotes, TEXT("；")));
+			OutConfig.bMigratedBlockers = false;
+		}
+		else
+		{
+			UE_LOG(LogGameTest, Warning, TEXT("运行配置 %s 的 blockers 要改写成 guards，但写不了文件（%s）：这次按改写后的跑"), *Path, *SaveError);
+		}
 	}
 	return true;
 }
@@ -198,68 +302,17 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		}
 	}
 
-	const TArray<TSharedPtr<FJsonValue>>* Items = GameTestJson::TryGetArray(InJson, TEXT("blockers"));
-	if (Items == nullptr)
-	{
-		return true;
-	}
-	TArray<FString> Errors;
-	for (int32 Index = 0; Index < Items->Num(); ++Index)
-	{
-		const TSharedPtr<FJsonObject>* Object = nullptr;
-		if (!(*Items)[Index].IsValid() || !(*Items)[Index]->TryGetObject(Object) || Object == nullptr)
-		{
-			Errors.Add(FString::Printf(TEXT("第 %d 条阻挡界面规则不是对象"), Index + 1));
-			continue;
-		}
-		const FJsonObject& Item = **Object;
-		FGameTestBlockerRule Rule;
-		FString ActionText;
-		GameTestJson::TryGetString(Item, TEXT("widget"), Rule.Widget);
-		GameTestJson::TryGetString(Item, TEXT("action"), ActionText);
-		GameTestJson::TryGetString(Item, TEXT("function"), Rule.Function);
-		GameTestJson::TryGetString(Item, TEXT("command"), Rule.Command);
-		GameTestJson::TryGetString(Item, TEXT("note"), Rule.Note);
-		GameTestJson::TryGetInt(Item, TEXT("delayMs"), Rule.DelayMs);
-		GameTestJson::TryGetBool(Item, TEXT("enabled"), Rule.bEnabled);
-		Rule.Widget.TrimStartAndEndInline();
-		Rule.Function.TrimStartAndEndInline();
-		Rule.Command.TrimStartAndEndInline();
-		Rule.DelayMs = FMath::Clamp(Rule.DelayMs, 0, 60000);
-
-		if (Rule.Widget.IsEmpty())
-		{
-			Errors.Add(FString::Printf(TEXT("第 %d 条阻挡界面规则没写 widget（WBP 类名或资产路径）"), Index + 1));
-			continue;
-		}
-		if (!ParseAction(ActionText, Rule.Action))
-		{
-			Errors.Add(FString::Printf(TEXT("第 %d 条（%s）的 action 只能是 close / call / command"), Index + 1, *Rule.Widget));
-			continue;
-		}
-		if (Rule.Action == EGameTestBlockerAction::Call && Rule.Function.IsEmpty())
-		{
-			Errors.Add(FString::Printf(TEXT("第 %d 条（%s）action=call 要写 function（界面上的无参函数名）"), Index + 1, *Rule.Widget));
-			continue;
-		}
-		if (Rule.Action == EGameTestBlockerAction::Command && Rule.Command.IsEmpty())
-		{
-			Errors.Add(FString::Printf(TEXT("第 %d 条（%s）action=command 要写 command（控制台指令）"), Index + 1, *Rule.Widget));
-			continue;
-		}
-		OutConfig.Blockers.Add(MoveTemp(Rule));
-	}
-	if (Errors.Num() > 0)
-	{
-		OutError = FString::Join(Errors, TEXT("；"));
-		return false;
-	}
-	return true;
+	return ParseScriptSection(InJson, OutConfig, OutError);
 }
 
 TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InConfig)
 {
-	TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
+	// 从原文出发：不认识的字段（api、objectKeys…）原样留着；认得的字段先清掉，再按配置写回。
+	TSharedPtr<FJsonObject> Json = InConfig.Raw.IsValid() ? MakeShared<FJsonObject>(*InConfig.Raw) : MakeShared<FJsonObject>();
+	for (const FString& Key : KnownFields())
+	{
+		Json->RemoveField(Key);
+	}
 	if (InConfig.UiWaitTimeoutMs >= 0)
 	{
 		Json->SetNumberField(TEXT("uiWaitTimeoutMs"), InConfig.UiWaitTimeoutMs);
@@ -293,35 +346,23 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 		}
 		Json->SetArrayField(TEXT("setup"), SetupItems);
 	}
-	TArray<TSharedPtr<FJsonValue>> Items;
-	for (const FGameTestBlockerRule& Rule : InConfig.Blockers)
+	if (InConfig.Guards.IsValid())
 	{
-		TSharedPtr<FJsonObject> Item = MakeShared<FJsonObject>();
-		Item->SetStringField(TEXT("widget"), Rule.Widget);
-		Item->SetStringField(TEXT("action"), ActionName(Rule.Action));
-		if (!Rule.Function.IsEmpty())
-		{
-			Item->SetStringField(TEXT("function"), Rule.Function);
-		}
-		if (!Rule.Command.IsEmpty())
-		{
-			Item->SetStringField(TEXT("command"), Rule.Command);
-		}
-		if (!Rule.Note.IsEmpty())
-		{
-			Item->SetStringField(TEXT("note"), Rule.Note);
-		}
-		if (Rule.DelayMs > 0)
-		{
-			Item->SetNumberField(TEXT("delayMs"), Rule.DelayMs);
-		}
-		if (!Rule.bEnabled)
-		{
-			Item->SetBoolField(TEXT("enabled"), false);
-		}
-		Items.Add(MakeShared<FJsonValueObject>(Item));
+		Json->SetField(TEXT("guards"), InConfig.Guards);
 	}
-	Json->SetArrayField(TEXT("blockers"), Items);
+	const FGameTestScriptOptions Defaults;
+	if (InConfig.ScriptOptions.bAllowLuaInvoke != Defaults.bAllowLuaInvoke)
+	{
+		Json->SetBoolField(TEXT("allowLuaInvoke"), InConfig.ScriptOptions.bAllowLuaInvoke);
+	}
+	if (InConfig.ScriptOptions.bAllowLuaInCond != Defaults.bAllowLuaInCond)
+	{
+		Json->SetBoolField(TEXT("allowLuaInCond"), InConfig.ScriptOptions.bAllowLuaInCond);
+	}
+	if (InConfig.ScriptOptions.MaxCallDepth != Defaults.MaxCallDepth)
+	{
+		Json->SetNumberField(TEXT("maxCallDepth"), InConfig.ScriptOptions.MaxCallDepth);
+	}
 	if (InConfig.ItemKeys.Num() > 0)
 	{
 		TArray<TSharedPtr<FJsonValue>> Keys;
