@@ -8,6 +8,9 @@
 #include "Api/GameTestApi.h"
 #include "Core/GameTestWorld.h"
 #include "Core/Script/GameTestFlowContext.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Observe/Checks/GameTestCond.h"
 
 namespace GA = GameTestApiArgs;
 using GameTestApiArgs::Opt;
@@ -84,7 +87,53 @@ namespace
 		}
 		return Now;
 	}
+
+	EState WaitUntil(FCall& C, FCtx& X)
+	{
+		// cond 参数由 api 步骤原样传进来（没先求值），这里每帧重新判：$变量、表达式要看此刻的值
+		const TSharedPtr<FJsonObject> Cond = GameTestCond::AsObject(C.Arg(0).ToJson());
+		if (!Cond.IsValid())
+		{
+			GA::ArgError(C, 0, TEXT("cond"), TEXT("要写统一条件（{target, visible: true}、{expr: \"=…\"}、{all: […]}）"));
+			return EState::Failed;
+		}
+		double TimeoutMs = 0.0;
+		if (!GA::Number(C.Arg(1), 0.0, TimeoutMs))
+		{
+			GA::ArgError(C, 1, TEXT("timeoutMs"), TEXT("要毫秒数"));
+			return EState::Failed;
+		}
+		// 和 if / waitUntil 块同一套「稳住」规则：成立要持续 settleMs 才算，不被一闪而过的状态骗
+		const TSharedRef<FGameTestCondWatch> Watch = MakeShared<FGameTestCondWatch>();
+		Watch->Start(Cond, X, false);
+		const double Deadline = TimeoutMs > 0.0 ? FPlatformTime::Seconds() + TimeoutMs / 1000.0 : 0.0;
+		FCall* Call = &C;
+		FCtx* Context = &X;
+		auto Check = [Call, Context, Watch, Deadline](double InNow)
+		{
+			if (Watch->Tick(*Context, InNow) == FGameTestCondWatch::EVerdict::Holds)
+			{
+				if (Context->StepPayload.IsValid())
+				{
+					Context->StepPayload->SetObjectField(TEXT("cond"), Watch->GetLast().ToJson());
+				}
+				return Call->Done(FGameTestValue::FromBool(true));
+			}
+			if (Deadline > 0.0 && InNow >= Deadline)
+			{
+				return Call->Fail(TEXT("timeout"), FString::Printf(TEXT("等条件超时：%s"), *Watch->GetLast().Summary()));
+			}
+			return EState::Pending;
+		};
+		const EState Now = Check(FPlatformTime::Seconds());
+		if (Now == EState::Pending)
+		{
+			C.Poll = Check;
+		}
+		return Now;
+	}
 }
+
 
 namespace GameTestBuiltin
 {
@@ -96,5 +145,7 @@ namespace GameTestBuiltin
 		GameTestApis::Add(TEXT("Wait.Loading"), Cat,
 			TEXT("等地图、该加载的流送关卡加载完，且没有异步加载中的包（切图、传送后用）"),
 			{ Opt(TEXT("timeoutMs"), TEXT("int"), TEXT("省略按步骤的 timeoutMs")) }, TEXT(""), false, &WaitLoading, true);
+		GameTestApis::Add(TEXT("Wait.Until"), Cat, TEXT("等统一条件成立（稳住规则同 if 块）；超时失败并写出最后一次各项的实际值"),
+			{ Req(TEXT("cond"), TEXT("cond")), Opt(TEXT("timeoutMs"), TEXT("int"), TEXT("省略按步骤的 timeoutMs")) }, TEXT("bool"), false, &WaitUntil, true);
 	}
 }
