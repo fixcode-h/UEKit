@@ -71,7 +71,9 @@ public:
 	/**
 	 * `gt.record.key`：给录下的一步定「条目怎么认」。`step` 省略 = 正在问的那一步；
 	 * `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` / `text` / `skip`）；
-	 * `rule` 为 true 时存成规则（以后同类条目都这么认）；`resume`（默认 true）答完继续游戏。
+	 * `rule` 为 true 时存成规则（以后同类条目都这么认）；`all` 为 true 时这次录制里同一列表（条目类 + 容器）已录的步骤也改成这样
+	 * （1.5.0，结果里 `applied` 改了几步、`skipped` 改不了的步和原因）；`resume`（默认 true）答完继续游戏。
+	 * 答过的认法记在这次录制里，同一列表后面再点到条目直接沿用（hint.key.by = same），不再问。
 	 */
 	bool AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 
@@ -172,6 +174,18 @@ private:
 		TSharedPtr<FGameTestKeySite> Site;
 	};
 
+	/**
+	 * 这次录制里对一个列表（条目类 + 容器）已经定过的认法（1.5.0）：同一列表后面再点到条目直接沿用，不再问；
+	 * 改某一步时勾「同一列表的都改」也按它改。只在这次录制里有效，跨录制的靠规则（itemKeys）。
+	 */
+	struct FKeyChoice
+	{
+		/** 按哪些字段认（条件左边）；空时看 Mode */
+		TArray<FString> By;
+		/** index（只按第几个）/ text（先按文字找） */
+		FString Mode;
+	};
+
 	/** 正在暂停问的那一步。 */
 	struct FKeyAsk
 	{
@@ -231,6 +245,13 @@ private:
 	//~ 条目怎么认（Record/GameTestRecordKeyAsk.cpp）
 	/** 点击步骤写好后：复查按下时挑的标识（值变了就换），按询问方式决定要不要停下来问。 */
 	void AfterKeyStep(const TSharedRef<FJsonObject>& InStep, const TSharedPtr<FGameTestKeySite>& InSite, bool bInMayAsk);
+	/** 按这次录制里定过的认法改这个站点（target 一起改）；对不上（读不到、不唯一）返回 false，站点不动。 */
+	bool ApplyKeyChoice(const TSharedPtr<FJsonObject>& InStep, FGameTestKeySite& InOutSite, const FKeyChoice& InChoice, const FString& InBy, FString& OutWhy) const;
+	/** 同一列表（条目类 + 容器）的键 */
+	static FString KeyChoiceId(const FGameTestKeySite& InSite);
+	/** 把认法套到这次录制里同一列表已录的其他步骤上，结果写进 `applied` / `skipped`。 */
+	void ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite, const FString& InChoiceId,
+		const FKeyChoice& InChoice, FJsonObject& OutResult);
 	void BeginAsk(const TSharedRef<FJsonObject>& InStep, const TSharedPtr<FGameTestKeySite>& InSite);
 	/** 结束询问、恢复游戏；暂停的这段时间不算进录制间隔。 */
 	void EndAsk();
@@ -295,4 +316,5 @@ private:
 	double AskTimeoutSeconds = 0.0;
 	TArray<FKeyStep> KeySteps;
 	TOptional<FKeyAsk> KeyAsk;
+	TMap<FString, FKeyChoice> KeyChoices;
 };
