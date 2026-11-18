@@ -309,13 +309,15 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
            "items": [ { "name": "项目.QuestTest.AcceptQuest", "class": "/Script/Demo.QuestTestLibrary", "function": "AcceptQuest",
                         "category": "任务", "display": "接任务", "note": "…", "readOnly": false, "file": "Source/Demo/GameTestApi/QuestTestLibrary.h", "line": 21,
                         "args": [ { "name": "QuestId", "type": "int32" } ], "returns": "bool" } ],
-           "rejected": [ { "class": "…", "function": "…", "why": "参数 Target 是 AActor*，不是可构造类型" } ] },
+           "rejected": [ { "class": "…", "function": "…", "why": "参数 OnDone：OnDone 是委托，脚本里给不了" } ] },
   "lua": { "scannedAt": "…", "folders": ["GameTestApi"], "items": [ { "name": "项目.QuestApi.Finish", "module": "GameTestApi.QuestApi", "function": "Finish", … } ], "rejected": [] },
   "renamed": { "旧名": "新名" } }
 ```
 
 - 运行时按 `class` + `function` 反射调用、按 `module` + `function` 调 Lua；打包的游戏里也能用。`renamed` 里的旧名调用时报「改用 …」。
-- `WorldContext` 参数自动填；参数类型不在第 6 节支持范围里的进 `rejected`。
+- `WorldContext` 参数自动填；参数类型不在第 6 节支持范围里的进 `rejected`（UObject 参数支持，调用时传能重找的对象）。
+- `args` 每项：`{name, type, constructible, object?, out?, auto?, why?}`——`object: true` 是 UObject 参数（第 6 节的对象写法），`out: true` 是输出参数（不用给，调完进返回值），`auto: "world"` 是自动填的世界参数。`gt.vars` 的函数参数用同一个格式。
+- 接口名重了（两个类去掉 `Library` 后缀后同名）时后一个进 `rejected`。扫描结果和原来一样（不比 `scannedAt`）时不写文件，免得每次开编辑器都留一个只改了时间的差异。
 
 ## 9. 运行配置新增（`_settings.json`）
 
@@ -341,9 +343,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.resolve`（变化） | 原有 + `conds: [{id?, cond}]`、`exprs: [{id?, expr}]`、`vars` | `conds: [{id, holds, parts: [{path, holds, actual, unresolved?}]}]`、`exprs: [{id, value?, type?, unresolved?, error?}]`。不等待、不稳住，只看这一刻 |
 | `gt.validate` | `scenario`（路径）或 `script`（整份 JSON）、`deep`（默认 true：查函数、选择器、路径，需要编辑器或游戏进程） | `ok`、`errors` / `warnings`：`[{id?, path, code, message}]`、`checked: {steps, calls, functions, selectors, exprs}`。不开游戏也能跑（选择器查 WBP 资产，运行时生成的条目只查到容器） |
 | `gt.vars` | `scope`：`widget`（`target` 或 `class`）/ `class`（`name`）/ `subsystem`（`name`，省略列全部子系统）/ `player`（`which`：`gi gs gm ps pc pawn hud`）/ `object`（定位器）/ `lua`（`module`）；`values`（游戏开着时带此刻的值）、`functions`（默认 true）、`filter`、`offset` / `limit`（默认 60，最多 200） | `owner: {class, asset?, luaModule?}`、`groups: [{src: "cpp" / "bp" / "lua", title, class?, asset?, file?, items: [{name, path, type, kind: "prop" / "fn", readOnly, sig?, args?: [{name, type, constructible, why?}], callable?, why?, note?, line?, value?, dim?}]}]`、`total`、`hasMore`、`nextOffset`、`truncated?`。组顺序固定 C++ → 蓝图 → Lua；C++ 组按声明类分小节（离它最近的在前，引擎基类 `UUserWidget` / `AActor` / `UObject` 标 `collapsed`）；`dim`：像动画、计时（Anim / Time / Tick / Hover）的。Lua 组只有游戏开着时由实例表给出（文件扫描由面板做、按同样结构合并）。最多 12000 字 |
-| `gt.widgets` | `asset`（WBP 路径）或 `class`；`filter`、`offset` / `limit`（默认 200） | `asset`、`class`、`parent`（原生父类）、`luaModule?`、`nodes: [{name, class, selector, depth, isVariable, text?, visibility?, container?: {entryClass?}}]`、`total`、`truncated?`。读资产的 WidgetTree，不用开游戏。最多 12000 字 |
+| `gt.widgets` | `asset`（WBP 路径）或 `class`；`filter`、`offset` / `limit`（默认 200） | `asset`、`class`、`parent`（原生父类）、`selector`（整个屏 `WBP_X:.`）、`treeFrom?`（控件树继承自父 WBP 时是父 WBP 的路径）、`luaModule?`、`nodes: [{name, class, selector, depth, isVariable, text?, visibility?, container?: {entryClass?}, userWidget?}]`（`userWidget: true` 是嵌套的 WBP，里面的控件用 `>` 进去，再按它的类调一次）、`total`、`hasMore?`、`nextOffset?`、`truncated?`。只在编辑器进程（GameTestEditor 模块）。读资产的 WidgetTree，不用开游戏。最多 12000 字 |
 | `gt.api` | `query`、`category`、`src`（`builtin` / `cpp` / `lua`）、`readOnly`、`offset` / `limit`（默认 60） | `items: [{name, category, src, display?, sig, args, returns, readOnly, note?, file?, line?}]`、`rejected`（`src` 不是 builtin 时）、`total`、`hasMore` |
-| `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path` |
+| `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
 
 ### 推送
 
