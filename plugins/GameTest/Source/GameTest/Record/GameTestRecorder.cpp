@@ -825,6 +825,10 @@ void FGameTestRecorder::ProcessMouseDown(const FRawEvent& InEvent)
 		Press.Target = Target;
 		Press.Hint = Hint;
 		Press.KeySite = KeySite;
+		if (KeySite.IsValid())
+		{
+			CapturePressedFields(*KeySite);
+		}
 		if (Slate.IsValid())
 		{
 			GameTestSelectorWriter::ToLocalPoint(*Slate, InEvent.Position, Press.At);

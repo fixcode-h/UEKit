@@ -24,12 +24,12 @@ namespace GameTestRecordKeyCacheDetail
 	constexpr int32 MaxCachedChars = 400000;
 }
 
-void FGameTestRecorder::CacheKeyFields(const TSharedRef<FJsonObject>& InStep, const FGameTestKeySite& InSite)
+void FGameTestRecorder::CapturePressedFields(FGameTestKeySite& InOutSite)
 {
 	using namespace GameTestRecordKeyCacheDetail;
-	// 存不下只是以后换标识要开游戏，录制照常：每一步都悄悄跳过，不报错
-	UWidget* Container = InSite.Container.Get();
-	if (Container == nullptr || KeyCacheDir.IsEmpty())
+	InOutSite.PressedFields.Reset();
+	UWidget* Container = InOutSite.Container.Get();
+	if (Container == nullptr)
 	{
 		return;
 	}
@@ -38,7 +38,7 @@ void FGameTestRecorder::CacheKeyFields(const TSharedRef<FJsonObject>& InStep, co
 	{
 		return;
 	}
-	const int32 Mine = GameTestItemKey::FindEntry(Entries, InSite.Entry.Widget.Get(), InSite.Entry.Item.Get());
+	const int32 Mine = GameTestItemKey::FindEntry(Entries, InOutSite.Entry.Widget.Get(), InOutSite.Entry.Item.Get());
 	if (Mine == INDEX_NONE)
 	{
 		return;
@@ -48,10 +48,22 @@ void FGameTestRecorder::CacheKeyFields(const TSharedRef<FJsonObject>& InStep, co
 	{
 		return;
 	}
-	// 和 gt.keys 的返回同形状，面板拿来直接用；值是录制那一刻的
+	// 和 gt.keys 的返回同形状，面板拿来直接用；值是按下那一刻的
 	Fields->SetNumberField(TEXT("index"), Mine);
 	Fields->SetNumberField(TEXT("entries"), Entries.Num());
 	Fields->SetStringField(TEXT("recordedAt"), FDateTime::Now().ToIso8601());
+	InOutSite.PressedFields = Fields;
+}
+
+void FGameTestRecorder::CacheKeyFields(const TSharedRef<FJsonObject>& InStep, const FGameTestKeySite& InSite)
+{
+	// 存不下只是以后换标识要开游戏，录制照常：每一步都悄悄跳过，不报错
+	// 用按下时读的：松开后列表可能已经刷新（最近用过的排到前面），再读就是别的条目
+	const TSharedPtr<FJsonObject> Fields = InSite.PressedFields;
+	if (!Fields.IsValid() || KeyCacheDir.IsEmpty())
+	{
+		return;
+	}
 
 	FString Text;
 	const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Text);

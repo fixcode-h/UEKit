@@ -110,6 +110,27 @@ bool GameTestRpcKeys::RecordKey(const TSharedPtr<FJsonObject>& Args, TSharedPtr<
 bool GameTestRpcKeys::Keys(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 {
 	using namespace GameTestRpcKeysDetail;
+	// 录制中按 step 看、按下时存过全部字段：直接用那份（松开后列表可能刷新，现读会是别的条目），容器关了也能看
+	double StepNumber = 0.0;
+	if (Args.IsValid() && Args->TryGetNumberField(TEXT("step"), StepNumber) && FGameTestRecorder::Get().IsRecording())
+	{
+		const TSharedPtr<FGameTestKeySite> Pressed = FGameTestRecorder::Get().FindKeySite(static_cast<int32>(StepNumber));
+		if (Pressed.IsValid() && Pressed->PressedFields.IsValid())
+		{
+			int32 PageOffset = 0;
+			int32 PageLimit = DefaultFieldPage;
+			Args->TryGetNumberField(TEXT("offset"), PageOffset);
+			Args->TryGetNumberField(TEXT("limit"), PageLimit);
+			Out = GameTestItemKey::PageFields(*Pressed->PressedFields, Str(Args, TEXT("filter")), FMath::Max(0, PageOffset), FMath::Clamp(PageLimit, 1, MaxFieldPage));
+			Out->SetObjectField(TEXT("key"), GameTestItemKey::SiteToJson(*Pressed, /*InMaxCandidates=*/12));
+			double Index = 0.0;
+			if (Pressed->PressedFields->TryGetNumberField(TEXT("index"), Index))
+			{
+				Out->SetNumberField(TEXT("index"), Index);
+			}
+			return true;
+		}
+	}
 	TSharedPtr<FGameTestKeySite> Site;
 	if (!SiteFromArgs(Args, Site, Error))
 	{

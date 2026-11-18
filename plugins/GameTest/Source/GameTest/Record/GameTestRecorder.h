@@ -336,6 +336,8 @@ private:
 	 * 实现在 GameTestRecordKeyCache.cpp。
 	 */
 	void CacheKeyFields(const TSharedRef<FJsonObject>& InStep, const FGameTestKeySite& InSite);
+	/** 按下时读条目的全部字段存进站点 PressedFields（1.6.1）：松开后列表可能刷新，之后拼条件、存缓存都用它。 */
+	static void CapturePressedFields(FGameTestKeySite& InOutSite);
 	FString KeyCacheDir;
 	int32 KeyCacheCounter = 0;
 };

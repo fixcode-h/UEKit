@@ -6,6 +6,7 @@
 #include "Observe/GameTestItemKey.h"
 
 #include "Core/GameTestRunConfig.h"
+#include "Observe/GameTestItemMatch.h"
 #include "Observe/GameTestKeyRules.h"
 #include "Observe/GameTestSnapshot.h"
 
@@ -20,8 +21,56 @@ namespace GameTestItemKeyDecideDetail
 	constexpr int32 MaxCandidates = 12;
 }
 
-FString GameTestItemKey::CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy)
+namespace GameTestItemKeyDecideDetail
 {
+	/** 按下那一刻这个字段的值：先找候选（带「会变」标记），再找 PressedFields；都没有返回空。 */
+	TSharedPtr<FJsonValue> PressedValue(const FGameTestKeySite& InSite, const FString& InBy, bool& bOutChanged)
+	{
+		bOutChanged = false;
+		for (const FGameTestKeyCandidate& Candidate : InSite.Candidates)
+		{
+			if (!Candidate.bCombo && Candidate.Value.IsValid() && Candidate.By == InBy)
+			{
+				bOutChanged = Candidate.bChanged;
+				return Candidate.Value;
+			}
+		}
+		if (!InSite.PressedFields.IsValid())
+		{
+			return nullptr;
+		}
+		const TArray<TSharedPtr<FJsonValue>>* Groups = nullptr;
+		if (!InSite.PressedFields->TryGetArrayField(TEXT("groups"), Groups) || Groups == nullptr)
+		{
+			return nullptr;
+		}
+		for (const TSharedPtr<FJsonValue>& GroupValue : *Groups)
+		{
+			const TSharedPtr<FJsonObject>* Group = nullptr;
+			const TArray<TSharedPtr<FJsonValue>>* Fields = nullptr;
+			if (!GroupValue.IsValid() || !GroupValue->TryGetObject(Group) || Group == nullptr || !Group->IsValid()
+				|| !(*Group)->TryGetArrayField(TEXT("fields"), Fields) || Fields == nullptr)
+			{
+				continue;
+			}
+			for (const TSharedPtr<FJsonValue>& FieldValue : *Fields)
+			{
+				const TSharedPtr<FJsonObject>* Field = nullptr;
+				FString By;
+				if (FieldValue.IsValid() && FieldValue->TryGetObject(Field) && Field != nullptr && Field->IsValid()
+					&& (*Field)->TryGetStringField(TEXT("by"), By) && By == InBy)
+				{
+					return (*Field)->TryGetField(TEXT("v"));
+				}
+			}
+		}
+		return nullptr;
+	}
+}
+
+FString GameTestItemKey::CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy, TArray<FString>* OutChanged, bool bInNow)
+{
+	using namespace GameTestItemKeyDecideDetail;
 	FGameTestKeyCache Cache;
 	TArray<FString> Parts;
 	for (const FString& By : InBy)
@@ -32,7 +81,16 @@ FString GameTestItemKey::CondFromFields(const FGameTestKeySite& InSite, const TA
 		{
 			return FString();
 		}
-		const TSharedPtr<FJsonValue> Value = ReadValue(InSite.Entry, InSite.bList, Conds[0].Source, Conds[0].Path, Cache);
+		bool bChanged = false;
+		TSharedPtr<FJsonValue> Value = bInNow ? nullptr : PressedValue(InSite, By, bChanged);
+		if (!Value.IsValid())
+		{
+			Value = ReadValue(InSite.Entry, InSite.bList, Conds[0].Source, Conds[0].Path, Cache);
+		}
+		if (bChanged && OutChanged != nullptr)
+		{
+			OutChanged->Add(By);
+		}
 		const FString Text = Value.IsValid() ? FormatValue(*Value) : FString();
 		if (Text.IsEmpty())
 		{
