@@ -62,7 +62,8 @@ struct GAMETEST_API FGameTestKeyRule
  *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
  *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
  *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ],
- *   "itemKeys": [ { "entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"] } ] }
+ *   "itemKeys": [ { "entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"] } ],
+ *   "skipIf": { "enabled": true, "settleMs": 300, "verify": true, "verifyTimeoutMs": 5000 } }
  * ```
  */
 struct GAMETEST_API FGameTestRunConfig
@@ -88,6 +89,11 @@ struct GAMETEST_API FGameTestRunConfig
 	TSharedPtr<FJsonObject> Move;
 	/** 条目怎么认（`itemKeys`）。 */
 	TArray<FGameTestKeyRule> ItemKeys;
+	/**
+	 * 已达成就跳过（1.6.0）：`skipIf` 段原样存（`false` 或 `{enabled, settleMs, verify, verifyTimeoutMs}`，
+	 * 校验见 GameTestSkipIf::ApplyOptions）；没写时为空，按默认（开、300ms、做完核对 5 秒）。
+	 */
+	TSharedPtr<FJsonValue> SkipIf;
 };
 
 class GAMETEST_API GameTestRunConfig

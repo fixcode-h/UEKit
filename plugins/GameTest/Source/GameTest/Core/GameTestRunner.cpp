@@ -4,7 +4,9 @@
 
 #include "Core/GameTestAction.h"
 #include "Core/GameTestWorld.h"
+#include "Observe/GameTestCondition.h"
 #include "Observe/GameTestWidgetNode.h"
+#include "Operate/GameTestSkipIf.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -48,6 +50,9 @@ bool FGameTestRunner::StartRun(
 	ClickVia = InRequest.ClickVia;
 	MoveDefaults = InRequest.MoveDefaults;
 	UiStepGapMs = FMath::Max(0, InRequest.UiStepGapMs);
+	SkipOptions = InRequest.SkipIf;
+	SkipGate.Reset();
+	bVerifying = false;
 	LastUiStepEndedAt = -1.0;
 	PendingStepEvents.Reset();
 	Handles = InRuntimeState.Handles;
@@ -99,7 +104,15 @@ void FGameTestRunner::Tick(double InNowSeconds)
 	// 跨帧动作：本帧求值一次谓词。完成之后**不要在这里 return**——
 	// 要接着往下走，让"队列已空"能在同一帧收尾（否则整次 run 会晚一帧才结束，
 	// 而 job 快照可能正好卡在"已完成但还显示 running"的那一帧上）。
-	if (bActive && bStepInFlight)
+	if (bActive && bStepInFlight && SkipGate.IsValid())
+	{
+		TickSkipGate(InNowSeconds);
+	}
+	else if (bActive && bStepInFlight && bVerifying)
+	{
+		TickVerify(InNowSeconds);
+	}
+	else if (bActive && bStepInFlight)
 	{
 		if (PendingPredicate.IsSet() && PendingPredicate(InNowSeconds))
 		{
@@ -109,7 +122,7 @@ void FGameTestRunner::Tick(double InNowSeconds)
 			}
 			else
 			{
-				CompleteCurrentStep(EGameTestStepStatus::Succeeded,
+				FinishSucceeded(
 					FString::Printf(TEXT("%s（已完成，用时 %.0f ms）"),
 						*CurrentRecord.Message, (InNowSeconds - CurrentRecord.StartedAt) * 1000.0),
 					InNowSeconds);
@@ -184,7 +197,32 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	CurrentRecord = FGameTestStepRecord();
 	CurrentRecord.Step = Step;
 	CurrentRecord.StartedAt = InNowSeconds;
+	PendingPredicate = nullptr;
+	PendingFailure.Reset();
+	SkipGate.Reset();
+	SkipGateNote.Reset();
+	bVerifying = false;
 
+	// 已达成就跳过：先判断，判断完（没达成）才调动作。判断要等界面出来，上限和 UI 等待一样（步骤写了 timeoutMs 按它）。
+	const TSharedPtr<FJsonObject> SkipIf = SkipOptions.bEnabled ? GameTestSkipIf::Get(Step.Params) : nullptr;
+	if (SkipIf.IsValid())
+	{
+		SkipGate = MakeShared<FGameTestSkipGate>(CurrentRecord.Step, SkipIf, Handles, SkipOptions, InNowSeconds);
+		const int32 GateTimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : UiWaitTimeoutMs;
+		CurrentRecord.Step.TimeoutMs = GateTimeoutMs;
+		StepDeadline = GateTimeoutMs > 0 ? InNowSeconds + GateTimeoutMs / 1000.0 : TNumericLimits<double>::Max();
+		CurrentRecord.Message = SkipGate->GetMessage();
+		bStepInFlight = true;
+		TickSkipGate(InNowSeconds);
+		return;
+	}
+
+	RunHandler(InNowSeconds);
+}
+
+void FGameTestRunner::RunHandler(double InNowSeconds)
+{
+	const FGameTestStep& Step = Queue[CurrentIndex];
 	const int32 TimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : DefaultStepTimeoutMs;
 
 	// 超时值写回记录：消息里要能报出真正的上限。
@@ -219,6 +257,11 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 		Context.Message = FString::Printf(TEXT("动作 %s 已经没有实现（提供它的模块在 run 期间被卸载了）"), *CurrentRecord.Step.Action.ToString());
 	}
 
+	if (!SkipGateNote.IsEmpty() && Context.Payload.IsValid())
+	{
+		// 判断过「没达成」才做的：结论记下来，面板步骤详情里显示「回放时没达成，照常做了」
+		Context.Payload->SetStringField(TEXT("skipCheck"), SkipGateNote);
+	}
 	CurrentRecord.Payload = Context.Payload;
 	CurrentRecord.Message = Context.Message;
 
@@ -255,6 +298,11 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 		return;
 	}
 
+	if (Status == EGameTestStepStatus::Succeeded)
+	{
+		FinishSucceeded(Context.Message, InNowSeconds);
+		return;
+	}
 	CompleteCurrentStep(Status, Context.Message, InNowSeconds);
 }
 
@@ -280,7 +328,9 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	CurrentRecord.Status = InStatus;
 	CurrentRecord.Message = InMessage;
 	CurrentRecord.FinishedAt = InNowSeconds;
-	bTouchedSucceeded = (InStatus == EGameTestStepStatus::Succeeded);
+	bTouchedSucceeded = (InStatus == EGameTestStepStatus::Succeeded || InStatus == EGameTestStepStatus::Already);
+	SkipGate.Reset();
+	bVerifying = false;
 
 	const bool bStopAfterFailure = (InStatus == EGameTestStepStatus::Failed)
 		&& CurrentRecord.Step.FailMode == EGameTestFailMode::Stop;
@@ -316,7 +366,8 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	}
 
 	// 失败的 UI 操作也算：onFail=continue 时下一个 UI 操作同样要等界面缓过来。
-	if (GameTestRunnerDetail::IsUiOperation(CurrentRecord.Step))
+	// 已达成跳过的步骤什么都没做，不算 UI 操作，不占间隔。
+	if (InStatus != EGameTestStepStatus::Already && GameTestRunnerDetail::IsUiOperation(CurrentRecord.Step))
 	{
 		LastUiStepEndedAt = InNowSeconds;
 	}
@@ -396,6 +447,8 @@ void FGameTestRunner::FinishRun()
 	bActive = false;
 	bStepInFlight = false;
 	bHasReport = true;
+	SkipGate.Reset();
+	bVerifying = false;
 	CurrentIndex = Queue.Num();
 	NextStepNotBefore = 0.0;
 
@@ -405,5 +458,129 @@ void FGameTestRunner::FinishRun()
 		const FGameTestOnFinished Callback = MoveTemp(OnFinished);
 		OnFinished = nullptr;
 		Callback(Report);
+	}
+}
+
+//~ 已达成就跳过 ---------------------------------------------------------------
+
+void FGameTestRunner::TickSkipGate(double InNowSeconds)
+{
+	if (!SkipGate.IsValid())
+	{
+		return;
+	}
+	const EGameTestSkipGate Result = SkipGate->Tick(InNowSeconds);
+	if (Result == EGameTestSkipGate::Skip)
+	{
+		const TSharedPtr<FJsonObject> Payload = MakeShared<FJsonObject>();
+		Payload->SetObjectField(TEXT("skip"), SkipGate->MakeSkipPayload(InNowSeconds));
+		CurrentRecord.Payload = Payload;
+		const TSharedPtr<FJsonObject> SkipIf = GameTestSkipIf::Get(CurrentRecord.Step.Params);
+		const int32 Also = SkipIf.IsValid() ? GameTestSkipIf::Also(*SkipIf) : 0;
+		const FGameTestStep Leader = CurrentRecord.Step;
+		CompleteCurrentStep(EGameTestStepStatus::Already, SkipGate->GetMessage(), InNowSeconds);
+		SkipAlong(Also, Leader, InNowSeconds);
+		return;
+	}
+	if (Result == EGameTestSkipGate::Proceed)
+	{
+		SkipGateNote = SkipGate->GetMessage();
+		SkipGate.Reset();
+		bStepInFlight = false;
+		RunHandler(InNowSeconds);
+		return;
+	}
+	CurrentRecord.Message = SkipGate->GetMessage();
+	if (InNowSeconds >= StepDeadline)
+	{
+		CompleteCurrentStep(EGameTestStepStatus::Failed,
+			FString::Printf(TEXT("等着判断是否已达成，超时（%d ms）：%s"), CurrentRecord.Step.TimeoutMs, *SkipGate->GetMessage()),
+			InNowSeconds);
+	}
+}
+
+void FGameTestRunner::FinishSucceeded(const FString& InMessage, double InNowSeconds)
+{
+	const TSharedPtr<FJsonObject> SkipIf = SkipOptions.bEnabled ? GameTestSkipIf::Get(CurrentRecord.Step.Params) : nullptr;
+	if (!SkipIf.IsValid() || !GameTestSkipIf::ShouldVerify(*SkipIf, SkipOptions))
+	{
+		CompleteCurrentStep(EGameTestStepStatus::Succeeded, InMessage, InNowSeconds);
+		return;
+	}
+
+	// 动作本身做完了：先收尾（真实点击按着的鼠标键要松开），再等条件成立
+	PendingPredicate = nullptr;
+	if (PendingCleanup)
+	{
+		const TFunction<void()> Cleanup = MoveTemp(PendingCleanup);
+		PendingCleanup = nullptr;
+		Cleanup();
+	}
+	VerifySkipIf = SkipIf;
+	VerifyMessage = InMessage;
+	VerifyTimeoutMs = GameTestSkipIf::VerifyTimeoutMs(*SkipIf, SkipOptions);
+	StepDeadline = InNowSeconds + VerifyTimeoutMs / 1000.0;
+	LastVerifyAt = -1.0;
+	bVerifying = true;
+	bStepInFlight = true;
+	CurrentRecord.Message = FString::Printf(TEXT("%s；核对是否已达成"), *InMessage);
+	TickVerify(InNowSeconds);
+}
+
+void FGameTestRunner::TickVerify(double InNowSeconds)
+{
+	if (!bVerifying || !VerifySkipIf.IsValid())
+	{
+		return;
+	}
+	// 解析选择器要采控件树，隔 0.1 秒看一次就够
+	if (LastVerifyAt >= 0.0 && InNowSeconds - LastVerifyAt < 0.1 && InNowSeconds < StepDeadline)
+	{
+		return;
+	}
+	LastVerifyAt = InNowSeconds;
+	FString Actual;
+	if (GameTestSkipIf::Holds(*VerifySkipIf, CurrentRecord.Step, Handles, Actual))
+	{
+		bVerifying = false;
+		if (!CurrentRecord.Payload.IsValid())
+		{
+			CurrentRecord.Payload = MakeShared<FJsonObject>();
+		}
+		CurrentRecord.Payload->SetStringField(TEXT("verified"), Actual);
+		CompleteCurrentStep(EGameTestStepStatus::Succeeded,
+			FString::Printf(TEXT("%s；做完核对：已达成（%s）"), *VerifyMessage, *Actual), InNowSeconds);
+		return;
+	}
+	if (InNowSeconds >= StepDeadline)
+	{
+		bVerifying = false;
+		CompleteCurrentStep(EGameTestStepStatus::Failed,
+			FString::Printf(TEXT("%s；但做完 %.1f 秒内没达成：期望 %s，此刻 %s（点了没反应？条件刷新慢就调大 verifyTimeoutMs，或关掉做完核对）"),
+				*VerifyMessage, VerifyTimeoutMs / 1000.0, *GameTestCondition::Describe(*VerifySkipIf), *Actual),
+			InNowSeconds);
+	}
+}
+
+void FGameTestRunner::SkipAlong(int32 InAlso, const FGameTestStep& InLeader, double InNowSeconds)
+{
+	if (!bActive)
+	{
+		return;
+	}
+	for (int32 Count = 0; Count < InAlso && CurrentIndex < Queue.Num(); ++Count)
+	{
+		FGameTestStepRecord Record;
+		Record.Step = Queue[CurrentIndex];
+		Record.Status = EGameTestStepStatus::Already;
+		Record.Message = FString::Printf(TEXT("随%s跳过（那一步已达成）"), *InLeader.Label());
+		Record.StartedAt = InNowSeconds;
+		Record.FinishedAt = InNowSeconds;
+		const TSharedPtr<FJsonObject> Skip = MakeShared<FJsonObject>();
+		Skip->SetNumberField(TEXT("with"), InLeader.Index);
+		Record.Payload = MakeShared<FJsonObject>();
+		Record.Payload->SetObjectField(TEXT("skip"), Skip);
+		Report.Steps.Add(Record);
+		++CurrentIndex;
 	}
 }

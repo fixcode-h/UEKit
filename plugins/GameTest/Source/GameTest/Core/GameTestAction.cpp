@@ -6,6 +6,7 @@
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestTypes.h"
+#include "Operate/GameTestSkipIf.h"
 
 #include "Dom/JsonObject.h"
 
@@ -148,8 +149,8 @@ namespace
 			{ TEXT("net.compare"), TEXT("class,tag,from,to,tolerance"), false, false,
 				TEXT("跨端一致性断言：同一玩家对应的 actor 在两端世界的位姿偏差不超过 tolerance（厘米）；from/to 各可给 client 与 locallyControlled（缺省 from=server、to=client0）；给 timeoutMs 则跨帧等到一致"),
 				&GameTestHandlers::HandleNetCompare },
-			{ TEXT("assert"), TEXT("exists,visible,enabled,text,textContains,count,selected,selectedProperty,stateKey,equals"), true, false,
-				TEXT("断言目标状态（stateKey+equals 可断言快照 state 里的任意字段）；失败信息里带实际值，不做静默通过"),
+			{ TEXT("assert"), TEXT("exists,visible,enabled,text,textContains,textLike,checked,count,selected,selectedProperty,stateKey,field,image,any,equals"), true, false,
+				TEXT("断言目标状态（stateKey+equals 可断言快照 state 里的任意字段；textLike 忽略数字和标点比文字；checked 勾选；field=@self/@lua/@item/@itemLua.路径 + equals 读 WBP 或 Lua 字段；image 贴图名；any 任一成立）；失败信息里带实际值，不做静默通过"),
 				&GameTestHandlers::HandleAssert },
 			{ TEXT("probe"), TEXT("pointX,pointY,expect"), true, false,
 				TEXT("只读命中测试：这个点上最终会命中谁（返回命中路径与最顶层控件；被遮挡时失败并给出遮挡者）"),
@@ -212,6 +213,8 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("onFail"),
 		// 录制写的线索（资源路径、类、文字、位置）：只给人看和解析失败时找候选，执行时不读。
 		TEXT("hint"),
+		// 已达成就跳过（1.6.0）：回放到这一步时条件已经成立就不做（GameTestSkipIf）
+		TEXT("skipIf"),
 	};
 	return Common;
 }
@@ -311,6 +314,16 @@ bool GameTestActions::ParseStep(
 		}
 	}
 
+	// 已达成就跳过：条件写错和拼错字段一样在开跑前报出来
+	if (InJson->HasField(TEXT("skipIf")))
+	{
+		FString SkipError;
+		if (!GameTestSkipIf::ValidateStep(*InJson, SkipError))
+		{
+			OutErrors.Add(FString::Printf(TEXT("skipIf：%s"), *SkipError));
+		}
+	}
+
 	if (Info->bNeedsTarget && OutStep.Target.IsEmpty())
 	{
 		OutErrors.Add(FString::Printf(TEXT("动作 %s 需要 target（选择器或 @句柄）"), *ActionText));
@@ -346,6 +359,7 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 	Common->SetStringField(TEXT("note"), TEXT("写进报告的一句说明"));
 	Common->SetStringField(TEXT("timeoutMs"), TEXT("本步超时；缺省用设置里的 DefaultStepTimeoutMs"));
 	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）或 continue"));
+	Common->SetStringField(TEXT("skipIf"), TEXT("已达成就跳过：{条件, target?, also?, settleMs?, verify?, verifyTimeoutMs?}，条件同 assert；回放时成立就不做这一步（记 already，算通过），also 连带跳过后面几步，verify 真做了以后核对条件成立"));
 	Root->SetObjectField(TEXT("common"), Common);
 
 	TArray<TSharedPtr<FJsonValue>> ActionValues;

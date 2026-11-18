@@ -14,6 +14,9 @@
 #include "Observe/GameTestInspect.h"
 #include "Observe/GameTestNav.h"
 #include "Observe/GameTestResolve.h"
+#include "Core/GameTestAction.h"
+#include "Operate/GameTestSkipIf.h"
+#include "Observe/GameTestCondition.h"
 #include "Record/GameTestRecorder.h"
 #include "Shot/GameTestShot.h"
 #include "GameTestSettings.h"
@@ -320,6 +323,13 @@ namespace
 			ToRun.StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
 		}
 
+		// 「全部照做」：忽略所有已达成就跳过的条件，每一步都真做（测第一次领取、新号这类路径）
+		bool bIgnoreSkipIf = false;
+		if (Args.IsValid() && Args->TryGetBoolField(TEXT("ignoreSkipIf"), bIgnoreSkipIf))
+		{
+			ToRun.bIgnoreSkipIf = bIgnoreSkipIf;
+		}
+
 		FString RunId;
 		TSharedPtr<FJsonObject> Result;
 		if (!Subsystem->BeginScenarioFileRun(ToRun, RunId, Result))
@@ -469,6 +479,23 @@ namespace
 			GameTestJson::TryGetNumber(*Args, TEXT("askTimeoutSec"), AskTimeout);
 		}
 		FGameTestRecorder::Get().SetKeyAskOptions(Str(Args, TEXT("askKey")), AskTimeout);
+		// 推断跳过条件（1.6.0）：inferSkip = auto（默认，高把握的直接写 skipIf）/ suggest（只列候选）/ off；stateWindowMs 点完看多久
+		const FString InferSkip = Str(Args, TEXT("inferSkip"));
+		EGameTestInferSkip InferMode = EGameTestInferSkip::Auto;
+		if (InferSkip == TEXT("suggest"))
+		{
+			InferMode = EGameTestInferSkip::Suggest;
+		}
+		else if (InferSkip == TEXT("off"))
+		{
+			InferMode = EGameTestInferSkip::Off;
+		}
+		else if (!InferSkip.IsEmpty() && InferSkip != TEXT("auto"))
+		{
+			Error = TEXT("inferSkip 只能是 auto（默认）、suggest 或 off");
+			return false;
+		}
+		FGameTestRecorder::Get().SetStateOptions(InferMode, Int(Args, TEXT("stateWindowMs"), FGameTestRecordState::DefaultWindowMs));
 		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
@@ -537,6 +564,60 @@ namespace
 		return true;
 	}
 
+	/**
+	 * `gt.resolve checks`：步骤的跳过条件此刻成立吗。和回放用同一个判断（GameTestSkipIf::Holds），
+	 * 每项回 `{index, holds, say, actual?, error?}`；步骤写错的那项带 error，不影响别的项。
+	 */
+	bool CheckSkipIf(UGameTestSubsystem* Subsystem, const TArray<TSharedPtr<FJsonValue>>& InChecks,
+		TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		if (InChecks.Num() == 0 || InChecks.Num() > 50)
+		{
+			Error = TEXT("checks 要 1–50 个步骤（每个带 skipIf）");
+			return false;
+		}
+		TArray<TSharedPtr<FJsonValue>> Items;
+		for (int32 Index = 0; Index < InChecks.Num(); ++Index)
+		{
+			TSharedPtr<FJsonObject> Item = MakeShared<FJsonObject>();
+			Item->SetNumberField(TEXT("index"), Index);
+			const TSharedPtr<FJsonObject>* StepJson = nullptr;
+			FGameTestStep Step;
+			TArray<FString> StepErrors;
+			if (!InChecks[Index].IsValid() || !InChecks[Index]->TryGetObject(StepJson) || StepJson == nullptr || !StepJson->IsValid())
+			{
+				Item->SetStringField(TEXT("error"), TEXT("这一项不是步骤对象"));
+			}
+			else if (!GameTestActions::ParseStep(*StepJson, Index, Step, StepErrors))
+			{
+				Item->SetStringField(TEXT("error"), FString::Join(StepErrors, TEXT("；")));
+			}
+			else
+			{
+				const TSharedPtr<FJsonObject> SkipIf = GameTestSkipIf::Get(Step.Params);
+				if (!SkipIf.IsValid())
+				{
+					Item->SetStringField(TEXT("error"), TEXT("这一步没写 skipIf"));
+				}
+				else
+				{
+					FString Actual;
+					Item->SetBoolField(TEXT("holds"), GameTestSkipIf::Holds(*SkipIf, Step, Subsystem->GetHandles(), Actual));
+					Item->SetStringField(TEXT("say"), GameTestCondition::Describe(*SkipIf));
+					if (!Actual.IsEmpty())
+					{
+						Item->SetStringField(TEXT("actual"), Actual);
+					}
+				}
+			}
+			Items.Add(MakeShared<FJsonValueObject>(Item));
+		}
+		Out = MakeShared<FJsonObject>();
+		Out->SetArrayField(TEXT("checks"), Items);
+		Out = Capped(Out, TEXT("resolve"), DefaultMaxChars);
+		return true;
+	}
+
 	/** `gt.resolve`：核对选择器（targets 列表，或 scenario 里每一步的 target / toTarget），只解析不执行。 */
 	bool Resolve(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
@@ -544,6 +625,13 @@ namespace
 		if (Subsystem == nullptr)
 		{
 			return false;
+		}
+
+		// 「现在核对」（1.6.0）：checks 是带 skipIf 的步骤数组，回每一步此刻跳不跳（只判断，不动手）
+		const TArray<TSharedPtr<FJsonValue>>* CheckValues = nullptr;
+		if (Args.IsValid() && Args->TryGetArrayField(TEXT("checks"), CheckValues) && CheckValues != nullptr)
+		{
+			return CheckSkipIf(Subsystem, *CheckValues, Out, Error);
 		}
 
 		TArray<GameTestResolve::FTarget> Targets;

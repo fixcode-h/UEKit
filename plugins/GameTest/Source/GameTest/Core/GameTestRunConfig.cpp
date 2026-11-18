@@ -5,6 +5,7 @@
 #include "Core/GameTestJson.h"
 #include "GameTestSettings.h"
 #include "Operate/GameTestMove.h"
+#include "Operate/GameTestSkipIf.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -132,6 +133,16 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 			return false;
 		}
 		if (!GameTestMove::ValidateDefaults(*OutConfig.Move, OutError))
+		{
+			return false;
+		}
+	}
+
+	if (InJson.HasField(TEXT("skipIf")))
+	{
+		OutConfig.SkipIf = InJson.TryGetField(TEXT("skipIf"));
+		FGameTestSkipOptions Options;
+		if (!OutConfig.SkipIf.IsValid() || !GameTestSkipIf::ApplyOptions(*OutConfig.SkipIf, Options, OutError))
 		{
 			return false;
 		}
@@ -268,6 +279,10 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (InConfig.Move.IsValid() && InConfig.Move->Values.Num() > 0)
 	{
 		Json->SetObjectField(TEXT("move"), InConfig.Move);
+	}
+	if (InConfig.SkipIf.IsValid())
+	{
+		Json->SetField(TEXT("skipIf"), InConfig.SkipIf);
 	}
 	if (InConfig.Setup.Num() > 0)
 	{

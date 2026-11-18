@@ -5,6 +5,7 @@
 #include "Observe/GameTestSnapshot.h"
 
 #include "CommonActivatableWidget.h"
+#include "CommonButtonBase.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Modules/ModuleManager.h"
@@ -51,6 +52,20 @@ private:
 			}
 			OutState.SetArrayField(TEXT("widgets"), Widgets);
 			return true;
+		}
+
+		if (const UCommonButtonBase* Button = Cast<UCommonButtonBase>(&InWidget))
+		{
+			// 可选中的按钮（页签、开关）：选中状态写成 selected，条件 checked 和录制推断跳过条件按它认（1.6.0）。
+			// 不可选中的按钮不写：否则每个按钮都是「没勾」，断言 checked 写错了控件也查不出来。
+			// bSelectable 是受保护的 UPROPERTY，按反射读，不依赖各版本 CommonUI 有没有公开的取值函数。
+			const FBoolProperty* Selectable = FindFProperty<FBoolProperty>(UCommonButtonBase::StaticClass(), TEXT("bSelectable"));
+			if (Selectable != nullptr && Selectable->GetPropertyValue_InContainer(Button))
+			{
+				OutState.SetBoolField(TEXT("selected"), Button->GetSelected());
+				return true;
+			}
+			return false;
 		}
 
 		if (const UCommonActivatableWidget* Activatable = Cast<UCommonActivatableWidget>(&InWidget))

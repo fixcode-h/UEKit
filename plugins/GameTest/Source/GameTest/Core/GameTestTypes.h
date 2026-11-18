@@ -18,6 +18,11 @@ enum class EGameTestStepStatus : uint8
 	Failed,
 	Skipped,
 	Pending,
+	/**
+	 * 已达成，跳过（1.6.0）：步骤的 `skipIf` 条件在回放到它时已经成立（勾已经勾上、已经领过），没有做。
+	 * 算通过，和 Skipped 分开：Skipped 是「前一步失败或被取消、没轮到」，会让整次 run 判失败。
+	 */
+	Already,
 };
 
 /** 失败时怎么继续。默认 stop：一步失败就停在原地，让人/AI 看到现场。 */
@@ -96,6 +101,21 @@ struct GAMETEST_API FGameTestReport
 };
 
 /**
+ * 「已达成就跳过」（`skipIf`）的跑法（1.6.0）：运行配置的 `skipIf` 段，被场景顶层的 `skipIf` 覆盖，
+ * 「全部照做」（`gt.run ignoreSkipIf`）时关掉。步骤里的 settleMs / verify / verifyTimeoutMs 再盖在上面。
+ */
+struct GAMETEST_API FGameTestSkipOptions
+{
+	bool bEnabled = true;
+	/** 条件成立（或不成立）后再看这么久没变才下结论（毫秒）。 */
+	int32 SettleMs = 300;
+	/** 真做了以后核对条件成立。 */
+	bool bVerify = true;
+	/** 核对最多等多久（毫秒）。 */
+	int32 VerifyTimeoutMs = 5000;
+};
+
+/**
  * 起一次 run 的完整请求。
  *
  * 收成结构体是因为 `FGameTestRunner::StartRun` 的裸参数已经到 7 个（名字、步骤、产物目录、
@@ -151,6 +171,9 @@ struct GAMETEST_API FGameTestRunRequest
 	 * 中间的 wait 等步骤用掉的时间也算进去；0 = 不隔。来自运行配置的 uiStepGapMs。
 	 */
 	int32 UiStepGapMs = 0;
+
+	/** 已达成就跳过的跑法（运行配置 > 场景 > 这次运行的「全部照做」）。 */
+	FGameTestSkipOptions SkipIf;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Input/GameTestHandlerWatch.h"
 #include "Record/GameTestRecordShot.h"
+#include "Record/GameTestRecordState.h"
 
 class FJsonObject;
 class FGameTestRecorderInput;
@@ -67,6 +68,13 @@ public:
 	 * `InTimeoutSeconds` 停多久自动继续，0（默认）= 一直等。
 	 */
 	void SetKeyAskOptions(const FString& InMode, double InTimeoutSeconds);
+
+	/** 下一次录制怎么推断跳过条件（`gt.record.start inferSkip` / `stateWindowMs`，1.6.0）。 */
+	void SetStateOptions(EGameTestInferSkip InMode, int32 InWindowMs)
+	{
+		NextInferSkip = InMode;
+		NextStateWindowMs = InWindowMs;
+	}
 
 	/**
 	 * `gt.record.key`：给录下的一步定「条目怎么认」。`step` 省略 = 正在问的那一步；
@@ -311,6 +319,10 @@ private:
 	/** 录制截图（GameTestRecordShot）：点击时截控件、界面切换时存整屏缩略图、补 opened。 */
 	FGameTestRecordShots Shots;
 	FGameTestShotOptions NextShotOptions;
+
+	FGameTestRecordState StateWatch;
+	EGameTestInferSkip NextInferSkip = EGameTestInferSkip::Auto;
+	int32 NextStateWindowMs = FGameTestRecordState::DefaultWindowMs;
 
 	FString AskMode = TEXT("unsure");
 	double AskTimeoutSeconds = 0.0;

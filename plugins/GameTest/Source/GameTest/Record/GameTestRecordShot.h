@@ -79,15 +79,15 @@ public:
 	/** 缩到能放进 `InMax` 的尺寸（保持比例，不放大）。 */
 	static FIntPoint FitInside(const FIntPoint& InSize, const FIntPoint& InMax);
 
+	/** 在屏上的顶层界面类名（排序去重）：判断「界面变了」和「点完打开了什么」（录制推断跳过条件也用）。 */
+	static TArray<FString> TopScreens();
+
 private:
 	/** 截游戏窗口：像素、尺寸，以及屏幕坐标 → 截图像素的换算。 */
 	bool Capture(TArray<FColor>& OutPixels, FIntPoint& OutSize, FVector2D& OutWindowPos, double& OutScale) const;
 
 	/** 下一张图的路径：`<目录>/<序号>.png`，序号从 001 起。 */
 	FString NextPath(const TCHAR* InPrefix);
-
-	/** 在屏上的顶层界面类名（排序去重）：判断「界面变了」和「点完打开了什么」。 */
-	static TArray<FString> TopScreens();
 
 	void MaybeSaveScreen(const TArray<FColor>& InPixels, const FIntPoint& InSize, const FVector2D& InWindowPos, double InScale);
 

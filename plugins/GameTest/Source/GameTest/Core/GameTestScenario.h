@@ -49,6 +49,10 @@ struct GAMETEST_API FGameTestScenarioRun
 	TSharedPtr<FJsonObject> Move;
 	/** 场景写了 `"setup": false`：不跑运行配置里的前置步骤（专门测新号、测引导本身的场景）。 */
 	bool bSkipSetup = false;
+	/** 场景顶层的 `skipIf`（`false` 整个场景都照做，或对象覆盖运行配置的同名段）；没写时为空。 */
+	TSharedPtr<FJsonValue> SkipIf;
+	/** 这一次运行「全部照做」（`gt.run ignoreSkipIf`）：忽略所有跳过条件。 */
+	bool bIgnoreSkipIf = false;
 };
 
 /**

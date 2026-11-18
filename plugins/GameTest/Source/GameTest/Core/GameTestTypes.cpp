@@ -12,6 +12,7 @@ const TCHAR* GameTestStatus::ToString(EGameTestStepStatus InStatus)
 	case EGameTestStepStatus::Failed:    return TEXT("failed");
 	case EGameTestStepStatus::Skipped:   return TEXT("skipped");
 	case EGameTestStepStatus::Pending:   return TEXT("pending");
+	case EGameTestStepStatus::Already:   return TEXT("already");
 	}
 	return TEXT("unknown");
 }
@@ -75,6 +76,12 @@ TSharedPtr<FJsonObject> FGameTestReport::ToJson() const
 	Json->SetNumberField(TEXT("durationMs"), DurationMs);
 	Json->SetNumberField(TEXT("total"), Steps.Num());
 	Json->SetNumberField(TEXT("failed"), CountByStatus(EGameTestStepStatus::Failed));
+	// 已达成跳过的步数（1.6.0）：算通过，单独计数，面板结果条上写「N 步已达成跳过」
+	const int32 Already = CountByStatus(EGameTestStepStatus::Already);
+	if (Already > 0)
+	{
+		Json->SetNumberField(TEXT("already"), Already);
+	}
 
 	TArray<TSharedPtr<FJsonValue>> StepValues;
 	StepValues.Reserve(Steps.Num());
