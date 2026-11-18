@@ -3,6 +3,7 @@
 #include "GameTestEditorOps.h"
 
 #include "Api/GameTestCppApiScanner.h"
+#include "EditorRec/GameTestEditorRecorder.h"
 #include "Widgets/GameTestWidgetTreeReader.h"
 
 #include "AgentPanelBridge.h"
@@ -64,6 +65,36 @@ namespace
 		return true;
 	}
 
+	/** gt.editrec.start：开始录编辑器操作（1.10.0，定稿 10.1）。 */
+	bool EditRecStart(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		if (!FGameTestEditorRecorder::Get().Start(AgentPanel::Str(Args, TEXT("name")), Error))
+		{
+			return false;
+		}
+		Out = FGameTestEditorRecorder::Get().DescribeStatus(/*InLastSteps=*/0);
+		return true;
+	}
+
+	/** gt.editrec.stop：停止，save（默认 true）时写进场景根的 recorded/。 */
+	bool EditRecStop(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		return FGameTestEditorRecorder::Get().Stop(AgentPanel::Bool(Args, TEXT("save"), true), Out, Error);
+	}
+
+	/** gt.editrec.status：在不在录、录了几步、最近几步（last，默认 20）。 */
+	bool EditRecStatus(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		Out = FGameTestEditorRecorder::Get().DescribeStatus(FMath::Clamp(AgentPanel::Int(Args, TEXT("last"), 20), 0, 500));
+		return true;
+	}
+
+	/** gt.editrec.mark：插一条说明（之后在面板里改成检查）。 */
+	bool EditRecMark(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	{
+		return FGameTestEditorRecorder::Get().Mark(AgentPanel::Str(Args, TEXT("text")), Error);
+	}
+
 	void Add(const TCHAR* Name, bool (*Op)(const TSharedPtr<FJsonObject>&, TSharedPtr<FJsonObject>&, FString&))
 	{
 		if (FAgentPanelBridge::Get().AddExtensionOp(Name, Op))
@@ -77,6 +108,10 @@ void Register()
 {
 	Add(TEXT("gt.widgets"), &Widgets);
 	Add(TEXT("gt.api.scan"), &ApiScan);
+	Add(TEXT("gt.editrec.start"), &EditRecStart);
+	Add(TEXT("gt.editrec.stop"), &EditRecStop);
+	Add(TEXT("gt.editrec.status"), &EditRecStatus);
+	Add(TEXT("gt.editrec.mark"), &EditRecMark);
 }
 
 void Unregister()

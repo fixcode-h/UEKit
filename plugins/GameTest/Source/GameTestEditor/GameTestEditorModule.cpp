@@ -3,6 +3,8 @@
 #include "GameTestEditorOps.h"
 #include "Deep/GameTestDeepSelectorCheck.h"
 #include "Api/GameTestCppApiScanner.h"
+#include "EditorAct/GameTestEditorActions.h"
+#include "EditorRec/GameTestEditorRecorder.h"
 
 #include "Containers/Ticker.h"
 #include "Misc/CoreDelegates.h"
@@ -22,6 +24,7 @@ public:
 	{
 		GameTestEditorOps::Register();
 		GameTestDeepSelectorCheck::Register();
+		GameTestEditorActions::Register();
 		// 模块在 PostEngineInit 加载，这时项目模块的类都注册完了；放到下一帧做，不拖慢编辑器启动
 		StartupTick = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
 		{
@@ -39,6 +42,8 @@ public:
 	{
 		FTSTicker::GetCoreTicker().RemoveTicker(StartupTick);
 		FCoreUObjectDelegates::ReloadCompleteDelegate.Remove(ReloadHandle);
+		FGameTestEditorRecorder::Get().Shutdown();
+		GameTestEditorActions::Unregister();
 		GameTestDeepSelectorCheck::Unregister();
 		GameTestEditorOps::Unregister();
 	}

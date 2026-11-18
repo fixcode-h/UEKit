@@ -300,6 +300,13 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 			}
 		}
 
+		// 录编辑器操作出来的 editor.*（1.10.0）在 GameTestEditor 模块里：游戏进程、后台编辑器里没有它
+		if (ActionText.StartsWith(TEXT("editor.")) && ActionText != TEXT("editor.ensure"))
+		{
+			OutErrors.Add(FString::Printf(TEXT("动作 %s 是编辑器操作（GameTestEditor 模块），只能在开着界面的 UE 编辑器里跑，游戏进程和后台编辑器里没有"), *ActionText));
+			return false;
+		}
+
 		TArray<FString> Suggestions;
 		Suggest(ActionText, Suggestions);
 		OutErrors.Add(FString::Printf(TEXT("未知动作 '%s'%s"), *ActionText,
