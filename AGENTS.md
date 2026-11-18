@@ -130,6 +130,7 @@ Release 说明会列出「上一版以来改了这个插件目录的提交」，
 | 写 CHANGELOG、定版本号 | [docs/changelog.md](docs/changelog.md) |
 | AssetForge 的配置格式、kind、操作 | [docs/asset-forge.md](docs/asset-forge.md) |
 | GameTest 的场景格式、选择器、动作、录制回放 | [docs/game-test.md](docs/game-test.md) |
+| GameTest 脚本 v3：块、条件、表达式、守护、调函数、对象定位、接口库（1.9.0 起） | [docs/game-test-script.md](docs/game-test-script.md) |
 | 面板那边的工具规则（准入四问、长度上限） | 面板仓库 `docs/adr/0067-mcp-tool-rules.md` |
 
 ## 常用命令

@@ -1,5 +1,7 @@
 # GameTest
 
+> 1.9.0 起场景可以写成脚本（schemaVersion 3：如果、循环、调用、变量、守护、调函数、接口库），见 [game-test-script.md](game-test-script.md)；「阻挡界面」改成守护。
+
 用 JSON 场景跑游戏测试：按选择器找到控件并操作、注入输入、跨帧等待、断言、截图，也能把真人操作录成场景再回放。只支持 UE 5.8，依赖 UELink 2.2 起的扩展接口。界面在 Agent 面板 UE 页的「GameTest」页，Agent 通过面板的 `ue_gametest` 工具用同一套操作。
 
 编辑器进程（PIE）和独立的游戏进程都能用：GameTest 是 Runtime 模块（Shipping 不加载），游戏进程里只要也装了 UELink，面板就能连上。
