@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.12.0",
-        "versionCode": 33,
+        "version": "2.12.1",
+        "versionCode": 34,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.12.0",
-        "asset": "UELink-2.12.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.12.0/UELink-2.12.0-src.zip",
-        "sha256": "65822e32ac2b27d98cdccfb427e7d418191b4f83a58231340dda6ea52fe8c58a",
-        "size": 279773,
+        "tag": "UELink-v2.12.1",
+        "asset": "UELink-2.12.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.12.1/UELink-2.12.1-src.zip",
+        "sha256": "6cd19e19fdcb39b2d731debb3c1b3089b850cf44e08706c6a2d2197e9f8874e9",
+        "size": 279940,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **扩展插件能直接用 UELink 的操作** — GameTest 1.9 的脚本要读 Lua 模块、调 Lua 函数、看 Lua 报错，直接用 UELink 现成的能力，不再各写一份"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 修复\n- **UE 5.8 编译失败** — 性能分析里读内存标签和内存分配调用栈的代码在 5.8 上编不过（宏参数报错、`GetCallstack` 不存在），已按 5.8 的接口改好"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T13:42:00.958Z"
+  "updatedAt": "2026-11-18T13:48:12.603Z"
 }
