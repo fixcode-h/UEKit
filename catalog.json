@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.10.3",
-        "versionCode": 30,
+        "version": "2.11.0",
+        "versionCode": 31,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.10.3",
-        "asset": "UELink-2.10.3-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.10.3/UELink-2.10.3-src.zip",
-        "sha256": "ba7146fa2a28f38decf900ef472feb09a8c6298abb6fb81914d6a023c39c3294",
-        "size": 253775,
+        "tag": "UELink-v2.11.0",
+        "asset": "UELink-2.11.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.11.0/UELink-2.11.0-src.zip",
+        "sha256": "ec02719bb7c002f5f2c8955b894a73463f82c4c2a28bb837c88c952cd72992aa",
+        "size": 278985,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **UnLua 放得偏一点就编不进 Lua 支持** — 以前只认项目 `Plugins/` 下文件名是 `UnLua.uplugin` 的插件和引擎的 `Marketplace` 目录；现在项目和引擎的整棵插件树都找，`.uplugin` 改了名但带 `UnLua` 模块的二次开发版也认。引擎里的 UnLua 要项目启用了（`.uproject` 里写了或默认启用）才用"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。新加的几类 trace 数据（内存标签、内存分配、加载、文件、任务、线程切换、网络、区域、会话信息）各有一个开关（`UELinkCompat.h` 的 `UELINK_TRACE_*`），哪一类编不过可以先关掉它，其余照常用。\n\n### 新功能\n- **Agent 能读到 trace 里的全部数据** — 面板的 Agent 分析 trace 时，除了计时器、帧、计数器，还能读每帧各线程忙了多久、卡顿帧比平时多出来的时间花在哪、渲染帧、会话信息（平台、构建配置、命令行）、区域、LLM 内存标签、内存分配（按标签 / 调用栈聚合，查泄漏）、包加载、文件读写、任务等待、线程切换、网络收发\n- **计数器一次给统计** — 列计数器时可以顺便给每条的平均、最大、首尾值，不用一条条取走势才知道哪个在涨\n\n### 改进\n- **分析 trace 不再卡编辑器** — trace 查询挪到后台线程算，编辑器里只做登记；同时最多算 4 个、多的排队，几个 Agent 一起查也不会把编辑器拖慢；单次查询最多 20 秒，超了返回已经算出的部分并说明怎么缩小范围\n- **被测的游戏进程不受影响** — 这些分析都在编辑器或后台编辑器里做，游戏进程里没有新增任何常驻开销"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T05:15:37.751Z"
+  "updatedAt": "2026-11-18T06:08:54.530Z"
 }
