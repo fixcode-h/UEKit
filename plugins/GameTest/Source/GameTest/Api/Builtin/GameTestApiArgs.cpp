@@ -15,6 +15,7 @@
 #include "Observe/Sources/GameTestObjectLocator.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestPathText.h"
+#include "Engine/World.h"
 
 namespace
 {

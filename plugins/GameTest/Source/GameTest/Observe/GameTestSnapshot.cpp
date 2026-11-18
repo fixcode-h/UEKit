@@ -30,6 +30,7 @@
 #include "Components/WidgetSwitcher.h"
 #include "JsonObjectConverter.h"
 #include "UObject/UObjectIterator.h"
+#include "Engine/World.h"
 
 namespace
 {

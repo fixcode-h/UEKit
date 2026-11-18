@@ -12,6 +12,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Engine/World.h"
+#include "Components/Widget.h"
 
 namespace
 {

@@ -22,6 +22,7 @@
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
+#include "Engine/World.h"
 
 namespace
 {

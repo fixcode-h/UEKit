@@ -17,6 +17,8 @@
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestPathText.h"
 #include "Observe/Sources/GameTestReflectValue.h"
+#include "Engine/World.h"
+
 #if WITH_EDITOR
 #include "Editor.h"
 #endif

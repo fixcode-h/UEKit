@@ -16,6 +16,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Components/Widget.h"
 
 namespace
 {

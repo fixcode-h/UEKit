@@ -19,6 +19,7 @@
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestValueSource.h"
 #include "Operate/GameTestOps.h"
+#include "Engine/LocalPlayer.h"
 
 namespace GA = GameTestApiArgs;
 using GameTestApiArgs::Opt;

@@ -16,6 +16,7 @@
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
 #include "Observe/Sources/GameTestValueSource.h"
+#include "Components/Widget.h"
 
 namespace GameTestInvokeLocal
 {

@@ -8,6 +8,7 @@
 #include "Core/GameTestWorld.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Core/Script/GameTestRefs.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -145,7 +146,8 @@ namespace GameTestWidgetProbe
 			return;
 		}
 		TArray<TPair<int32, UUserWidget*>> Ordered;
-		UGameViewportSubsystem* Viewport = UGameViewportSubsystem::Get(InWorld);
+		// 它是引擎子系统：直接从 GEngine 取，避开 Get(World)（5.8 弃用）和无参 Get 在各版本的差异
+		UGameViewportSubsystem* Viewport = GEngine ? GEngine->GetEngineSubsystem<UGameViewportSubsystem>() : nullptr;
 		for (TObjectIterator<UUserWidget> It; It; ++It)
 		{
 			UUserWidget* Widget = *It;

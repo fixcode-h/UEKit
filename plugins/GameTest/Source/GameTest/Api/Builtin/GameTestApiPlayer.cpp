@@ -14,6 +14,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
+#include "Engine/World.h"
 
 namespace GA = GameTestApiArgs;
 using GameTestApiArgs::Opt;

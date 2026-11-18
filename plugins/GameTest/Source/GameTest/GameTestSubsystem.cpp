@@ -36,6 +36,7 @@
 #include "Widgets/SLeafWidget.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/SWindow.h"
+#include "Engine/World.h"
 
 namespace
 {

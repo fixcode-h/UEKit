@@ -15,6 +15,7 @@
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
+#include "GameFramework/Actor.h"
 
 namespace GA = GameTestApiArgs;
 using GameTestApiArgs::Opt;
