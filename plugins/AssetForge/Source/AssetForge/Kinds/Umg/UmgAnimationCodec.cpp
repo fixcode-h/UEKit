@@ -845,7 +845,9 @@ void ReadAnimations(UWidgetBlueprint& InBlueprint, TArray<FUmgAnimation>& OutAni
 			BindingByGuid.Add(Binding.AnimationGuid, &Binding);
 		}
 
-		for (const FMovieSceneBinding& SceneBinding : Animation->MovieScene->GetBindings())
+		// 走 const 版本：5.8 起非 const 的 GetBindings() 已弃用（C4996），5.4 两个版本都有
+		const UMovieScene* AnimScene = Animation->MovieScene;
+		for (const FMovieSceneBinding& SceneBinding : AnimScene->GetBindings())
 		{
 			const FGuid PossessableGuid = SceneBinding.GetObjectGuid();
 			const FWidgetAnimationBinding* const* FoundBinding = BindingByGuid.Find(PossessableGuid);
