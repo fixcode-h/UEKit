@@ -3,6 +3,7 @@
 #include "Core/Flow/GameTestFlow.h"
 
 #include "Core/Flow/GameTestLeafRefs.h"
+#include "Core/Flow/GameTestStepVars.h"
 #include "Core/GameTestLogTap.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Core/Script/GameTestRefs.h"
@@ -988,12 +989,36 @@ void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus I
 	Record.Step.Path = InNode.Path;
 	Record.Status = InStatus;
 	Record.Message = InMessage;
-	Record.Payload = InPayload;
+	Record.Payload = WithStepVars(InNode, InStatus, InPayload);
 	Record.StartedAt = InStartedAt;
 	Record.FinishedAt = InNowSeconds;
 	Record.bBlock = bInBlock;
 	Record.Iter = CurrentIter();
 	Report.Steps.Add(MoveTemp(Record));
+}
+
+TSharedPtr<FJsonObject> FGameTestFlow::WithStepVars(const FGameTestNode& InNode, EGameTestStepStatus InStatus, const TSharedPtr<FJsonObject>& InPayload) const
+{
+	// 没真跑的（跳过、禁用、随前一步已达成）变量值和这一步无关，不写。
+	if (!Context.IsValid() || (InStatus != EGameTestStepStatus::Succeeded && InStatus != EGameTestStepStatus::Failed))
+	{
+		return InPayload;
+	}
+	TSet<FString> Names;
+	GameTestStepVars::CollectNames(InNode, Names);
+	const TSharedPtr<FJsonObject> Vars = GameTestStepVars::Pick(*Context, Names);
+	if (!Vars.IsValid())
+	{
+		return InPayload;
+	}
+	// 复制一份再加：动作给的 payload 可能还被别处拿着（块的 Frame、单步结果），不改原对象。
+	TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
+	if (InPayload.IsValid())
+	{
+		Out->Values = InPayload->Values;
+	}
+	Out->SetObjectField(TEXT("vars"), Vars);
+	return Out;
 }
 
 void FGameTestFlow::Emit(const TCHAR* InPhase, const FGameTestNode* InNode, const TCHAR* InStatus, int32 InIter, const FString& InGuard, double InMs)
