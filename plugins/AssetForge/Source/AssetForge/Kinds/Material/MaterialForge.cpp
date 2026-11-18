@@ -92,10 +92,7 @@ namespace
 	}
 
 	/** 两组连线之间的差异，形如 `inputs.A: Tex → Tex2`。没有差异返回空串。 */
-	FString DescribeLinkDiff(
-		const TArray<TPair<FString, FMaterialLink>>& InTarget,
-		const TArray<TPair<FString, FMaterialLink>>& InCurrent,
-		const FString& InPrefix)
+	FString DescribeLinkDiff(const TArray<TPair<FString, FMaterialLink>>& InTarget, const TArray<TPair<FString, FMaterialLink>>& InCurrent, const FString& InPrefix)
 	{
 		TMap<FString, FString> TargetKeys;
 		TargetKeys.Reserve(InTarget.Num());
@@ -144,11 +141,7 @@ namespace
 	 * 短名会把每个节点都报成「先删后建」。bOutGraphChanged 说的是「要不要重建图」——
 	 * 只有材质自身属性变了的话，图一个字都不用动。
 	 */
-	void ComputeGraphPlan(
-		const FMaterialGraph& InTarget,
-		const FMaterialGraph& InCurrent,
-		TArray<FForgePlanEntry>& OutPlan,
-		bool& bOutGraphChanged)
+	void ComputeGraphPlan(const FMaterialGraph& InTarget, const FMaterialGraph& InCurrent, TArray<FForgePlanEntry>& OutPlan, bool& bOutGraphChanged)
 	{
 		for (const FMaterialNodeSpec& TargetNode : InTarget.Nodes)
 		{

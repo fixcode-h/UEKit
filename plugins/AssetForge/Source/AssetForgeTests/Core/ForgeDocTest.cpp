@@ -53,10 +53,7 @@ TEST_CLASS_WITH_FLAGS(ForgeDocTest, "AssetForge.Doc",
 	}
 
 	/** 指定路径上有没有指定级别的诊断——重名这类「只提醒不拦」的情况要靠它区分。 */
-	static bool HasDiagnosticAt(
-		const TArray<FForgeDiagnostic>& InDiagnostics,
-		const FString& InFieldPath,
-		EForgeSeverity InSeverity)
+	static bool HasDiagnosticAt(const TArray<FForgeDiagnostic>& InDiagnostics, const FString& InFieldPath, EForgeSeverity InSeverity)
 	{
 		for (const FForgeDiagnostic& Diagnostic : InDiagnostics)
 		{

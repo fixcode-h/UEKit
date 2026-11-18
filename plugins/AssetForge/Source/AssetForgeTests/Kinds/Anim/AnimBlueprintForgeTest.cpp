@@ -59,8 +59,7 @@ TEST_CLASS_WITH_FLAGS(AnimBlueprintForgeTest, "AssetForge.AnimBlueprint",
 	}
 
 	/** 一个状态机；children 是状态列表、machinery 追加 entry / transitions 字段。 */
-	static FString MakeStateMachine(
-		const FString& InName, const FString& InChildren, const FString& InMachinery = FString())
+	static FString MakeStateMachine(const FString& InName, const FString& InChildren, const FString& InMachinery = FString())
 	{
 		return FString::Printf(TEXT(R"({ "class": "StateMachine", "name": "%s"%s, "children": %s })"),
 			*InName, *InMachinery, *InChildren);

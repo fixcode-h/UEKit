@@ -28,10 +28,7 @@ namespace ForgeDiffSnapshot
 		return OuterPackage != nullptr && OuterPackage->HasAnyFlags(RF_Transient);
 	}
 
-	UObject* MakeConfiguredCopy(
-		UObject* InTarget,
-		const FForgeDocument& InDocument,
-		const ForgeKindRegistry::FForgeDiffSupport& InSupport)
+	UObject* MakeConfiguredCopy(UObject* InTarget, const FForgeDocument& InDocument, const ForgeKindRegistry::FForgeDiffSupport& InSupport)
 	{
 		if (InTarget == nullptr)
 		{
@@ -146,11 +143,7 @@ namespace ForgeDiffSnapshot
 		}
 	}
 
-	TSharedRef<FJsonObject> DiffProperties(
-		const FString& InAssetPath,
-		const FForgeDocument& InCurrent,
-		const FForgeDocument* InBaseline,
-		const int32 InMaxChanges)
+	TSharedRef<FJsonObject> DiffProperties(const FString& InAssetPath, const FForgeDocument& InCurrent, const FForgeDocument* InBaseline, const int32 InMaxChanges)
 	{
 		const ForgeKindRegistry::FForgeDiffSupport Support = ForgeKindRegistry::GetPropertyDiffSupport(InCurrent.Kind);
 		if (!Support.bSupported)

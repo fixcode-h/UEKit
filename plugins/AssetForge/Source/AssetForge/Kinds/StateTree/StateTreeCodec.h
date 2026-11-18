@@ -88,28 +88,18 @@ namespace StateTreeCodec
 	// ---- 导出方向 ----
 
 	/** 把资产读成配置文档（`root` = 主根状态；资产级字段进 `Extra`）。 */
-	ASSETFORGE_API void ExportDocument(
-		const UStateTree& InTree,
-		FForgeDocument& OutDocument,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API void ExportDocument(const UStateTree& InTree, FForgeDocument& OutDocument, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	// ---- 引用（绑定）服务，导出与导入共用 ----
 
 	/** 收集全部可绑定结构：StructID → 引用字符串（`StatePath/Name`）。 */
-	ASSETFORGE_API void CollectStructReferences(
-		const UStateTreeEditorData& InEditorData,
-		TMap<FGuid, FString>& OutReferences);
+	ASSETFORGE_API void CollectStructReferences(const UStateTreeEditorData& InEditorData, TMap<FGuid, FString>& OutReferences);
 
 	/**
 	 * 解析一个绑定引用（`StatePath/Name[.属性路径]`）：匹配到唯一描述符时输出其 ID 与
 	 * 属性路径字符串；匹配不到或多个时返回 false 并给出错误。
 	 */
-	ASSETFORGE_API bool ResolveStructReference(
-		const UStateTreeEditorData& InEditorData,
-		const FString& InReference,
-		FGuid& OutStructID,
-		FString& OutPropertyPath,
-		FString& OutError);
+	ASSETFORGE_API bool ResolveStructReference(const UStateTreeEditorData& InEditorData, const FString& InReference, FGuid& OutStructID, FString& OutPropertyPath, FString& OutError);
 
 	// ---- 节点类型解析（导入方向） ----
 
@@ -117,43 +107,24 @@ namespace StateTreeCodec
 	 * 解析配置里的 `type`：返回节点结构（C++ 节点）或蓝图类（二选一非空）。
 	 * 两者都解析不到时报错。
 	 */
-	ASSETFORGE_API bool ResolveNodeType(
-		const FString& InType,
-		UScriptStruct*& OutStruct,
-		UClass*& OutClass,
-		FString& OutError);
+	ASSETFORGE_API bool ResolveNodeType(const FString& InType, UScriptStruct*& OutStruct, UClass*& OutClass, FString& OutError);
 
 	/** 编辑节点与目标类型是否一致（struct 节点比结构，蓝图节点比类）。 */
-	ASSETFORGE_API bool IsNodeTypeMatch(
-		const FStateTreeEditorNode& InNode,
-		UScriptStruct* InStruct,
-		UClass* InClass);
+	ASSETFORGE_API bool IsNodeTypeMatch(const FStateTreeEditorNode& InNode, UScriptStruct* InStruct, UClass* InClass);
 
 	/** 按名字解析枚举（接受短名与 `Enum::Value` 全名）；导入方向解析配置用。 */
-	ASSETFORGE_API bool ParseEnumByName(
-		const UEnum* InEnum,
-		const FString& InText,
-		int64& OutValue,
-		FString& OutError);
+	ASSETFORGE_API bool ParseEnumByName(const UEnum* InEnum, const FString& InText, int64& OutValue, FString& OutError);
 
 	// ---- 参数（PropertyBag）编解码 ----
 
 	/** 导出参数：属性名 → 值；范围外类型给诊断并跳过。 */
-	ASSETFORGE_API void ExportPropertyBag(
-		const FInstancedPropertyBag& InBag,
-		TSharedPtr<FJsonObject>& OutJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API void ExportPropertyBag(const FInstancedPropertyBag& InBag, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 
 	/**
 	 * 按配置重建参数集合：配置里有的（重建类型 + 写值），配置里没有的删除。
 	 * 类型不支持时给诊断，不影响其余字段。
 	 */
-	ASSETFORGE_API void ImportPropertyBag(
-		FInstancedPropertyBag& InOutBag,
-		const TSharedPtr<FJsonObject>& InJson,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API void ImportPropertyBag(FInstancedPropertyBag& InOutBag, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 }
 
 #endif // ASSETFORGE_WITH_STATETREE

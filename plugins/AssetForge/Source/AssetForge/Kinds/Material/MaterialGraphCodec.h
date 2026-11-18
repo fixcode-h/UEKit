@@ -87,11 +87,7 @@ namespace MaterialGraphCodec
 	ASSETFORGE_API int32 ResolveOutputIndex(UMaterialExpression* InExpression, const FString& InOutputName);
 
 	/** 配置的 `inputs` / `nodes` 两个字段 → 图。 */
-	ASSETFORGE_API bool ParseGraph(
-		const TSharedPtr<FJsonObject>& InExtra,
-		FMaterialGraph& OutGraph,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API bool ParseGraph(const TSharedPtr<FJsonObject>& InExtra, FMaterialGraph& OutGraph, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 
 	/** 图 → `inputs` / `nodes`（写进 root 的 Extra；空的部分不写）。 */
 	ASSETFORGE_API void WriteGraph(const FMaterialGraph& InGraph, TSharedPtr<FJsonObject>& OutExtra);
@@ -102,10 +98,7 @@ namespace MaterialGraphCodec
 	 * 材质图里放不进这个契约的节点（Composite 折叠图及其内部的引脚基座）会直接报错：
 	 * 它们的信息不只在线连上，导出再导入会静默丢掉折叠结构。
 	 */
-	ASSETFORGE_API bool ReadGraph(
-		UMaterial* InMaterial,
-		FMaterialGraph& OutGraph,
-		TArray<FForgeDiagnostic>& OutDiagnostics);
+	ASSETFORGE_API bool ReadGraph(UMaterial* InMaterial, FMaterialGraph& OutGraph, TArray<FForgeDiagnostic>& OutDiagnostics);
 
 	/** 把图里所有名字与引用改写成结构路径（判等的两边都要做）。 */
 	ASSETFORGE_API void CanonicalizeNames(FMaterialGraph& InOutGraph);
@@ -116,8 +109,5 @@ namespace MaterialGraphCodec
 	 * 顺带做属性归一化（显式写出的默认值删掉），与导出方向的 delta 形态对齐——
 	 * 校验看的是作者写了什么，归一化改的是拿去比较的形态，所以顺序是先校验后归一化。
 	 */
-	ASSETFORGE_API void ValidateGraph(
-		FMaterialGraph& InOutGraph,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath);
+	ASSETFORGE_API void ValidateGraph(FMaterialGraph& InOutGraph, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath);
 }

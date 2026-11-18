@@ -26,18 +26,10 @@ namespace UmgWidgetCodec
 	ASSETFORGE_API UClass* ResolveWidgetClass(const FString& InClassName, FString& OutError);
 
 	/** 导出方向：把一个控件及其子树读成节点。 */
-	ASSETFORGE_API void ExportWidget(
-		UWidget* InWidget,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath);
+	ASSETFORGE_API void ExportWidget(UWidget* InWidget, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath);
 
 	/** 导入方向：把节点上的属性与插槽写进一个已存在的控件。 */
-	ASSETFORGE_API void ImportWidgetInto(
-		UWidget* InWidget,
-		const FForgeNode& InNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath);
+	ASSETFORGE_API void ImportWidgetInto(UWidget* InWidget, const FForgeNode& InNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath);
 
 	/** 在 WidgetTree 里按名找一个控件（含子树）。 */
 	ASSETFORGE_API UWidget* FindWidgetByName(UWidgetTree* InTree, const FString& InName);

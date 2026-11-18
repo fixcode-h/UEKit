@@ -30,14 +30,8 @@ namespace DataTableForge
 	/** 行的 `class` 占位值，导入时不解析。 */
 	constexpr TCHAR const* RowClassPlaceholder = TEXT("Row");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 会就地归一化文档（删掉显式写出的默认值，并摘出 rowStruct）。 */
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }

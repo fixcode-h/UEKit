@@ -107,11 +107,7 @@ namespace
 	}
 
 	/** 节点属性（实例值层 delta）；`Name` 由顶层字段承载，从 props 里排除。 */
-	void ExportNodeProps(
-		const FStateTreeEditorNode& InNode,
-		TSharedPtr<FJsonObject>& OutProps,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	void ExportNodeProps(const FStateTreeEditorNode& InNode, TSharedPtr<FJsonObject>& OutProps, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		const FStateTreeDataView Instance = InNode.GetInstance();
 		if (!Instance.IsValid())
@@ -145,10 +141,7 @@ namespace
 	}
 
 	/** 一组编辑节点 → JSON 数组。 */
-	TArray<TSharedPtr<FJsonValue>> ReadEditorNodes(
-		TConstArrayView<FStateTreeEditorNode> InNodes,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	TArray<TSharedPtr<FJsonValue>> ReadEditorNodes(TConstArrayView<FStateTreeEditorNode> InNodes, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		TArray<TSharedPtr<FJsonValue>> Result;
 
@@ -234,11 +227,7 @@ namespace
 		}
 	}
 
-	TSharedPtr<FJsonObject> ReadTransition(
-		const FStateTreeTransition& InTransition,
-		const UStateTreeState& InState,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	TSharedPtr<FJsonObject> ReadTransition(const FStateTreeTransition& InTransition, const UStateTreeState& InState, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
 
@@ -286,11 +275,7 @@ namespace
 
 	// ---- 状态 ----
 
-	void ReadStateInto(
-		const UStateTreeState& InState,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	void ReadStateInto(const UStateTreeState& InState, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		OutNode.Name = InState.Name.ToString();
 		// 契约层要求每个节点有 `class`；状态对象本身就是 `UStateTreeState`，写它的类路径（固定值）。
@@ -523,11 +508,7 @@ namespace
 	}
 
 	/** 导出单个参数值；返回 false 时 OutError 说明原因（诊断由调用方生成）。 */
-	bool ExportBagValue(
-		const FInstancedPropertyBag& InBag,
-		const FPropertyBagPropertyDesc& InDesc,
-		TSharedPtr<FJsonValue>& OutValue,
-		FString& OutError)
+	bool ExportBagValue(const FInstancedPropertyBag& InBag, const FPropertyBagPropertyDesc& InDesc, TSharedPtr<FJsonValue>& OutValue, FString& OutError)
 	{
 		const FName Name = InDesc.Name;
 
@@ -731,11 +712,7 @@ namespace
 	}
 
 	/** 写单个参数值；返回 false 时 OutError 说明原因。 */
-	bool ImportBagValue(
-		FInstancedPropertyBag& InOutBag,
-		const FPropertyBagPropertyDesc& InDesc,
-		const TSharedPtr<FJsonValue>& InValue,
-		FString& OutError)
+	bool ImportBagValue(FInstancedPropertyBag& InOutBag, const FPropertyBagPropertyDesc& InDesc, const TSharedPtr<FJsonValue>& InValue, FString& OutError)
 	{
 		const FName Name = InDesc.Name;
 
@@ -922,10 +899,7 @@ namespace
 	}
 
 	/** 解析显式类型里的 `enum` / `struct` / `class` 字段。 */
-	const UObject* ResolveTypeObject(
-		const TSharedPtr<FJsonObject>& InExplicit,
-		const EPropertyBagPropertyType InType,
-		FString& OutError)
+	const UObject* ResolveTypeObject(const TSharedPtr<FJsonObject>& InExplicit, const EPropertyBagPropertyType InType, FString& OutError)
 	{
 		FString Path;
 		switch (InType)
@@ -1027,10 +1001,7 @@ bool ParseEnumByName(const UEnum* InEnum, const FString& InText, int64& OutValue
 	return true;
 }
 
-void ExportDocument(
-	const UStateTree& InTree,
-	FForgeDocument& OutDocument,
-	TArray<FForgeDiagnostic>& OutDiagnostics)
+void ExportDocument(const UStateTree& InTree, FForgeDocument& OutDocument, TArray<FForgeDiagnostic>& OutDiagnostics)
 {
 	const UStateTreeEditorData* EditorData = Cast<const UStateTreeEditorData>(InTree.EditorData.Get());
 	if (EditorData == nullptr)
@@ -1260,12 +1231,7 @@ namespace
 	}
 } // namespace
 
-bool ResolveStructReference(
-	const UStateTreeEditorData& InEditorData,
-	const FString& InReference,
-	FGuid& OutStructID,
-	FString& OutPropertyPath,
-	FString& OutError)
+bool ResolveStructReference(const UStateTreeEditorData& InEditorData, const FString& InReference, FGuid& OutStructID, FString& OutPropertyPath, FString& OutError)
 {
 	// 任务等节点在枚举里有两套条目（实例数据与节点模板，同名同路径）；引用一律按实例数据解析，
 	// 否则每个命名节点都会"自撞"成歧义。
@@ -1341,11 +1307,7 @@ bool ResolveStructReference(
 	return true;
 }
 
-bool ResolveNodeType(
-	const FString& InType,
-	UScriptStruct*& OutStruct,
-	UClass*& OutClass,
-	FString& OutError)
+bool ResolveNodeType(const FString& InType, UScriptStruct*& OutStruct, UClass*& OutClass, FString& OutError)
 {
 	OutStruct = nullptr;
 	OutClass = nullptr;
@@ -1380,11 +1342,7 @@ bool ResolveNodeType(
 	return false;
 }
 
-void ExportPropertyBag(
-	const FInstancedPropertyBag& InBag,
-	TSharedPtr<FJsonObject>& OutJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ExportPropertyBag(const FInstancedPropertyBag& InBag, TSharedPtr<FJsonObject>& OutJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	const UPropertyBag* BagStruct = InBag.GetPropertyBagStruct();
 	if (BagStruct == nullptr)
@@ -1421,11 +1379,7 @@ void ExportPropertyBag(
 	}
 }
 
-void ImportPropertyBag(
-	FInstancedPropertyBag& InOutBag,
-	const TSharedPtr<FJsonObject>& InJson,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ImportPropertyBag(FInstancedPropertyBag& InOutBag, const TSharedPtr<FJsonObject>& InJson, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	// 配置未写的参数删除：配置是唯一真源（`InJson` 无效表示"配置没写"，等价于清空）。
 	if (const UPropertyBag* BagStruct = InOutBag.GetPropertyBagStruct())

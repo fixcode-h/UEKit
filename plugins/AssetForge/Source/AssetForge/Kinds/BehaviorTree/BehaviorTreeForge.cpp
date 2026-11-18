@@ -76,19 +76,11 @@ namespace
 	}
 
 	/** 把一个节点（含子树、装饰器、服务）读成配置节点。 */
-	void ReadNodeInto(
-		const UBTNode* InNode,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath);
+	void ReadNodeInto(const UBTNode* InNode, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath);
 
 	/** 把一组附加节点（装饰器 / 服务）读成 JSON 数组。模板参数是因为两者的 TObjectPtr 类型不同。 */
 	template <typename TNodeType>
-	void ReadAttachedNodes(
-		const TArray<TObjectPtr<TNodeType>>& InNodes,
-		TArray<TSharedPtr<FJsonValue>>& OutArray,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath)
+	void ReadAttachedNodes(const TArray<TObjectPtr<TNodeType>>& InNodes, TArray<TSharedPtr<FJsonValue>>& OutArray, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath)
 	{
 		for (const TObjectPtr<TNodeType>& NodePtr : InNodes)
 		{
@@ -116,11 +108,7 @@ namespace
 		}
 	}
 
-	void ReadNodeInto(
-		const UBTNode* InNode,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InNodePath)
+	void ReadNodeInto(const UBTNode* InNode, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InNodePath)
 	{
 		if (InNode == nullptr)
 		{
@@ -215,10 +203,7 @@ namespace
 	// ---- 同步 ----
 
 	/** 读一个 JSON 数组里的附加节点定义。 */
-	void ReadAttachedDefinitions(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const TCHAR* InField,
-		TArray<TSharedPtr<FJsonObject>>& OutDefinitions)
+	void ReadAttachedDefinitions(const TSharedPtr<FJsonObject>& InExtra, const TCHAR* InField, TArray<TSharedPtr<FJsonObject>>& OutDefinitions)
 	{
 		if (!InExtra.IsValid())
 		{
@@ -242,12 +227,7 @@ namespace
 	}
 
 	/** 校验一组附加节点定义（装饰器 / 服务）的类——与 `RebuildAttachedNodes` 同一判据。 */
-	void ValidateAttachedDefinitions(
-		const TSharedPtr<FJsonObject>& InExtra,
-		const TCHAR* InField,
-		UClass* InBaseClass,
-		const FString& InNodePath,
-		FForgeReport& OutReport)
+	void ValidateAttachedDefinitions(const TSharedPtr<FJsonObject>& InExtra, const TCHAR* InField, UClass* InBaseClass, const FString& InNodePath, FForgeReport& OutReport)
 	{
 		TArray<TSharedPtr<FJsonObject>> Definitions;
 		ReadAttachedDefinitions(InExtra, InField, Definitions);
@@ -270,12 +250,7 @@ namespace
 
 	/** 按定义重建一组附加节点（装饰器或服务）——它们没有稳定名字，增量匹配不值当。 */
 	template <typename TNodeType>
-	void RebuildAttachedNodes(
-		UBehaviorTree* InTree,
-		TArray<TObjectPtr<TNodeType>>& InOutNodes,
-		const TArray<TSharedPtr<FJsonObject>>& InDefinitions,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	void RebuildAttachedNodes(UBehaviorTree* InTree, TArray<TObjectPtr<TNodeType>>& InOutNodes, const TArray<TSharedPtr<FJsonObject>>& InDefinitions, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		InOutNodes.Empty();
 
@@ -311,12 +286,7 @@ namespace
 	}
 
 	/** 把一个配置节点同步到一个已存在的行为树节点上（改属性 + 递归子节点）。 */
-	void SyncNode(
-		UBehaviorTree* InTree,
-		UBTNode* InNode,
-		const FForgeNode& InTarget,
-		FForgeReport& OutReport,
-		const FString& InNodePath)
+	void SyncNode(UBehaviorTree* InTree, UBTNode* InNode, const FForgeNode& InTarget, FForgeReport& OutReport, const FString& InNodePath)
 	{
 		InNode->NodeName = InTarget.Name;
 
@@ -421,10 +391,7 @@ namespace
 	 *
 	 * 少一条判据，dry-run 就会给出「没问题」的假计划、真跑才报错——两者必须是同一张门。
 	 */
-	void ValidateSubtree(
-		const FForgeNode& InNode,
-		const FString& InNodePath,
-		FForgeReport& OutReport)
+	void ValidateSubtree(const FForgeNode& InNode, const FString& InNodePath, FForgeReport& OutReport)
 	{
 		FString ClassError;
 		UClass* NodeClass = ResolveNodeClass(InNode.ClassName, ClassError);

@@ -71,11 +71,7 @@ namespace
 				|| InExpression->SubgraphExpression != nullptr);
 	}
 
-	bool ParseLink(
-		const TSharedPtr<FJsonValue>& InValue,
-		FMaterialLink& OutLink,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	bool ParseLink(const TSharedPtr<FJsonValue>& InValue, FMaterialLink& OutLink, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		if (!InValue.IsValid())
 		{
@@ -160,9 +156,7 @@ namespace
 	}
 
 	/** 输入引脚的访问顺序：按引脚名排。**必须与资产侧的遍历顺序一致**，否则共享节点的结构路径会两边不同。 */
-	void CollectSortedInputs(
-		const FMaterialNodeSpec& InNode,
-		TArray<TPair<FString, FMaterialLink>>& OutInputs)
+	void CollectSortedInputs(const FMaterialNodeSpec& InNode, TArray<TPair<FString, FMaterialLink>>& OutInputs)
 	{
 		OutInputs = InNode.Inputs;
 		OutInputs.Sort([](const TPair<FString, FMaterialLink>& InLeft, const TPair<FString, FMaterialLink>& InRight)
@@ -438,11 +432,7 @@ int32 ResolveOutputIndex(UMaterialExpression* InExpression, const FString& InOut
 	return INDEX_NONE;
 }
 
-bool ParseGraph(
-	const TSharedPtr<FJsonObject>& InExtra,
-	FMaterialGraph& OutGraph,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+bool ParseGraph(const TSharedPtr<FJsonObject>& InExtra, FMaterialGraph& OutGraph, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	if (!InExtra.IsValid())
 	{
@@ -841,10 +831,7 @@ void CanonicalizeNames(FMaterialGraph& InOutGraph)
 	}
 }
 
-void ValidateGraph(
-	FMaterialGraph& InOutGraph,
-	TArray<FForgeDiagnostic>& OutDiagnostics,
-	const FString& InFieldPath)
+void ValidateGraph(FMaterialGraph& InOutGraph, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 {
 	const FString NodesPath = JoinPath(InFieldPath, FieldNodes);
 

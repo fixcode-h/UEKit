@@ -100,10 +100,7 @@ namespace
 	}
 
 	/** 把资产的当前状态读成计划用的节点（只有属性，没有子树）。 */
-	void ReadCurrentNode(
-		const UBlueprint* InBlueprint,
-		FForgeNode& OutRoot,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadCurrentNode(const UBlueprint* InBlueprint, FForgeNode& OutRoot, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		OutRoot.ClassName = ObjectRootClass;
 		OutRoot.Name = TEXT("ClassDefaults");

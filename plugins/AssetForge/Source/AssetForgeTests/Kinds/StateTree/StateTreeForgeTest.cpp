@@ -69,12 +69,9 @@ TEST_CLASS_WITH_FLAGS(StateTreeForgeTest, "AssetForge.StateTree",
 	}
 
 	/** 造一份最小配置文档：asset 指向必定不存在的路径——dry-run 不碰盘。 */
-	static bool ParseDocument(
-		const FString& InRootBody,
-		FForgeDocument& OutDocument,
-		// 用 StateTreeModule 的 schema 基类路径：它 abstract 不能实例化，但 dry-run 只做类解析，
-		// 不碰实例化——这样测试不依赖任何具体 schema 插件。
-		const FString& InSchema = TEXT("/Script/StateTreeModule.StateTreeSchema"))
+	// InSchema 默认用 StateTreeModule 的 schema 基类路径：它 abstract 不能实例化，但 dry-run 只做类解析，
+	// 不碰实例化——这样测试不依赖任何具体 schema 插件。
+	static bool ParseDocument(const FString& InRootBody, FForgeDocument& OutDocument, const FString& InSchema = TEXT("/Script/StateTreeModule.StateTreeSchema"))
 	{
 		const FString Text = FString::Printf(TEXT(R"({
 			"kind": "state-tree",

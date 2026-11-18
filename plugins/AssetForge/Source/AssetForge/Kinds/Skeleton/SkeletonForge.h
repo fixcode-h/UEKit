@@ -20,13 +20,7 @@ namespace SkeletonForge
 	/** 本处理器认领的 kind。 */
 	constexpr TCHAR const* Kind = TEXT("skeleton");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }

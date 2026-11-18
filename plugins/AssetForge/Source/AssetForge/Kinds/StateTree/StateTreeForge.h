@@ -29,16 +29,10 @@ namespace StateTreeForge
 	/** 本处理器认领的 kind。 */
 	constexpr TCHAR const* Kind = TEXT("state-tree");
 
-	ASSETFORGE_API bool ExportAsset(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ExportAsset(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 会就地归一化文档（删掉显式写出的默认值）。 */
-	ASSETFORGE_API bool ImportDocument(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool ImportDocument(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 }
 
 #endif // ASSETFORGE_WITH_STATETREE

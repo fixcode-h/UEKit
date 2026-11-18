@@ -43,12 +43,7 @@ namespace ForgeEditorUtils
 			|| InPackagePath.Contains(TEXT("_schema"));
 	}
 
-	FForgeConfigClassification ClassifyConfig(
-		const bool bInParsed,
-		const FForgeDocument& InDocument,
-		const FForgeReport& InReport,
-		const TSharedPtr<FJsonObject>& InRawJson,
-		const TArray<FString>& InSupportedKinds)
+	FForgeConfigClassification ClassifyConfig(const bool bInParsed, const FForgeDocument& InDocument, const FForgeReport& InReport, const TSharedPtr<FJsonObject>& InRawJson, const TArray<FString>& InSupportedKinds)
 	{
 		FForgeConfigClassification Result;
 

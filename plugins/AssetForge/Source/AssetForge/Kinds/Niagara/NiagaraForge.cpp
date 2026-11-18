@@ -306,11 +306,7 @@ namespace
 	 * `Constants.<发射器>.GravityForce.Gravity` 在复制品上出现两次），拿模板侧的"名字不等"
 	 * 判据去遍历复制品，会让每个槽都匹配失败——一个参数也写不进去，还静默无声。
 	 */
-	bool FindParameterInScript(
-		UNiagaraScript& InScript,
-		const FString& InName,
-		bool bAllowExactMatch,
-		FNiagaraVariable& OutVariable)
+	bool FindParameterInScript(UNiagaraScript& InScript, const FString& InName, bool bAllowExactMatch, FNiagaraVariable& OutVariable)
 	{
 		const FName ParameterName(*InName);
 		const FString StrippedName = StripEmitterSegment(InName);
@@ -371,12 +367,7 @@ namespace
 
 	/** 写入一个参数；失败给 Warning——静默失败会让人以为配置生效了。 */
 	template<typename TValueType>
-	bool WriteParameterValue(
-		FNiagaraParameterStore& InStore,
-		const TValueType& InValue,
-		const FNiagaraVariable& InVariable,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	bool WriteParameterValue(FNiagaraParameterStore& InStore, const TValueType& InValue, const FNiagaraVariable& InVariable, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		if (InStore.SetParameterValue(InValue, InVariable, /*bAdd=*/true))
 		{
@@ -400,13 +391,7 @@ namespace
 	 * ——它写的是复制品的真实参数名（模板名的发射器段在复制时被换掉了）；复制品上的参数存储
 	 * 是"按需创建"的（编辑器改模块参数也走同一条路），所以按名创建（`bAdd=true`）。
 	 */
-	bool ApplyEmitterParameter(
-		UNiagaraEmitter& InEmitter,
-		UNiagaraEmitter& InTemplate,
-		const FString& InName,
-		const TSharedPtr<FJsonValue>& InValue,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	bool ApplyEmitterParameter(UNiagaraEmitter& InEmitter, UNiagaraEmitter& InTemplate, const FString& InName, const TSharedPtr<FJsonValue>& InValue, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		FNiagaraVariable Variable;
 		int32 Slot = INDEX_NONE;
@@ -538,11 +523,7 @@ namespace
 	 * **新建与复用两条路径共用**：同名发射器会走"复用"——不重建、但参数照写，配置才是
 	 * 参数的唯一真源（跳过写入会让"改了配置、资产却不变"）。
 	 */
-	void ApplyChildParameters(
-		UNiagaraEmitter& InTemplate,
-		UNiagaraEmitter& InTarget,
-		const FForgeNode& InChild,
-		FForgeReport& OutReport)
+	void ApplyChildParameters(UNiagaraEmitter& InTemplate, UNiagaraEmitter& InTarget, const FForgeNode& InChild, FForgeReport& OutReport)
 	{
 		LogEmitterParameters(InTarget, InChild.Name);
 
@@ -577,11 +558,7 @@ namespace
 	 * 模板按去发射器段对照（与写入侧同一把刀）；类型面与写入侧一致（float / int / bool /
 	 * vec2-4 / position / color——只读 float/int/bool 的那一版会让其余类型永远显示成「仅配置」）。
 	 */
-	void ExportEmitterParameters(
-		UNiagaraEmitter& InEmitter,
-		const UNiagaraEmitter* InTemplate,
-		const TSet<FString>* InConfiguredNames,
-		const TSharedPtr<FJsonObject>& OutProps)
+	void ExportEmitterParameters(UNiagaraEmitter& InEmitter, const UNiagaraEmitter* InTemplate, const TSet<FString>* InConfiguredNames, const TSharedPtr<FJsonObject>& OutProps)
 	{
 		FVersionedNiagaraEmitterData* EmitterData = InEmitter.GetLatestEmitterData();
 		if (EmitterData == nullptr || !OutProps.IsValid())
@@ -648,12 +625,7 @@ namespace
 		}
 	}
 
-	bool ApplyUserParameter(
-		UNiagaraSystem& InSystem,
-		const FString& InName,
-		const TSharedPtr<FJsonValue>& InValue,
-		TArray<FForgeDiagnostic>& OutDiagnostics,
-		const FString& InFieldPath)
+	bool ApplyUserParameter(UNiagaraSystem& InSystem, const FString& InName, const TSharedPtr<FJsonValue>& InValue, TArray<FForgeDiagnostic>& OutDiagnostics, const FString& InFieldPath)
 	{
 		if (!InValue.IsValid())
 		{
@@ -874,11 +846,7 @@ namespace
 	 * Niagara 不求反血缘，来源只能靠配置对照；写过的键集供导出的剪默认使用
 	 *（配置显式写了默认值也是作者的意图，剪掉会让它永远显示成「仅配置」）。
 	 */
-	void LoadKnownTemplates(
-		const FString& InAssetPath,
-		TMap<FString, FString>& OutTemplates,
-		TMap<FString, TSet<FString>>& OutConfiguredProps,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void LoadKnownTemplates(const FString& InAssetPath, TMap<FString, FString>& OutTemplates, TMap<FString, TSet<FString>>& OutConfiguredProps, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		const FString ConfigPath = ForgePipeline::MakeDefaultConfigPath(InAssetPath, Kind);
 
@@ -941,11 +909,7 @@ namespace
 	}
 
 	/** 把系统的当前状态读成计划用的节点：children = 发射器（名 + 来源对照），props = 用户参数。 */
-	void ReadCurrentNode(
-		const UNiagaraSystem& InSystem,
-		const FString& InAssetPath,
-		FForgeNode& OutRoot,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadCurrentNode(const UNiagaraSystem& InSystem, const FString& InAssetPath, FForgeNode& OutRoot, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		OutRoot.ClassName = SystemRootClass;
 		OutRoot.Name = FPackageName::GetShortName(InAssetPath);

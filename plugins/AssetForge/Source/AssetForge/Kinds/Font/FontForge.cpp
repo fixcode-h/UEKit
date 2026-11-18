@@ -128,11 +128,7 @@ namespace
 	}
 
 	/** 解析配置声明的类；短名按 /Script/Engine 展开，且必须是期望基类的派生。 */
-	UClass* ResolveRequiredClass(
-		const FString& InClassName,
-		UClass* InRequiredBase,
-		const TCHAR* InRequiredBaseName,
-		FString& OutError)
+	UClass* ResolveRequiredClass(const FString& InClassName, UClass* InRequiredBase, const TCHAR* InRequiredBaseName, FString& OutError)
 	{
 		FString FullName = InClassName;
 		if (!FullName.StartsWith(TEXT("/")))
@@ -206,11 +202,7 @@ namespace
 	}
 
 	/** 关键参数缺失只提醒不阻断（导出方向永远写全；这条只会在手写配置漏项时命中）。 */
-	void WarnMissingKeyProperties(
-		const TSharedPtr<FJsonObject>& InProps,
-		const TArray<FName>& InKeyPropertyNames,
-		const FString& InFieldPath,
-		FForgeReport& OutReport)
+	void WarnMissingKeyProperties(const TSharedPtr<FJsonObject>& InProps, const TArray<FName>& InKeyPropertyNames, const FString& InFieldPath, FForgeReport& OutReport)
 	{
 		TArray<FString> MissingKeys;
 		for (const FName& KeyName : InKeyPropertyNames)
@@ -242,11 +234,7 @@ namespace
 	}
 
 	/** 把 UFontFace 读成节点（source 写回扩展字段；调用方补 typeface 名）。 */
-	void ReadFaceInto(
-		const UFontFace* InFace,
-		const FString& InNodePath,
-		FForgeNode& OutNode,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ReadFaceInto(const UFontFace* InFace, const FString& InNodePath, FForgeNode& OutNode, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		OutNode.ClassName = FontFaceClassShort;
 		OutNode.Name = InFace->GetName();
@@ -302,11 +290,7 @@ namespace
 	}
 
 	/** children 的一项 → 面规格；解析出的内容全部校验过。 */
-	bool ParseFaceSpec(
-		const FForgeNode& InNode,
-		const FString& InNodePath,
-		FFaceSpec& OutSpec,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	bool ParseFaceSpec(const FForgeNode& InNode, const FString& InNodePath, FFaceSpec& OutSpec, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		bool bOk = true;
 
@@ -382,12 +366,7 @@ namespace
 	 * 粒度：根一条（UFont 属性或字体面列表变化）+ 每个面一条（新建/更新/移除引用）。
 	 * 面按**资产名**匹配（name 是配置的匹配键，同 UMG 的控件名）。
 	 */
-	void ComputeFontPlan(
-		const FForgeDocument& InDocument,
-		const TArray<FFaceSpec>& InSpecs,
-		const UFont* InCurrentFont,
-		TArray<FForgePlanEntry>& OutPlan,
-		TArray<FForgeDiagnostic>& OutDiagnostics)
+	void ComputeFontPlan(const FForgeDocument& InDocument, const TArray<FFaceSpec>& InSpecs, const UFont* InCurrentFont, TArray<FForgePlanEntry>& OutPlan, TArray<FForgeDiagnostic>& OutDiagnostics)
 	{
 		if (InCurrentFont == nullptr)
 		{
@@ -520,11 +499,7 @@ namespace
 	}
 
 	/** 建/更新一个字体面并保存。bOutReloaded 报告字体数据是否被重灌（决定要不要刷 Slate 缓存）。 */
-	bool ExecuteFace(
-		const FString& InFontAssetPath,
-		const FFaceSpec& InSpec,
-		bool& bOutReloaded,
-		FForgeReport& OutReport)
+	bool ExecuteFace(const FString& InFontAssetPath, const FFaceSpec& InSpec, bool& bOutReloaded, FForgeReport& OutReport)
 	{
 		bOutReloaded = false;
 

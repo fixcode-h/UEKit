@@ -179,11 +179,7 @@ namespace
 		return OverlapX * OverlapY;
 	}
 
-	void AnalyzeCanvasChildren(
-		const FForgeNode& InPanel,
-		const FVector2D& InContainerSize,
-		const FString& InNodePath,
-		TArray<FLayoutIssue>& OutIssues)
+	void AnalyzeCanvasChildren(const FForgeNode& InPanel, const FVector2D& InContainerSize, const FString& InNodePath, TArray<FLayoutIssue>& OutIssues)
 	{
 		TArray<FRectInfo> Rects;
 		Rects.Reserve(InPanel.Children.Num());
@@ -272,11 +268,7 @@ namespace
 		}
 	}
 
-	void AnalyzeNode(
-		const FForgeNode& InNode,
-		const FVector2D& InContainerSize,
-		const FString& InNodePath,
-		TArray<FLayoutIssue>& OutIssues)
+	void AnalyzeNode(const FForgeNode& InNode, const FVector2D& InContainerSize, const FString& InNodePath, TArray<FLayoutIssue>& OutIssues)
 	{
 		if (InNode.ClassName == TEXT("CanvasPanel"))
 		{

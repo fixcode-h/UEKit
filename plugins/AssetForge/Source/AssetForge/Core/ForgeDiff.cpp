@@ -61,10 +61,7 @@ namespace
 	}
 
 	/** 按规范化后的键建索引：与判等用同一套键规则。 */
-	void IndexByNormalizedKey(
-		const TSharedPtr<FJsonObject>& InObject,
-		TMap<FString, TSharedPtr<FJsonValue>>& OutValues,
-		TMap<FString, FString>& OutDisplayKeys)
+	void IndexByNormalizedKey(const TSharedPtr<FJsonObject>& InObject, TMap<FString, TSharedPtr<FJsonValue>>& OutValues, TMap<FString, FString>& OutDisplayKeys)
 	{
 		if (!InObject.IsValid())
 		{
@@ -86,11 +83,7 @@ namespace
 	 * 只说到 `props: WaitTime` 是定位不了问题的——`WaitTime` 里还有 `defaultValue` 与 `key`。
 	 * 两边都是对象时继续往下走一层，直到某个具体字段或数组。
 	 */
-	void CollectChangedPaths(
-		const TSharedPtr<FJsonObject>& InTarget,
-		const TSharedPtr<FJsonObject>& InCurrent,
-		const FString& InPath,
-		TArray<FString>& OutPaths)
+	void CollectChangedPaths(const TSharedPtr<FJsonObject>& InTarget, const TSharedPtr<FJsonObject>& InCurrent, const FString& InPath, TArray<FString>& OutPaths)
 	{
 		TMap<FString, TSharedPtr<FJsonValue>> TargetValues;
 		TMap<FString, TSharedPtr<FJsonValue>> CurrentValues;
@@ -144,10 +137,7 @@ namespace
 }
 
 /** 列出变化了的字段——报告里直接给字段比给整块 JSON 更有用（材质图的计划也复用它）。 */
-FString DescribeObjectDiff(
-	const TSharedPtr<FJsonObject>& InTarget,
-	const TSharedPtr<FJsonObject>& InCurrent,
-	const FString& InPath)
+FString DescribeObjectDiff(const TSharedPtr<FJsonObject>& InTarget, const TSharedPtr<FJsonObject>& InCurrent, const FString& InPath)
 {
 	TArray<FString> Paths;
 	CollectChangedPaths(InTarget, InCurrent, InPath, Paths);
@@ -224,11 +214,7 @@ namespace
 	}
 }
 
-void ComputePlan(
-	const FForgeNode& InTarget,
-	const FForgeNode& InCurrent,
-	const FString& InNodePath,
-	TArray<FForgePlanEntry>& OutPlan)
+void ComputePlan(const FForgeNode& InTarget, const FForgeNode& InCurrent, const FString& InNodePath, TArray<FForgePlanEntry>& OutPlan)
 {
 	FString Detail;
 	if (!AreContentsEqual(InTarget, InCurrent, Detail))
@@ -300,10 +286,7 @@ void ComputePlan(
 	}
 }
 
-void ComputeRootPlan(
-	const FForgeNode& InTarget,
-	const FForgeNode& InCurrent,
-	TArray<FForgePlanEntry>& OutPlan)
+void ComputeRootPlan(const FForgeNode& InTarget, const FForgeNode& InCurrent, TArray<FForgePlanEntry>& OutPlan)
 {
 	ComputePlan(InTarget, InCurrent, TEXT("root"), OutPlan);
 }

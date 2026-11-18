@@ -30,41 +30,25 @@ namespace ForgePipeline
 	ASSETFORGE_API FString ResolveConfigPath(const FString& InConfigPath);
 
 	/** 读配置文件 → 文档（含注释剥离、字段校验、schema 版本门禁与 ref 解析）。 */
-	ASSETFORGE_API bool LoadDocument(
-		const FString& InConfigPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool LoadDocument(const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/**
 	 * 同上，但配置内容由调用方给（面板预览还没存盘的改动、和 git 里旧版本比较）。
 	 * `InConfigPath` 仍然要给：诊断里显示它，配置里的相对 ref 也按它所在的目录找。
 	 */
-	ASSETFORGE_API bool LoadDocumentFromText(
-		const FString& InText,
-		const FString& InConfigPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool LoadDocumentFromText(const FString& InText, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 把文档写回配置文件。 */
-	ASSETFORGE_API bool SaveDocument(
-		const FString& InConfigPath,
-		const FForgeDocument& InDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool SaveDocument(const FString& InConfigPath, const FForgeDocument& InDocument, FForgeReport& OutReport);
 
 	/**
 	 * 按 kind 分派导入（真跑时附带资产健康检查）。会就地归一化文档，所以不是 const。
 	 * 返回值与 `OutReport.bSucceeded` 一致：处理器成功且报告里没有错误。
 	 */
-	ASSETFORGE_API bool Import(
-		FForgeDocument& InDocument,
-		bool bDryRun,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool Import(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport);
 
 	/** 按资产类型分派导出（类型判定读登记表）。返回值与 `OutReport.bSucceeded` 一致。 */
-	ASSETFORGE_API bool Export(
-		const FString& InAssetPath,
-		FForgeDocument& OutDocument,
-		FForgeReport& OutReport);
+	ASSETFORGE_API bool Export(const FString& InAssetPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/** 报告 → JSON。面板操作与命令行 `-json` 共用这一份表示。 */
 	ASSETFORGE_API TSharedPtr<FJsonObject> ReportToJson(const FForgeReport& InReport);

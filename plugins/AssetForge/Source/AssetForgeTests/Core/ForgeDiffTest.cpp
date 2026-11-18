@@ -23,10 +23,7 @@ TEST_CLASS_WITH_FLAGS(ForgeDiffTest, "AssetForge.Diff",
 		return Node;
 	}
 
-	static const FForgePlanEntry* FindEntry(
-		const TArray<FForgePlanEntry>& InPlan,
-		EForgeAction InAction,
-		const FString& InNodePath)
+	static const FForgePlanEntry* FindEntry(const TArray<FForgePlanEntry>& InPlan, EForgeAction InAction, const FString& InNodePath)
 	{
 		for (const FForgePlanEntry& Entry : InPlan)
 		{
