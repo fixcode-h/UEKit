@@ -20,19 +20,13 @@
 
 namespace GameTestValidateLocal
 {
-	/** 运行设置里和脚本有关的几项（allowLuaInvoke / allowLuaInCond / maxCallDepth）：没有设置文件就用默认值。 */
+	/** 运行设置里和脚本有关的几项（allowLuaInvoke / allowLuaInCond / maxCallDepth）：和执行器读同一份；没有设置文件就用默认值。 */
 	FGameTestScriptOptions ReadOptions()
 	{
-		FGameTestScriptOptions Options;
+		FGameTestRunConfig Config;
 		FString Error;
-		const TSharedPtr<FJsonObject> Json = GameTestJson::ParseObjectFromFile(GameTestRunConfig::GetPath(), Error);
-		if (Json.IsValid())
-		{
-			GameTestJson::TryGetBool(*Json, TEXT("allowLuaInvoke"), Options.bAllowLuaInvoke);
-			GameTestJson::TryGetBool(*Json, TEXT("allowLuaInCond"), Options.bAllowLuaInCond);
-			GameTestJson::TryGetInt(*Json, TEXT("maxCallDepth"), Options.MaxCallDepth);
-		}
-		return Options;
+		GameTestRunConfig::Load(Config, Error);
+		return Config.ScriptOptions;
 	}
 
 	int32 CountCalls(const FGameTestNodeList& InList)
