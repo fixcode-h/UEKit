@@ -209,6 +209,21 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 		return false;
 	}
 
+	// 录成步骤段、接着录（1.10.0）：每次开始只用一次，用完清掉；接着录的场景和位置先核对，对不上就不开始。
+	bGroup = bNextGroup;
+	InsertScenario = NextInsertScenario;
+	InsertAfter = NextInsertAfter;
+	bNextGroup = false;
+	NextInsertScenario.Reset();
+	NextInsertAfter.Reset();
+	if (!PrepareInsert(OutError))
+	{
+		InsertScenario.Reset();
+		InsertAfter.Reset();
+		return false;
+	}
+	LastSaved.Reset();
+
 	Name = InName.TrimStartAndEnd().IsEmpty() ? FString::Printf(TEXT("录制 %s"), *FDateTime::Now().ToString(TEXT("%m-%d %H:%M"))) : InName.TrimStartAndEnd();
 	Steps.Reset();
 	Queue.Reset();
@@ -222,7 +237,7 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	StartedAt = FPlatformTime::Seconds();
 	LastEventAt = 0.0;
 	MoveSegment.Reset();
-	bPickArmed = false;
+	PickArmed = EPick::None;
 	bToolbarPressed = false;
 	Notice.Reset();
 	Shots.Begin(NextShotOptions);
@@ -246,7 +261,8 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	}
 
 	// 编辑器里 PIE 正在跑：回放时先把同一张地图的 PIE 拉起来，场景才能单独跑。
-	if (bInStartPie && GameTestEditor::IsAvailable() && GameTestEditor::IsPieRunning())
+	// 接着录的段插在已有场景中间，前面的步骤已经把游戏拉起来了，不加。
+	if (bInStartPie && InsertScenario.IsEmpty() && GameTestEditor::IsAvailable() && GameTestEditor::IsPieRunning())
 	{
 		const TSharedRef<FJsonObject> Pie = GameTestRecorderDetail::MakeStep(TEXT("pie.start"));
 		const FString Map = GameTestEditor::GetEditorLevelPath();
@@ -361,8 +377,44 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 		StepValues.Add(MakeShared<FJsonValueObject>(Step));
 	}
 
-	if (bInSave && Steps.Num() > 0)
+	bool bInserted = false;
+	if (bInSave && Steps.Num() > 0 && !InsertScenario.IsEmpty())
 	{
+		// 从这里接着录：段插进原场景，不另存新文件。插不进去（场景被删、写不进去）时不丢录到的操作，按一个段另存成新文件
+		FString InsertError;
+		bInserted = SaveIntoScenario(StepValues, *OutResult, InsertError);
+		if (!bInserted)
+		{
+			OutResult->SetStringField(TEXT("warning"), FString::Printf(TEXT("%s；录到的段另存成了新文件"), *InsertError));
+			bGroup = true;
+		}
+	}
+	if (bInSave && Steps.Num() > 0 && !bInserted)
+	{
+		// 文件里的步骤：录成段时外面包一层；返回的预览仍按录到的一步步给
+		TArray<TSharedPtr<FJsonValue>> FileSteps = StepValues;
+		if (bGroup)
+		{
+			// 录完是一个步骤段（定稿 10）：开头的 pie.start 留在段外，它是把游戏拉起来的准备，不是录到的操作
+			TArray<TSharedPtr<FJsonValue>> Inner = StepValues;
+			TArray<TSharedPtr<FJsonValue>> Outer;
+			while (Inner.Num() > 0)
+			{
+				const TSharedPtr<FJsonObject> FirstStep = Inner[0].IsValid() ? Inner[0]->AsObject() : nullptr;
+				FString FirstAction;
+				if (!FirstStep.IsValid() || !FirstStep->TryGetStringField(TEXT("action"), FirstAction) || FirstAction != TEXT("pie.start"))
+				{
+					break;
+				}
+				Outer.Add(Inner[0]);
+				Inner.RemoveAt(0);
+			}
+			if (Inner.Num() > 0)
+			{
+				Outer.Add(MakeShared<FJsonValueObject>(MakeSegment(Inner)));
+			}
+			FileSteps = Outer;
+		}
 		const TSharedRef<FJsonObject> Scenario = MakeShared<FJsonObject>();
 		Scenario->SetStringField(TEXT("kind"), GameTestScenario::GetKind());
 		Scenario->SetNumberField(TEXT("schemaVersion"), GameTestScenario::SupportedSchemaVersion);
@@ -375,7 +427,7 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 		Scenario->SetArrayField(TEXT("tags"), Tags);
 		// 录下来的节奏靠 wait 步骤和 UI 动作的自动等待还原，步间不再额外停顿。
 		Scenario->SetNumberField(TEXT("stepDelayMs"), 0);
-		Scenario->SetArrayField(TEXT("steps"), StepValues);
+		Scenario->SetArrayField(TEXT("steps"), FileSteps);
 
 		const FString RootDir = UGameTestSettings::ResolveScenarioRootDir();
 		const FString Stem = GameTestRecorderDetail::ToFileStem(Name);
@@ -396,6 +448,7 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 
 		OutResult->SetStringField(TEXT("path"), Relative);
 		OutResult->SetStringField(TEXT("absolutePath"), AbsolutePath);
+		LastSaved = Relative;
 	}
 
 	// 只回前几步预览：完整内容在文件里，返回体不撑大。
@@ -419,10 +472,29 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 	Status->SetStringField(TEXT("handlerSource"), GameTestHandlerWatch::IsSupported() ? TEXT("slateDebugging") : TEXT("hitPath"));
 	if (!bRecording)
 	{
+		// 刚停止：存到了哪个场景（接着录时是原场景），面板按它刷新打开着的编辑页
+		if (!LastSaved.IsEmpty())
+		{
+			Status->SetStringField(TEXT("saved"), LastSaved);
+		}
 		return Status;
 	}
 
 	Status->SetStringField(TEXT("name"), Name);
+	if (bGroup)
+	{
+		Status->SetBoolField(TEXT("group"), true);
+	}
+	if (!InsertScenario.IsEmpty())
+	{
+		const TSharedRef<FJsonObject> Insert = MakeShared<FJsonObject>();
+		Insert->SetStringField(TEXT("scenario"), InsertScenario);
+		if (!InsertAfter.IsEmpty())
+		{
+			Insert->SetStringField(TEXT("after"), InsertAfter);
+		}
+		Status->SetObjectField(TEXT("insert"), Insert);
+	}
 	Status->SetNumberField(TEXT("steps"), Steps.Num());
 	Status->SetNumberField(TEXT("seconds"), FMath::RoundToInt((FPlatformTime::Seconds() - StartedAt) * 10.0) / 10.0);
 	Status->SetBoolField(TEXT("keepPace"), bKeepPace);
@@ -492,10 +564,12 @@ bool FGameTestRecorder::OnMouseButton(const FKey& InButton, bool bInDown, const 
 		bToolbarPressed = false;
 		return false;
 	}
-	// Alt+4 / 工具栏「断言」之后的下一次点击：和 Ctrl+Alt 点一样录成断言。
-	if (bInDown && bPickArmed)
+	// Alt+4 / 6 / 7（工具栏「断言」「等到」「分支」）之后的下一次点击：和 Ctrl+Alt 点一样吃掉，按选的录成断言、等到或分支。
+	EPick ArmedPick = EPick::Assert;
+	if (bInDown && PickArmed != EPick::None)
 	{
-		bPickArmed = false;
+		ArmedPick = PickArmed;
+		PickArmed = EPick::None;
 		bInPickModifiers = true;
 	}
 
@@ -516,6 +590,7 @@ bool FGameTestRecorder::OnMouseButton(const FKey& InButton, bool bInDown, const 
 	if (bInDown && bInPickModifiers)
 	{
 		Event.Kind = ERawKind::PickDown;
+		Event.Pick = ArmedPick;
 		Queue.Add(Event);
 		bPickActive = true;
 		return true;
@@ -1217,15 +1292,22 @@ void FGameTestRecorder::ProcessPick(const FRawEvent& InEvent)
 	UWidget* Widget = GameTestSlate::FindOwningWidget(InEvent.HitLeaf.Pin());
 	if (Widget == nullptr)
 	{
-		UE_LOG(LogGameTest, Display, TEXT("录制：Ctrl+Alt 点到的地方没有 UMG 控件，没录断言"));
+		UE_LOG(LogGameTest, Display, TEXT("录制：拾取点到的地方没有 UMG 控件，没录"));
+		SetNotice(TEXT("点到的地方没有界面控件，没录"));
 		return;
 	}
 
 	FGameTestWrittenTarget Written;
 	FString Error;
+	if (InEvent.Pick == EPick::Wait || InEvent.Pick == EPick::Branch)
+	{
+		AddPickBlock(InEvent.Pick, *Widget, InEvent.Time);
+		return;
+	}
 	if (!GameTestSelectorWriter::Write(*Widget, Written, Error))
 	{
 		UE_LOG(LogGameTest, Warning, TEXT("录制：拾取的控件写不出选择器（%s）"), *Error);
+		SetNotice(TEXT("这个控件写不出选择器，没录断言"));
 		return;
 	}
 

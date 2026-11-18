@@ -42,6 +42,8 @@ public class GameTest : ModuleRules
 			"Slate",
 			"SlateCore",
 			"ApplicationCore",
+			// 抓控件的实时画面压 JPEG（gt.pick）
+			"ImageWrapper",
 			"InputCore",
 			"DeveloperSettings",
 			"Projects",

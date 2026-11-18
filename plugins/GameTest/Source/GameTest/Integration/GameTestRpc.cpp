@@ -15,6 +15,7 @@
 #include "Observe/GameTestInspect.h"
 #include "Observe/GameTestNav.h"
 #include "Observe/GameTestResolve.h"
+#include "Integration/Live/GameTestLive.h"
 #include "Core/GameTestAction.h"
 #include "Operate/GameTestSkipIf.h"
 #include "Observe/GameTestCondition.h"
@@ -540,6 +541,21 @@ namespace
 			return false;
 		}
 		FGameTestRecorder::Get().SetStateOptions(InferMode, Int(Args, TEXT("stateWindowMs"), FGameTestRecordState::DefaultWindowMs));
+		// 录成步骤段、从这里接着录（1.10.0）：group=true 时录到的步骤装进一个 group；
+		// insert={scenario, after} 时录到的段插进这个场景（相对场景根）里 id 为 after 的步骤后面（after 省略 = 主流程最后），不另存新文件
+		FString InsertScenario;
+		FString InsertAfter;
+		if (Args.IsValid() && Args->HasField(TEXT("insert")))
+		{
+			const TSharedPtr<FJsonObject>* Insert = nullptr;
+			if (!Args->TryGetObjectField(TEXT("insert"), Insert) || Insert == nullptr || !Insert->IsValid() || !(*Insert)->TryGetStringField(TEXT("scenario"), InsertScenario) || InsertScenario.IsEmpty())
+			{
+				Error = TEXT("insert 要写成 {\"scenario\": \"相对场景根的路径\", \"after\": \"步骤 id（可省）\"}");
+				return false;
+			}
+			(*Insert)->TryGetStringField(TEXT("after"), InsertAfter);
+		}
+		FGameTestRecorder::Get().SetSegmentOptions(Bool(Args, TEXT("group"), false), InsertScenario, InsertAfter);
 		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
@@ -860,6 +876,9 @@ void Register()
 	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
 	Add(TEXT("gt.debug"), &GameTestRpcScript::Debug);
 	Add(TEXT("gt.validate"), &GameTestRpcScript::Validate);
+	// 1.10.0：连着游戏编辑（抓控件、此刻的结果实时推送）
+	Add(TEXT("gt.pick"), &GameTestLive::Pick);
+	Add(TEXT("gt.watch"), &GameTestLive::Watch);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
@@ -874,6 +893,7 @@ void Register()
 
 void Unregister()
 {
+	GameTestLive::Shutdown();
 	GameTestHooks::OnJobChanged().Remove(JobHandle);
 	GameTestHooks::OnRecordChanged().Remove(RecordHandle);
 	GameTestHooks::OnFlowEvent().Remove(FlowHandle);

@@ -32,6 +32,8 @@ public:
 		bool bMoving = false;
 		bool bHotkeys = true;
 		bool bPickArmed = false;
+		/** 拾取模式时提示行显示的话（「下一次点击录成断言」「……录成等到」） */
+		FString PickHint;
 		FString Notice;
 	};
 

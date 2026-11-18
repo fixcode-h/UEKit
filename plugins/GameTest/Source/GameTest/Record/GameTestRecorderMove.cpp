@@ -188,14 +188,23 @@ bool FGameTestRecorder::Quick(const FString& InPhase, double InRadius, FString& 
 	{
 		bOk = AddNearStep(InRadius > 0.0 ? InRadius : GameTestRecorderMoveDetail::DefaultNearRadius, OutError);
 	}
-	else if (InPhase == TEXT("pick"))
+	else if (InPhase == TEXT("pick") || InPhase == TEXT("wait") || InPhase == TEXT("branch"))
 	{
-		bPickArmed = !bPickArmed;
+		// 再按一次同一个就取消；按了别的就换成别的（下一次点击只录一种）
+		const EPick Want = InPhase == TEXT("pick") ? EPick::Assert : InPhase == TEXT("wait") ? EPick::Wait : EPick::Branch;
+		if (MoveSegment.IsValid() && Want != EPick::Assert)
+		{
+			OutError = TEXT("正在录移动：先结束（Alt+1）");
+			SetNotice(OutError);
+			SyncToolbar();
+			return false;
+		}
+		PickArmed = PickArmed == Want ? EPick::None : Want;
 		bOk = true;
 	}
 	else
 	{
-		OutError = FString::Printf(TEXT("gt.record.move 不认识 phase=%s（start / end / toggle / cancel / here / near / pick）"), *InPhase);
+		OutError = FString::Printf(TEXT("gt.record.move 不认识 phase=%s（start / end / toggle / cancel / here / near / pick / wait / branch）"), *InPhase);
 		return false;
 	}
 
@@ -252,6 +261,14 @@ bool FGameTestRecorder::OnHotkey(const FKey& InKey)
 	else if (InKey == EKeys::Four)
 	{
 		Phase = TEXT("pick");
+	}
+	else if (InKey == EKeys::Six)
+	{
+		Phase = TEXT("wait");
+	}
+	else if (InKey == EKeys::Seven)
+	{
+		Phase = TEXT("branch");
 	}
 	else if (InKey != EKeys::Five)
 	{
@@ -632,7 +649,8 @@ void FGameTestRecorder::SyncToolbar()
 	FGameTestRecordToolbar::FState State;
 	State.bMoving = MoveSegment.IsValid();
 	State.bHotkeys = bHotkeys;
-	State.bPickArmed = bPickArmed;
+	State.bPickArmed = PickArmed != EPick::None;
+	State.PickHint = DescribePickArmed();
 	State.Notice = Notice;
 	const double Seconds = FPlatformTime::Seconds() - StartedAt;
 	State.Status = State.bMoving
@@ -653,8 +671,9 @@ void FGameTestRecorder::HideToolbar()
 void FGameTestRecorder::DescribeQuick(FJsonObject& OutStatus) const
 {
 	OutStatus.SetBoolField(TEXT("hotkeys"), bHotkeys);
-	if (bPickArmed)
+	if (PickArmed != EPick::None)
 	{
+		OutStatus.SetStringField(TEXT("pickKind"), PickName(PickArmed));
 		OutStatus.SetBoolField(TEXT("pickArmed"), true);
 	}
 	if (!Notice.IsEmpty())
