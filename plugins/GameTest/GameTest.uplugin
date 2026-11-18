@@ -37,6 +37,11 @@
       "TargetConfigurationDenyList": ["Shipping"]
     },
     {
+      "Name": "GameTestEditor",
+      "Type": "Editor",
+      "LoadingPhase": "PostEngineInit"
+    },
+    {
       "Name": "GameTestTests",
       "Type": "UncookedOnly",
       "LoadingPhase": "PostEngineInit",
