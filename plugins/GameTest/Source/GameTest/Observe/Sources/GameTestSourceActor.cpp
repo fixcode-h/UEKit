@@ -7,6 +7,7 @@
 #include "Core/Script/GameTestFlowContext.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestValueSource.h"
+#include "GameFramework/Actor.h"
 
 namespace
 {

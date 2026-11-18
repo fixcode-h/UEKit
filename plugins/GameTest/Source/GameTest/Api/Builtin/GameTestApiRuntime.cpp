@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include "Observe/Lua/GameTestLuaBridge.h"
 #include "Shot/GameTestShot.h"
+#include "Engine/World.h"
 
 // 引擎每帧更新的平滑帧率（stat fps 显示的就是它）：比 1 / DeltaTime 稳，冒烟检查不会被一帧卡顿带偏
 extern ENGINE_API float GAverageFPS;

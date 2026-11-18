@@ -9,6 +9,7 @@
 #include "Observe/Checks/GameTestCheck.h"
 #include "Observe/Checks/GameTestWidgetProbe.h"
 #include "Observe/GameTestActor.h"
+#include "Engine/World.h"
 
 /**
  * 判断：Actor 到了某个点附近 `{"actorNear": {"actor": "BP_Hero_C", "point": [100, 0, 0], "radius": 200}}`。

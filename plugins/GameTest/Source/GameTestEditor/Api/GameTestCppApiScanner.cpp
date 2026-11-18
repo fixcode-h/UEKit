@@ -192,7 +192,7 @@ TSharedRef<FJsonObject> GameTestCppApiScanner::Scan(const TArray<FString>& InFol
 			continue;
 		}
 		const FString RelHeader = ToProjectRelative(Header);
-		if (!InFolders(RelHeader, InFolders))
+		if (!GameTestCppApiScanner::InFolders(RelHeader, InFolders))
 		{
 			continue;
 		}

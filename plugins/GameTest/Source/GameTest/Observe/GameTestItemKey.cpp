@@ -23,6 +23,7 @@
 #include "UObject/Package.h"
 #include "UObject/TextProperty.h"
 #include "UObject/UnrealType.h"
+#include "Components/PanelSlot.h"
 
 namespace GameTestItemKeyDetail
 {

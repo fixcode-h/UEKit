@@ -21,6 +21,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "HAL/PlatformTime.h"
+#include "Components/PanelWidget.h"
 
 namespace GameTestRecordStateDetail
 {

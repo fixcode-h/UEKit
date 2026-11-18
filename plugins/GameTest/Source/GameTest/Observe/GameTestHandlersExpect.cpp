@@ -16,6 +16,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Engine/World.h"
+#include "GameFramework/Actor.h"
 
 namespace
 {
