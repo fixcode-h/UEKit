@@ -225,7 +225,7 @@ bool FGameTestShotOptions::FromJson(const TSharedPtr<FJsonValue>& InValue, FGame
 		return false;
 	}
 	const FJsonObject& Json = **Object;
-	// padRatio、padMin、padMax、minWidth、minHeight 是 1.4.1 及以前一个比例管四边的写法，旧面板还会传：照旧收下，
+	// padRatio、padMin、padMax、minWidth、minHeight 是 1.4.x 及以前一个比例管四边的写法，旧面板还会传：照旧收下，
 	// 换算成左右、上下同一个比例并打开外扩，旧面板录出来的图和以前一样
 	static const TCHAR* Known[] = {
 		TEXT("enabled"), TEXT("expand"), TEXT("padX"), TEXT("padXMax"), TEXT("padY"), TEXT("padYMax"),

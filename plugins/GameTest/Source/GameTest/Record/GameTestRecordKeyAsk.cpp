@@ -3,6 +3,8 @@
 // 录制时「这一格怎么认」（1.4.0）：点到列表、格子这类容器里的条目时，按下那一刻挑好的标识在松开后复查，
 // 拿不准（或设成每次都问）就暂停游戏，推送 gt.record { phase: "ask" }，等面板（或 Agent）用 gt.record.key 回答。
 // 暂停期间不录任何输入，这段时间也不算进录制间隔。
+// 答过的认法（1.5.0）记在这次录制里：同一列表（条目类 + 容器）后面再点到条目直接沿用，不再问；
+// 改某一步时可以把这次录制里同一列表已录的步骤一起改掉。跨录制靠规则（_settings.json 的 itemKeys）。
 
 #include "Record/GameTestRecorder.h"
 
@@ -72,6 +74,71 @@ namespace GameTestRecordKeyAskDetail
 			Hint->RemoveField(TEXT("byIndex"));
 		}
 	}
+}
+
+FString FGameTestRecorder::KeyChoiceId(const FGameTestKeySite& InSite)
+{
+	if (InSite.EntryClass.IsEmpty())
+	{
+		return FString();
+	}
+	// 和规则一样：WBP_BagSlot 和 WBP_BagSlot_C 算同一个类，不分大小写
+	const FString Entry = InSite.EntryClass.EndsWith(TEXT("_C")) ? InSite.EntryClass.LeftChop(2) : InSite.EntryClass;
+	return (Entry + TEXT("|") + InSite.Base).ToLower();
+}
+
+bool FGameTestRecorder::ApplyKeyChoice(const TSharedPtr<FJsonObject>& InStep, FGameTestKeySite& InOutSite, const FKeyChoice& InChoice,
+	const FString& InBy, FString& OutWhy) const
+{
+	using namespace GameTestRecordKeyAskDetail;
+	if (!InStep.IsValid())
+	{
+		OutWhy = TEXT("这一步已经没了");
+		return false;
+	}
+	FString Cond;
+	if (InChoice.Mode.IsEmpty())
+	{
+		Cond = GameTestItemKey::CondFromFields(InOutSite, InChoice.By);
+		if (Cond.IsEmpty())
+		{
+			OutWhy = FString::Printf(TEXT("这一格读不到 %s"), *FString::Join(InChoice.By, TEXT("、")));
+			return false;
+		}
+		TArray<FGameTestKeyCond> Conds;
+		FString ParseError;
+		if (!GameTestItemKey::ParseConds(Cond, Conds, ParseError))
+		{
+			OutWhy = ParseError.IsEmpty() ? FString::Printf(TEXT("[%s] 写不进选择器"), *Cond) : ParseError;
+			return false;
+		}
+		// 容器还在就核对唯一：同一列表里这一格的值可能和别的格重复（字段只在上一格唯一）
+		TArray<FGameTestKeyEntry> Entries;
+		if (GameTestItemKey::CollectEntries(InOutSite.Container.Get(), Entries))
+		{
+			FGameTestKeyCache Cache;
+			TArray<int32> Hits;
+			GameTestItemKey::FindMatches(Entries, InOutSite.bList, Conds, Cache, 2, Hits);
+			if (Hits.Num() != 1)
+			{
+				OutWhy = Hits.Num() == 0 ? FString::Printf(TEXT("按 [%s] 现在找不到这一格"), *Cond)
+										 : FString::Printf(TEXT("按 [%s] 认出不止一格"), *Cond);
+				return false;
+			}
+		}
+	}
+	FString Target;
+	InStep->TryGetStringField(TEXT("target"), Target);
+	if (!GameTestItemKey::Apply(InOutSite, Cond, Target))
+	{
+		OutWhy = TEXT("这一步的 target 改过了，和录制时对不上");
+		return false;
+	}
+	InStep->SetStringField(TEXT("target"), Target);
+	InOutSite.Cond = Cond;
+	InOutSite.By = InChoice.Mode.IsEmpty() ? InBy : InChoice.Mode;
+	WriteKey(InStep, InOutSite);
+	return true;
 }
 
 void FGameTestRecorder::SetKeyAskOptions(const FString& InMode, double InTimeoutSeconds)
@@ -162,12 +229,29 @@ void FGameTestRecorder::AfterKeyStep(const TSharedRef<FJsonObject>& InStep, cons
 	}
 	WriteKey(InStep, Site);
 
+	// 这次录制里这个列表定过认法：照着改，不再问（规则命中的不动，规则是用户专门存的）
+	if (Site.By != TEXT("rule"))
+	{
+		const FString ChoiceId = KeyChoiceId(Site);
+		if (const FKeyChoice* Choice = ChoiceId.IsEmpty() ? nullptr : KeyChoices.Find(ChoiceId))
+		{
+			FString Why;
+			if (!ApplyKeyChoice(InStep, Site, *Choice, TEXT("same"), Why))
+			{
+				// 对不上就照常挑、照常问：这一格和之前的不一样，得人看一眼
+				UE_LOG(LogGameTest, Display, TEXT("录制：第 %d 步没法沿用这个列表之前的认法（%s）"), IndexOfStep(InStep) + 1, *Why);
+			}
+		}
+	}
+
 	FKeyStep KeyStep;
 	KeyStep.Step = InStep;
 	KeyStep.Site = InSite;
 	KeySteps.Add(MoveTemp(KeyStep));
 
-	const bool bAsk = bInMayAsk && (AskMode == TEXT("always") || (AskMode == TEXT("unsure") && Site.By == TEXT("pending")));
+	// 规则和这次录制里定过的都不问；「每次都问」指的是每个列表第一次
+	const bool bDecided = Site.By == TEXT("rule") || Site.By == TEXT("same");
+	const bool bAsk = bInMayAsk && !bDecided && (AskMode == TEXT("always") || (AskMode == TEXT("unsure") && Site.By == TEXT("pending")));
 	if (bAsk)
 	{
 		BeginAsk(InStep, InSite);
@@ -455,6 +539,32 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 		OutResult->SetStringField(TEXT("cond"), Cond);
 	}
 
+	// 记下这个列表的认法：后面再点到同一列表的条目直接沿用；先跳过的不记（还没定）
+	if (Mode != TEXT("skip"))
+	{
+		FKeyChoice Choice;
+		if (NewBy == TEXT("index") || NewBy == TEXT("text"))
+		{
+			Choice.Mode = NewBy;
+		}
+		else
+		{
+			Choice.By = FieldsOfCond(Cond);
+		}
+		const FString ChoiceId = KeyChoiceId(*Site);
+		if (!ChoiceId.IsEmpty() && (Choice.By.Num() > 0 || !Choice.Mode.IsEmpty()))
+		{
+			KeyChoices.Add(ChoiceId, Choice);
+
+			bool bAll = false;
+			Args->TryGetBoolField(TEXT("all"), bAll);
+			if (bAll)
+			{
+				ApplyChoiceToList(Step, *Site, ChoiceId, Choice, *OutResult);
+			}
+		}
+	}
+
 	bool bRule = false;
 	Args->TryGetBoolField(TEXT("rule"), bRule);
 	if (bRule && !Cond.IsEmpty() && !Site->EntryClass.IsEmpty())
@@ -488,6 +598,39 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 		Broadcast(TEXT("key"));
 	}
 	return true;
+}
+
+void FGameTestRecorder::ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite,
+	const FString& InChoiceId, const FKeyChoice& InChoice, FJsonObject& OutResult)
+{
+	int32 Applied = 0;
+	TArray<TSharedPtr<FJsonValue>> Skipped;
+	for (const FKeyStep& KeyStep : KeySteps)
+	{
+		const TSharedPtr<FJsonObject> Other = KeyStep.Step.Pin();
+		if (!Other.IsValid() || !KeyStep.Site.IsValid() || KeyStep.Site.Get() == &InSkipSite || Other == InSkipStep
+			|| KeyChoiceId(*KeyStep.Site) != InChoiceId)
+		{
+			continue;
+		}
+		FString Why;
+		if (ApplyKeyChoice(Other, *KeyStep.Site, InChoice, TEXT("user"), Why))
+		{
+			++Applied;
+		}
+		else
+		{
+			const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
+			Item->SetNumberField(TEXT("step"), IndexOfStep(Other));
+			Item->SetStringField(TEXT("why"), Why);
+			Skipped.Add(MakeShared<FJsonValueObject>(Item));
+		}
+	}
+	OutResult.SetNumberField(TEXT("applied"), Applied);
+	if (Skipped.Num() > 0)
+	{
+		OutResult.SetArrayField(TEXT("skipped"), Skipped);
+	}
 }
 
 void FGameTestRecorder::AcceptAskedKey()

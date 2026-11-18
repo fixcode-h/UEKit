@@ -317,8 +317,9 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
   - 最高分够准（唯一、没变、分数 ≥ 5）就直接用（`hint.key.by = "auto"`）；运行配置 `itemKeys` 里有这类条目的规则就按规则（`rule`）。
   - 拿不准时**暂停游戏问人**（`pending`）：推送 `gt.record { phase: "ask" }`，状态里的 `ask` 有这一步的序号、候选、截图，面板弹窗让你挑字段、组合，或选「按位置」「先按文字找」「先跳过」，用 `gt.record.key` 回答。暂停期间不录任何输入，这段时间也不算进录制间隔；游戏原本就停着的不动它。录制工具栏上同时提示「游戏已暂停」，不想切到浏览器时在游戏里按 `Alt+K` 接受推荐的继续。
   - 什么时候问由 `gt.record.start` 的 `askKey` 定：`unsure`（默认，拿不准才问）/ `always`（每次都问）/ `never`（不问，先用分数还行的、都不行按位置，步骤标「待定」录完再定）；`askTimeoutSec` 是停多久自动继续，**默认 0 = 一直等**（面板 GameTest 设置页可改）。自动继续或停止录制时这一步保持「待定」。
+  - **同一列表沿用**（1.5.0 起）：这次录制里对一个列表（条目类 + 容器）回答过（挑了字段，或选了按位置、先按文字找；「先跳过」不算），后面再点到同一列表的条目直接按同样的字段拼条件，唯一就用（`hint.key.by = "same"`），不再问；这一格按它认不出（读不到、不唯一）才照常挑、照常问。规则命中（`rule`）和沿用（`same`）的条目在 `always` 下也不问：`always` 的意思是每个列表第一次都问。
   - 回答时勾「以后都按这个认」会把规则写进运行配置的 `itemKeys`：`{"entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"]}`（`entry` 条目类名，`container` 可省略 = 这类条目在哪个容器里都按它，`by` 是条件左边的写法）。之后录到同类条目先按规则拼条件，唯一就直接用。
-  - 步骤的 `hint.key`：`from`（目标里被改写的那段前缀）、`base`（容器路径）、`pos`（按位置的写法）、`entry`（条目类名）、`count`（容器里条目数）、`by`（`auto` / `rule` / `pending` / `user` / `index` / `text`）、`cond`（用的条件）、`list`（ListView 族）、`cands`（候选：`by` 条件左边、`cond` 完整条件、`src` 来源、`v` 值、`score`、`hits` 命中几个、`unique`、`changed` 点完变了、`combo` 两个字段组合、`why` 扣分原因）。`cond` 有值时回放不按文字换位置（`hint.text` 只用于显示）。
+  - 步骤的 `hint.key`：`from`（目标里被改写的那段前缀）、`base`（容器路径）、`pos`（按位置的写法）、`entry`（条目类名）、`count`（容器里条目数）、`by`（`auto` / `rule` / `same` / `pending` / `user` / `index` / `text`）、`cond`（用的条件）、`list`（ListView 族）、`cands`（候选：`by` 条件左边、`cond` 完整条件、`src` 来源、`v` 值、`score`、`hits` 命中几个、`unique`、`changed` 点完变了、`combo` 两个字段组合、`why` 扣分原因）。`cond` 有值时回放不按文字换位置（`hint.text` 只用于显示）。
 - 录出来的步骤不对（点的不是想要的控件、选择器有歧义）时，把光标停在那个控件上调 `gt.inspect`，看光标下的命中路径、谁接住了上一次按下、选择器该怎么写。
 
 实现：在 Slate 上挂一个 `IInputProcessor`（引擎公开的输入预处理扩展点）拿原始事件，只看不吃（拾取断言那一下除外）；处理者来自 `FSlateDebugging` 的输入事件，反查 UMG 用 Widget Reflector 同一份元数据。回放时 `key` 走 `FSlateApplication::ProcessKeyDownEvent` 等入口，和真实按键同一条路（Slate → 视口 → PlayerController → EnhancedInput），所以不需要知道项目的输入资产。回放发出的合成输入不会被录进去。run 收尾时按下没松开的键全部松开。不改引擎、不改项目代码。
@@ -327,14 +328,14 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 | 字段 | 内容 |
 | --- | --- |
-| `shot` | 被点控件的截图（相对项目根）：默认就是控件那一块（1.4.2 起）；开了外扩时左右每边扩 `min(宽 × padX, padXMax)`、上下每边扩 `min(高 × padY, padYMax)`（默认 20% / 80 像素、50% / 40 像素）；超过 640×360 整张缩小；控件描红框（框外放不下时描在框内侧），不画点击位置的十字（1.4.2 起，十字压在字上 OCR 会认错）。点在游戏画面上时是光标周围 120×120 |
+| `shot` | 被点控件的截图（相对项目根）：默认就是控件那一块（1.5.0 起）；开了外扩时左右每边扩 `min(宽 × padX, padXMax)`、上下每边扩 `min(高 × padY, padYMax)`（默认 20% / 80 像素、50% / 40 像素）；超过 640×360 整张缩小；控件描红框（框外放不下时描在框内侧），不画点击位置的十字（1.5.0 起，十字压在字上 OCR 会认错）。点在游戏画面上时是光标周围 120×120 |
 | `shotBox` | 红框在这张图里的位置 `[x, y, w, h]`（像素）：面板 OCR 只认框里的字 |
 | `screen` | 当时游戏视口的整屏缩略图（宽 480）：顶层界面变了才存新的一张，没变的步骤指向上一张 |
 | `opened` | 按下后 2 秒内新出现的顶层界面类名（`["WBP_Shop"]`）：点这一下打开了什么 |
 
 - 截的是**按下那一刻**：按钮默认松开才触发，图里是点之前的界面。截图同步做，每次按下卡一下（几十毫秒，只在录制时有）；裁剪、描框、压 PNG、写盘在后台线程。
 - 图放 `Saved/<输出目录>/shots/<开始录制的时间>/`，不放场景根（场景跟着项目文档进版本库）。图丢了不影响回放。截不了（`-nullrhi`、窗口没了）只是没有 `shot`。
-- `shots` 参数：`false` 关掉；对象时覆盖 `expand`（外扩，默认 false）、`padX` / `padY`（0–5，边长的倍数）、`padXMax` / `padYMax`（像素）、`maxWidth`、`maxHeight`、`screenWidth`（0 = 不存整屏）、`gameClickBox`，写错字段名或超范围直接报错。1.4.1 及以前的 `padRatio`、`padMin`、`padMax`、`minWidth`、`minHeight` 仍收（旧面板会传）：写了 `padRatio` 就按旧算法外扩。面板在 UE 插件页 GameTest 的「设置」里改。
+- `shots` 参数：`false` 关掉；对象时覆盖 `expand`（外扩，默认 false）、`padX` / `padY`（0–5，边长的倍数）、`padXMax` / `padYMax`（像素）、`maxWidth`、`maxHeight`、`screenWidth`（0 = 不存整屏）、`gameClickBox`，写错字段名或超范围直接报错。1.4.x 及以前的 `padRatio`、`padMin`、`padMax`、`minWidth`、`minHeight` 仍收（旧面板会传）：写了 `padRatio` 就按旧算法外扩。面板在 UE 插件页 GameTest 的「设置」里改。
 - 面板录完后用 OCR 从 `shot` 里认出按钮上的字，写进 `hint.ocr`（只用来显示步骤名、给 AI 参考；回放不看它，按文字找回只用 `hint.text`）。
 
 **按钮上的字**（1.3.2 起）：`hint.text` 先收被点控件子树里的文字（`STextBlock`，以及 UMG 是 UTextBlock / URichTextBlock 的其他文字控件，富文本去掉标记）；子树里没有字时，再收上两层父面板里**叠在这个控件框上**（文字框至少 60% 在里面）的可见文字——游戏 UI 常把按钮和文字并排放进同一个 Overlay，文字是按钮的兄弟。回放按文字找回（`GameTestHintPick`）用同一套取字。字画在贴图里的按钮没有文字可取，靠截图 OCR。
@@ -363,7 +364,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
 | `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
-| `gt.record.key` | `step`（从 0 数；省略 = 正在问的那一步）+ `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` 只按第几个 / `text` 按位置写、回放先按文字找 / `skip` 先跳过）；`rule`（存成规则）；`resume`（默认 true，答完继续游戏）。条件在容器里不唯一或找不到时报错 | `step`、改写后的 `target`、`by`、`cond`，存了规则 `rule: true`（存不进去 `ruleError`），继续了 `resumed: true`（1.4.0 起） |
+| `gt.record.key` | `step`（从 0 数；省略 = 正在问的那一步）+ `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` 只按第几个 / `text` 按位置写、回放先按文字找 / `skip` 先跳过）；`rule`（存成规则）；`all`（1.5.0 起，这次录制里同一列表已录的其他步骤也按同样的字段 / 认法改写）；`resume`（默认 true，答完继续游戏）。条件在容器里不唯一或找不到时报错。录制中随时可以传 `step` 改前面的步骤（候选在那一步的 `hint.key.cands`） | `step`、改写后的 `target`、`by`、`cond`，存了规则 `rule: true`（存不进去 `ruleError`），继续了 `resumed: true`（1.4.0 起）；`all` 时 `applied`（另外改了几步）、`skipped`（`[{step, why}]` 改不了的）（1.5.0 起） |
 | `gt.keys` | `step`（录制中，用按下那一刻的站点）或 `target`（现在的界面里解析）；`filter`（按路径或值筛）、`offset` / `limit`（默认 60，最多 200） | 条目的全部字段，按来源分组：`groups: [{source, title, class?, note?, fields: [{by, src, v, hits, unique?, cond?, why?}]}]`，`total`、`count`、`offset`、`hasMore`、`nextOffset`，超长时 `truncated`，没有 Lua 时 `luaNote`；另有 `key`（同 `hint.key`）、`index`（1.4.0 起） |
 | `gt.keys.preview` | `step` 或 `target` + `cond` | 在游戏画面上框出命中的条目 3 秒（唯一绿框，多个橙框）；返回 `hits`、`unique`、`includesMine`（命中里有没有点的那个）、`count`、`items: [{index, name?, offscreen?, mine?}]`（1.4.0 起） |
 | `gt.record.stop` | `save`（默认 true） | `path`、`absolutePath`、`steps`、`seconds`、`preview`（前 20 步） |
