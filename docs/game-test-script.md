@@ -175,8 +175,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ### 5.1 取代阻挡界面
 
-1.9.0 第一次读到 `_settings.json` 里的 `blockers` 时一次性改写成 `guards`，原文件存成 `_settings.json.bak`（已存在就 `.bak.1`…），写回后日志记一条。
-之后再出现 `blockers` 报错：「blockers 已改成 guards，见 docs/game-test-script.md 第 5.1 节」。
+1.9.0 读到 `_settings.json` 里只有 `blockers` 时一次性改写成 `guards`，原文件存成 `_settings.json.bak`（已存在就 `.bak.1`…），写回后日志记一条；文件写不了（只读、P4 没签出）时这次按改写后的跑，下次再试。
+`blockers` 和 `guards` 同时出现（改写后又被旧工具写回了 `blockers`）时报错：「blockers 已改成 guards，见 docs/game-test-script.md 第 5.1 节」。
+`gt.config` 写回时保留文件里它不认识的字段（`api`、`objectKeys`…）。
 
 | `blockers[]` | `guards[]` |
 | --- | --- |
@@ -356,7 +357,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ## 11. 报告的变化
 
-- 每步 `id`、`path`；块步骤有 `children`（块里执行过的步骤，循环按轮 `iter`）。
+- 每步 `id`、`path`；报告仍是按执行顺序的平铺列表：块结束时记一条 `block: true` 的记录，块里的步骤各记各的，面板按 `path` 前缀挂到块下面；循环里的记录带 `iter`（从 0）。没走的分支不记录，`disabled` 的步骤记 `disabled`，没轮到的记 `skipped`。
 - `payload.guards`、`payload.invoke`、`payload.object`、`payload.cond`（判断的每一项：`path`、`holds`、`actual`、`unresolved?`）、`payload.vars`（这一步用到的变量值）。
 - 历史（`history.json`）按 id 记失败步骤；旧记录按序号显示。
 
@@ -369,7 +370,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 ## 13. 版本
 
 - GameTest 1.9.0：本文全部（GameTestEditor 模块里的 `_api.json` 扫描、`gt.widgets` 读资产也在 1.9.0）。
-- 需要 UELink ≥ 2.11.1（调函数复用 `ue.call` 的参数打包）。
+- 需要 UELink ≥ 2.12.0（调函数复用 `ue.call` 的参数打包，读 Lua 模块、调 Lua 函数、看 Lua 报错用 UELink 的操作）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
 
 ## 14. 代码结构（扩展点）
