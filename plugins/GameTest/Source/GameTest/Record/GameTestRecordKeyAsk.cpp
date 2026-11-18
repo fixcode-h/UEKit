@@ -244,6 +244,9 @@ void FGameTestRecorder::AfterKeyStep(const TSharedRef<FJsonObject>& InStep, cons
 		}
 	}
 
+	// 认法定下来以后（含沿用）再存全部字段：存的 key 和步骤里写的一致
+	CacheKeyFields(InStep, Site);
+
 	FKeyStep KeyStep;
 	KeyStep.Step = InStep;
 	KeyStep.Site = InSite;

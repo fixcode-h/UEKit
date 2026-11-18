@@ -187,9 +187,10 @@ namespace GameTestItemKey
 	/**
 	 * gt.keys 的「全部字段」：按来源分组列出条目的每个字段和它在容器里命中几个。
 	 * 返回 `{groups: [{source, title, class?, note?, fields: [{by, path, v, hits, unique}], more?}], total, count}`。
+	 * InMaxChars：返回给客户端的默认 11000 字左右截断（ADR 0067）；录制时存缓存文件要全量，传大的。
 	 */
 	GAMETEST_API TSharedPtr<FJsonObject> ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-		const FString& InFilter, int32 InOffset, int32 InLimit);
+		const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars = 11000);
 
 	/**
 	 * 录制写选择器时给站点挑标识：收条目、挑候选（最多 12 个），有规则按规则（`by = rule`），

@@ -983,7 +983,7 @@ void GameTestItemKey::BuildCandidates(UWidget* InContainer, const TArray<FGameTe
 }
 
 TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-	const FString& InFilter, int32 InOffset, int32 InLimit)
+	const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars)
 {
 	using namespace GameTestItemKeyDetail;
 	const TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
@@ -1026,7 +1026,7 @@ TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const 
 				continue;
 			}
 			// 读结构的返回最多 12000 字（ADR 0067），超了标 truncated，下一页接着翻
-			if (Chars > 11000 && Emitted > 0)
+			if (Chars > InMaxChars && Emitted > 0)
 			{
 				bTruncated = true;
 				continue;

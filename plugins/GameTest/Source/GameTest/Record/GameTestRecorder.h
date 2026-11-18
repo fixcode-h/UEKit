@@ -317,4 +317,13 @@ private:
 	TArray<FKeyStep> KeySteps;
 	TOptional<FKeyAsk> KeyAsk;
 	TMap<FString, FKeyChoice> KeyChoices;
+
+	/**
+	 * 录制时把条目的全部字段存一份（1.6.0）：编辑器停了、界面关了也能在步骤详情「换一个标识」里挑。
+	 * 文件在 `Saved/<输出目录>/keys/<开始录制的时间>/NNN.json`，路径写进步骤 `hint.fields`；不放场景根，免得撑大仓库。
+	 * 实现在 GameTestRecordKeyCache.cpp。
+	 */
+	void CacheKeyFields(const TSharedRef<FJsonObject>& InStep, const FGameTestKeySite& InSite);
+	FString KeyCacheDir;
+	int32 KeyCacheCounter = 0;
 };

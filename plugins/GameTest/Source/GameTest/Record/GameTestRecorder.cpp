@@ -17,6 +17,7 @@
 #include "Observe/GameTestWidgetNode.h"
 #include "Record/GameTestRecordMove.h"
 #include "Record/GameTestRecordToolbar.h"
+#include "Shot/GameTestShot.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
 
@@ -229,6 +230,8 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	KeySteps.Reset();
 	KeyAsk.Reset();
 	KeyChoices.Reset();
+	KeyCacheDir = GameTestShot::GetOutputRootDir() / TEXT("keys") / FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
+	KeyCacheCounter = 0;
 
 	// 运行设置 move.hotkeys=false 时不认 Alt+数字（项目自己用这些键）；配置读不了不挡录制，按默认开。
 	bHotkeys = true;
