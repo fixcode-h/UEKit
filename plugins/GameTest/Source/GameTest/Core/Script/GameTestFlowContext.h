@@ -76,6 +76,8 @@ public:
 	/** run 开始的时刻和那时的日志序号：`Log.*` 的 `since` 省略时从这里算。 */
 	double RunStartedAt = 0.0;
 	uint64 RunLogSeq = 0;
+	/** run 开始时 Lua 报错的序号（GameTestLuaBridge::ErrorSeq）：`Log.Errors`、`Lua.Errors` 的 `since` 省略时从这里算。 */
+	uint64 RunLuaErrorSeq = 0;
 	FGameTestLogTap* LogTap = nullptr;
 	/** `Random.Seed` 改它；脚本里所有随机取值都从这里取，结果可复现。 */
 	FRandomStream Random;

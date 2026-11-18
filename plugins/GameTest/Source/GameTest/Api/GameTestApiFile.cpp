@@ -181,3 +181,21 @@ bool GameTestApiFile::WriteSection(const FString& InSrc, const TSharedRef<FJsonO
 	OnChanged().Broadcast();
 	return true;
 }
+
+TArray<TSharedPtr<FJsonValue>> GameTestApiFile::LoadRejected(const FString& InSrc)
+{
+	const FString Path = GetPath();
+	if (!IFileManager::Get().FileExists(*Path))
+	{
+		return {};
+	}
+	FString ParseError;
+	const TSharedPtr<FJsonObject> Root = GameTestJson::ParseObjectFromFile(Path, ParseError);
+	const TSharedPtr<FJsonObject> Section = Root.IsValid() ? GameTestJson::TryGetObject(*Root, *InSrc) : nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* Rejected = nullptr;
+	if (Section.IsValid() && Section->TryGetArrayField(TEXT("rejected"), Rejected) && Rejected != nullptr)
+	{
+		return *Rejected;
+	}
+	return {};
+}

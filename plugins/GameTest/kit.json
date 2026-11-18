@@ -5,7 +5,7 @@
   "versionHeader": { "file": "Source/GameTest/GameTestVersion.h", "macro": "GAMETEST_VERSION" },
   "engineMin": "5.4",
   "engineTested": [],
-  "requires": { "UELink": ">=2.8.0" },
+  "requires": { "UELink": ">=2.12.0" },
   "enginePlugins": ["CQTest"],
   "optionalPlugins": ["CommonUI", "GameplayAbilities", "EnhancedInput"],
   "replaces": ["TkGameTest"],
