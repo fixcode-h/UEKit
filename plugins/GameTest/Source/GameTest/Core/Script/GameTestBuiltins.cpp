@@ -13,6 +13,8 @@ namespace GameTestBuiltin
 	//~ 判断（Observe/Checks）
 	//~ 取值来源与成员访问（Observe/Sources）
 	//~ 表达式函数（Core/Expr/Functions）
+	void RegisterExprBasic();
+	void RegisterExprWidget();
 	//~ 接口（Api/Builtin）
 }
 
@@ -33,6 +35,8 @@ void GameTestBuiltins::EnsureRegistered()
 	//~ 取值来源与成员访问
 
 	//~ 表达式函数
+	GameTestBuiltin::RegisterExprBasic();
+	GameTestBuiltin::RegisterExprWidget();
 
 	//~ 接口
 }
