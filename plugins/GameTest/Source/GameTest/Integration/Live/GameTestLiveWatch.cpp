@@ -75,7 +75,7 @@ namespace GameTestLiveWatchDetail
 	}
 
 	/** 重算一遍；bInAll 时不管变没变都放进结果（第一次登记、续租时回给面板）。返回有没有东西。 */
-	bool Collect(FWatch& InOutWatch, bool bInAll, TSharedRef<FJsonObject>& OutResults)
+	bool Collect(FWatch& InOutWatch, bool bInAll, const TSharedRef<FJsonObject>& OutResults)
 	{
 		bool bAny = false;
 		for (FItem& Item : InOutWatch.Items)

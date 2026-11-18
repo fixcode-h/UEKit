@@ -25,10 +25,14 @@
 #include "UObject/UnrealType.h"
 #include "Widgets/SWidget.h"
 
-using namespace GameTestHandlers;
-
 namespace GameTestEditorActionsDetail
 {
+	// 不在文件作用域 using namespace GameTestHandlers：它也有 HandleSelect / HandleAssert / HandleClick，
+	// 下面 Register 里取 &HandleSelect 会两边都找到、报重载有歧义（C2568）；unity build 时还会漏到同一块的其他文件。只引进要用的三个返回值。
+	using GameTestHandlers::StepSucceeded;
+	using GameTestHandlers::StepFailed;
+	using GameTestHandlers::StepPending;
+
 	/** 调 UELink 已有的编辑器操作（同一个进程里直接调，不走 HTTP）。 */
 	bool CallUELink(const TCHAR* InOp, const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError)
 	{
@@ -434,26 +438,25 @@ namespace GameTestEditorActionsDetail
 
 void GameTestEditorActions::Register()
 {
-	using namespace GameTestEditorActionsDetail;
 	const TCHAR* Module = TEXT("GameTestEditor");
 	GameTestActions::Register({ TEXT("editor.open"), TEXT("asset,map"), false, true,
-		TEXT("编辑器里打开资源（asset）或关卡（map）"), &HandleOpen, Module });
+		TEXT("编辑器里打开资源（asset）或关卡（map）"), &GameTestEditorActionsDetail::HandleOpen, Module });
 	GameTestActions::Register({ TEXT("editor.select"), TEXT("actors,assets,focus"), false, true,
-		TEXT("在关卡里选中 Actor（actor:<大纲里的名字>）、在内容浏览器里定位资源"), &HandleSelect, Module });
+		TEXT("在关卡里选中 Actor（actor:<大纲里的名字>）、在内容浏览器里定位资源"), &GameTestEditorActionsDetail::HandleSelect, Module });
 	GameTestActions::Register({ TEXT("editor.prop"), TEXT("object,path,value"), false, true,
-		TEXT("改 Actor、组件或资源的属性（在事务里，能撤销）"), &HandleProp, Module });
+		TEXT("改 Actor、组件或资源的属性（在事务里，能撤销）"), &GameTestEditorActionsDetail::HandleProp, Module });
 	GameTestActions::Register({ TEXT("editor.spawn"), TEXT("class,location,rotation,scale,label"), false, true,
-		TEXT("在关卡里放一个 Actor，标签设成 label（后面的步骤按标签找它）"), &HandleSpawn, Module });
+		TEXT("在关卡里放一个 Actor，标签设成 label（后面的步骤按标签找它）"), &GameTestEditorActionsDetail::HandleSpawn, Module });
 	GameTestActions::Register({ TEXT("editor.command"), TEXT("name,asset,console"), false, true,
-		TEXT("执行编辑器命令（上下文.命令，资源编辑器的命令加 asset），或控制台命令"), &HandleCommand, Module });
+		TEXT("执行编辑器命令（上下文.命令，资源编辑器的命令加 asset），或控制台命令"), &GameTestEditorActionsDetail::HandleCommand, Module });
 	GameTestActions::Register({ TEXT("editor.save"), TEXT("assets"), false, true,
-		TEXT("保存资源或关卡"), &HandleSave, Module });
+		TEXT("保存资源或关卡"), &GameTestEditorActionsDetail::HandleSave, Module });
 	GameTestActions::Register({ TEXT("editor.compile"), TEXT("asset"), false, true,
-		TEXT("编译蓝图，编译有错就失败"), &HandleCompile, Module });
+		TEXT("编译蓝图，编译有错就失败"), &GameTestEditorActionsDetail::HandleCompile, Module });
 	GameTestActions::Register({ TEXT("editor.click"), TEXT("tab,window,widget,text,nth,suggest"), false, true,
-		TEXT("点编辑器界面上的控件（按停靠页、类型、文字认），等到它出现再点"), &HandleClick, Module });
+		TEXT("点编辑器界面上的控件（按停靠页、类型、文字认），等到它出现再点"), &GameTestEditorActionsDetail::HandleClick, Module });
 	GameTestActions::Register({ TEXT("editor.assert"), TEXT("tab,window,widget,text,nth,asset,check"), false, true,
-		TEXT("检查编辑器界面上有这个控件，或资源的状态（check=compiled / saved / open）"), &HandleAssert, Module });
+		TEXT("检查编辑器界面上有这个控件，或资源的状态（check=compiled / saved / open）"), &GameTestEditorActionsDetail::HandleAssert, Module });
 }
 
 void GameTestEditorActions::Unregister()
