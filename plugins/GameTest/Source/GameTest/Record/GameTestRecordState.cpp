@@ -275,8 +275,10 @@ void FGameTestRecordState::Finish(TArray<TSharedRef<FJsonObject>>& InOutSteps)
 		const int32 Index = InOutSteps.IndexOfByPredicate([&Step](const TSharedRef<FJsonObject>& InStep) { return &InStep.Get() == Step.Get(); });
 		const TSharedPtr<FJsonObject> Hint = GameTestJson::TryGetObject(*Step, TEXT("hint"));
 		const TSharedPtr<FJsonObject> SkipIf = GameTestJson::TryGetObject(*Step, TEXT("skipIf"));
+		const TSharedPtr<FJsonObject> State = Hint.IsValid() ? GameTestJson::TryGetObject(*Hint, TEXT("state")) : nullptr;
 		const TArray<TSharedPtr<FJsonValue>>* OpenedValues = nullptr;
-		if (Index == INDEX_NONE || !Hint.IsValid() || !SkipIf.IsValid() || !Hint->TryGetArrayField(TEXT("opened"), OpenedValues) || OpenedValues == nullptr)
+		if (Index == INDEX_NONE || !Hint.IsValid() || (!SkipIf.IsValid() && !State.IsValid())
+			|| !Hint->TryGetArrayField(TEXT("opened"), OpenedValues) || OpenedValues == nullptr)
 		{
 			continue;
 		}
@@ -290,9 +292,18 @@ void FGameTestRecordState::Finish(TArray<TSharedRef<FJsonObject>>& InOutSteps)
 			}
 		}
 		const int32 Also = ComputeAlso(InOutSteps, Index, Opened, BlockerScreens);
-		if (Also > 0)
+		if (Also <= 0)
+		{
+			continue;
+		}
+		// 自动写了跳过条件的直接写进去；只列了候选的（默认，1.8.0 起）记成建议值，人在面板里加条件时带上
+		if (SkipIf.IsValid())
 		{
 			SkipIf->SetNumberField(TEXT("also"), Also);
+		}
+		else
+		{
+			State->SetNumberField(TEXT("also"), Also);
 		}
 	}
 	AutoSteps.Reset();
@@ -664,8 +675,9 @@ void FGameTestRecordState::Conclude(FPending& InPending, bool bInTakeNow, FStrin
 		if (Mode == EGameTestInferSkip::Auto && Pick != INDEX_NONE && !Step->HasField(TEXT("skipIf")) && VerifyAuto(Step, Candidates[Pick]))
 		{
 			Picked = Pick;
-			AutoSteps.Add(Step);
 		}
+		// 有候选的步骤停止时都算一遍连带跳过：写了条件的写进条件，没写的记成建议值
+		AutoSteps.Add(Step);
 
 		TArray<TSharedPtr<FJsonValue>> Items;
 		for (const FGameTestStateCandidate& Candidate : Candidates)

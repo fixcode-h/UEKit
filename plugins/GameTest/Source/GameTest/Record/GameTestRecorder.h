@@ -321,7 +321,7 @@ private:
 	FGameTestShotOptions NextShotOptions;
 
 	FGameTestRecordState StateWatch;
-	EGameTestInferSkip NextInferSkip = EGameTestInferSkip::Auto;
+	EGameTestInferSkip NextInferSkip = EGameTestInferSkip::Suggest;
 	int32 NextStateWindowMs = FGameTestRecordState::DefaultWindowMs;
 
 	FString AskMode = TEXT("unsure");

@@ -253,12 +253,12 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 开关和默认值（优先级从低到高）：运行配置 `_settings.json` 的 `skipIf` 段（`false`，或 `{enabled, settleMs, verify, verifyTimeoutMs}`）> 场景顶层的 `skipIf` > 这次运行的 `gt.run ignoreSkipIf: true`（**全部照做**：测第一次领取、新号这类路径）。关掉跳过时做完核对也不做。批量运行不支持 `ignoreSkipIf`。
 
-录制时自动推断（`gt.record.start inferSkip`：`auto` 默认 / `suggest` / `off`；`stateWindowMs` 默认 2000）：
+录制时推断（`gt.record.start inferSkip`：`suggest` 默认（1.8.0 起，**默认不跳过**：只列候选，跳过条件由人在面板步骤详情里加）/ `auto` / `off`；`stateWindowMs` 默认 2000）：
 
 - 按下 UI 控件时读一遍它所在的整个界面（嵌套的 WBP 一起，最多 800 个控件）：显隐、能不能点、勾选、文字、图片，以及按的控件所在 WBP 的字段（`@self`、`@lua`）。松开后 0.15、0.5、1 倍 `stateWindowMs` 各读一次，最后一次和按下前比。
 - 每处变化打分：勾选变了 10；按的按钮上的字变了 8（只变了数字和标点的不算）；名字像「勾 / 已领 / 完成 / 选中 / 红点」的图片显隐 7；名字像这些的布尔字段 8、别的布尔字段 6；按的按钮变灰 6；其余 4–5。前 6 个写进 `hint.state.cands`（`[{target?, kind, cond, before, after, score}]`）。
 - `auto` 时最高分 ≥ 7 的直接写成 `skipIf`（带 `by: "auto"`），写之前用回放同一套判断核对一遍「此刻条件成立」，核对不过不写；`hint.state.picked` 是写进去的那个候选。工具栏提示「第 N 步：已达成就跳过（…）」。不在录制中途停下来问，录完在面板步骤详情里换候选或删掉。
-- 点完打开的新界面记在 `hint.opened`（没开录制截图时也记）；停止录制时给自动加了跳过条件的步骤算 `also`：后面紧挨着、目标在这些新界面上的步骤（中间的 `wait` 一起），阻挡界面规则管的界面不算。
+- 点完打开的新界面记在 `hint.opened`（没开录制截图时也记）；停止录制时给有候选的步骤算 `also`（写了跳过条件的写进条件；只列了候选的记成 `hint.state.also`，面板加条件时带上）：后面紧挨着、目标在这些新界面上的步骤（中间的 `wait` 一起），阻挡界面规则管的界面不算。
 - 拖动不推断。
 
 ### 运行配置和阻挡界面（1.2.0-beta.6 起）
@@ -412,7 +412,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.config` | `config`（可省）、`dryRun` | 运行配置（场景根的 `_settings.json`，见「运行配置和阻挡界面」）。不给 `config` 是读：`{path, exists, config, settingsUiWaitTimeoutMs}`；给 `config` 是校验后整份写回（`dryRun: true` 只校验不写），另带 `message`。格式错时报哪一条错了 |
 | `gt.resolve` | `targets`（选择器数组）和 / 或 `scenario`（核对它每一步的 `target`、`toTarget`） | 只解析不执行：`results: [{target, step?, field?, found, path?, class?, text?, visible?, enabled?, error?}]`（`error` 里是候选）、`checked`、`found`、`missing`、`map`。没有游戏世界时报错（这时什么都核对不了）。只看这一刻的界面：后面步骤才打开的界面现在找不到是正常的。`checks`（1.7.0 起，带 `skipIf` 的步骤数组，最多 50 个）：只判断跳过条件此刻成不成立，回 `checks: [{index, holds, say, actual?, error?}]`，和回放同一套判断 |
 | `gt.inspect` | `x`、`y`（视口归一化坐标 0–1，可省，省略时用当前光标位置） | `supported`（这个进程能不能拿到处理者）、`handlerSource`、`path`（光标下的命中路径，从外到内，每项含 Slate 类型和对应的 UMG 控件名 / 类，最多 30 项）、`target`（最深的 UMG 控件写出的选择器）、`verified`（这个选择器回解析是否唯一命中它）、`hint`、`lastHandler`（最近一次鼠标按下被谁接住，描述字符串）。只读，不动光标、不发输入 |
-| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」）、`inferSkip`（`auto` 默认 / `suggest` / `off`）、`stateWindowMs`（默认 2000）（1.7.0 起，见「已达成就跳过」） | 录制状态 |
+| `gt.record.start` | `name`、`startPie`（默认 true）、`keepPace`（默认 false：UI 操作之间的间隔不录）、`shots`（录制截图，默认开，见「录制截图」）、`askKey`（`unsure` 默认 / `always` / `never`）、`askTimeoutSec`（默认 0 = 一直等）（1.4.0 起，见「列表、格子里的条目怎么认」）、`inferSkip`（`suggest` 默认 / `auto` / `off`）、`stateWindowMs`（默认 2000）（1.7.0 起，见「已达成就跳过」） | 录制状态 |
 | `gt.record.mark` | `text`、`screenshot` | 录制状态 |
 | `gt.record.move` | `phase`：`start` / `end` / `toggle`（默认）/ `cancel` / `here` / `near`（可带 `radius`）/ `pick`（下一次点击录成断言，再调一次取消） | 录制状态（1.3.0 起；和游戏里的工具栏、Alt+数字同一个入口） |
 | `gt.record.key` | `step`（从 0 数；省略 = 正在问的那一步）+ `cond`（`Data.ItemId=1001`）或 `by`（字段数组，按当时的值拼条件）或 `mode`（`index` 只按第几个 / `text` 按位置写、回放先按文字找 / `skip` 先跳过）；`rule`（存成规则）；`all`（1.5.0 起，这次录制里同一列表已录的其他步骤也按同样的字段 / 认法改写）；`resume`（默认 true，答完继续游戏）。条件在容器里不唯一或找不到时报错。录制中随时可以传 `step` 改前面的步骤（候选在那一步的 `hint.key.cands`） | `step`、改写后的 `target`、`by`、`cond`，存了规则 `rule: true`（存不进去 `ruleError`），继续了 `resumed: true`（1.4.0 起）；`all` 时 `applied`（另外改了几步）、`skipped`（`[{step, why}]` 改不了的）（1.5.0 起） |
