@@ -36,6 +36,8 @@ namespace GameTestBuiltin
 	//~ 表达式函数（Core/Expr/Functions）
 	void RegisterExprBasic();
 	void RegisterExprWidget();
+	//~ 深度检查（Core/Flow/Deep）
+	void RegisterDeepChecks();
 	//~ 接口（Api/Builtin）
 	void RegisterApiObject();
 	void RegisterApiWidget();
@@ -101,4 +103,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterApiWait();
 	GameTestBuiltin::RegisterApiRuntime();
 	GameTestBuiltin::RegisterApiProject();
+
+	//~ 深度检查
+	GameTestBuiltin::RegisterDeepChecks();
 }
