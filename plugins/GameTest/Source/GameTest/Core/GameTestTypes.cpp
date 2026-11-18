@@ -13,6 +13,7 @@ const TCHAR* GameTestStatus::ToString(EGameTestStepStatus InStatus)
 	case EGameTestStepStatus::Skipped:   return TEXT("skipped");
 	case EGameTestStepStatus::Pending:   return TEXT("pending");
 	case EGameTestStepStatus::Already:   return TEXT("already");
+	case EGameTestStepStatus::Disabled:  return TEXT("disabled");
 	}
 	return TEXT("unknown");
 }
@@ -28,6 +29,23 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	}
 	Json->SetStringField(TEXT("action"), Step.Action.ToString());
 	Json->SetStringField(TEXT("status"), GameTestStatus::ToString(Status));
+	// 1.9.0 脚本：id / path 认步骤（块里的步骤没有「第几步」），块的记录标 block，循环里的标轮次。
+	if (!Step.Id.IsEmpty())
+	{
+		Json->SetStringField(TEXT("id"), Step.Id);
+	}
+	if (!Step.Path.IsEmpty())
+	{
+		Json->SetStringField(TEXT("path"), Step.Path);
+	}
+	if (bBlock)
+	{
+		Json->SetBoolField(TEXT("block"), true);
+	}
+	if (Iter >= 0)
+	{
+		Json->SetNumberField(TEXT("iter"), Iter);
+	}
 	Json->SetStringField(TEXT("message"), Message);
 
 	if (!Step.Target.IsEmpty())
@@ -75,6 +93,10 @@ TSharedPtr<FJsonObject> FGameTestReport::ToJson() const
 	Json->SetStringField(TEXT("finishedAtUtc"), FinishedAtUtc);
 	Json->SetNumberField(TEXT("durationMs"), DurationMs);
 	Json->SetNumberField(TEXT("total"), Steps.Num());
+	if (Guards.IsValid() && Guards->Values.Num() > 0)
+	{
+		Json->SetObjectField(TEXT("guards"), Guards);
+	}
 	Json->SetNumberField(TEXT("failed"), CountByStatus(EGameTestStepStatus::Failed));
 	// 已达成跳过的步数（1.6.0）：算通过，单独计数，面板结果条上写「N 步已达成跳过」
 	const int32 Already = CountByStatus(EGameTestStepStatus::Already);

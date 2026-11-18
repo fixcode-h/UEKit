@@ -5,6 +5,7 @@
 #include "Blueprint/GameViewportSubsystem.h"
 #include "Blueprint/UserWidget.h"
 #include "Core/GameTestHandlerShared.h"
+#include "Core/GameTestWorld.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Core/Script/GameTestRefs.h"
 #include "Engine/World.h"
@@ -15,6 +16,11 @@
 
 namespace GameTestWidgetProbe
 {
+	UWorld* WorldOf(const FGameTestFlowContext& InContext)
+	{
+		return InContext.World ? InContext.World : GameTestWorld::FindGameWorld();
+	}
+
 	FGameTestWidgetLook Look(const FString& InTarget, FGameTestFlowContext& InContext)
 	{
 		FGameTestWidgetLook Look;

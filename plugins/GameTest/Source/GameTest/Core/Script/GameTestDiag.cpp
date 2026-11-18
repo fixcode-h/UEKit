@@ -23,14 +23,23 @@ FString FGameTestDiag::ToLine() const
 	return Where.IsEmpty() ? Message : FString::Printf(TEXT("%s：%s"), *Where, *Message);
 }
 
-FGameTestDiagSink::FScope::FScope(FGameTestDiagSink& InSink, const FString& InSegment, const FString& InId)
+FGameTestDiagSink::FScope::FScope(FGameTestDiagSink& InSink, const FString& InSegment, const FString& InId, EScopeMode InMode)
 	: Sink(InSink)
-	, PrevLen(InSink.Path.Len())
+	, PrevPath(InSink.Path)
+	, PrevRootLen(InSink.RootLen)
 	, PrevId(InSink.CurrentId)
 {
+	if (InMode == EScopeMode::FromRoot)
+	{
+		Sink.Path.LeftInline(Sink.RootLen);
+	}
 	if (!InSegment.IsEmpty())
 	{
 		Sink.Path += Sink.Path.IsEmpty() ? InSegment : TEXT(".") + InSegment;
+	}
+	if (InMode == EScopeMode::NewRoot)
+	{
+		Sink.RootLen = Sink.Path.Len();
 	}
 	if (!InId.IsEmpty())
 	{
@@ -40,7 +49,8 @@ FGameTestDiagSink::FScope::FScope(FGameTestDiagSink& InSink, const FString& InSe
 
 FGameTestDiagSink::FScope::~FScope()
 {
-	Sink.Path.LeftInline(PrevLen);
+	Sink.Path = PrevPath;
+	Sink.RootLen = PrevRootLen;
 	Sink.CurrentId = PrevId;
 }
 

@@ -215,6 +215,12 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("hint"),
 		// 已达成就跳过（1.6.0）：回放到这一步时条件已经成立就不做（GameTestSkipIf）
 		TEXT("skipIf"),
+		// 1.9.0 脚本化的公共字段（docs/game-test-script.md 第 2 节）：由脚本解析器和执行器读，动作自己不用管。
+		TEXT("id"),
+		TEXT("retries"),
+		TEXT("guards"),
+		TEXT("expectNoErrors"),
+		TEXT("disabled"),
 	};
 	return Common;
 }
@@ -295,6 +301,7 @@ bool GameTestActions::ParseStep(
 
 	GameTestJson::TryGetString(*InJson, TEXT("target"), OutStep.Target);
 	GameTestJson::TryGetString(*InJson, TEXT("note"), OutStep.Note);
+	GameTestJson::TryGetString(*InJson, TEXT("id"), OutStep.Id);
 	GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs);
 
 	FString FailModeText;
@@ -308,9 +315,13 @@ bool GameTestActions::ParseStep(
 		{
 			OutStep.FailMode = EGameTestFailMode::Continue;
 		}
+		else if (FailModeText.Equals(TEXT("retry"), ESearchCase::IgnoreCase))
+		{
+			OutStep.FailMode = EGameTestFailMode::Retry;
+		}
 		else
 		{
-			OutErrors.Add(FString::Printf(TEXT("onFail 只能是 stop 或 continue，收到 '%s'"), *FailModeText));
+			OutErrors.Add(FString::Printf(TEXT("onFail 只能是 stop、continue 或 retry，收到 '%s'"), *FailModeText));
 		}
 	}
 
@@ -358,7 +369,12 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 	Common->SetStringField(TEXT("target"), TEXT("选择器或 @句柄"));
 	Common->SetStringField(TEXT("note"), TEXT("写进报告的一句说明"));
 	Common->SetStringField(TEXT("timeoutMs"), TEXT("本步超时；缺省用设置里的 DefaultStepTimeoutMs"));
-	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）或 continue"));
+	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）、continue 或 retry（配 retries）"));
+	Common->SetStringField(TEXT("id"), TEXT("步骤 id（字母数字下划线，场景内唯一）：报告、断点、from / to 按它认"));
+	Common->SetStringField(TEXT("retries"), TEXT("onFail=retry 时最多重做几次"));
+	Common->SetStringField(TEXT("guards"), TEXT("只在这一步 / 这一块里生效的守护（docs/game-test-script.md 第 5 节）"));
+	Common->SetStringField(TEXT("expectNoErrors"), TEXT("执行期间日志里出现 Error / Ensure / Lua 报错就算失败"));
+	Common->SetStringField(TEXT("disabled"), TEXT("true 时跳过（报告记 disabled）"));
 	Common->SetStringField(TEXT("skipIf"), TEXT("已达成就跳过：{条件, target?, also?, settleMs?, verify?, verifyTimeoutMs?}，条件同 assert；回放时成立就不做这一步（记 already，算通过），also 连带跳过后面几步，verify 真做了以后核对条件成立"));
 	Root->SetObjectField(TEXT("common"), Common);
 

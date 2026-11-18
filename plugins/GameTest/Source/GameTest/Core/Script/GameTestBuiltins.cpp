@@ -10,7 +10,20 @@
 namespace GameTestBuiltin
 {
 	//~ 块（Core/Flow/Blocks）
+	void RegisterBlockGroup();
+	void RegisterBlockIf();
+	void RegisterBlockLoop();
+	void RegisterBlockCall();
+	void RegisterBlockSetVar();
+	void RegisterBlockSignals();
 	//~ 判断（Observe/Checks）
+	void RegisterCheckExpr();
+	void RegisterCheckApi();
+	void RegisterCheckAlias();
+	void RegisterCheckActorNear();
+	void RegisterCheckOnScreen();
+	void RegisterCheckWidget();
+	void RegisterCheckValue();
 	//~ 取值来源与成员访问（Observe/Sources）
 	//~ 表达式函数（Core/Expr/Functions）
 	void RegisterExprBasic();
@@ -29,8 +42,21 @@ void GameTestBuiltins::EnsureRegistered()
 	bRegistered = true;
 
 	//~ 块
+	GameTestBuiltin::RegisterBlockGroup();
+	GameTestBuiltin::RegisterBlockIf();
+	GameTestBuiltin::RegisterBlockLoop();
+	GameTestBuiltin::RegisterBlockCall();
+	GameTestBuiltin::RegisterBlockSetVar();
+	GameTestBuiltin::RegisterBlockSignals();
 
-	//~ 判断（更具体的先登记：FindFor 按登记顺序取第一个认的）
+	//~ 判断（更具体的先登记：FindFor 按登记顺序取第一个认的；value 认「只写了比较」，放最后兜底）
+	GameTestBuiltin::RegisterCheckExpr();
+	GameTestBuiltin::RegisterCheckApi();
+	GameTestBuiltin::RegisterCheckAlias();
+	GameTestBuiltin::RegisterCheckActorNear();
+	GameTestBuiltin::RegisterCheckOnScreen();
+	GameTestBuiltin::RegisterCheckWidget();
+	GameTestBuiltin::RegisterCheckValue();
 
 	//~ 取值来源与成员访问
 

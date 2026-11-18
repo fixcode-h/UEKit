@@ -23,6 +23,8 @@ enum class EGameTestStepStatus : uint8
 	 * 算通过，和 Skipped 分开：Skipped 是「前一步失败或被取消、没轮到」，会让整次 run 判失败。
 	 */
 	Already,
+	/** 步骤写了 `disabled: true`（1.9.0）：没做，算通过。 */
+	Disabled,
 };
 
 /** 失败时怎么继续。默认 stop：一步失败就停在原地，让人/AI 看到现场。 */
@@ -30,6 +32,8 @@ enum class EGameTestFailMode : uint8
 {
 	Stop,
 	Continue,
+	/** 重做（1.9.0）：叶子从头再做这一步，块从块的第一步重来，最多 `retries` 次，还失败按 stop。 */
+	Retry,
 };
 
 /**
@@ -47,11 +51,25 @@ struct FGameTestStep
 	/** 运行配置里的前置步骤（`_settings.json` 的 setup）：Index 是它在前置步骤里的序号，不占场景的步骤序号。 */
 	bool bSetup = false;
 	TSharedPtr<FJsonObject> Params;
+	/** 步骤 id（1.9.0，场景里写的；没写为空）。 */
+	FString Id;
+	/** 在脚本里的路径（1.9.0，`steps.3.then.0`）；块里的步骤和 call 进去的步骤靠它认。 */
+	FString Path;
+	/** 在块里（不是主流程顶层）：Index 不再是「第几步」，标签改用 id / 路径。 */
+	bool bNested = false;
 
-	/** 给人看的「第 N 步」/「前置第 N 步」（日志、失败证据目录名）。 */
+	/** 给人看的「第 N 步」/「前置第 N 步」/「步骤 s3」（日志、失败证据目录名）。 */
 	FString Label() const
 	{
-		return bSetup ? FString::Printf(TEXT("前置第 %d 步"), Index + 1) : FString::Printf(TEXT("第 %d 步"), Index + 1);
+		if (bSetup)
+		{
+			return FString::Printf(TEXT("前置第 %d 步"), Index + 1);
+		}
+		if (bNested)
+		{
+			return FString::Printf(TEXT("步骤 %s"), Id.IsEmpty() ? *Path : *Id);
+		}
+		return FString::Printf(TEXT("第 %d 步"), Index + 1);
 	}
 };
 
@@ -65,6 +83,10 @@ struct GAMETEST_API FGameTestStepRecord
 	TSharedPtr<FJsonObject> Payload;
 	double StartedAt = 0.0;
 	double FinishedAt = 0.0;
+	/** 这条是块（if、loop、call…）的记录（1.9.0）：块结束时记一条，块里的步骤各自另有记录，按 path 挂在它下面。 */
+	bool bBlock = false;
+	/** 在循环的第几轮里执行的（从 0）；不在循环里为 -1。 */
+	int32 Iter = -1;
 
 	TSharedPtr<FJsonObject> ToJson() const;
 };
@@ -94,6 +116,8 @@ struct GAMETEST_API FGameTestReport
 
 	bool bSucceeded = false;
 	TArray<FGameTestStepRecord> Steps;
+	/** 守护触发次数 `{id: 次数}`（1.9.0）；没触发过为空。 */
+	TSharedPtr<FJsonObject> Guards;
 
 	int32 CountByStatus(EGameTestStepStatus InStatus) const;
 

@@ -4,6 +4,7 @@
 
 #include "Core/Script/GameTestBuiltins.h"
 #include "Core/Script/GameTestDiag.h"
+#include "Core/Script/GameTestRefs.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Internationalization/Regex.h"
@@ -256,6 +257,20 @@ namespace GameTestCompare
 			return false;
 		}
 		return true;
+	}
+
+	void EvaluateInto(const FJsonObject& InJson, const FGameTestValue& InActual, FGameTestFlowContext& InContext,
+		FGameTestCheckResult& OutResult)
+	{
+		OutResult.Actual = InActual;
+		if (InActual.IsUnresolved())
+		{
+			OutResult.bHolds = false;
+			OutResult.Unresolved = InActual.GetString();
+			return;
+		}
+		OutResult.bHolds = Evaluate(InJson, InActual,
+			[&InContext](const TSharedPtr<FJsonValue>& InExpected) { return GameTestRefs::EvalJson(InExpected, InContext); }, OutResult.Say);
 	}
 
 	FString Describe(const FJsonObject& InJson)

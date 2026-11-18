@@ -37,15 +37,26 @@ struct GAMETEST_API FGameTestDiag
 class GAMETEST_API FGameTestDiagSink
 {
 public:
+	enum class EScopeMode : uint8
+	{
+		/** 接在当前路径后面（`cond` → `steps.3.cond`）。 */
+		Append,
+		/** 段是从脚本根算的完整路径（节点路径 `steps.3.then.0`）：换掉基准之后的部分。 */
+		FromRoot,
+		/** 接在后面并把结果当新的基准（进 call 的子脚本：`<common/x.json>`，里面的节点路径从它算）。 */
+		NewRoot,
+	};
+
 	/** 压一段路径（离开作用域自动弹出）。 */
 	struct GAMETEST_API FScope
 	{
-		FScope(FGameTestDiagSink& InSink, const FString& InSegment, const FString& InId = FString());
+		FScope(FGameTestDiagSink& InSink, const FString& InSegment, const FString& InId = FString(), EScopeMode InMode = EScopeMode::Append);
 		~FScope();
 
 	private:
 		FGameTestDiagSink& Sink;
-		int32 PrevLen;
+		FString PrevPath;
+		int32 PrevRootLen;
 		FString PrevId;
 	};
 
@@ -68,6 +79,8 @@ private:
 
 	TArray<FGameTestDiag> Items;
 	FString Path;
+	/** 当前脚本根在 Path 里的长度（FromRoot 从这里接）。 */
+	int32 RootLen = 0;
 	FString CurrentId;
 	int32 ErrorCount = 0;
 };

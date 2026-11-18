@@ -30,6 +30,9 @@ struct GAMETEST_API FGameTestWidgetLook
  */
 namespace GameTestWidgetProbe
 {
+	/** 这次判断看的世界：上下文给了就用，没给（gt.resolve）找正在跑的游戏世界。 */
+	GAMETEST_API UWorld* WorldOf(const FGameTestFlowContext& InContext);
+
 	/** 解析选择器（先替换 `$变量`），不滚动、不等待。 */
 	GAMETEST_API FGameTestWidgetLook Look(const FString& InTarget, FGameTestFlowContext& InContext);
 
