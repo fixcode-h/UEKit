@@ -289,7 +289,8 @@ namespace
 		// 5.4 没有公开「当前输入模式」的读取：按 SetInputMode 实际改的两处推断——
 		// UIOnly 让视口忽略输入；GameAndUI / UIOnly 一般都开光标。
 		const ULocalPlayer* Player = Controller->GetLocalPlayer();
-		const UGameViewportClient* Viewport = Player ? Player->ViewportClient : nullptr;
+		// IgnoreInput() 不是 const 成员（5.4 / 5.8 都是），这里只能拿非 const 指针
+		UGameViewportClient* Viewport = Player ? Player->ViewportClient.Get() : nullptr;
 		const bool bIgnoreInput = Viewport != nullptr && Viewport->IgnoreInput();
 		const FString Mode = bIgnoreInput ? TEXT("ui") : (Controller->ShouldShowMouseCursor() ? TEXT("gameAndUi") : TEXT("game"));
 		return C.Done(FGameTestValue::FromString(Mode));
