@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Flow/GameTestDebugOptions.h"
 
 class FJsonObject;
 
@@ -35,6 +36,12 @@ struct GAMETEST_API FGameTestScenarioInfo
 struct GAMETEST_API FGameTestScenarioRun
 {
 	TArray<TSharedPtr<FJsonObject>> Steps;
+	/** 整份场景（从文件读的才有）：params、vars、objects、guards 和块都从这里解析；临时步骤为空。 */
+	TSharedPtr<FJsonObject> Json;
+	/** gt.run 的 params（覆盖场景 params 的默认值）。 */
+	TSharedPtr<FJsonObject> Params;
+	/** gt.run 的 from / to / breakpoints / pauseOnFail。 */
+	FGameTestDebugOptions Debug;
 	FString Name;
 	/** 相对场景根的路径（`/` 分隔）；临时步骤为空。 */
 	FString Scenario;
@@ -64,12 +71,12 @@ struct GAMETEST_API FGameTestScenarioRun
 class GAMETEST_API GameTestScenario
 {
 public:
-	/** 当前支持的场景格式版本；场景里写更高的版本会被明确拒绝。 */
 	/**
 	 * 当前支持的场景格式版本；场景里写更高的版本会被明确拒绝。
 	 * 2：click / type 默认走真实输入（指针、按键），旧的按控件类的代码级操作要写 `via: "code"`。
+	 * 3：脚本（块、变量、表达式、守护、call），见 docs/game-test-script.md；平铺步骤的 1 / 2 版照读。
 	 */
-	static constexpr int32 SupportedSchemaVersion = 2;
+	static constexpr int32 SupportedSchemaVersion = 3;
 
 	/**
 	 * 旧版本场景的兼容：schemaVersion 1 的 click / type 当时是代码级操作，没写 via 的补上 `via: "code"`，

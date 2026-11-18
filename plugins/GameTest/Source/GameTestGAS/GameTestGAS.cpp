@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestAction.h"
+#include "GameTestGASApi.h"
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestJson.h"
 #include "Observe/GameTestActor.h"
@@ -204,6 +205,7 @@ class FGameTestGASModule : public IModuleInterface
 public:
 	virtual void StartupModule() override
 	{
+		GameTestGASApi::Register();
 		GameTestActions::Register({ TEXT("ability.input"), TEXT("tag,phase,class"), false, false,
 			TEXT("对游戏世界里的目标发出一次技能输入标签：默认本地玩家 Pawn，可用 class 指定（沿继承链匹配、必须唯一）；缺省按下，phase=release 发松开"),
 			&HandleAbilityInput, TEXT("GameTestGAS") });
@@ -211,6 +213,7 @@ public:
 
 	virtual void ShutdownModule() override
 	{
+		GameTestGASApi::Unregister();
 		GameTestActions::Unregister(TEXT("ability.input"));
 	}
 };

@@ -3,10 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Flow/GameTestFlow.h"
 #include "Core/GameTestTypes.h"
 
 class FJsonObject;
 class FJsonValue;
+class FGameTestFlowContext;
+class FGameTestLogTap;
 class FGameTestSkipGate;
 class UWidget;
 class UWorld;
@@ -22,6 +25,12 @@ struct FGameTestStepContext
 {
 	const FGameTestStep* Step = nullptr;
 	UWorld* World = nullptr;
+
+	/**
+	 * 脚本上下文（1.9.0）：变量、对象、只读闸门、本次 run 的日志序号。动作里求值、调接口、存 saveAs 都用它。
+	 * 执行器持有，一次 run 里地址不变；gt.step 单步也会给一个。
+	 */
+	FGameTestFlowContext* Flow = nullptr;
 
 	/** 名称句柄表，由子系统持有——跨 HTTP 调用（=跨 run）也要能用 `@句柄`。 */
 	TMap<FString, TWeakObjectPtr<UWidget>>* Handles = nullptr;
@@ -118,6 +127,12 @@ struct GAMETEST_API FGameTestRuntimeState
 	 * 为空时不留。
 	 */
 	TFunction<void(FGameTestStepRecord& /*Record*/, const FString& /*OutputDir*/)> OnStepFailed;
+
+	/** 日志环（1.9.0）：脚本的 Log.* 接口、expectNoErrors 用。 */
+	FGameTestLogTap* LogTap = nullptr;
+
+	/** `gt.flow` 推送（节点进出、循环换轮、守护、暂停）；为空时不推。 */
+	TFunction<void(const TSharedRef<FJsonObject>&)> OnFlowEvent;
 };
 
 /**
@@ -163,10 +178,16 @@ public:
 		return bHasReport;
 	}
 
-	/** 本次 run 的步骤总数（心跳日志用）。 */
+	/** 本次 run 主流程的叶子数（心跳日志、进度估算；循环只按一轮算）。 */
 	int32 GetQueueLength() const
 	{
-		return Queue.Num();
+		return Flow.IsValid() ? Flow->CountLeaves() : 0;
+	}
+
+	/** 正在跑的脚本流程（调试、gt.job 的 at / guards）；没有 run 时为空。 */
+	FGameTestFlow* GetFlow() const
+	{
+		return Flow.Get();
 	}
 
 	//~ 「刚碰过的控件」——给视口高亮用 ------------------------------------------
@@ -229,10 +250,18 @@ private:
 
 	void FinishRun();
 
+	/** 守护打断了正在等的这一步：收尾、不记录，守护处理完由 Flow 决定重做、跳过还是失败。 */
+	void AbortStepForGuard();
+
 	FGameTestReport Report;
-	TArray<FGameTestStep> Queue;
+	/** 脚本的执行（1.9.0）：下一步跑什么由它说了算，Runner 只跑叶子。 */
+	TUniquePtr<FGameTestFlow> Flow;
+	/** Flow 交出来、还没开始的叶子（UI 间隔、步间隔推迟开步时先存着）。 */
+	FGameTestFlowLeaf NextLeaf;
+	bool bHaveNextLeaf = false;
+	/** 正在跑的叶子开步时的步骤（跳过判断会改 CurrentRecord.Step 的超时，原值从这里取）。 */
+	FGameTestStep CurrentStep;
 	FGameTestStepRecord CurrentRecord;
-	int32 CurrentIndex = 0;
 	bool bActive = false;
 	bool bStepInFlight = false;
 	bool bHasReport = false;

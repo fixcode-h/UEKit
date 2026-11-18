@@ -178,8 +178,13 @@ namespace GameTestHandlers
 		FString Until;
 		if (!GameTestJson::TryGetString(Params, TEXT("until"), Until))
 		{
-			InContext.Message = TEXT("wait 需要 until（pieReady / pieStopped / widget / widgetGone / seconds / actorNear）");
+			InContext.Message = TEXT("wait 需要 until（pieReady / pieStopped / widget / widgetGone / seconds / actorNear / cond）");
 			return StepFailed;
+		}
+
+		if (Until == TEXT("cond"))
+		{
+			return StartWaitCond(InContext);
 		}
 
 		if (Until == TEXT("seconds"))
@@ -321,13 +326,26 @@ namespace GameTestHandlers
 		}
 
 		InContext.Message = FString::Printf(
-			TEXT("wait 不认识 until='%s'（可用：pieReady / pieStopped / widget / widgetGone / seconds / actorNear）"), *Until);
+			TEXT("wait 不认识 until='%s'（可用：pieReady / pieStopped / widget / widgetGone / seconds / actorNear / cond）"), *Until);
 		return StepFailed;
 	}
 
 	EGameTestStepStatus HandleAssert(FGameTestStepContext& InContext)
 	{
 		const FJsonObject& Params = *InContext.Step->Params;
+
+		// 1.9 的 cond / expr：先判它们；没有原有的条件字段时就是全部结论
+		bool bScriptHolds = true;
+		const bool bHasScript = CheckScriptAssert(InContext, bScriptHolds);
+		if (bHasScript && !bScriptHolds)
+		{
+			return StepFailed;
+		}
+		if (bHasScript && InContext.Step->Target.IsEmpty())
+		{
+			return StepSucceeded;
+		}
+		const FString ScriptMessage = bHasScript ? InContext.Message : FString();
 
 		TSharedPtr<FGameTestWidgetNode> Node;
 		FString ResolveError;
@@ -345,6 +363,12 @@ namespace GameTestHandlers
 		FGameTestConditionCheck Check;
 		GameTestCondition::Check(Params, bResolved ? Node.Get() : nullptr, ResolveError, Check);
 
+		if (Check.Count == 0 && bHasScript)
+		{
+			// 写了 target 只是让判断里省掉 target：结论就是 cond / expr 的
+			InContext.Message = ScriptMessage;
+			return StepSucceeded;
+		}
 		if (Check.Count == 0)
 		{
 			InContext.Message = TEXT("assert 至少要给一个条件（exists / visible / enabled / text / textContains / textLike / checked / count / selected / selectedProperty+equals / stateKey+equals / field+equals / image / any）");

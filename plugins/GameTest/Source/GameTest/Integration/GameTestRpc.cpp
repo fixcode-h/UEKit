@@ -2,6 +2,7 @@
 
 #include "Integration/GameTestRpc.h"
 #include "Integration/GameTestRpcKeys.h"
+#include "Integration/GameTestRpcScript.h"
 #include "GameTestCompat.h"
 
 #include "AgentPanelBridge.h"
@@ -44,6 +45,7 @@ namespace
 	TArray<FString> RegisteredOps;
 	FDelegateHandle JobHandle;
 	FDelegateHandle RecordHandle;
+	FDelegateHandle FlowHandle;
 
 	FString Str(const TSharedPtr<FJsonObject>& Args, const TCHAR* Name)
 	{
@@ -323,6 +325,12 @@ namespace
 			ToRun.StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
 		}
 
+		// 1.9 调试：params、from / to、断点、失败时暂停
+		if (!GameTestRpcScript::ReadRunOptions(Args, ToRun, Error))
+		{
+			return false;
+		}
+
 		// 「全部照做」：忽略所有已达成就跳过的条件，每一步都真做（测第一次领取、新号这类路径）
 		bool bIgnoreSkipIf = false;
 		if (Args.IsValid() && Args->TryGetBoolField(TEXT("ignoreSkipIf"), bIgnoreSkipIf))
@@ -379,6 +387,42 @@ namespace
 		{
 			Error = TEXT("gt.step 需要一个步骤：{ step: { action, target?, ... } }，动作清单见 gt.actions");
 			return false;
+		}
+
+		// 块（if / loop / group / call…）或带了 vars / params：包成一份临时场景在后台跑，回 runId
+		const TSharedPtr<FJsonObject>* Vars = nullptr;
+		const bool bHasVars = Args.IsValid() && Args->TryGetObjectField(TEXT("vars"), Vars) && Vars != nullptr;
+		const bool bHasParams = Args.IsValid() && Args->HasField(TEXT("params"));
+		if (GameTestRpcScript::IsScriptStep(*StepJson) || bHasVars || bHasParams)
+		{
+			FGameTestScenarioRun ToRun;
+			ToRun.Name = TEXT("step");
+			ToRun.Steps.Add(StepJson);
+			ToRun.Json = MakeShared<FJsonObject>();
+			ToRun.Json->SetStringField(TEXT("kind"), GameTestScenario::GetKind());
+			ToRun.Json->SetNumberField(TEXT("schemaVersion"), GameTestScenario::SupportedSchemaVersion);
+			ToRun.Json->SetStringField(TEXT("name"), ToRun.Name);
+			if (bHasVars)
+			{
+				ToRun.Json->SetObjectField(TEXT("vars"), *Vars);
+			}
+			TArray<TSharedPtr<FJsonValue>> StepValues;
+			StepValues.Add(MakeShared<FJsonValueObject>(StepJson));
+			ToRun.Json->SetArrayField(TEXT("steps"), StepValues);
+			if (!GameTestRpcScript::ReadRunOptions(Args, ToRun, Error))
+			{
+				return false;
+			}
+			FString RunId;
+			TSharedPtr<FJsonObject> Started;
+			if (!Subsystem->BeginScenarioFileRun(ToRun, RunId, Started))
+			{
+				FString Reason;
+				Error = Started.IsValid() && Started->TryGetStringField(TEXT("error"), Reason) ? Reason : TEXT("步骤没能开始");
+				return false;
+			}
+			Out = Capped(Started, TEXT("step"), StructureMaxChars);
+			return true;
 		}
 
 		TSharedPtr<FJsonObject> Result;
@@ -627,6 +671,17 @@ namespace
 			return false;
 		}
 
+		// 1.9：条件和表达式此刻的值（调试面板、条件编辑器的「试一下」）
+		if (GameTestRpcScript::HasScriptResolve(Args))
+		{
+			if (!GameTestRpcScript::ResolveScript(Args, Out, Error))
+			{
+				return false;
+			}
+			Out = Capped(Out, TEXT("resolve"), StructureMaxChars);
+			return true;
+		}
+
 		// 「现在核对」（1.6.0）：checks 是带 skipIf 的步骤数组，回每一步此刻跳不跳（只判断，不动手）
 		const TArray<TSharedPtr<FJsonValue>>* CheckValues = nullptr;
 		if (Args.IsValid() && Args->TryGetArrayField(TEXT("checks"), CheckValues) && CheckValues != nullptr)
@@ -694,7 +749,7 @@ namespace
 	}
 
 	/**
-	 * 项目运行配置（场景根的 _settings.json：阻挡界面规则、UI 等待上限）。
+	 * 项目运行配置（场景根的 _settings.json：守护、UI 等待上限、脚本开关）。
 	 * 不带 config 是读；带 config 是校验后整份写回（dryRun 只校验不落盘），面板 GameTest 页「运行设置」用。
 	 */
 	bool Config(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
@@ -706,7 +761,17 @@ namespace
 		const bool bDryRun = Bool(Args, TEXT("dryRun"), false);
 		if (bWrite)
 		{
-			if (!GameTestRunConfig::FromJson(**Incoming, RunConfig, Error))
+			// 面板只发它认得的字段：文件里别的字段（api、objectKeys…，面板别的页或手写的）原样留着，不被这次写回抹掉。
+			const TSharedRef<FJsonObject> Merged = MakeShared<FJsonObject>(**Incoming);
+			if (IFileManager::Get().FileExists(*Path))
+			{
+				FString ReadError;
+				if (const TSharedPtr<FJsonObject> Existing = GameTestJson::ParseObjectFromFile(Path, ReadError))
+				{
+					GameTestRunConfig::PreserveUnknown(*Merged, *Existing);
+				}
+			}
+			if (!GameTestRunConfig::FromJson(*Merged, RunConfig, Error))
 			{
 				return false;
 			}
@@ -792,11 +857,19 @@ void Register()
 	Add(TEXT("gt.resolve"), &Resolve);
 	Add(TEXT("gt.history"), &History);
 	Add(TEXT("gt.config"), &Config);
+	Add(TEXT("gt.api"), &GameTestRpcScript::Api);
+	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
+	Add(TEXT("gt.debug"), &GameTestRpcScript::Debug);
+	Add(TEXT("gt.validate"), &GameTestRpcScript::Validate);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
 	{
 		FAgentPanelBridge::Get().PublishEvent(TEXT("gt.record"), InEvent);
+	});
+	FlowHandle = GameTestHooks::OnFlowEvent().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
+	{
+		FAgentPanelBridge::Get().PublishEvent(TEXT("gt.flow"), InEvent);
 	});
 }
 
@@ -804,6 +877,7 @@ void Unregister()
 {
 	GameTestHooks::OnJobChanged().Remove(JobHandle);
 	GameTestHooks::OnRecordChanged().Remove(RecordHandle);
+	GameTestHooks::OnFlowEvent().Remove(FlowHandle);
 	for (const FString& Name : RegisteredOps)
 	{
 		FAgentPanelBridge::Get().RemoveOp(Name);

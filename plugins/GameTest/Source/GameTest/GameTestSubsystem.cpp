@@ -2,7 +2,10 @@
 
 #include "GameTestSubsystem.h"
 
+#include "Core/Flow/GameTestFlow.h"
+#include "Core/Flow/GameTestScriptParser.h"
 #include "Core/GameTestAction.h"
+#include "Core/Script/GameTestDiag.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestRunConfig.h"
 #include "Core/GameTestScenario.h"
@@ -233,16 +236,6 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 
 	const double Now = FPlatformTime::Seconds();
 	++TickCount;
-	// 阻挡界面先处理再推进步骤：弹窗这一帧关掉，等着的点击下一次检查就能点到
-	if (Runner->IsBusy() && Blockers.IsActive())
-	{
-		TArray<TSharedPtr<FJsonObject>> BlockerEvents;
-		Blockers.Tick(Now, GameTestWorld::FindGameWorld(), Runner->GetStepInFlight(), BlockerEvents);
-		for (const TSharedPtr<FJsonObject>& Event : BlockerEvents)
-		{
-			Runner->AddStepEvent(TEXT("blockers"), Event);
-		}
-	}
 	Runner->Tick(Now);
 	LogFinishedSteps();
 	Evidence->Tick(Now);
@@ -265,9 +258,15 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 	// 批量运行时两个场景之间执行器是空的，但整件事还没完：busy 要连着批量算，面板才不会在两个场景之间显示「已结束」
 	const FGameTestReport& Report = Runner->GetReport();
 	const bool bBusy = Runner->IsBusy() || Batch.IsActive();
+	// 走到哪一步、停没停：块里跑着、调试暂停时步骤数不变，也要刷新快照（gt.job 的 at）。
+	const FGameTestFlow* Flow = Runner->GetFlow();
+	const FString At = Flow != nullptr ? Flow->GetAt() : FString();
+	const bool bPaused = Flow != nullptr && Flow->IsPaused();
 	if (Report.Steps.Num() != LastSnapshotStepCount || bBusy != LastSnapshotBusy || CurrentRunId != LastSnapshotRunId
-		|| Batch.GetSerial() != LastSnapshotBatchSerial)
+		|| Batch.GetSerial() != LastSnapshotBatchSerial || At != LastSnapshotAt || bPaused != LastSnapshotPaused)
 	{
+		LastSnapshotAt = At;
+		LastSnapshotPaused = bPaused;
 		LastSnapshotStepCount = Report.Steps.Num();
 		LastSnapshotBusy = bBusy;
 		LastSnapshotRunId = CurrentRunId;
@@ -278,7 +277,20 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 		Snapshot->SetStringField(TEXT("runId"), CurrentRunId);
 		// 一共几步（total 是已完成的步数）：面板画进度条要用。
 		Snapshot->SetNumberField(TEXT("planned"), Runner->GetQueueLength());
-		Snapshot->SetStringField(TEXT("status"), bBusy ? TEXT("running") : (Report.Steps.Num() > 0 ? TEXT("finished") : TEXT("idle")));
+		Snapshot->SetStringField(TEXT("status"), bPaused ? TEXT("paused")
+			: bBusy ? TEXT("running") : (Report.Steps.Num() > 0 ? TEXT("finished") : TEXT("idle")));
+		if (bBusy && !At.IsEmpty())
+		{
+			Snapshot->SetStringField(TEXT("at"), At);
+		}
+		if (Flow != nullptr)
+		{
+			const TSharedPtr<FJsonObject> Guards = Flow->GuardCounts();
+			if (Guards.IsValid() && Guards->Values.Num() > 0)
+			{
+				Snapshot->SetObjectField(TEXT("guards"), Guards);
+			}
+		}
 		if (Batch.HasData())
 		{
 			Snapshot->SetObjectField(TEXT("batch"), Batch.ToJson());
@@ -417,6 +429,47 @@ void UGameTestSubsystem::ClearHighlight()
 	Highlight.Reset();
 }
 
+TSharedPtr<FGameTestScript> UGameTestSubsystem::BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig,
+	TSharedPtr<FJsonObject>& OutResult) const
+{
+	FGameTestDiagSink Sink;
+	FGameTestScriptParser Parser(UGameTestSettings::ResolveScenarioRootDir(), Sink, InConfig.ScriptOptions);
+	const FString RunName = InRun.Name.IsEmpty() ? TEXT("run") : InRun.Name;
+	// 从场景文件跑：整份场景（params、vars、objects、guards、块）；临时步骤只有步骤。
+	const TSharedRef<FGameTestScript> Script = InRun.Json.IsValid() ? Parser.ParseScript(InRun.Json, InRun.Scenario)
+		: Parser.ParseSteps(InRun.Steps, RunName);
+
+	// 前置步骤（运行配置的 setup）：只在从场景文件跑时加在最前面，场景写了 "setup": false 的不加；
+	// 「从这一步开始运行」和 Agent 直接给步骤的临时运行没有场景路径，也不加——它们接着当前状态跑。
+	if (!InRun.Scenario.IsEmpty() && !InRun.bSkipSetup && InConfig.Setup.Num() > 0)
+	{
+		const TSharedRef<FGameTestScript> Setup = Parser.ParseSteps(InConfig.Setup, TEXT("_settings"), TEXT("_settings.setup"));
+		for (const TSharedRef<FGameTestNode>& Node : Setup->Steps.Nodes)
+		{
+			Node->Step.bSetup = true;
+		}
+		Script->Setup.Nodes.Insert(Setup->Steps.Nodes, 0);
+	}
+
+	if (Sink.HasErrors())
+	{
+		TArray<FString> Lines;
+		Sink.AppendErrorLines(Lines);
+		OutResult = MakeShared<FJsonObject>();
+		OutResult->SetBoolField(TEXT("ok"), false);
+		OutResult->SetStringField(TEXT("error"), FString::Printf(TEXT("%s 写错了（gt.validate 看全部）：%s"),
+			InRun.Scenario.IsEmpty() ? *RunName : *InRun.Scenario, *FString::Join(Lines, TEXT("；"))));
+		TArray<TSharedPtr<FJsonValue>> Diagnostics;
+		for (const FGameTestDiag& Diag : Sink.GetAll())
+		{
+			Diagnostics.Add(MakeShared<FJsonValueObject>(Diag.ToJson()));
+		}
+		OutResult->SetArrayField(TEXT("diagnostics"), Diagnostics);
+		return nullptr;
+	}
+	return Script;
+}
+
 bool UGameTestSubsystem::StartRunOnGameThread(
 	const FGameTestScenarioRun& InRun,
 	FString& OutRunId,
@@ -425,37 +478,26 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 {
 	bOutAlreadyFinished = false;
 	OutRunId.Reset();
-	const TArray<TSharedPtr<FJsonObject>>& InSteps = InRun.Steps;
 	const FString& InName = InRun.Name;
 	const int32 InRevision = InRun.Revision;
 	const int32 InStepDelayMs = InRun.StepDelayMs;
 
-	// 解析失败不执行任何一步：错在配置上，让它整体失败比跑一半更安全。
-	TArray<FGameTestStep> Steps;
-	TArray<FString> Errors;
-	for (int32 Index = 0; Index < InSteps.Num(); ++Index)
-	{
-		FGameTestStep Step;
-		TArray<FString> StepErrors;
-		if (GameTestActions::ParseStep(InSteps[Index], Index, Step, StepErrors))
-		{
-			Steps.Add(Step);
-		}
-		else
-		{
-			for (const FString& Error : StepErrors)
-			{
-				Errors.Add(FString::Printf(TEXT("第 %d 步：%s"), Index + 1, *Error));
-			}
-		}
-	}
-
-	if (Errors.Num() > 0)
+	// 项目运行配置（场景根的 _settings.json）：守护、UI 等待上限、脚本开关。写错了整次不跑——
+	// 守护没生效却照跑，弹窗挡住时只会看到一串莫名其妙的超时。
+	FGameTestRunConfig RunConfig;
+	FString ConfigError;
+	if (!GameTestRunConfig::Load(RunConfig, ConfigError))
 	{
 		OutResult = MakeShared<FJsonObject>();
 		OutResult->SetBoolField(TEXT("ok"), false);
-		OutResult->SetStringField(TEXT("error"), FString::Join(Errors, TEXT("；")));
-		OutResult->SetNumberField(TEXT("stepCount"), Steps.Num());
+		OutResult->SetStringField(TEXT("error"), ConfigError);
+		return false;
+	}
+
+	// 整棵脚本先解析好（块、条件、表达式、call 的子脚本）：错在配置上，让它整体失败比跑一半更安全。
+	const TSharedPtr<FGameTestScript> Script = BuildScript(InRun, RunConfig, OutResult);
+	if (!Script.IsValid())
+	{
 		return false;
 	}
 
@@ -474,7 +516,12 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	Request.RunId = OutRunId;
 	Request.Revision = InRevision;
 	Request.OutputDir = OutputDir;
-	Request.Steps = MoveTemp(Steps);
+	Request.Script = Script;
+	Request.Params = InRun.Params;
+	Request.Debug = InRun.Debug;
+	Request.ScenarioRoot = UGameTestSettings::ResolveScenarioRootDir();
+	Request.ScriptOptions = RunConfig.ScriptOptions;
+	Request.Guards = RunConfig.ParsedGuards;
 	if (const UGameTestSettings* Settings = GetDefault<UGameTestSettings>())
 	{
 		Request.DefaultStepTimeoutMs = Settings->DefaultStepTimeoutMs;
@@ -485,18 +532,6 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		Request.StepDelayMs = InStepDelayMs;
 	}
 
-	// 项目运行配置（场景根的 _settings.json）：阻挡界面规则和 UI 等待上限。写错了整次不跑——
-	// 规则没生效却照跑，弹窗挡住时只会看到一串莫名其妙的超时。
-	FGameTestRunConfig RunConfig;
-	FString ConfigError;
-	if (!GameTestRunConfig::Load(RunConfig, ConfigError))
-	{
-		RestoreBackgroundThrottle();
-		OutResult = MakeShared<FJsonObject>();
-		OutResult->SetBoolField(TEXT("ok"), false);
-		OutResult->SetStringField(TEXT("error"), ConfigError);
-		return false;
-	}
 	// UI 等待上限：场景 > 运行配置 > 项目设置
 	Request.UiWaitTimeoutMs = InRun.UiWaitTimeoutMs >= 0 ? InRun.UiWaitTimeoutMs
 		: RunConfig.UiWaitTimeoutMs >= 0 ? RunConfig.UiWaitTimeoutMs
@@ -524,38 +559,6 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		}
 	}
 
-	// 前置步骤（运行配置的 setup）：只在从场景文件跑时加在最前面，场景写了 "setup": false 的不加；
-	// 「从这一步开始运行」和 Agent 直接给步骤的临时运行没有场景路径，也不加——它们接着当前状态跑。
-	if (!InRun.Scenario.IsEmpty() && !InRun.bSkipSetup && RunConfig.Setup.Num() > 0)
-	{
-		TArray<FGameTestStep> SetupSteps;
-		TArray<FString> SetupErrors;
-		for (int32 Index = 0; Index < RunConfig.Setup.Num(); ++Index)
-		{
-			FGameTestStep Step;
-			TArray<FString> StepErrors;
-			if (GameTestActions::ParseStep(RunConfig.Setup[Index], Index, Step, StepErrors))
-			{
-				Step.bSetup = true;
-				SetupSteps.Add(Step);
-			}
-			for (const FString& Error : StepErrors)
-			{
-				SetupErrors.Add(FString::Printf(TEXT("前置第 %d 步：%s"), Index + 1, *Error));
-			}
-		}
-		if (SetupErrors.Num() > 0)
-		{
-			RestoreBackgroundThrottle();
-			OutResult = MakeShared<FJsonObject>();
-			OutResult->SetBoolField(TEXT("ok"), false);
-			OutResult->SetStringField(TEXT("error"), FString::Printf(TEXT("运行配置 %s 的前置步骤写错了：%s"),
-				*GameTestRunConfig::GetPath(), *FString::Join(SetupErrors, TEXT("；"))));
-			return false;
-		}
-		Request.Steps.Insert(SetupSteps, 0);
-	}
-
 	// 固定引擎的全局随机（蓝图 Random 节点、FMath::Rand / FRand）：抽卡、掉落走它的场景每次一样。
 	// 游戏自己的 FRandomStream、Lua 的 math.random 管不到，用前置步骤里的 GM 固定。
 	if (RunConfig.RandomSeed.IsSet())
@@ -563,12 +566,20 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		FMath::RandInit(RunConfig.RandomSeed.GetValue());
 		FMath::SRandInit(RunConfig.RandomSeed.GetValue());
 		UE_LOG(LogGameTest, Display, TEXT("run '%s' 固定随机种子 %d"), *RunName, RunConfig.RandomSeed.GetValue());
+		// 脚本里的 random() 也从这个种子出发：同一个种子每次抽到的一样。
+		Request.RandomSeed = RunConfig.RandomSeed.GetValue();
 	}
 
 	FString StartError;
 	FGameTestRuntimeState RuntimeState;
 	RuntimeState.Handles = &Handles;
 	RuntimeState.RootedObjects = &RootedObjects;
+	RuntimeState.LogTap = &LogTap;
+	// 块进出、循环第几轮、守护、暂停：推给面板（UELink 的 gt.flow 事件），调试视图不用轮询。
+	RuntimeState.OnFlowEvent = [](const TSharedRef<FJsonObject>& InEvent)
+	{
+		GameTestHooks::OnFlowEvent().Broadcast(InEvent);
+	};
 	Evidence->BeginRun();
 	const UGameTestSettings* EvidenceSettings = GetDefault<UGameTestSettings>();
 	if (EvidenceSettings == nullptr || EvidenceSettings->bCaptureFailureEvidence)
@@ -593,7 +604,6 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	}
 
 	LastLoggedStepCount = 0;
-	Blockers.Begin(RunConfig.Blockers);
 	// 不用真实鼠标的 run 用虚拟光标：input.cursor、拖动、滚轮、鼠标键都不移系统光标
 	GameTestInput::SetVirtualCursor(!Request.ClickVia.Equals(TEXT("pointer"), ESearchCase::IgnoreCase));
 	const bool bStarted = Runner->StartRun(
@@ -602,7 +612,6 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 		[this, OutputDir](const FGameTestReport& InReport)
 		{
 			RestoreBackgroundThrottle();
-			Blockers.End();
 			// 可选模块在这里清掉本次 run 留下的状态（EnhancedInput 模块停掉输入注入）。
 			GameTestInput::ReleaseHeldKeys();
 			// 虚拟光标回到默认、忘掉这次 run 摆过的位置（要在松键之后：松鼠标键还要用这个位置）。
@@ -627,7 +636,6 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 	if (!bStarted)
 	{
 		RestoreBackgroundThrottle();
-		Blockers.End();
 
 		OutResult = MakeShared<FJsonObject>();
 		OutResult->SetBoolField(TEXT("ok"), false);

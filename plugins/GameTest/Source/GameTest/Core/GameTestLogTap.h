@@ -38,6 +38,15 @@ public:
 
 	static constexpr int32 ImportantCapacity = 300;
 
+	/**
+	 * 到目前为止收到的错误行数（Error / Fatal 级别，ensure 失败也是 Error），单调递增（1.9.0）。
+	 * `expectNoErrors` 在步骤 / 块开始时记一下，结束时比：大环会被刷屏冲掉，数数不会。
+	 */
+	uint64 GetErrorSeq() const;
+
+	/** 最近一条错误行（`expectNoErrors` 失败时写进原因）。 */
+	FString GetLastError() const;
+
 	//~ Begin FOutputDevice interface
 	virtual void Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbosity, const FName& InCategory) override;
 	virtual bool CanBeUsedOnAnyThread() const override
@@ -62,5 +71,7 @@ private:
 	};
 	TArray<FImportantLine> Important;
 	uint64 ImportantSeq = 0;
+	uint64 ErrorSeq = 0;
+	FString LastError;
 	bool bAttached = false;
 };

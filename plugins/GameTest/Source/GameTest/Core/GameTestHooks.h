@@ -32,4 +32,7 @@ public:
 
 	/** 录制状态变了（开始、录到一步、停止）：对外接口据此推 `gt.record` 事件，面板实时显示录到的步骤。 */
 	static FOnJobChanged& OnRecordChanged();
+
+	/** 脚本流程的事件（进出块、循环第几轮、守护、调试暂停）：对外接口据此推 `gt.flow` 事件（协议第 10 节）。 */
+	static FOnJobChanged& OnFlowEvent();
 };

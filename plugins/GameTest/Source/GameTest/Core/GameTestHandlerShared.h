@@ -129,6 +129,20 @@ namespace GameTestHandlers
 	// 角色走到一个点（Operate/GameTestMove.cpp）：导航网格 / 录制轨迹 / 探路 / 瞬移
 	EGameTestStepStatus HandleMove(FGameTestStepContext& InContext);
 
+	// 调函数（Operate/GameTestHandlerInvoke.cpp，1.9 脚本化）
+	EGameTestStepStatus HandleInvoke(FGameTestStepContext& InContext);
+
+	// 脚本化的叶子（Operate/GameTestHandlersScript.cpp）：调接口库、关界面、调界面函数
+	EGameTestStepStatus HandleApi(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleWidgetClose(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleWidgetCall(FGameTestStepContext& InContext);
+	/** 步骤写了 cond 或 expr（assert 的统一条件写法）。 */
+	bool HasScriptCond(const FJsonObject& InParams);
+	/** assert 的 cond / expr：没写返回 false；写了返回 true，结论在 bOutHolds，消息写进 InContext。 */
+	bool CheckScriptAssert(FGameTestStepContext& InContext, bool& bOutHolds);
+	/** wait until=cond：等统一条件成立。 */
+	EGameTestStepStatus StartWaitCond(FGameTestStepContext& InContext);
+
 	// 编辑器专属（Editor/GameTestHandlersEditor.cpp）
 	EGameTestStepStatus HandleEditorEnsure(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandlePieStart(FGameTestStepContext& InContext);

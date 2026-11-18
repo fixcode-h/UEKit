@@ -3,39 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Script/GameTestScriptOptions.h"
 
 class FJsonObject;
-
-/** 阻挡界面出现时怎么处理。 */
-enum class EGameTestBlockerAction : uint8
-{
-	/** 从界面上移除（RemoveFromParent，移不掉就折叠）。 */
-	Close,
-	/** 调这个界面上的一个无参函数（例如它自己的「关闭」）。 */
-	Call,
-	/** 执行一条控制台指令（GM、跳过引导之类）。 */
-	Command,
-};
-
-/**
- * 一条阻挡界面规则：跑测试时这个 WBP 一出现就按 Action 处理掉，不让它挡住后面的步骤
- * （公告、引导、断线重连、活动弹窗这类不确定什么时候弹的界面）。
- */
-struct GAMETEST_API FGameTestBlockerRule
-{
-	/** 界面的类名（`WBP_Notice`，带不带 `_C` 都行）或资产路径（`/Game/UI/WBP_Notice`）；子类也算。 */
-	FString Widget;
-	EGameTestBlockerAction Action = EGameTestBlockerAction::Close;
-	/** Action=Call 时调的函数名。 */
-	FString Function;
-	/** Action=Command 时执行的指令。 */
-	FString Command;
-	/** 给人看的说明。 */
-	FString Note;
-	/** 出现后过多久再处理（毫秒）：有的界面要等打开动画播完，处理早了它自己又开回来。 */
-	int32 DelayMs = 0;
-	bool bEnabled = true;
-};
+class FJsonValue;
+struct FGameTestGuardDef;
 
 /**
  * 一条「条目怎么认」规则（1.4.0）：录制时点到这类条目，直接按这几个字段写标识，不再问人。
@@ -59,12 +31,16 @@ struct GAMETEST_API FGameTestKeyRule
  * { "uiWaitTimeoutMs": 0, "uiStepGapMs": 1000, "clickVia": "code", "randomSeed": 42,
  *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
  *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
- *   "blockers": [ { "widget": "WBP_Notice", "action": "close" },
- *                 { "widget": "WBP_Guide", "action": "call", "function": "Skip" },
- *                 { "widget": "WBP_Reconnect", "action": "command", "command": "gm.Reconnect" } ],
+ *   "guards": [ { "id": "b1", "when": { "target": "WBP_Notice:.", "onScreen": true },
+ *                 "do": [ { "action": "widget.close", "target": "WBP_Notice:." } ] } ],
+ *   "allowLuaInvoke": true, "allowLuaInCond": false, "maxCallDepth": 8,
  *   "itemKeys": [ { "entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"] } ],
  *   "skipIf": { "enabled": true, "settleMs": 300, "verify": true, "verifyTimeoutMs": 5000 } }
  * ```
+ *
+ * 1.9.0 起 `blockers`（阻挡界面）换成了 `guards`（守护，见 docs/game-test-script.md 第 5 节）：读到只有 blockers 的旧文件时
+ * 在内存里改写成 guards，Load 顺手把文件改写掉（原文件存 .bak）。
+ * 面板和别的工具往这个文件里加的字段（`api`、`objectKeys`…）原样保留：ToJson 从读到的原文出发，只改认得的字段。
  */
 struct GAMETEST_API FGameTestRunConfig
 {
@@ -77,7 +53,17 @@ struct GAMETEST_API FGameTestRunConfig
 	int32 UiStepGapMs = -1;
 	/** click 没写 via 时的点击方式：code / pointer；空表示默认（code）。 */
 	FString ClickVia;
-	TArray<FGameTestBlockerRule> Blockers;
+	/** 全局守护（`guards` 原文，已校验）；没写时为空。 */
+	TSharedPtr<FJsonValue> Guards;
+	/** 解析好的全局守护（开跑时直接用）。 */
+	TArray<TSharedRef<FGameTestGuardDef>> ParsedGuards;
+	/** allowLuaInvoke / allowLuaInCond / maxCallDepth。 */
+	FGameTestScriptOptions ScriptOptions;
+	/** 读到的原文：写回时保留不认识的字段。 */
+	TSharedPtr<FJsonObject> Raw;
+	/** 这次读的时候把 blockers 改写成了 guards（Load 据此改写文件）；每条怎么改的记在 MigrationNotes。 */
+	bool bMigratedBlockers = false;
+	TArray<FString> MigrationNotes;
 	/** 前置步骤：从场景文件跑时先跑这几步（重置存档、清引导之类的 GM），写法和场景里的步骤一样。 */
 	TArray<TSharedPtr<FJsonObject>> Setup;
 	/** 每次开跑前用它初始化引擎的全局随机；没写就不固定。 */
@@ -116,7 +102,14 @@ public:
 	/** 校验后写盘（格式化的 JSON，便于在版本管理里看差异）。 */
 	static bool Save(const FGameTestRunConfig& InConfig, FString& OutError);
 
-	static const TCHAR* ActionName(EGameTestBlockerAction InAction);
+	/** 认得的字段（写回时以配置为准；其余字段原样保留）。 */
+	static const TArray<FString>& KnownFields();
+
+	/** gt.config 整份写入时：`InExisting`（盘上的）里有、`InOutIncoming` 里没有的不认得的字段补回去，免得面板不认识的段被冲掉。 */
+	static void PreserveUnknown(FJsonObject& InOutIncoming, const FJsonObject& InExisting);
+
+	/** 全局守护里出现的界面名（录制时推「连带跳过」要排除它们：守护会处理的界面不算步骤打开的）。 */
+	static TArray<FString> GuardScreens(const FGameTestRunConfig& InConfig);
 
 	/** 没写 uiStepGapMs 时的 UI 操作间隔（毫秒）。 */
 	static constexpr int32 DefaultUiStepGapMs = 1000;

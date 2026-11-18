@@ -104,8 +104,8 @@ namespace
 			{ TEXT("snapshot"), TEXT("geometry,props"), false, false,
 				TEXT("控件树快照：AI 的主要观察手段；给 target 就只取那棵子树，props=true 带出类自己的属性"),
 				&GameTestHandlers::HandleSnapshot },
-			{ TEXT("wait"), TEXT("until,seconds,target,actor,tag,point,radius"), false, false,
-				TEXT("跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）"),
+			{ TEXT("wait"), TEXT("until,seconds,target,actor,tag,point,radius,cond"), false, false,
+				TEXT("跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（cond 是统一条件，成立并稳住 settleMs 才算）"),
 				&GameTestHandlers::HandleWait },
 			{ TEXT("click"), TEXT("via,at,button"), true, false,
 				TEXT("点击控件：先等控件出现、可见、可用、位置稳定。via=code（默认，可在场景或运行配置的 clickVia 改）不动鼠标：找目标往上（不出所在 WBP）最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮 OnPressed → OnClicked → OnReleased）；目标是 WBP 时点它里面唯一可见的按钮；都没有时在控件位置发虚拟鼠标事件，不移系统光标。via=pointer 是真实鼠标：还要求点击点没被挡住，移光标按下松开，核对接住按下的是不是目标。at=[x,y] 控件内位置（默认中心），button 只对 pointer 有效"),
@@ -149,12 +149,24 @@ namespace
 			{ TEXT("net.compare"), TEXT("class,tag,from,to,tolerance"), false, false,
 				TEXT("跨端一致性断言：同一玩家对应的 actor 在两端世界的位姿偏差不超过 tolerance（厘米）；from/to 各可给 client 与 locallyControlled（缺省 from=server、to=client0）；给 timeoutMs 则跨帧等到一致"),
 				&GameTestHandlers::HandleNetCompare },
-			{ TEXT("assert"), TEXT("exists,visible,enabled,text,textContains,textLike,checked,count,selected,selectedProperty,stateKey,field,image,any,equals"), true, false,
-				TEXT("断言目标状态（stateKey+equals 可断言快照 state 里的任意字段；textLike 忽略数字和标点比文字；checked 勾选；field=@self/@lua/@item/@itemLua.路径 + equals 读 WBP 或 Lua 字段；image 贴图名；any 任一成立）；失败信息里带实际值，不做静默通过"),
+			{ TEXT("assert"), TEXT("exists,visible,enabled,text,textContains,textLike,checked,count,selected,selectedProperty,stateKey,field,image,any,equals,cond,expr"), true, false,
+				TEXT("断言：cond（统一条件）或 expr（表达式）只看这一刻，写了它们时 target 可省；原有写法断言目标状态（stateKey+equals 可断言快照 state 里的任意字段；textLike 忽略数字和标点比文字；checked 勾选；field=@self/@lua/@item/@itemLua.路径 + equals 读 WBP 或 Lua 字段；image 贴图名；any 任一成立）；失败信息里带实际值，不做静默通过"),
 				&GameTestHandlers::HandleAssert },
 			{ TEXT("probe"), TEXT("pointX,pointY,expect"), true, false,
 				TEXT("只读命中测试：这个点上最终会命中谁（返回命中路径与最顶层控件；被遮挡时失败并给出遮挡者）"),
 				&GameTestHandlers::HandleProbe },
+			{ TEXT("invoke"), TEXT("object,function,args,saveAs,expect"), false, false,
+				TEXT("调函数：object 是 @来源 / {\"$obj\"} / $变量 / {\"target\": 选择器} / @luaMod.模块 / @lua（配 target），省略时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件"),
+				&GameTestHandlers::HandleInvoke },
+			{ TEXT("api"), TEXT("api,args,saveAs,expect,client"), false, false,
+				TEXT("调接口库里的接口（gt.api 列出全部）：args 按参数名给，cond 类型的参数原样传；要等待的接口（Wait.*）在这一步里跨帧等到完成；返回值存 saveAs，expect 是对返回值的统一条件"),
+				&GameTestHandlers::HandleApi },
+			{ TEXT("widget.close"), TEXT(""), true, false,
+				TEXT("把目标界面（WBP_X:.）从父级移除：原阻挡界面的 close，守护的 do 里常用"),
+				&GameTestHandlers::HandleWidgetClose },
+			{ TEXT("widget.call"), TEXT("function"), true, false,
+				TEXT("调目标界面上的无参函数（蓝图函数或绑的 Lua 函数）：原阻挡界面的 call，守护的 do 里常用"),
+				&GameTestHandlers::HandleWidgetCall },
 		};
 	}
 
@@ -215,6 +227,12 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("hint"),
 		// 已达成就跳过（1.6.0）：回放到这一步时条件已经成立就不做（GameTestSkipIf）
 		TEXT("skipIf"),
+		// 1.9.0 脚本化的公共字段（docs/game-test-script.md 第 2 节）：由脚本解析器和执行器读，动作自己不用管。
+		TEXT("id"),
+		TEXT("retries"),
+		TEXT("guards"),
+		TEXT("expectNoErrors"),
+		TEXT("disabled"),
 	};
 	return Common;
 }
@@ -295,6 +313,7 @@ bool GameTestActions::ParseStep(
 
 	GameTestJson::TryGetString(*InJson, TEXT("target"), OutStep.Target);
 	GameTestJson::TryGetString(*InJson, TEXT("note"), OutStep.Note);
+	GameTestJson::TryGetString(*InJson, TEXT("id"), OutStep.Id);
 	GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs);
 
 	FString FailModeText;
@@ -308,9 +327,13 @@ bool GameTestActions::ParseStep(
 		{
 			OutStep.FailMode = EGameTestFailMode::Continue;
 		}
+		else if (FailModeText.Equals(TEXT("retry"), ESearchCase::IgnoreCase))
+		{
+			OutStep.FailMode = EGameTestFailMode::Retry;
+		}
 		else
 		{
-			OutErrors.Add(FString::Printf(TEXT("onFail 只能是 stop 或 continue，收到 '%s'"), *FailModeText));
+			OutErrors.Add(FString::Printf(TEXT("onFail 只能是 stop、continue 或 retry，收到 '%s'"), *FailModeText));
 		}
 	}
 
@@ -324,7 +347,9 @@ bool GameTestActions::ParseStep(
 		}
 	}
 
-	if (Info->bNeedsTarget && OutStep.Target.IsEmpty())
+	// assert 写 cond / expr 时判断里自己带 target（或根本不看控件），不要求步骤上的 target
+	const bool bTargetOptional = Info->Name == FName(TEXT("assert")) && GameTestHandlers::HasScriptCond(*InJson);
+	if (Info->bNeedsTarget && !bTargetOptional && OutStep.Target.IsEmpty())
 	{
 		OutErrors.Add(FString::Printf(TEXT("动作 %s 需要 target（选择器或 @句柄）"), *ActionText));
 	}
@@ -358,7 +383,12 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 	Common->SetStringField(TEXT("target"), TEXT("选择器或 @句柄"));
 	Common->SetStringField(TEXT("note"), TEXT("写进报告的一句说明"));
 	Common->SetStringField(TEXT("timeoutMs"), TEXT("本步超时；缺省用设置里的 DefaultStepTimeoutMs"));
-	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）或 continue"));
+	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）、continue 或 retry（配 retries）"));
+	Common->SetStringField(TEXT("id"), TEXT("步骤 id（字母数字下划线，场景内唯一）：报告、断点、from / to 按它认"));
+	Common->SetStringField(TEXT("retries"), TEXT("onFail=retry 时最多重做几次"));
+	Common->SetStringField(TEXT("guards"), TEXT("只在这一步 / 这一块里生效的守护（docs/game-test-script.md 第 5 节）"));
+	Common->SetStringField(TEXT("expectNoErrors"), TEXT("执行期间日志里出现 Error / Ensure / Lua 报错就算失败"));
+	Common->SetStringField(TEXT("disabled"), TEXT("true 时跳过（报告记 disabled）"));
 	Common->SetStringField(TEXT("skipIf"), TEXT("已达成就跳过：{条件, target?, also?, settleMs?, verify?, verifyTimeoutMs?}，条件同 assert；回放时成立就不做这一步（记 already，算通过），also 连带跳过后面几步，verify 真做了以后核对条件成立"));
 	Root->SetObjectField(TEXT("common"), Common);
 

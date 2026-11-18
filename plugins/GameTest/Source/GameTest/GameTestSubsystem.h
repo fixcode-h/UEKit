@@ -8,13 +8,14 @@
 #include "Core/GameTestRunner.h"
 #include "Core/GameTestRunStore.h"
 #include "Observe/GameTestEvidence.h"
-#include "Operate/GameTestBlockers.h"
 #include "Subsystems/EngineSubsystem.h"
 #include "GameTestSubsystem.generated.h"
 
 class FJsonObject;
 class UWidget;
 struct FGameTestScenarioRun;
+struct FGameTestRunConfig;
+struct FGameTestScript;
 
 /** 高亮覆盖层的持有者：Slate 类型同样只留在 .cpp 里。 */
 struct FGameTestHighlightHolder;
@@ -90,6 +91,12 @@ public:
 	void CancelCurrentRun();
 
 	/** 名称句柄表（`gt.resolve` 核对 `@句柄` 用）。 */
+	/** 正在跑（或刚跑完）的脚本执行器：gt.debug、gt.resolve 用；没有 run 时为空。 */
+	FGameTestFlow* GetFlow() const
+	{
+		return Runner.IsValid() ? Runner->GetFlow() : nullptr;
+	}
+
 	TMap<FString, TWeakObjectPtr<UWidget>>* GetHandles()
 	{
 		return &Handles;
@@ -113,6 +120,13 @@ private:
 	 * 解析并起 run，然后立刻 tick 一次：同步步骤在本次调用里就有结果。
 	 * @param bOutAlreadyFinished 起完之后是否已经跑完（跑完就没有 runId 可用）。
 	 */
+	/**
+	 * 把要跑的东西解析成脚本：场景文件整份解析（块、守护、call 的子脚本），临时步骤只解析步骤；
+	 * 从场景跑时把运行配置的 setup 接在最前面。写错了返回空，OutResult 是错误返回体（带 diagnostics）。
+	 */
+	TSharedPtr<FGameTestScript> BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig,
+		TSharedPtr<FJsonObject>& OutResult) const;
+
 	bool StartRunOnGameThread(
 		const FGameTestScenarioRun& InRun,
 		FString& OutRunId,
@@ -169,9 +183,6 @@ private:
 	 */
 	TUniquePtr<FGameTestEvidence> Evidence;
 
-	/** 阻挡界面规则：每次 run 开始从项目运行配置读，run 期间每帧看一眼。 */
-	FGameTestBlockerGuard Blockers;
-
 	/** 批量运行的队列和结果。 */
 	FGameTestBatch Batch;
 	int64 LastSnapshotBatchSerial = -1;
@@ -190,6 +201,8 @@ private:
 	int32 LastSnapshotStepCount = -1;
 	bool LastSnapshotBusy = false;
 	FString LastSnapshotRunId;
+	FString LastSnapshotAt;
+	bool LastSnapshotPaused = false;
 
 	FThreadSafeCounter RunCounter;
 

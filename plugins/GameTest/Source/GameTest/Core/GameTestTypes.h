@@ -3,9 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Flow/GameTestDebugOptions.h"
+#include "Core/Script/GameTestScriptOptions.h"
 
 class FJsonObject;
 class UWidget;
+struct FGameTestGuardDef;
+struct FGameTestScript;
 class UWorld;
 
 /**
@@ -23,6 +27,8 @@ enum class EGameTestStepStatus : uint8
 	 * 算通过，和 Skipped 分开：Skipped 是「前一步失败或被取消、没轮到」，会让整次 run 判失败。
 	 */
 	Already,
+	/** 步骤写了 `disabled: true`（1.9.0）：没做，算通过。 */
+	Disabled,
 };
 
 /** 失败时怎么继续。默认 stop：一步失败就停在原地，让人/AI 看到现场。 */
@@ -30,6 +36,8 @@ enum class EGameTestFailMode : uint8
 {
 	Stop,
 	Continue,
+	/** 重做（1.9.0）：叶子从头再做这一步，块从块的第一步重来，最多 `retries` 次，还失败按 stop。 */
+	Retry,
 };
 
 /**
@@ -47,11 +55,25 @@ struct FGameTestStep
 	/** 运行配置里的前置步骤（`_settings.json` 的 setup）：Index 是它在前置步骤里的序号，不占场景的步骤序号。 */
 	bool bSetup = false;
 	TSharedPtr<FJsonObject> Params;
+	/** 步骤 id（1.9.0，场景里写的；没写为空）。 */
+	FString Id;
+	/** 在脚本里的路径（1.9.0，`steps.3.then.0`）；块里的步骤和 call 进去的步骤靠它认。 */
+	FString Path;
+	/** 在块里（不是主流程顶层）：Index 不再是「第几步」，标签改用 id / 路径。 */
+	bool bNested = false;
 
-	/** 给人看的「第 N 步」/「前置第 N 步」（日志、失败证据目录名）。 */
+	/** 给人看的「第 N 步」/「前置第 N 步」/「步骤 s3」（日志、失败证据目录名）。 */
 	FString Label() const
 	{
-		return bSetup ? FString::Printf(TEXT("前置第 %d 步"), Index + 1) : FString::Printf(TEXT("第 %d 步"), Index + 1);
+		if (bSetup)
+		{
+			return FString::Printf(TEXT("前置第 %d 步"), Index + 1);
+		}
+		if (bNested)
+		{
+			return FString::Printf(TEXT("步骤 %s"), Id.IsEmpty() ? *Path : *Id);
+		}
+		return FString::Printf(TEXT("第 %d 步"), Index + 1);
 	}
 };
 
@@ -65,6 +87,10 @@ struct GAMETEST_API FGameTestStepRecord
 	TSharedPtr<FJsonObject> Payload;
 	double StartedAt = 0.0;
 	double FinishedAt = 0.0;
+	/** 这条是块（if、loop、call…）的记录（1.9.0）：块结束时记一条，块里的步骤各自另有记录，按 path 挂在它下面。 */
+	bool bBlock = false;
+	/** 在循环的第几轮里执行的（从 0）；不在循环里为 -1。 */
+	int32 Iter = -1;
 
 	TSharedPtr<FJsonObject> ToJson() const;
 };
@@ -94,6 +120,8 @@ struct GAMETEST_API FGameTestReport
 
 	bool bSucceeded = false;
 	TArray<FGameTestStepRecord> Steps;
+	/** 守护触发次数 `{id: 次数}`（1.9.0）；没触发过为空。 */
+	TSharedPtr<FJsonObject> Guards;
 
 	int32 CountByStatus(EGameTestStepStatus InStatus) const;
 
@@ -174,6 +202,25 @@ struct GAMETEST_API FGameTestRunRequest
 
 	/** 已达成就跳过的跑法（运行配置 > 场景 > 这次运行的「全部照做」）。 */
 	FGameTestSkipOptions SkipIf;
+
+	//~ 1.9.0 脚本 -----------------------------------------------------------
+	/**
+	 * 解析好的脚本（v3 的块、守护、变量都在里面）。为空时执行器把 Steps 包成只有主流程的脚本——1.x 的调用方不用改。
+	 * 用 TSharedPtr<FGameTestScript> 而不是值：节点树大、同一个子脚本被 call 多次时共享。
+	 */
+	TSharedPtr<const FGameTestScript> Script;
+	/** gt.run 的 params（场景 params 的实参）。 */
+	TSharedPtr<FJsonObject> Params;
+	/** 场景根（绝对路径）：call、_api.json、_vars.json 相对它。 */
+	FString ScenarioRoot;
+	/** 运行配置里的脚本开关（allowLuaInvoke、allowLuaInCond、maxCallDepth、稳住默认值）。 */
+	FGameTestScriptOptions ScriptOptions;
+	/** 全局守护（运行配置的 guards），解析好的。 */
+	TArray<TSharedRef<FGameTestGuardDef>> Guards;
+	/** 断点、from / to、pauseOnFail。 */
+	FGameTestDebugOptions Debug;
+	/** 运行配置的 randomSeed：脚本自己的随机（FGameTestFlowContext::Random）也用它，没写就按时间。 */
+	TOptional<int32> RandomSeed;
 };
 
 /** 状态名（进 JSON 与日志，保持英文以便机器读）。 */

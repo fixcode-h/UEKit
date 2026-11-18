@@ -90,6 +90,11 @@ void FGameTestLogTap::Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbo
 	static const FName GameTestCategory(TEXT("LogGameTest"));
 	// 级别里可能带 SetColor / BreakOnLog 这类标志位，先取出真正的级别再比。
 	const ELogVerbosity::Type Level = static_cast<ELogVerbosity::Type>(InVerbosity & ELogVerbosity::VerbosityMask);
+	if (Level != ELogVerbosity::NoLogging && Level <= ELogVerbosity::Error)
+	{
+		++ErrorSeq;
+		LastError = Line.Left(500);
+	}
 	if (InCategory == GameTestCategory || (Level != ELogVerbosity::NoLogging && Level <= ELogVerbosity::Warning))
 	{
 		FImportantLine Entry;
@@ -105,4 +110,16 @@ void FGameTestLogTap::Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbo
 		}
 		++ImportantSeq;
 	}
+}
+
+uint64 FGameTestLogTap::GetErrorSeq() const
+{
+	FScopeLock Guard(&Lock);
+	return ErrorSeq;
+}
+
+FString FGameTestLogTap::GetLastError() const
+{
+	FScopeLock Guard(&Lock);
+	return LastError;
 }
