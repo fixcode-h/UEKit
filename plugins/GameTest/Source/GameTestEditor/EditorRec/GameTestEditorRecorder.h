@@ -16,7 +16,7 @@ struct FPropertyChangedEvent;
 class FEditPropertyChain;
 
 /**
- * 录 UE 编辑器操作（定稿 10.1，GameTest 1.10.0）：把人在编辑器里的操作记成 editor.* 步骤。
+ * 录 UE 编辑器操作（定稿 10.1，GameTest 1.11.0）：把人在编辑器里的操作记成 editor.* 步骤。
  *
  * **能按语义录就不按界面录**：
  * - 打开关卡 / 资源（FEditorDelegates::OnMapOpened、UAssetEditorSubsystem::OnAssetEditorOpened）→ `editor.open`；

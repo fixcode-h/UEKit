@@ -10,7 +10,7 @@ class SWindow;
 class FWidgetPath;
 
 /**
- * 编辑器界面上的一个控件怎么写（editor.click / editor.assert，1.10.0）。
+ * 编辑器界面上的一个控件怎么写（editor.click / editor.assert，1.11.0）。
  *
  * 不写 Slate 路径：编辑器的控件树很深、布局一换路径就变。写成「在哪个停靠页里、什么类型、上面写着什么字、第几个」，
  * 停靠页按标签认（外层到里层用 `>` 连，例如 `WBP_Shop>Details`），和人描述「资产编辑器工具栏上的『编译』」是同一个说法。

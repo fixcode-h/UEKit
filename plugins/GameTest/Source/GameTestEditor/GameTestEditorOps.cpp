@@ -65,7 +65,7 @@ namespace
 		return true;
 	}
 
-	/** gt.editrec.start：开始录编辑器操作（1.10.0，定稿 10.1）。 */
+	/** gt.editrec.start：开始录编辑器操作（1.11.0，定稿 10.1）。 */
 	bool EditRecStart(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		if (!FGameTestEditorRecorder::Get().Start(AgentPanel::Str(Args, TEXT("name")), Error))

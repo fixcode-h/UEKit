@@ -349,10 +349,10 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
 | `gt.pick`（1.10.0） | `action`：`start`（开始抓：`frames` 默认 true、`fps` 0.5–10 默认 2、`maxWidth` 默认 640、`quality` 30–95 默认 70、`ttlMs` 默认 60000、`withFrame` 马上带一帧）/ `stop` / `at`（`x`、`y` 视口归一化坐标，面板画面上点的那一下）/ `frame`（马上截一帧） | `start`：`active`、`recording`（录制中时游戏里的 Ctrl+Alt 点归录制器）、`frame?`、`frameError?`；`at`：同 `gt.inspect`，偏向按钮 / 勾选框（点到按钮里的文字时往上最多 4 层换成按钮），多 `via: "panel"`；没有 UMG 控件时多 `actor: {class, name, label?, nativeClass?}`（玩家视角射线打到的 Actor）；`frame`：`{jpg, width, height}`（jpg 是 base64）。会话是租约：面板隔一会儿再 `start` 续上，到 `ttlMs` 没续就停，不会一直截图 |
 | `gt.watch`（1.10.0） | `id`（面板起的名字）、`items: {键: {op, args}}`（`op` 只能是只读的 `gt.resolve` / `gt.vars` / `gt.inspect`，最多 16 项）、`intervalMs`（100–5000，默认 200）、`ttlMs`（默认 60000）；`stop: true` 取消 | `id`、`results: {键: 操作的返回或 {error}}`（登记时马上回一份完整的）、`intervalMs`。之后每隔 `intervalMs` 重算，变了的键才推 `gt.watch` 事件。同一个 id 再登记就是换查询兼续租；最多 32 个，满了挤掉最早的 |
-| `gt.editrec.start`（1.10.0） | `name` | 开始录 UE 编辑器操作（第 15 节），返回同 `gt.editrec.status`。只在开着界面的编辑器进程（GameTestEditor 模块）；正在录游戏操作时拒绝 |
-| `gt.editrec.stop`（1.10.0） | `save`（默认 true） | 同 `gt.record.stop`：`name`、`target: "editor"`、`steps`、`seconds`、`path?`（场景根下 `recorded/<名字>.json`，标签 `recorded`、`editor`）、`absolutePath?`、`preview`（前 20 步） |
-| `gt.editrec.status`（1.10.0） | `last`（默认 20） | `recording`、`target: "editor"`、`name`、`steps`、`seconds`、`modal?`（录到的模态框标题）、`last` |
-| `gt.editrec.mark`（1.10.0） | `text` | 插一条 `mark` |
+| `gt.editrec.start`（1.11.0） | `name` | 开始录 UE 编辑器操作（第 15 节），返回同 `gt.editrec.status`。只在开着界面的编辑器进程（GameTestEditor 模块）；正在录游戏操作时拒绝 |
+| `gt.editrec.stop`（1.11.0） | `save`（默认 true） | 同 `gt.record.stop`：`name`、`target: "editor"`、`steps`、`seconds`、`path?`（场景根下 `recorded/<名字>.json`，标签 `recorded`、`editor`）、`absolutePath?`、`preview`（前 20 步） |
+| `gt.editrec.status`（1.11.0） | `last`（默认 20） | `recording`、`target: "editor"`、`name`、`steps`、`seconds`、`modal?`（录到的模态框标题）、`last` |
+| `gt.editrec.mark`（1.11.0） | `text` | 插一条 `mark` |
 
 ### 推送
 
@@ -361,7 +361,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already`）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
 | `gt.pick`（1.10.0） | 抓取中：画面变了（按 `fps`）；游戏里按住 Ctrl+Alt 点了一下（这一下不传给游戏） | `kind`：`frame`（`jpg`、`width`、`height`）/ `picked`（同 `gt.pick action=at` 的返回，`via: "game"`；没抓到时只有 `error`） |
 | `gt.watch`（1.10.0） | 登记的查询结果变了 | `id`、`seq`、`results: {变了的键: 结果}` |
-| `gt.record`（变化，1.10.0） | 录编辑器操作也推这个主题 | 同游戏录制，多 `target: "editor"`；`gt.editrec.status` 的字段 |
+| `gt.record`（变化，1.11.0） | 录编辑器操作也推这个主题 | 同游戏录制，多 `target: "editor"`；`gt.editrec.status` 的字段 |
 | `gt.job`（变化） | 同原来 | 多 `at`（当前步骤 id）、`guards`（{id: 次数}，面板画在守护右上角的圆底角标上，超过 999 显示 999+） |
 
 ## 11. 报告的变化
@@ -402,7 +402,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 每个扩展点的注册表能列出全部实现（名字、说明、参数），`gt.actions`、`gt.api`、`gt.validate` 和面板的节点面板都从注册表生成，不另写清单。
 - 面板 UE 插件同理：节点类型、条件编辑行、接口选择器按「一种一个文件 + 注册表」写（`gt-script/blocks/*.ts`、`gt-cond/checks/*.tsx`），数据层 `gt-script.ts` 只做 v3 读写和结构操作，不含界面。
 
-## 15. 录 UE 编辑器操作（`editor.*`，1.10.0）
+## 15. 录 UE 编辑器操作（`editor.*`，1.11.0）
 
 定稿 10.1。录制和回放都在 GameTestEditor 模块（类型 Editor），主模块不依赖编辑器；游戏进程、后台编辑器里没有 `editor.*`，写了会被告知「只能在开着界面的编辑器里跑」。
 

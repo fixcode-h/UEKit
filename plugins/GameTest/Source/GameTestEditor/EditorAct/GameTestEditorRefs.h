@@ -9,7 +9,7 @@ class UObject;
 class UWorld;
 
 /**
- * editor.* 步骤怎么指一个对象（1.10.0）。
+ * editor.* 步骤怎么指一个对象（1.11.0）。
  *
  * - 关卡里的 Actor 写 `actor:<标签>`，它的组件写 `actor:<标签>/<组件名>`：Actor 的对象名（BP_Shop_C_2）每次放进关卡都可能变，
  *   大纲里看到的标签才是人认的名字，录 `editor.spawn` 时也把标签一起记下、回放时设回去，后面的步骤才找得到同一个。
