@@ -71,6 +71,7 @@ for (const p of plugins) {
 
   // ---- 逐个源文件
   const implemented = new Set()
+  const headerNames = new Set(files.filter((f) => f.endsWith('.h')).map((f) => f.replace(/^.*[\\/]/, '')))
   for (let i = 0; i < files.length; i++) {
     const f = files[i]
     const rel = rels[i]
@@ -90,6 +91,14 @@ for (const p of plugins) {
     // 一律写 UELINK_OUTER_NESTED(...)（UELinkCompat.h），5.4 上展开成 bool、5.8 上展开成 EGetObjectsFlags
     if (/GetObjectsWithOuter\s*\([^;]*,\s*(true|false)\s*\)/.test(text) || /ForEachObjectWithOuter(Breakable)?\s*\([\s\S]{0,800}?\}\s*,\s*(true|false)\s*[,)]/.test(text))
       fail(`${rel} 给 GetObjectsWithOuter / ForEachObjectWithOuter 直接传了 true/false：5.8 上会报弃用警告，改用 UELINK_OUTER_NESTED(...)`)
+    // X.cpp 有同名头文件 X.h 时，第一个 include 必须是它：UBT 的头文件顺序检查会直接报
+    // 「Expected X.h to be first header included」（UELink 2.10.0 的 AgentPanelLuaTrace.cpp 就是这样）
+    if (f.endsWith('.cpp')) {
+      const base = f.replace(/^.*[\\/]/, '').replace(/\.cpp$/, '')
+      const first = text.match(/^\s*#\s*include\s*[<"]([^>"]+)[>"]/m)?.[1]
+      if (headerNames.has(`${base}.h`) && first && first.replace(/^.*\//, '') !== `${base}.h`)
+        fail(`${rel} 的第一个 include 是 ${first}：先 include 同名头文件 ${base}.h，UBT 会按顺序检查直接报错`)
+    }
     // CQTest 的测试类是 struct 定义，结尾少了分号时本文件报 C1004「意外的文件尾」，合并编译时还会连累下一个文件
     // （UE 5.4 上表现成 UMG 的 PanelSlot.h 语法错误，GameTest 1.3.0 就是这样）
     const testClasses = (text.match(/^TEST_CLASS\w*\s*\(/gm) ?? []).length

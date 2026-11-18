@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.10.1
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### Bug 修复
+- **UELinkCore 编译报「Expected AgentPanelLuaTrace.h to be first header included」** — Lua trace 的源文件没把同名头文件放在第一个 include，UBT 的头文件顺序检查直接报错；调整了 include 顺序
+
 ## v2.10.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
