@@ -17,44 +17,65 @@ namespace
 		const TSharedPtr<FJsonObject> Json = GameTestJson::ParseObjectFromText(InText, OutError);
 		return Json.IsValid() && FGameTestShotOptions::FromJson(Json->TryGetField(TEXT("shots")), OutOptions, OutError);
 	}
+
+	FGameTestShotOptions Expanded()
+	{
+		FGameTestShotOptions Options;
+		Options.bExpand = true;
+		return Options;
+	}
 }
 
 TEST_CLASS_WITH_FLAGS(GameTestRecordShotTest, "GameTest.RecordShot",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 {
-	/** 中等大小的按钮：每边外扩宽高的一半，不超上限。 */
-	TEST_METHOD(Crop_PadsByRatio)
+	/** 默认不外扩：截的就是控件那一块。 */
+	TEST_METHOD(Crop_DefaultIsTargetOnly)
 	{
 		const FGameTestShotOptions Options;
+		ASSERT_THAT(IsFalse(Options.bExpand));
 		const FIntRect Crop = FGameTestRecordShots::ComputeCrop(FIntRect(500, 400, 700, 460), FIntPoint(1920, 1080), Options);
-		ASSERT_THAT(AreEqual(400, Crop.Min.X));
-		ASSERT_THAT(AreEqual(800, Crop.Max.X));
-		// 高 60 的一半是 30（≥ 最少 24）；外扩后 120 正好是最小高度
+		ASSERT_THAT(AreEqual(500, Crop.Min.X));
+		ASSERT_THAT(AreEqual(700, Crop.Max.X));
+		ASSERT_THAT(AreEqual(400, Crop.Min.Y));
+		ASSERT_THAT(AreEqual(460, Crop.Max.Y));
+		// 一部分在屏幕外：只留看得见的
+		const FIntRect Edge = FGameTestRecordShots::ComputeCrop(FIntRect(-20, 10, 40, 30), FIntPoint(1280, 720), Options);
+		ASSERT_THAT(AreEqual(0, Edge.Min.X));
+		ASSERT_THAT(AreEqual(40, Edge.Max.X));
+	}
+
+	/** 开了外扩：左右按宽 20%、上下按高 50%，各自封顶（默认 80 / 40）。 */
+	TEST_METHOD(Crop_PadsEachAxisByItsOwnLength)
+	{
+		const FGameTestShotOptions Options = Expanded();
+		const FIntRect Crop = FGameTestRecordShots::ComputeCrop(FIntRect(500, 400, 700, 460), FIntPoint(1920, 1080), Options);
+		ASSERT_THAT(AreEqual(460, Crop.Min.X));
+		ASSERT_THAT(AreEqual(740, Crop.Max.X));
 		ASSERT_THAT(AreEqual(370, Crop.Min.Y));
 		ASSERT_THAT(AreEqual(490, Crop.Max.Y));
 	}
 
-	/** 小图标补到最小尺寸，大控件外扩到上限 160 为止。 */
-	TEST_METHOD(Crop_MinSizeAndPadLimit)
+	/** 细长条：上下只扩高的一半（不再被最小高度撑开），左右到上限为止。 */
+	TEST_METHOD(Crop_ThinStripKeepsRatio)
 	{
-		const FGameTestShotOptions Options;
-		const FIntRect Small = FGameTestRecordShots::ComputeCrop(FIntRect(100, 100, 120, 120), FIntPoint(1920, 1080), Options);
-		ASSERT_THAT(AreEqual(200, Small.Width()));
-		ASSERT_THAT(AreEqual(120, Small.Height()));
-		const FIntRect Big = FGameTestRecordShots::ComputeCrop(FIntRect(400, 300, 1400, 800), FIntPoint(1920, 1080), Options);
-		ASSERT_THAT(AreEqual(240, Big.Min.X));
-		ASSERT_THAT(AreEqual(1560, Big.Max.X));
+		const FGameTestShotOptions Options = Expanded();
+		const FIntRect Strip = FGameTestRecordShots::ComputeCrop(FIntRect(300, 500, 1500, 520), FIntPoint(1920, 1080), Options);
+		ASSERT_THAT(AreEqual(220, Strip.Min.X));
+		ASSERT_THAT(AreEqual(1580, Strip.Max.X));
+		ASSERT_THAT(AreEqual(490, Strip.Min.Y));
+		ASSERT_THAT(AreEqual(530, Strip.Max.Y));
 	}
 
-	/** 贴着屏幕边的按钮：框往里挪，不出图。 */
+	/** 贴着屏幕边的按钮：外扩后的框往里挪，不出图。 */
 	TEST_METHOD(Crop_ShiftsInsideImage)
 	{
-		const FGameTestShotOptions Options;
+		const FGameTestShotOptions Options = Expanded();
 		const FIntRect Crop = FGameTestRecordShots::ComputeCrop(FIntRect(0, 0, 40, 30), FIntPoint(1280, 720), Options);
 		ASSERT_THAT(AreEqual(0, Crop.Min.X));
 		ASSERT_THAT(AreEqual(0, Crop.Min.Y));
-		ASSERT_THAT(AreEqual(200, Crop.Width()));
-		ASSERT_THAT(AreEqual(120, Crop.Height()));
+		ASSERT_THAT(AreEqual(56, Crop.Width()));
+		ASSERT_THAT(AreEqual(60, Crop.Height()));
 	}
 
 	TEST_METHOD(FitInside_KeepsAspect)
@@ -72,10 +93,19 @@ TEST_CLASS_WITH_FLAGS(GameTestRecordShotTest, "GameTest.RecordShot",
 		FString Error;
 		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({"shots":false})"), Options, Error), Error));
 		ASSERT_THAT(IsFalse(Options.bEnabled));
-		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({"shots":{"padRatio":0.3,"padMax":100,"maxWidth":800}})"), Options, Error), Error));
+		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({"shots":{"expand":true,"padX":0.1,"padXMax":50,"padY":1,"padYMax":30,"maxWidth":800}})"), Options, Error), Error));
 		ASSERT_THAT(IsTrue(Options.bEnabled));
-		ASSERT_THAT(AreEqual(100, Options.PadMax));
+		ASSERT_THAT(IsTrue(Options.bExpand));
+		ASSERT_THAT(AreEqual(50, Options.PadXMax));
+		ASSERT_THAT(AreEqual(30, Options.PadYMax));
 		ASSERT_THAT(AreEqual(800, Options.MaxWidth));
+		// 旧面板的写法：一个比例管四边，照旧外扩
+		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({"shots":{"padRatio":0.3,"padMax":100}})"), Options, Error), Error));
+		ASSERT_THAT(IsTrue(Options.bExpand));
+		ASSERT_THAT(AreEqual(100, Options.PadXMax));
+		ASSERT_THAT(AreEqual(100, Options.PadYMax));
+		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({"shots":{"maxWidth":800}})"), Options, Error), Error));
+		ASSERT_THAT(IsFalse(Options.bExpand, TEXT("没写 expand 默认不外扩")));
 		ASSERT_THAT(IsTrue(ParseShots(TEXT(R"({})"), Options, Error), Error));
 		ASSERT_THAT(IsTrue(Options.bEnabled, TEXT("没写 shots 默认开")));
 		ASSERT_THAT(IsFalse(ParseShots(TEXT(R"({"shots":{"padding":10}})"), Options, Error)));

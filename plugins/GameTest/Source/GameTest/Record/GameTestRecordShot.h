@@ -8,18 +8,26 @@ class FJsonObject;
 class SWidget;
 
 /**
- * 录制截图的参数（`gt.record.start` 的 `shots`，面板「设置 → 插件 → UE」里改；都是窗口像素）。
- * 截被点控件的框，每边外扩 `clamp(PadRatio × 那一边的长度, PadMin, PadMax)`；不足 Min 补到 Min，
+ * 录制截图的参数（`gt.record.start` 的 `shots`，面板 UE 插件页 GameTest 的设置里改；都是窗口像素）。
+ * 默认只截被点控件自己那一块（GameTest 1.4.2 起）。开了外扩（`bExpand`）时左右每边外扩 `min(宽 × PadXRatio, PadXMax)`，
+ * 上下每边外扩 `min(高 × PadYRatio, PadYMax)`：两个方向各按自己的边长算、各有上限。
+ * 以前是一个比例同时管四边，外加每边至少 24 像素、整张至少 200×120，细长条（高 20 的一行）上下被撑开好几倍，
+ * 看起来不按比例；长边（整行宽的条目）一个比例扩出去一大片。用户 2026-11-18 要分开控制。
  * 超过 Max 的整张按比例缩小（不裁掉，大列表条目也完整）。
  */
 struct GAMETEST_API FGameTestShotOptions
 {
 	bool bEnabled = true;
-	double PadRatio = 0.5;
-	int32 PadMin = 24;
-	int32 PadMax = 160;
-	int32 MinWidth = 200;
-	int32 MinHeight = 120;
+	/** 往外多截一些周围的界面；默认关（截的就是控件本身，OCR 只看到控件里的字）。 */
+	bool bExpand = false;
+	double PadXRatio = 0.2;
+	int32 PadXMax = 80;
+	double PadYRatio = 0.5;
+	int32 PadYMax = 40;
+	/** 每边至少外扩、整张至少多大：只在外扩开着时用，默认 0（不补）；旧面板传的 padMin / minWidth / minHeight 落在这里。 */
+	int32 PadMin = 0;
+	int32 MinWidth = 0;
+	int32 MinHeight = 0;
 	int32 MaxWidth = 640;
 	int32 MaxHeight = 360;
 	/** 界面切换时存的整屏缩略图宽度。 */
@@ -32,7 +40,8 @@ struct GAMETEST_API FGameTestShotOptions
 };
 
 /**
- * 录制时的截图（GameTest 1.3.2）：每次 UI 点击、拖动起点、点在游戏画面上时截一小块，被点的控件描红框、点击位置画十字，
+ * 录制时的截图（GameTest 1.3.2）：每次 UI 点击、拖动起点、点在游戏画面上时截一小块，被点的控件描红框（1.4.2 起不再画点击位置的十字：
+ * 十字压在按钮文字上，OCR 会认错），
  * 写进步骤 `hint.shot`；顶层界面变了时存一张整屏缩略图写进 `hint.screen`；点完 2 秒内新打开的界面写进 `hint.opened`。
  * 面板拿截图做 OCR 补步骤名（`hint.ocr`），「AI 整理」时把图给 Agent 看。
  *
@@ -63,7 +72,7 @@ public:
 
 	/**
 	 * 裁剪框（纯计算，单测用）：`InTarget` 是控件在截图里的像素框，`InImage` 是整张截图的尺寸。
-	 * 结果不出图；外扩后不足最小尺寸时以控件中心补齐；超过最大尺寸时原样返回（保存时再整体缩小）。
+	 * 结果不出图；没开外扩时就是控件框（夹进图内）；外扩后不足最小尺寸时以控件中心补齐；超过最大尺寸时原样返回（保存时再整体缩小）。
 	 */
 	static FIntRect ComputeCrop(const FIntRect& InTarget, const FIntPoint& InImage, const FGameTestShotOptions& InOptions);
 

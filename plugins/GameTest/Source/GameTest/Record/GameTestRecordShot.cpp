@@ -89,52 +89,59 @@ namespace GameTestRecordShotDetail
 		}
 	}
 
-	/** 空心框：从 InRect 往外画 InThickness 圈。 */
-	void DrawFrame(TArray<FColor>& InPixels, const FIntPoint& InSize, const FIntRect& InRect, int32 InInset, int32 InThickness, const FColor& InColor)
+	/** 一圈空心框：InOffset > 0 往外偏，< 0 往里收。 */
+	void DrawRing(TArray<FColor>& InPixels, const FIntPoint& InSize, const FIntRect& InRect, int32 InOffset, const FColor& InColor)
 	{
-		for (int32 Ring = InInset; Ring < InInset + InThickness; ++Ring)
+		const int32 L = InRect.Min.X - InOffset;
+		const int32 T = InRect.Min.Y - InOffset;
+		const int32 R = InRect.Max.X - 1 + InOffset;
+		const int32 B = InRect.Max.Y - 1 + InOffset;
+		if (L > R || T > B)
 		{
-			const int32 L = InRect.Min.X - Ring;
-			const int32 T = InRect.Min.Y - Ring;
-			const int32 R = InRect.Max.X - 1 + Ring;
-			const int32 B = InRect.Max.Y - 1 + Ring;
-			for (int32 X = L; X <= R; ++X)
-			{
-				Put(InPixels, InSize, X, T, InColor);
-				Put(InPixels, InSize, X, B, InColor);
-			}
-			for (int32 Y = T; Y <= B; ++Y)
-			{
-				Put(InPixels, InSize, L, Y, InColor);
-				Put(InPixels, InSize, R, Y, InColor);
-			}
+			return;
+		}
+		for (int32 X = L; X <= R; ++X)
+		{
+			Put(InPixels, InSize, X, T, InColor);
+			Put(InPixels, InSize, X, B, InColor);
+		}
+		for (int32 Y = T; Y <= B; ++Y)
+		{
+			Put(InPixels, InSize, L, Y, InColor);
+			Put(InPixels, InSize, R, Y, InColor);
 		}
 	}
 
-	/** 点击位置的十字：深色 3px 打底，中间 1px 红线。 */
-	void DrawCross(TArray<FColor>& InPixels, const FIntPoint& InSize, const FIntPoint& InAt)
+	/**
+	 * 控件描边：2 圈红线 + 1 圈深色。框外留得下 3 像素就画在框外（不压控件内容）；
+	 * 没外扩时框就是整张图，画在框外看不见，改成往里收（红线在最外、深色在里），只压控件边上 3 像素。
+	 */
+	void DrawOutline(TArray<FColor>& InPixels, const FIntPoint& InSize, const FIntRect& InFrame)
 	{
-		constexpr int32 Arm = 7;
-		for (int32 D = -Arm; D <= Arm; ++D)
+		FIntRect Frame = InFrame;
+		Frame.Clip(FIntRect(FIntPoint::ZeroValue, InSize));
+		if (Frame.Width() < 1 || Frame.Height() < 1)
 		{
-			for (int32 W = -1; W <= 1; ++W)
-			{
-				Put(InPixels, InSize, InAt.X + D, InAt.Y + W, OutlineShadow);
-				Put(InPixels, InSize, InAt.X + W, InAt.Y + D, OutlineShadow);
-			}
+			return;
 		}
-		for (int32 D = -Arm; D <= Arm; ++D)
+		const int32 Room = FMath::Min(FMath::Min(Frame.Min.X, Frame.Min.Y), FMath::Min(InSize.X - Frame.Max.X, InSize.Y - Frame.Max.Y));
+		if (Room >= 3)
 		{
-			Put(InPixels, InSize, InAt.X + D, InAt.Y, Outline);
-			Put(InPixels, InSize, InAt.X, InAt.Y + D, Outline);
+			DrawRing(InPixels, InSize, Frame, 0, Outline);
+			DrawRing(InPixels, InSize, Frame, 1, Outline);
+			DrawRing(InPixels, InSize, Frame, 2, OutlineShadow);
+			return;
 		}
+		DrawRing(InPixels, InSize, Frame, 0, Outline);
+		DrawRing(InPixels, InSize, Frame, -1, Outline);
+		DrawRing(InPixels, InSize, Frame, -2, OutlineShadow);
 	}
 
-	/** 后台线程：缩小、描框、画十字、压 PNG 写盘。框和十字的坐标是相对裁剪区的原始像素。 */
+	/** 后台线程：缩小、描框、压 PNG 写盘。框的坐标是相对裁剪区的原始像素。 */
 	void SaveAsync(TArray<FColor>&& InPixels, const FIntPoint& InSize, const FIntPoint& InTo, const TOptional<FIntRect>& InFrame,
-		const TOptional<FIntPoint>& InCross, const FString& InPath)
+		const FString& InPath)
 	{
-		Async(EAsyncExecution::ThreadPool, [Pixels = MoveTemp(InPixels), InSize, InTo, InFrame, InCross, InPath]()
+		Async(EAsyncExecution::ThreadPool, [Pixels = MoveTemp(InPixels), InSize, InTo, InFrame, InPath]()
 		{
 			TArray<FColor> Out = Shrink(Pixels, InSize, InTo);
 			const double Sx = static_cast<double>(InTo.X) / InSize.X;
@@ -144,12 +151,7 @@ namespace GameTestRecordShotDetail
 				const FIntRect Frame(
 					FMath::RoundToInt(InFrame->Min.X * Sx), FMath::RoundToInt(InFrame->Min.Y * Sy),
 					FMath::RoundToInt(InFrame->Max.X * Sx), FMath::RoundToInt(InFrame->Max.Y * Sy));
-				DrawFrame(Out, InTo, Frame, 0, 2, Outline);
-				DrawFrame(Out, InTo, Frame, 2, 1, OutlineShadow);
-			}
-			if (InCross.IsSet())
-			{
-				DrawCross(Out, InTo, FIntPoint(FMath::RoundToInt(InCross->X * Sx), FMath::RoundToInt(InCross->Y * Sy)));
+				DrawOutline(Out, InTo, Frame);
 			}
 			// TakeScreenshot 的 alpha 不一定是 255：存 PNG 前补成不透明，不然看图软件里是半透明的
 			for (FColor& C : Out)
@@ -185,6 +187,22 @@ namespace GameTestRecordShotDetail
 		OutValue = FMath::RoundToInt(Value);
 		return true;
 	}
+
+	bool ReadRatio(const FJsonObject& InObject, const TCHAR* InField, double& OutValue, FString& OutError)
+	{
+		if (!InObject.HasField(InField))
+		{
+			return true;
+		}
+		double Value = 0.0;
+		if (!InObject.TryGetNumberField(InField, Value) || Value < 0.0 || Value > 5.0)
+		{
+			OutError = FString::Printf(TEXT("shots.%s 要写 0–5 的数（边长的倍数，0.2 = 每边外扩边长的 20%%）"), InField);
+			return false;
+		}
+		OutValue = Value;
+		return true;
+	}
 }
 
 bool FGameTestShotOptions::FromJson(const TSharedPtr<FJsonValue>& InValue, FGameTestShotOptions& OutOptions, FString& OutError)
@@ -203,13 +221,16 @@ bool FGameTestShotOptions::FromJson(const TSharedPtr<FJsonValue>& InValue, FGame
 	const TSharedPtr<FJsonObject>* Object = nullptr;
 	if (!InValue->TryGetObject(Object) || Object == nullptr || !Object->IsValid())
 	{
-		OutError = TEXT("shots 要写 true / false，或 {padRatio, padMin, padMax, minWidth, minHeight, maxWidth, maxHeight, screenWidth}");
+		OutError = TEXT("shots 要写 true / false，或 {expand, padX, padXMax, padY, padYMax, maxWidth, maxHeight, screenWidth, gameClickBox}");
 		return false;
 	}
 	const FJsonObject& Json = **Object;
+	// padRatio、padMin、padMax、minWidth、minHeight 是 1.4.1 及以前一个比例管四边的写法，旧面板还会传：照旧收下，
+	// 换算成左右、上下同一个比例并打开外扩，旧面板录出来的图和以前一样
 	static const TCHAR* Known[] = {
-		TEXT("enabled"), TEXT("padRatio"), TEXT("padMin"), TEXT("padMax"), TEXT("minWidth"), TEXT("minHeight"),
+		TEXT("enabled"), TEXT("expand"), TEXT("padX"), TEXT("padXMax"), TEXT("padY"), TEXT("padYMax"),
 		TEXT("maxWidth"), TEXT("maxHeight"), TEXT("screenWidth"), TEXT("gameClickBox"),
+		TEXT("padRatio"), TEXT("padMin"), TEXT("padMax"), TEXT("minWidth"), TEXT("minHeight"),
 	};
 	for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Json.Values)
 	{
@@ -220,23 +241,36 @@ bool FGameTestShotOptions::FromJson(const TSharedPtr<FJsonValue>& InValue, FGame
 		}
 		if (!bKnown)
 		{
-			OutError = FString::Printf(TEXT("shots 里不认识 %s（能写 enabled、padRatio、padMin、padMax、minWidth、minHeight、maxWidth、maxHeight、screenWidth、gameClickBox）"), *Pair.Key);
+			OutError = FString::Printf(TEXT("shots 里不认识 %s（能写 enabled、expand、padX、padXMax、padY、padYMax、maxWidth、maxHeight、screenWidth、gameClickBox）"), *Pair.Key);
 			return false;
 		}
 	}
 	Json.TryGetBoolField(TEXT("enabled"), OutOptions.bEnabled);
-	double Ratio = OutOptions.PadRatio;
-	if (Json.HasField(TEXT("padRatio")) && (!Json.TryGetNumberField(TEXT("padRatio"), Ratio) || Ratio < 0.0 || Ratio > 5.0))
-	{
-		OutError = TEXT("shots.padRatio 要写 0–5 的数（控件宽高的倍数，0.5 = 每边外扩一半）");
-		return false;
-	}
-	OutOptions.PadRatio = Ratio;
 	using GameTestRecordShotDetail::ReadInt;
-	return ReadInt(Json, TEXT("padMin"), 0, 1000, OutOptions.PadMin, OutError)
-		&& ReadInt(Json, TEXT("padMax"), 0, 2000, OutOptions.PadMax, OutError)
-		&& ReadInt(Json, TEXT("minWidth"), 16, 4096, OutOptions.MinWidth, OutError)
-		&& ReadInt(Json, TEXT("minHeight"), 16, 4096, OutOptions.MinHeight, OutError)
+	using GameTestRecordShotDetail::ReadRatio;
+	if (Json.HasField(TEXT("padRatio")))
+	{
+		double Legacy = 0.0;
+		int32 LegacyMax = 160;
+		if (!ReadRatio(Json, TEXT("padRatio"), Legacy, OutError) || !ReadInt(Json, TEXT("padMax"), 0, 2000, LegacyMax, OutError))
+		{
+			return false;
+		}
+		OutOptions.bExpand = true;
+		OutOptions.PadXRatio = OutOptions.PadYRatio = Legacy;
+		OutOptions.PadXMax = OutOptions.PadYMax = LegacyMax;
+		OutOptions.PadMin = 24;
+		OutOptions.MinWidth = 200;
+		OutOptions.MinHeight = 120;
+	}
+	Json.TryGetBoolField(TEXT("expand"), OutOptions.bExpand);
+	return ReadRatio(Json, TEXT("padX"), OutOptions.PadXRatio, OutError)
+		&& ReadInt(Json, TEXT("padXMax"), 0, 2000, OutOptions.PadXMax, OutError)
+		&& ReadRatio(Json, TEXT("padY"), OutOptions.PadYRatio, OutError)
+		&& ReadInt(Json, TEXT("padYMax"), 0, 2000, OutOptions.PadYMax, OutError)
+		&& ReadInt(Json, TEXT("padMin"), 0, 1000, OutOptions.PadMin, OutError)
+		&& ReadInt(Json, TEXT("minWidth"), 0, 4096, OutOptions.MinWidth, OutError)
+		&& ReadInt(Json, TEXT("minHeight"), 0, 4096, OutOptions.MinHeight, OutError)
 		&& ReadInt(Json, TEXT("maxWidth"), 64, 8192, OutOptions.MaxWidth, OutError)
 		&& ReadInt(Json, TEXT("maxHeight"), 64, 8192, OutOptions.MaxHeight, OutError)
 		&& ReadInt(Json, TEXT("screenWidth"), 0, 4096, OutOptions.ScreenWidth, OutError)
@@ -247,12 +281,24 @@ FIntRect FGameTestRecordShots::ComputeCrop(const FIntRect& InTarget, const FIntP
 {
 	const int32 Width = FMath::Max(1, InTarget.Width());
 	const int32 Height = FMath::Max(1, InTarget.Height());
-	const int32 PadMax = FMath::Max(InOptions.PadMin, InOptions.PadMax);
-	const int32 PadX = FMath::Clamp(FMath::RoundToInt(Width * InOptions.PadRatio), InOptions.PadMin, PadMax);
-	const int32 PadY = FMath::Clamp(FMath::RoundToInt(Height * InOptions.PadRatio), InOptions.PadMin, PadMax);
-	FIntRect Crop(InTarget.Min.X - PadX, InTarget.Min.Y - PadY, InTarget.Max.X + PadX, InTarget.Max.Y + PadY);
+	FIntRect Crop(InTarget.Min, InTarget.Min + FIntPoint(Width, Height));
+	if (!InOptions.bExpand)
+	{
+		// 不外扩：就是控件那一块，只夹进图内（控件一部分在屏幕外时只截看得见的）
+		Crop.Clip(FIntRect(FIntPoint::ZeroValue, InImage));
+		return Crop;
+	}
+	// 左右按宽、上下按高各算各的，各自封顶：细长条上下只扩一点，宽条目左右也不会扩出去一大片
+	const auto Pad = [&InOptions](int32 InLength, double InRatio, int32 InMax)
+	{
+		const int32 Max = FMath::Max(InOptions.PadMin, InMax);
+		return FMath::Clamp(FMath::RoundToInt(InLength * InRatio), InOptions.PadMin, Max);
+	};
+	const int32 PadX = Pad(Width, InOptions.PadXRatio, InOptions.PadXMax);
+	const int32 PadY = Pad(Height, InOptions.PadYRatio, InOptions.PadYMax);
+	Crop = FIntRect(Crop.Min.X - PadX, Crop.Min.Y - PadY, Crop.Max.X + PadX, Crop.Max.Y + PadY);
 
-	// 太小的补到最小尺寸（以控件中心为准）：小图标也要带点上下文
+	// 设了最小尺寸时补齐（以控件中心为准，旧面板的写法）
 	const FIntPoint Center = InTarget.Min + FIntPoint(Width / 2, Height / 2);
 	if (Crop.Width() < InOptions.MinWidth)
 	{
@@ -385,7 +431,7 @@ void FGameTestRecordShots::MaybeSaveScreen(const TArray<FColor>& InPixels, const
 	}
 	const FString Path = NextPath(TEXT("screen-"));
 	const FIntPoint To = FitInside(Rect.Size(), FIntPoint(Options.ScreenWidth, Options.ScreenWidth * 4));
-	GameTestRecordShotDetail::SaveAsync(GameTestRecordShotDetail::CopyRegion(InPixels, InSize, Rect), Rect.Size(), To, {}, {}, Path);
+	GameTestRecordShotDetail::SaveAsync(GameTestRecordShotDetail::CopyRegion(InPixels, InSize, Rect), Rect.Size(), To, {}, Path);
 	LastScreens = Screens;
 	LastScreenPath = GameTestShot::ToProjectRelative(Path);
 }
@@ -435,12 +481,11 @@ void FGameTestRecordShots::OnUiPress(const TSharedPtr<SWidget>& InSlate, const F
 	{
 		return;
 	}
-	const FIntRect Click = GameTestRecordShotDetail::ToPixels(InScreenPosition, FVector2D::ZeroVector, WindowPos, Scale);
 	const FString Path = NextPath(TEXT(""));
 	const FIntPoint To = FitInside(Crop.Size(), FIntPoint(Options.MaxWidth, Options.MaxHeight));
 	const FIntRect Frame(Target.Min - Crop.Min, Target.Max - Crop.Min);
 	GameTestRecordShotDetail::SaveAsync(
-		GameTestRecordShotDetail::CopyRegion(Pixels, Size, Crop), Crop.Size(), To, Frame, FIntPoint(Click.Min - Crop.Min), Path);
+		GameTestRecordShotDetail::CopyRegion(Pixels, Size, Crop), Crop.Size(), To, Frame, Path);
 	InHint->SetStringField(TEXT("shot"), GameTestShot::ToProjectRelative(Path));
 	// 红框在存下来的图里的位置 [x, y, w, h]：面板 OCR 只认框里的字
 	const double Sx = static_cast<double>(To.X) / Crop.Width();
@@ -475,9 +520,7 @@ void FGameTestRecordShots::OnGamePress(const FVector2D& InScreenPosition, const 
 	const FIntPoint At = GameTestRecordShotDetail::ToPixels(InScreenPosition, FVector2D::ZeroVector, WindowPos, Scale).Min;
 	const int32 Half = Options.GameClickBox / 2;
 	FGameTestShotOptions Plain = Options;
-	Plain.PadRatio = 0.0;
-	Plain.PadMin = 0;
-	Plain.PadMax = 0;
+	Plain.bExpand = false;
 	const FIntRect Crop = ComputeCrop(FIntRect(At - FIntPoint(Half, Half), At + FIntPoint(Half, Half)), Size, Plain);
 	if (Crop.Width() < 1 || Crop.Height() < 1)
 	{
@@ -486,7 +529,7 @@ void FGameTestRecordShots::OnGamePress(const FVector2D& InScreenPosition, const 
 	const FString Path = NextPath(TEXT(""));
 	GameTestRecordShotDetail::SaveAsync(
 		GameTestRecordShotDetail::CopyRegion(Pixels, Size, Crop), Crop.Size(),
-		FitInside(Crop.Size(), FIntPoint(Options.MaxWidth, Options.MaxHeight)), {}, FIntPoint(At - Crop.Min), Path);
+		FitInside(Crop.Size(), FIntPoint(Options.MaxWidth, Options.MaxHeight)), {}, Path);
 	InHint->SetStringField(TEXT("shot"), GameTestShot::ToProjectRelative(Path));
 }
 
