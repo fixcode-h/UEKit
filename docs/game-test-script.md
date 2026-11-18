@@ -347,12 +347,16 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.widgets` | `asset`（WBP 路径）或 `class`；`filter`、`offset` / `limit`（默认 200） | `asset`、`class`、`parent`（原生父类）、`selector`（整个屏 `WBP_X:.`）、`treeFrom?`（控件树继承自父 WBP 时是父 WBP 的路径）、`luaModule?`、`nodes: [{name, class, selector, depth, isVariable, text?, visibility?, container?: {entryClass?}, userWidget?}]`（`userWidget: true` 是嵌套的 WBP，里面的控件用 `>` 进去，再按它的类调一次）、`total`、`hasMore?`、`nextOffset?`、`truncated?`。只在编辑器进程（GameTestEditor 模块）。读资产的 WidgetTree，不用开游戏。最多 12000 字 |
 | `gt.api` | `query`、`category`、`src`（`builtin` / `cpp` / `lua`）、`readOnly`、`offset` / `limit`（默认 60） | `items: [{name, category, src, display?, sig, args, returns, readOnly, waits?, note?, file?, line?}]`、`rejected`（`src` 不是 builtin 时；不写 `src` 时有就带）、`total`、`hasMore`、`nextOffset?`、`truncated?`、`loadError?`（`_api.json` 读不了，自带接口照常列）。`_api.json` 改了（面板写 Lua 段）按修改时间自动重读 |
 | `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
+| `gt.pick`（1.10.0） | `action`：`start`（开始抓：`frames` 默认 true、`fps` 0.5–10 默认 2、`maxWidth` 默认 640、`quality` 30–95 默认 70、`ttlMs` 默认 60000、`withFrame` 马上带一帧）/ `stop` / `at`（`x`、`y` 视口归一化坐标，面板画面上点的那一下）/ `frame`（马上截一帧） | `start`：`active`、`recording`（录制中时游戏里的 Ctrl+Alt 点归录制器）、`frame?`、`frameError?`；`at`：同 `gt.inspect`，偏向按钮 / 勾选框（点到按钮里的文字时往上最多 4 层换成按钮），多 `via: "panel"`；没有 UMG 控件时多 `actor: {class, name, label?, nativeClass?}`（玩家视角射线打到的 Actor）；`frame`：`{jpg, width, height}`（jpg 是 base64）。会话是租约：面板隔一会儿再 `start` 续上，到 `ttlMs` 没续就停，不会一直截图 |
+| `gt.watch`（1.10.0） | `id`（面板起的名字）、`items: {键: {op, args}}`（`op` 只能是只读的 `gt.resolve` / `gt.vars` / `gt.inspect`，最多 16 项）、`intervalMs`（100–5000，默认 200）、`ttlMs`（默认 60000）；`stop: true` 取消 | `id`、`results: {键: 操作的返回或 {error}}`（登记时马上回一份完整的）、`intervalMs`。之后每隔 `intervalMs` 重算，变了的键才推 `gt.watch` 事件。同一个 id 再登记就是换查询兼续租；最多 32 个，满了挤掉最早的 |
 
 ### 推送
 
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
 | `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already`）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
+| `gt.pick`（1.10.0） | 抓取中：画面变了（按 `fps`）；游戏里按住 Ctrl+Alt 点了一下（这一下不传给游戏） | `kind`：`frame`（`jpg`、`width`、`height`）/ `picked`（同 `gt.pick action=at` 的返回，`via: "game"`；没抓到时只有 `error`） |
+| `gt.watch`（1.10.0） | 登记的查询结果变了 | `id`、`seq`、`results: {变了的键: 结果}` |
 | `gt.job`（变化） | 同原来 | 多 `at`（当前步骤 id）、`guards`（{id: 次数}，面板画在守护右上角的圆底角标上，超过 999 显示 999+） |
 
 ## 11. 报告的变化
@@ -372,6 +376,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - GameTest 1.9.0：本文全部（GameTestEditor 模块里的 `_api.json` 扫描、`gt.widgets` 读资产也在 1.9.0）。
 - 需要 UELink ≥ 2.12.0（调函数复用 `ue.call` 的参数打包，读 Lua 模块、调 Lua 函数、看 Lua 报错用 UELink 的操作）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
+- GameTest 1.10.0：`gt.pick`、`gt.watch`（从游戏里抓控件、此刻的结果实时推送）；`gt.inspect` 多 `widgetClass`、`kind`、`rect`、`screen`、`screenClass`。低于 1.10.0 时面板的「从游戏里抓」提示升级，条件的此刻结果退回「现在核对」问一次。
 
 ## 14. 代码结构（扩展点）
 
