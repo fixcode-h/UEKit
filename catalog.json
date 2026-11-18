@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.10.0",
-        "versionCode": 27,
+        "version": "2.10.1",
+        "versionCode": 28,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.10.0",
-        "asset": "UELink-2.10.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.10.0/UELink-2.10.0-src.zip",
-        "sha256": "37212a2eb1dd7e53fe9bc82ceac11dab5b1e0bd788bd14e5ba5ac50fd7b2f462",
-        "size": 252449,
+        "tag": "UELink-v2.10.1",
+        "asset": "UELink-2.10.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.10.1/UELink-2.10.1-src.zip",
+        "sha256": "ae269f8ba96ffa1a6f03ca72f2fe7a34680946da45e1edf5a29e852e4ddf2e17",
+        "size": 252558,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **从 Lua 调试器跳到 UE 编辑器** — EmmyLua（IntelliJ）调试暂停时，变量树里的 UE 对象右键「在 UE 中选中」：Actor（组件算它所属的 Actor）在关卡里选中并对焦，资源、蓝图在内容浏览器里定位；「在 UE 中打开资产」打开资源编辑器，Actor、UMG 控件这类实例打开它的蓝图。新操作 `object.reveal`（见协议文档）\n\n### Bug 修复\n- **关编辑器时崩溃** — 打开过性能页 trace 的编辑器在退出时会崩在 TraceServices 里（缓存的分析会话在 TraceServices 卸载后才释放）；现在引擎退出前就放掉，模块卸载时再兜一次"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **UELinkCore 编译报「Expected AgentPanelLuaTrace.h to be first header included」** — Lua trace 的源文件没把同名头文件放在第一个 include，UBT 的头文件顺序检查直接报错；调整了 include 顺序"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-17T17:09:26.566Z"
+  "updatedAt": "2026-11-18T02:24:42.051Z"
 }
