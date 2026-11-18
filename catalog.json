@@ -75,8 +75,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.4.2",
-        "versionCode": 15,
+        "version": "1.4.3",
+        "versionCode": 16,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -108,13 +108,13 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.4.2",
-        "asset": "AssetForge-1.4.2-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.4.2/AssetForge-1.4.2-src.zip",
-        "sha256": "906e94bea54ab9a526fd0f6da36fa1d574b52371884a3b39a824ec7dcc605f71",
-        "size": 408203,
+        "tag": "AssetForge-v1.4.3",
+        "asset": "AssetForge-1.4.3-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.4.3/AssetForge-1.4.3-src.zip",
+        "sha256": "26bbc0362f63cdeb0b39e3d43bb7dbde734c13c6d0600284a8dac7891b7633dc",
+        "size": 408285,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "> 只整理了 C++ 的代码格式（函数签名写成一行），功能没变；还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **代码格式整理** — 函数声明和定义的参数表写成一行，行为和 1.4.1 一样"
+        "notes": "> 只修了 UE 5.8 上的一条编译警告，功能没变；还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 修复\n- **UE 5.8 编译警告** — 读 UMG 动画绑定时改走只读接口，5.8 上不再报 `GetBindings` 已弃用（C4996），5.4 照常"
       },
       "prerelease": null,
       "displayName": "AssetForge",
@@ -128,8 +128,8 @@
         "displayName": "GameTest",
         "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
         "kind": "extension",
-        "version": "1.11.0",
-        "versionCode": 43,
+        "version": "1.11.1",
+        "versionCode": 44,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -176,13 +176,13 @@
         "panelTools": [
           "ue_gametest"
         ],
-        "tag": "GameTest-v1.11.0",
-        "asset": "GameTest-1.11.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.11.0/GameTest-1.11.0-src.zip",
-        "sha256": "a2a08c6213aa4024e4598394c40722daa0cdeeb0bd19dfcf8b600d283fdb479c",
-        "size": 771919,
+        "tag": "GameTest-v1.11.1",
+        "asset": "GameTest-1.11.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.11.1/GameTest-1.11.1-src.zip",
+        "sha256": "d9f34ef43cfe1b65e9fa5e68560891e266a5f0cec7ef501f925ce5e81f1ccea9",
+        "size": 772272,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "> 还没在本地用 UE 完整编译验证过，编译有问题请反馈。需要 UELink 2.12.0 起。\n\n### 新功能\n- **录 UE 编辑器操作** — 新的录制目标「编辑器」：打开关卡和资源、在关卡里选中 Actor、在细节面板里改属性、放 Actor、保存、编译蓝图、按快捷键，都按编辑器事件录成 editor.* 步骤（换个界面布局也能回放）；没有对应事件的点击才按界面录（按停靠页、控件类型和上面的字认），按钮背后有命令时提示换成命令；按住 Ctrl+Alt 点一个控件录成检查。回放时改属性包在事务里，能在编辑器里撤销。录到模态框会插一条提醒，模态框里能不能回放还要在本地验证"
+        "notes": "> 修 1.11.0 在 UE 5.8 上的编译错误；还没在本地用 UE 完整编译验证过，编译有问题请反馈。需要 UELink 2.12.0 起。\n\n### 修复\n- **UE 5.8 编译失败** — 实时监视传结果对象时的 const 引用、录制接段遍历 JSON 字段（5.8 键类型变了）、编辑器操作的处理函数和步骤处理函数重名导致的歧义，三处都改成 5.4 和 5.8 都能编的写法"
       },
       "prerelease": null,
       "displayName": "GameTest",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T15:07:17.470Z"
+  "updatedAt": "2026-11-18T15:32:55.234Z"
 }
