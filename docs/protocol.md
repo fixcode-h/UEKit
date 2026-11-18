@@ -79,7 +79,7 @@
 
 2.11.0 起 `trace.query` 是**异步操作**：编辑器在游戏线程上只找会话（必要时开始分析），计算交给线程池，算完再回 HTTP 回复（客户端照常等回复，不用改）。同时最多算 4 个查询、多的排队；单次查询最多 20 秒，超了照样 `ok: true`，回已经算出的部分并带 `truncated: true`、`truncatedNote`（中文，说明怎么缩小范围）。编辑器退出时排队的查询回「编辑器正在退出，查询取消了」。`GET /info` 的 `ops` 照旧列出 `trace.query`。
 
-2.11.0 新增和扩充的 what（时间都是 trace 时间、秒；耗时毫秒；`t0` / `t1` 是范围，`lanes` 是泳道 id 数组，GPU 是 -1）。录制时没开对应通道、或者 UE 启动时没加需要的参数时返回 `ok: false` 并说明要开什么；`UELinkCompat.h` 里某类的 `UELINK_TRACE_*` 关掉时返回「编译时关掉了」：
+2.11.0 新增和扩充的 what（时间都是 trace 时间、秒；耗时毫秒；`t0` / `t1` 是范围，`lanes` 是泳道 id 数组，GPU 是 -1）。录制时没开对应通道、或者 UE 启动时没加需要的参数时返回 `ok: false` 并说明要开什么；`UELinkCompat.h` 里某类的 `UELINK_TRACE_*` 关掉时返回「编译时关掉了」。2.11.1 起各类按引擎里有没有对应的 TraceServices 头文件自动开关；UE 5.4 上 `files`（没有文件活动的头文件）和 `regions`、`memtags`、`allocs`（接口写法不同）是关着的，`session` 的 `has` 里对应项为 false：
 
 - `frames {"type"?: "render"}`：`type=render` 取渲染帧，默认游戏帧。
 - `counters {"stats": true}`：不给 `names` 时，列表每条多 `n`、`min`、`max`、`avg`、`first`、`last`、`firstT`、`lastT`（范围内原始值，不降采样）。
