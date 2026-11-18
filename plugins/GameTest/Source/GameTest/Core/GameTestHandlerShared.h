@@ -129,6 +129,9 @@ namespace GameTestHandlers
 	// 角色走到一个点（Operate/GameTestMove.cpp）：导航网格 / 录制轨迹 / 探路 / 瞬移
 	EGameTestStepStatus HandleMove(FGameTestStepContext& InContext);
 
+	// 调函数（Operate/GameTestHandlerInvoke.cpp，1.9 脚本化）
+	EGameTestStepStatus HandleInvoke(FGameTestStepContext& InContext);
+
 	// 编辑器专属（Editor/GameTestHandlersEditor.cpp）
 	EGameTestStepStatus HandleEditorEnsure(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandlePieStart(FGameTestStepContext& InContext);

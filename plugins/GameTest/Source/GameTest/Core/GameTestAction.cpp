@@ -155,6 +155,9 @@ namespace
 			{ TEXT("probe"), TEXT("pointX,pointY,expect"), true, false,
 				TEXT("只读命中测试：这个点上最终会命中谁（返回命中路径与最顶层控件；被遮挡时失败并给出遮挡者）"),
 				&GameTestHandlers::HandleProbe },
+			{ TEXT("invoke"), TEXT("object,function,args,saveAs,expect"), false, false,
+				TEXT("调函数：object 是 @来源 / {\"$obj\"} / $变量 / {\"target\": 选择器} / @luaMod.模块 / @lua（配 target），省略时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件"),
+				&GameTestHandlers::HandleInvoke },
 		};
 	}
 
