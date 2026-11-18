@@ -11,6 +11,7 @@
 #include "Core/GameTestHistory.h"
 #include "Core/GameTestHooks.h"
 #include "Input/GameTestInput.h"
+#include "Observe/GameTestKeyPreview.h"
 #include "Operate/GameTestMove.h"
 #include "Shot/GameTestShot.h"
 #include "GameTest.h"
@@ -73,9 +74,6 @@ struct FGameTestHighlightHolder
 
 	/** 要画的数据，和覆盖层共享。 */
 	TSharedRef<FGameTestHighlightPaint> Paint = MakeShared<FGameTestHighlightPaint>();
-
-	/** 已经应用过的 touch 序号：相同就不重建覆盖层。 */
-	int64 AppliedSerial = -1;
 
 	/** 到这个时刻还没新动作就把覆盖层摘掉。 */
 	double ExpiresAt = 0.0;
@@ -340,9 +338,10 @@ void UGameTestSubsystem::UpdateHighlight(double InNowSeconds)
 		ClearHighlight();
 	}
 
+	// 「框过没有」记在子系统上、不记在覆盖层持有者上：持有者到点就摘掉了，记在它身上的话
+	// 下一帧会把同一个 touch 当成新的再框一遍，框就永远摘不掉（停止回放后红框一直挂着）。
 	const int64 Serial = Runner->GetTouchSerial();
-	const bool bIsNewTouch = Runner->GetTouchedWidget().IsValid()
-		&& (!Highlight.IsValid() || Highlight->AppliedSerial != Serial);
+	const bool bIsNewTouch = Runner->GetTouchedWidget().IsValid() && HighlightedSerial != Serial;
 
 	if (bIsNewTouch)
 	{
@@ -382,7 +381,7 @@ void UGameTestSubsystem::UpdateHighlight(double InNowSeconds)
 		}
 		Highlight->Paint->bHasRect = bHasRect;
 
-		Highlight->AppliedSerial = Serial;
+		HighlightedSerial = Serial;
 		Highlight->Paint->bSucceeded = Runner->WasTouchSuccessful();
 		Highlight->ExpiresAt = InNowSeconds + HighlightLingerSeconds;
 	}
@@ -589,6 +588,9 @@ bool UGameTestSubsystem::StartRunOnGameThread(
 			Blockers.End();
 			// 可选模块在这里清掉本次 run 留下的状态（EnhancedInput 模块停掉输入注入）。
 			GameTestInput::ReleaseHeldKeys();
+			// 虚拟光标回到默认、忘掉这次 run 摆过的位置（要在松键之后：松鼠标键还要用这个位置）。
+			// 不清的话，run 外单独发的鼠标事件会落在上一次 run 最后点的地方。
+			GameTestInput::SetVirtualCursor(/*bInVirtual=*/true);
 			GameTestHooks::OnRunFinished().Broadcast();
 			WriteReportFile(InReport, OutputDir);
 			// 历史里记下产物目录（相对项目根）：面板据此找截图和 report.json。
@@ -806,6 +808,9 @@ void UGameTestSubsystem::CancelCurrentRun()
 	{
 		Runner->Cancel(TEXT("收到 stop 请求"));
 	}
+	// 人按了停止：画面上 GameTest 画的东西立刻撤掉，不留「最后一步」的余影（正常跑完才留 2.5 秒给人看）。
+	ClearHighlight();
+	GameTestKeyPreview::Clear();
 }
 
 TSharedPtr<FJsonObject> UGameTestSubsystem::BuildHealthJson() const
