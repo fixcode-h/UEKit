@@ -369,3 +369,22 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - GameTest 1.9.0：本文全部（GameTestEditor 模块里的 `_api.json` 扫描、`gt.widgets` 读资产也在 1.9.0）。
 - 需要 UELink ≥ 2.11.1（调函数复用 `ue.call` 的参数打包）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
+
+## 14. 代码结构（扩展点）
+
+用户要求（2026-11-18）：模块化、框架化，方便后续扩展。新能力一律**注册**到对应的表里，不在执行器、条件、表达式的主流程里加 `if/else` 分支。
+
+| 扩展点 | 接口 | 注册表 | 一个实现一个文件 |
+| --- | --- | --- | --- |
+| 块（`if` / `loop` / `call` / `group` / `set` / `break`…） | `IGameTestBlock`：`Validate`、`Enter`、`Tick`（返回 继续 / 进子节点 / 完成 / 失败）、`Leave` | `FGameTestBlockRegistry`（按 `action` 名） | `Core/Flow/Blocks/GameTestBlock<名字>.cpp` |
+| 条件判断（`onScreen`、`number`、`field`、`value`、`api`、`expr`…） | `IGameTestCheck`：`Keys`、`Validate`、`Evaluate(ctx) → {holds, actual, unresolved}`、`IsNegative` | `FGameTestCheckRegistry` | `Observe/Checks/GameTestCheck<名字>.cpp` |
+| 取值来源（`@gi` `@sub` `@actor` `@luaMod` `@cvar`…） | `IGameTestValueSource`：`Prefix`、`Resolve(path, ctx) → FGameTestValue` | `FGameTestValueSourceRegistry` | `Observe/Sources/GameTestSource<名字>.cpp` |
+| 表达式内置函数 | `FGameTestExprFunction`：名字、参数个数、只读、`Call` | `FGameTestExprRegistry` | `Core/Expr/Functions/GameTestExpr<分类>.cpp` |
+| 自带接口 | `IGameTestApi`：名字、分类、参数、返回、只读、`Call(args, ctx)`（可返回「还在等」） | `FGameTestApiRegistry`（项目接口也注册进来，来自 `_api.json`） | `Api/Builtin/GameTestApi<分类>.cpp`（一个分类一个文件） |
+| 可选依赖（GAS、CommonUI、EnhancedInput…） | 可选模块启动时往上面的注册表里加 | — | `GameTest<依赖>` 模块 |
+
+- 统一的值类型 `FGameTestValue`（数字、字符串、布尔、null、数组、对象、向量、对象弱引用、unresolved + 原因），条件、表达式、接口、invoke 都用它，不各自转 JSON。
+- 运行上下文 `FGameTestFlowContext`：变量作用域栈、参数、`objects`、当前世界 / 客户端、守护栈、报告写入器，显式传进各扩展点，不用全局变量。
+- 执行器只认「节点」：栈帧 = {块实现, 块状态, 子节点位置}；等待、守护、超时、`onFail`、报告、推送是执行器的公共逻辑，块不自己处理。
+- 每个扩展点的注册表能列出全部实现（名字、说明、参数），`gt.actions`、`gt.api`、`gt.validate` 和面板的节点面板都从注册表生成，不另写清单。
+- 面板 UE 插件同理：节点类型、条件编辑行、接口选择器按「一种一个文件 + 注册表」写（`gt-script/blocks/*.ts`、`gt-cond/checks/*.tsx`），数据层 `gt-script.ts` 只做 v3 读写和结构操作，不含界面。
