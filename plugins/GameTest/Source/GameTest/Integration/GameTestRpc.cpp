@@ -15,6 +15,7 @@
 #include "Observe/GameTestInspect.h"
 #include "Observe/GameTestNav.h"
 #include "Observe/GameTestResolve.h"
+#include "Integration/Live/GameTestLive.h"
 #include "Core/GameTestAction.h"
 #include "Operate/GameTestSkipIf.h"
 #include "Observe/GameTestCondition.h"
@@ -860,6 +861,9 @@ void Register()
 	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
 	Add(TEXT("gt.debug"), &GameTestRpcScript::Debug);
 	Add(TEXT("gt.validate"), &GameTestRpcScript::Validate);
+	// 1.10.0：连着游戏编辑（抓控件、此刻的结果实时推送）
+	Add(TEXT("gt.pick"), &GameTestLive::Pick);
+	Add(TEXT("gt.watch"), &GameTestLive::Watch);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
@@ -874,6 +878,7 @@ void Register()
 
 void Unregister()
 {
+	GameTestLive::Shutdown();
 	GameTestHooks::OnJobChanged().Remove(JobHandle);
 	GameTestHooks::OnRecordChanged().Remove(RecordHandle);
 	GameTestHooks::OnFlowEvent().Remove(FlowHandle);
