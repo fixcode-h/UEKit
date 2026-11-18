@@ -128,8 +128,8 @@
         "displayName": "GameTest",
         "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
         "kind": "extension",
-        "version": "1.7.0",
-        "versionCode": 31,
+        "version": "1.7.1",
+        "versionCode": 32,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -172,13 +172,13 @@
         "panelTools": [
           "ue_gametest"
         ],
-        "tag": "GameTest-v1.7.0",
-        "asset": "GameTest-1.7.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.7.0/GameTest-1.7.0-src.zip",
-        "sha256": "f832a9ffbc30c2e699d98c3f327aa8d449f5d37f018d29cecdd163448a8b9ae1",
-        "size": 426196,
+        "tag": "GameTest-v1.7.1",
+        "asset": "GameTest-1.7.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v1.7.1/GameTest-1.7.1-src.zip",
+        "sha256": "ea8d64c9cab3635af40b60003583871cdb57591aa3732921cb624115a153a963",
+        "size": 430516,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "> 还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **已达成就跳过这一步** — 步骤可以写 `skipIf`（跳过条件）：回放到这一步时先看一眼，目标已经是想要的样子（勾已经勾上、按钮已经是「已领取」）就不点，记成「已达成」（算通过）；没达成才照常点。条件稳住 0.3 秒才下结论，界面数据晚到不会误判；「不存在 / 不可见」这类条件要等所在界面打开了才算数\n- **连带跳过** — 跳过一步时可以连后面几步一起跳过（领过了奖励弹窗不会出来，点弹窗「确定」那一步也不用等），录制时按「点完打开了哪个界面」自动算\n- **做完核对** — 写了跳过条件的步骤真点了以后，5 秒内条件要成立，不成立这一步失败（点了没反应）。运行设置、场景里都能关\n- **全部照做** — 运行时可以忽略所有跳过条件，每一步都真做（测第一次领取、新号这类路径）\n- **录制时自动推断跳过条件** — 点一下前后读一遍所在界面，比出点完变了什么（勾选、按钮文字、勾的图片显隐、按钮变灰、界面字段……），把握高的直接写成跳过条件，其余列成候选，录完在面板步骤详情里挑；不在录制中途停下来问\n- **断言支持更多条件** — `assert` 新增 `textLike`（忽略数字和标点比文字，不按「包含」比，「已领取」不会被当成「领取」）、`checked`（勾选状态，含 CommonUI 可选中按钮）、`field` + `equals`（读界面的字段或 Lua 表）、`image`（图片资源名）、`any`（任一成立），和跳过条件共用一套判断\n- **现在核对** — 面板可以让游戏马上判断一遍某几步的跳过条件此刻成不成立，不用跑整个场景"
+        "notes": "> 还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 改进\n- **找不到就翻列表找** — 回放点击这类动作、判断「已达成就跳过」时，目标找不到又认不出是列表第几条（按文字、路径认的）时，把目标所在界面上的列表、滚动框从头一页一页往后翻着找，找到就停；全都翻到底还没有就不再滚，原地等到这一步超时。之后列表内容变了（数据晚到）会再翻一遍\n- **跳过判断也会自动滚列表** — 跳过条件看的控件在列表里没滚到时，和点击一样自动滚过去，不再一直等"
       },
       "prerelease": null,
       "displayName": "GameTest",
@@ -186,5 +186,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T03:48:09.007Z"
+  "updatedAt": "2026-11-18T03:52:01.564Z"
 }
