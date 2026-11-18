@@ -325,6 +325,12 @@ namespace
 			ToRun.StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
 		}
 
+		// 1.9 调试：params、from / to、断点、失败时暂停
+		if (!GameTestRpcScript::ReadRunOptions(Args, ToRun, Error))
+		{
+			return false;
+		}
+
 		// 「全部照做」：忽略所有已达成就跳过的条件，每一步都真做（测第一次领取、新号这类路径）
 		bool bIgnoreSkipIf = false;
 		if (Args.IsValid() && Args->TryGetBoolField(TEXT("ignoreSkipIf"), bIgnoreSkipIf))
@@ -381,6 +387,42 @@ namespace
 		{
 			Error = TEXT("gt.step 需要一个步骤：{ step: { action, target?, ... } }，动作清单见 gt.actions");
 			return false;
+		}
+
+		// 块（if / loop / group / call…）或带了 vars / params：包成一份临时场景在后台跑，回 runId
+		const TSharedPtr<FJsonObject>* Vars = nullptr;
+		const bool bHasVars = Args.IsValid() && Args->TryGetObjectField(TEXT("vars"), Vars) && Vars != nullptr;
+		const bool bHasParams = Args.IsValid() && Args->HasField(TEXT("params"));
+		if (GameTestRpcScript::IsScriptStep(*StepJson) || bHasVars || bHasParams)
+		{
+			FGameTestScenarioRun ToRun;
+			ToRun.Name = TEXT("step");
+			ToRun.Steps.Add(StepJson);
+			ToRun.Json = MakeShared<FJsonObject>();
+			ToRun.Json->SetStringField(TEXT("kind"), GameTestScenario::GetKind());
+			ToRun.Json->SetNumberField(TEXT("schemaVersion"), GameTestScenario::SupportedSchemaVersion);
+			ToRun.Json->SetStringField(TEXT("name"), ToRun.Name);
+			if (bHasVars)
+			{
+				ToRun.Json->SetObjectField(TEXT("vars"), *Vars);
+			}
+			TArray<TSharedPtr<FJsonValue>> StepValues;
+			StepValues.Add(MakeShared<FJsonValueObject>(StepJson));
+			ToRun.Json->SetArrayField(TEXT("steps"), StepValues);
+			if (!GameTestRpcScript::ReadRunOptions(Args, ToRun, Error))
+			{
+				return false;
+			}
+			FString RunId;
+			TSharedPtr<FJsonObject> Started;
+			if (!Subsystem->BeginScenarioFileRun(ToRun, RunId, Started))
+			{
+				FString Reason;
+				Error = Started.IsValid() && Started->TryGetStringField(TEXT("error"), Reason) ? Reason : TEXT("步骤没能开始");
+				return false;
+			}
+			Out = Capped(Started, TEXT("step"), StructureMaxChars);
+			return true;
 		}
 
 		TSharedPtr<FJsonObject> Result;
@@ -629,6 +671,17 @@ namespace
 			return false;
 		}
 
+		// 1.9：条件和表达式此刻的值（调试面板、条件编辑器的「试一下」）
+		if (GameTestRpcScript::HasScriptResolve(Args))
+		{
+			if (!GameTestRpcScript::ResolveScript(Args, Out, Error))
+			{
+				return false;
+			}
+			Out = Capped(Out, TEXT("resolve"), StructureMaxChars);
+			return true;
+		}
+
 		// 「现在核对」（1.6.0）：checks 是带 skipIf 的步骤数组，回每一步此刻跳不跳（只判断，不动手）
 		const TArray<TSharedPtr<FJsonValue>>* CheckValues = nullptr;
 		if (Args.IsValid() && Args->TryGetArrayField(TEXT("checks"), CheckValues) && CheckValues != nullptr)
@@ -806,6 +859,7 @@ void Register()
 	Add(TEXT("gt.config"), &Config);
 	Add(TEXT("gt.api"), &GameTestRpcScript::Api);
 	Add(TEXT("gt.vars"), &GameTestRpcScript::Vars);
+	Add(TEXT("gt.debug"), &GameTestRpcScript::Debug);
 	Add(TEXT("gt.validate"), &GameTestRpcScript::Validate);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);

@@ -91,6 +91,12 @@ public:
 	void CancelCurrentRun();
 
 	/** 名称句柄表（`gt.resolve` 核对 `@句柄` 用）。 */
+	/** 正在跑（或刚跑完）的脚本执行器：gt.debug、gt.resolve 用；没有 run 时为空。 */
+	FGameTestFlow* GetFlow() const
+	{
+		return Runner.IsValid() ? Runner->GetFlow() : nullptr;
+	}
+
 	TMap<FString, TWeakObjectPtr<UWidget>>* GetHandles()
 	{
 		return &Handles;
