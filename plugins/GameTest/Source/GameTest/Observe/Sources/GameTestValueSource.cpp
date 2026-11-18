@@ -174,8 +174,7 @@ namespace GameTestPath
 		return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 上没有 %s"), *InBase.ToDisplay(60), *InName), TEXT("path_missing"));
 	}
 
-	FGameTestValue CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs,
-		FGameTestFlowContext& InContext)
+	FGameTestValue CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext)
 	{
 		if (InBase.IsUnresolved())
 		{
@@ -199,8 +198,7 @@ namespace GameTestPath
 		return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 上没有函数 %s"), *InBase.ToDisplay(60), *InName), TEXT("fn_missing"));
 	}
 
-	FGameTestValue Walk(const FGameTestValue& InBase, TArrayView<const FGameTestPathSegment> InSegments,
-		FGameTestFlowContext& InContext, const FString& InWhere)
+	FGameTestValue Walk(const FGameTestValue& InBase, TArrayView<const FGameTestPathSegment> InSegments, FGameTestFlowContext& InContext, const FString& InWhere)
 	{
 		FGameTestValue Current = InBase;
 		FString Where = InWhere;
@@ -233,8 +231,7 @@ namespace GameTestPath
 		return Current;
 	}
 
-	FGameTestValue ResolveSource(FName InSource, const FString& InSelector, TArrayView<const FGameTestPathSegment> InSegments,
-		FGameTestFlowContext& InContext)
+	FGameTestValue ResolveSource(FName InSource, const FString& InSelector, TArrayView<const FGameTestPathSegment> InSegments, FGameTestFlowContext& InContext)
 	{
 		const IGameTestValueSource* Source = GameTestValueSources::Get().Find(InSource);
 		const FString Root = FString::Printf(TEXT("@%s%s"), *InSource.ToString(), InSelector.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("[%s]"), *InSelector));

@@ -203,8 +203,7 @@ namespace GameTestItemKeyDetail
 	}
 
 	/** 一个来源里条目自己的「路径 → 值」。 */
-	void SourceLeaves(const FGameTestKeyEntry& InEntry, bool bInList, const FString& InSource, FGameTestKeyCache& InOutCache,
-		int32 InMax, TArray<TPair<FString, TSharedPtr<FJsonValue>>>& OutLeaves)
+	void SourceLeaves(const FGameTestKeyEntry& InEntry, bool bInList, const FString& InSource, FGameTestKeyCache& InOutCache, int32 InMax, TArray<TPair<FString, TSharedPtr<FJsonValue>>>& OutLeaves)
 	{
 		OutLeaves.Reset();
 		UObject* Item = InEntry.Item.Get();
@@ -252,8 +251,7 @@ namespace GameTestItemKeyDetail
 		return { TEXT("self"), TEXT("lua"), TEXT("text"), TEXT("row"), TEXT("col") };
 	}
 
-	int32 CountHits(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FString& InSource, const FString& InPath,
-		const FJsonValue& InValue, FGameTestKeyCache& InOutCache)
+	int32 CountHits(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FString& InSource, const FString& InPath, const FJsonValue& InValue, FGameTestKeyCache& InOutCache)
 	{
 		int32 Hits = 0;
 		for (const FGameTestKeyEntry& Entry : InEntries)
@@ -401,8 +399,7 @@ FString GameTestItemKey::FormatValue(const FJsonValue& InValue)
 	return Text.Len() > 64 ? FString() : Text;
 }
 
-double GameTestItemKey::Score(const FString& InSource, const FString& InPath, const FJsonValue& InValue,
-	bool bInUnique, bool bInEqualsIndex, bool bInChanged, bool bInLocalizedText, FString& OutWhy)
+double GameTestItemKey::Score(const FString& InSource, const FString& InPath, const FJsonValue& InValue, bool bInUnique, bool bInEqualsIndex, bool bInChanged, bool bInLocalizedText, FString& OutWhy)
 {
 	using namespace GameTestItemKeyDetail;
 	OutWhy.Reset();
@@ -783,8 +780,7 @@ TSharedPtr<FJsonObject> GameTestItemKey::DumpLuaFields(UObject* InObject, FGameT
 	return Out;
 }
 
-TSharedPtr<FJsonValue> GameTestItemKey::ReadValue(const FGameTestKeyEntry& InEntry, bool bInList,
-	const FString& InSource, const FString& InPath, FGameTestKeyCache& InOutCache)
+TSharedPtr<FJsonValue> GameTestItemKey::ReadValue(const FGameTestKeyEntry& InEntry, bool bInList, const FString& InSource, const FString& InPath, FGameTestKeyCache& InOutCache)
 {
 	const FString Source = InSource.IsEmpty() ? (bInList ? TEXT("item") : TEXT("self")) : InSource;
 	UObject* Item = InEntry.Item.Get();
@@ -829,8 +825,7 @@ TSharedPtr<FJsonValue> GameTestItemKey::ReadValue(const FGameTestKeyEntry& InEnt
 	return Object.IsValid() && !InPath.IsEmpty() ? FindPath(*Object, InPath) : nullptr;
 }
 
-void GameTestItemKey::FindMatches(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const TArray<FGameTestKeyCond>& InConds,
-	FGameTestKeyCache& InOutCache, int32 InMaxHits, TArray<int32>& OutHits)
+void GameTestItemKey::FindMatches(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const TArray<FGameTestKeyCond>& InConds, FGameTestKeyCache& InOutCache, int32 InMaxHits, TArray<int32>& OutHits)
 {
 	OutHits.Reset();
 	for (const FGameTestKeyEntry& Entry : InEntries)
@@ -856,8 +851,7 @@ void GameTestItemKey::FindMatches(const TArray<FGameTestKeyEntry>& InEntries, bo
 	}
 }
 
-FString GameTestItemKey::DescribeValues(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FGameTestKeyCond& InCond,
-	FGameTestKeyCache& InOutCache, int32 InLimit)
+FString GameTestItemKey::DescribeValues(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FGameTestKeyCond& InCond, FGameTestKeyCache& InOutCache, int32 InLimit)
 {
 	TArray<FString> Values;
 	int32 Missing = 0;
@@ -883,8 +877,7 @@ FString GameTestItemKey::DescribeValues(const TArray<FGameTestKeyEntry>& InEntri
 		InEntries.Num() - Missing > InLimit ? *FString::Printf(TEXT(" …（共 %d 个）"), InEntries.Num()) : TEXT(""));
 }
 
-void GameTestItemKey::BuildCandidates(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-	int32 InMax, TArray<FGameTestKeyCandidate>& OutCandidates)
+void GameTestItemKey::BuildCandidates(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine, int32 InMax, TArray<FGameTestKeyCandidate>& OutCandidates)
 {
 	using namespace GameTestItemKeyDetail;
 	OutCandidates.Reset();
@@ -983,8 +976,7 @@ void GameTestItemKey::BuildCandidates(UWidget* InContainer, const TArray<FGameTe
 	}
 }
 
-TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-	const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars)
+TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine, const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars)
 {
 	using namespace GameTestItemKeyDetail;
 	const TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();

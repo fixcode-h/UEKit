@@ -45,11 +45,7 @@ TArray<GameTestResolve::FTarget> GameTestResolve::CollectTargets(const TArray<TS
 	return Out;
 }
 
-bool GameTestResolve::Resolve(
-	const TArray<FTarget>& InTargets,
-	TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-	TSharedPtr<FJsonObject>& OutResult,
-	FString& OutError)
+bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FJsonObject>& OutResult, FString& OutError)
 {
 	UWorld* World = GameTestWorld::FindGameWorld();
 	if (World == nullptr)

@@ -72,8 +72,7 @@ public:
 	 * 取根。`InSelector` 是 `[...]` 里的原文（没有时为空），`InRest` 是后面的段；
 	 * 来源吃掉了几段写进 `OutConsumed`（只取根就是 0）。取不到返回 Unresolved，原因写清楚是哪一段。
 	 */
-	virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-		FGameTestFlowContext& InContext) const = 0;
+	virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const = 0;
 
 	/**
 	 * 不开游戏时能查的错（选择器写法、类名在不在）。默认不查。
@@ -109,15 +108,13 @@ public:
 	 * 读成员。返回 false 表示「我这里没有这个成员」（交给下一个访问器）；
 	 * 返回 true 时 `OutValue` 就是结果（可能是 Unresolved：成员在，但读的时候出错）。
 	 */
-	virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext,
-		FGameTestValue& OutValue) const = 0;
+	virtual bool ReadMember(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const = 0;
 
 	/**
 	 * 调函数。规则同 ReadMember。`InContext.IsReadOnly()` 时只许调只读函数（BlueprintPure + const、
 	 * 允许时的 Lua），不是只读的返回 true + Unresolved（code = expr_not_readonly）。
 	 */
-	virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs,
-		FGameTestFlowContext& InContext, FGameTestValue& OutValue) const
+	virtual bool CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext, FGameTestValue& OutValue) const
 	{
 		return false;
 	}
@@ -149,19 +146,16 @@ namespace GameTestPath
 	 * 哪一段取不到就停下，返回 Unresolved（原因带上走到哪了：`@gi.Inventory 上没有 Items2`）。
 	 * `InWhere` 是根的写法，只用来拼原因。
 	 */
-	GAMETEST_API FGameTestValue Walk(const FGameTestValue& InBase, TArrayView<const FGameTestPathSegment> InSegments,
-		FGameTestFlowContext& InContext, const FString& InWhere);
+	GAMETEST_API FGameTestValue Walk(const FGameTestValue& InBase, TArrayView<const FGameTestPathSegment> InSegments, FGameTestFlowContext& InContext, const FString& InWhere);
 
 	/** `@来源[选择器].段…` 整条取值：找来源 → Resolve → Walk 剩下的段。来源没登记时 Unresolved（path_missing）。 */
-	GAMETEST_API FGameTestValue ResolveSource(FName InSource, const FString& InSelector,
-		TArrayView<const FGameTestPathSegment> InSegments, FGameTestFlowContext& InContext);
+	GAMETEST_API FGameTestValue ResolveSource(FName InSource, const FString& InSelector, TArrayView<const FGameTestPathSegment> InSegments, FGameTestFlowContext& InContext);
 
 	/** 在一个值上取一个成员（Walk 的单步，也给表达式的 `a.b` 用）。 */
 	GAMETEST_API FGameTestValue Member(const FGameTestValue& InBase, const FString& InName, FGameTestFlowContext& InContext);
 
 	/** 在一个值上调一个函数（表达式的 `a.Fn(x)`）。 */
-	GAMETEST_API FGameTestValue CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs,
-		FGameTestFlowContext& InContext);
+	GAMETEST_API FGameTestValue CallMethod(const FGameTestValue& InBase, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext);
 
 	/** 下标：数组按数字（负数从尾数），Map 按字符串键。 */
 	GAMETEST_API FGameTestValue Index(const FGameTestValue& InBase, const FGameTestValue& InIndex);

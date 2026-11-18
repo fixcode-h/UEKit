@@ -95,11 +95,7 @@ namespace
 	 * 它们标了 `BlueprintCallable`，所以按 `UFunction` 调用与蓝图调用走的是同一条路——不是
 	 * 绕过封装，而是站在项目给蓝图留的那个口子上。
 	 */
-	bool InvokeAbilityInputTag(
-		UAbilitySystemComponent& InASC,
-		const TCHAR* InFunctionName,
-		const FGameplayTag& InTag,
-		FString& OutError)
+	bool InvokeAbilityInputTag(UAbilitySystemComponent& InASC, const TCHAR* InFunctionName, const FGameplayTag& InTag, FString& OutError)
 	{
 		UFunction* Function = InASC.FindFunction(FName(InFunctionName));
 		if (Function == nullptr)

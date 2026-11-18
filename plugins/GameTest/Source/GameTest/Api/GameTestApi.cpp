@@ -117,8 +117,7 @@ TGameTestRegistry<IGameTestApi>& GameTestApis::Get()
 	return Registry;
 }
 
-void GameTestApis::Add(const TCHAR* InName, const TCHAR* InCategory, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs,
-	const TCHAR* InReturns, bool bReadOnly, FGameTestLambdaApi::FCallFn&& InFn, bool bMayWait)
+void GameTestApis::Add(const TCHAR* InName, const TCHAR* InCategory, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs, const TCHAR* InReturns, bool bReadOnly, FGameTestLambdaApi::FCallFn&& InFn, bool bMayWait)
 {
 	FGameTestApiDesc Desc;
 	Desc.Name = InName;
@@ -153,8 +152,7 @@ void GameTestApis::RemoveWhere(TFunctionRef<bool(const FGameTestApiDesc&)> InPre
 	}
 }
 
-bool GameTestApis::BindArgs(const FGameTestApiDesc& InDesc, const TMap<FString, FGameTestValue>* InNamed,
-	const TArray<FGameTestValue>* InPositional, TArray<FGameTestValue>& OutArgs, FName& OutCode, FString& OutError)
+bool GameTestApis::BindArgs(const FGameTestApiDesc& InDesc, const TMap<FString, FGameTestValue>* InNamed, const TArray<FGameTestValue>* InPositional, TArray<FGameTestValue>& OutArgs, FName& OutCode, FString& OutError)
 {
 	OutArgs.Reset();
 	OutArgs.SetNum(InDesc.Args.Num());

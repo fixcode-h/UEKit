@@ -132,8 +132,7 @@ public:
 	 * 一行登记一个函数实现的接口：
 	 * `GameTestApis::Add(TEXT("Widget.IsShown"), TEXT("界面"), TEXT("界面在不在屏上"), {{TEXT("target"), TEXT("sel")}}, TEXT("bool"), true, Fn);`
 	 */
-	static void Add(const TCHAR* InName, const TCHAR* InCategory, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs,
-		const TCHAR* InReturns, bool bReadOnly, FGameTestLambdaApi::FCallFn&& InFn, bool bMayWait = false);
+	static void Add(const TCHAR* InName, const TCHAR* InCategory, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs, const TCHAR* InReturns, bool bReadOnly, FGameTestLambdaApi::FCallFn&& InFn, bool bMayWait = false);
 
 	/** 改过名的项目接口（`_api.json` 的 `renamed`）：旧名 → 新名，调旧名时报「改用 …」（api_renamed）。 */
 	static TMap<FString, FString>& GetRenamed();
@@ -145,8 +144,7 @@ public:
 	 * 把参数排成 `Desc.Args` 的顺序：`InNamed`（`api` 步骤的 `args` 对象）或 `InPositional`（表达式里的调用）二选一。
 	 * 缺了必填参数、多了不认识的参数名返回 false 和中文原因（arg_missing / unknown_field）。
 	 */
-	static bool BindArgs(const FGameTestApiDesc& InDesc, const TMap<FString, FGameTestValue>* InNamed,
-		const TArray<FGameTestValue>* InPositional, TArray<FGameTestValue>& OutArgs, FName& OutCode, FString& OutError);
+	static bool BindArgs(const FGameTestApiDesc& InDesc, const TMap<FString, FGameTestValue>* InNamed, const TArray<FGameTestValue>* InPositional, TArray<FGameTestValue>& OutArgs, FName& OutCode, FString& OutError);
 
 	/**
 	 * 同步调用（条件、表达式）：找接口 → 只读检查（上下文在只读状态时）→ 不能跨帧检查 → 调。

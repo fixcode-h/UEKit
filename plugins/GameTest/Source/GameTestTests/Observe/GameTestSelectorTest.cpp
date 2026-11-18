@@ -9,11 +9,7 @@
 
 namespace
 {
-	TSharedPtr<FGameTestWidgetNode> MakeNode(
-		const FString& InName,
-		const FString& InClass,
-		const FString& InPath,
-		const FString& InText = FString())
+	TSharedPtr<FGameTestWidgetNode> MakeNode(const FString& InName, const FString& InClass, const FString& InPath, const FString& InText = FString())
 	{
 		const TSharedPtr<FGameTestWidgetNode> Node = MakeShared<FGameTestWidgetNode>();
 		Node->Name = InName;

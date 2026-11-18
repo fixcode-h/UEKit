@@ -31,8 +31,7 @@ namespace
 		virtual FString GetSyntax() const override { return TEXT("@actor[tag=X].<属性>、@actor[class=BP_X]、@actor[name=大纲名]"); }
 		virtual bool UsesSelector() const override { return true; }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			FString By;

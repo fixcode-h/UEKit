@@ -64,8 +64,7 @@ namespace
 			InOutNode.Data = Data;
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			const FSignalData* Data = InNode.GetData<FSignalData>();
 			FString CondSay;
@@ -128,8 +127,7 @@ namespace
 			InOutNode.Data = Data;
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			const FSignalData* Data = InNode.GetData<FSignalData>();
 			FString Summary;

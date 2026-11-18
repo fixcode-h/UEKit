@@ -92,8 +92,7 @@ namespace GameTestGuards
 		return Keys;
 	}
 
-	void ParseList(const TSharedPtr<FJsonValue>& InJson, const FString& InScope, const FString& InPath, FGameTestScriptParser& InParser,
-		TArray<TSharedRef<FGameTestGuardDef>>& OutGuards)
+	void ParseList(const TSharedPtr<FJsonValue>& InJson, const FString& InScope, const FString& InPath, FGameTestScriptParser& InParser, TArray<TSharedRef<FGameTestGuardDef>>& OutGuards)
 	{
 		FGameTestDiagSink& Sink = InParser.Sink();
 		FGameTestDiagSink::FScope ListScope(Sink, InPath, FString(), FGameTestDiagSink::EScopeMode::FromRoot);
@@ -289,8 +288,7 @@ void FGameTestGuardMonitor::Reset()
 	NextWaitCheckAt = 0.0;
 }
 
-const FGameTestGuardDef* FGameTestGuardMonitor::Poll(const TArray<TSharedRef<FGameTestGuardDef>>& InActive, bool bWaiting,
-	const TArray<FString>& InStepTargets, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutPending)
+const FGameTestGuardDef* FGameTestGuardMonitor::Poll(const TArray<TSharedRef<FGameTestGuardDef>>& InActive, bool bWaiting, const TArray<FString>& InStepTargets, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutPending)
 {
 	OutPending = false;
 	TArray<FString> StepScreens;
@@ -366,8 +364,7 @@ bool FGameTestGuardMonitor::BeginHandle(const FGameTestGuardDef& InGuard, double
 	return true;
 }
 
-bool FGameTestGuardMonitor::EndHandle(const FGameTestGuardDef& InGuard, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutStillThere,
-	FString& OutError)
+bool FGameTestGuardMonitor::EndHandle(const FGameTestGuardDef& InGuard, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutStillThere, FString& OutError)
 {
 	FState& State = States.FindOrAdd(InGuard.Key());
 	// 冷却从处理完开始算：do 本身可能要好几秒。

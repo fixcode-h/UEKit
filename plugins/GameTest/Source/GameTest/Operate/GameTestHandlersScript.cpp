@@ -41,8 +41,7 @@ namespace GameTestScriptLeafLocal
 	}
 
 	/** api 步骤的参数：cond 类型的参数原样交给接口（接口自己判断），其余求值（`$var`、`=表达式`、`@来源`）。 */
-	bool BindStepArgs(const FGameTestApiDesc& InDesc, const FJsonObject& InParams, FGameTestFlowContext& InFlow, TArray<FGameTestValue>& OutArgs,
-		FName& OutCode, FString& OutError)
+	bool BindStepArgs(const FGameTestApiDesc& InDesc, const FJsonObject& InParams, FGameTestFlowContext& InFlow, TArray<FGameTestValue>& OutArgs, FName& OutCode, FString& OutError)
 	{
 		TMap<FString, FGameTestValue> Named;
 		const TSharedPtr<FJsonValue> ArgsJson = InParams.TryGetField(TEXT("args"));

@@ -19,11 +19,7 @@ namespace
 	 * 列表族的条目定位：`index`，或 `property` + `equals`（属性名大小写不敏感、跨类型退化到文本）。
 	 * `select` 与 `set expanded`（TreeView）共用这一份——两边的语义必须一致。
 	 */
-	bool ResolveListIndex(
-		const TSharedPtr<FGameTestWidgetNode>& InNode,
-		const FJsonObject& InParams,
-		int32& OutIndex,
-		FString& OutError)
+	bool ResolveListIndex(const TSharedPtr<FGameTestWidgetNode>& InNode, const FJsonObject& InParams, int32& OutIndex, FString& OutError)
 	{
 		if (GameTestJson::TryGetInt(InParams, TEXT("index"), OutIndex))
 		{

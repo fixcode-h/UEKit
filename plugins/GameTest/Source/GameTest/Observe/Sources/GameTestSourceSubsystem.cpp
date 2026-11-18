@@ -16,8 +16,7 @@ namespace
 		virtual FString GetSummary() const override { return TEXT("子系统（GameInstance / World / LocalPlayer / Engine，按类名找）"); }
 		virtual FString GetSyntax() const override { return TEXT("@sub.<类名>.<属性>"); }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			if (InRest.Num() == 0 || InRest[0].Kind != FGameTestPathSegment::EKind::Member)

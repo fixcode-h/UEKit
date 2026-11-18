@@ -28,8 +28,7 @@ namespace
 	 * 从 InStart 开始读到第一个调用为止（含调用）：读就是读，有调用就按 Module / 全局调。
 	 * 返回值和吃掉的段数（相对 InStart）。
 	 */
-	FGameTestValue ReadOrCall(const FString& InModule, TArrayView<const FGameTestPathSegment> InRest, int32 InStart, int32& OutConsumed,
-		FGameTestFlowContext& InContext)
+	FGameTestValue ReadOrCall(const FString& InModule, TArrayView<const FGameTestPathSegment> InRest, int32 InStart, int32& OutConsumed, FGameTestFlowContext& InContext)
 	{
 		TArray<TSharedPtr<FJsonValue>> Keys;
 		int32 Index = InStart;
@@ -85,8 +84,7 @@ namespace
 		virtual FString GetSyntax() const override { return TEXT("@luaMod.<require 路径>.<字段>（如 @luaMod.Game.Quest.QuestMgr.curId）"); }
 		virtual bool IsLua() const override { return true; }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			if (!GameTestLuaBridge::IsAvailable())
@@ -134,8 +132,7 @@ namespace
 		virtual FString GetSyntax() const override { return TEXT("@luaG.<名字>.<字段>"); }
 		virtual bool IsLua() const override { return true; }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			if (!GameTestLuaBridge::IsAvailable())

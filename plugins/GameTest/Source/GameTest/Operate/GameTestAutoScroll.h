@@ -64,8 +64,7 @@ namespace GameTestAutoScroll
 	 * 这一帧翻了一页返回 true（调用方接着等，下一次再找）；还没到翻的时候、没东西可翻、全都翻到底了返回 false。
 	 * 有 `InOutWhy` 时把「正在翻 / 翻完了原地等」接在后面给人看。
 	 */
-	bool ScanForMissing(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FState& InOutState,
-		FString* InOutWhy = nullptr);
+	bool ScanForMissing(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FState& InOutState, FString* InOutWhy = nullptr);
 
 	/** 这一次找到了：翻找的计时清零（下次再找不到重新等一会儿再翻；翻到哪不清，接着翻）。 */
 	void MarkFound(FState& InOutState);

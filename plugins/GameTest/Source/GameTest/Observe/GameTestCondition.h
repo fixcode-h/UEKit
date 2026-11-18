@@ -62,8 +62,7 @@ namespace GameTestCondition
 	 * 判断条件。`InNode` 为空表示目标没解析到（`InResolveError` 是原因）：这时只有 `exists: false` 能成立，
 	 * 别的条件都记成不成立。
 	 */
-	GAMETEST_API void Check(const FJsonObject& InCond, const FGameTestWidgetNode* InNode, const FString& InResolveError,
-		FGameTestConditionCheck& OutCheck);
+	GAMETEST_API void Check(const FJsonObject& InCond, const FGameTestWidgetNode* InNode, const FString& InResolveError, FGameTestConditionCheck& OutCheck);
 
 	/**
 	 * 条件里有「不存在 / 不可见」这种反面条件（含 `any` 里的）：目标找不到既可能是「领过了，按钮没了」，

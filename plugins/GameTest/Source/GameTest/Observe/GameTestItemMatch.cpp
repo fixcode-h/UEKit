@@ -41,10 +41,7 @@ TSharedPtr<FJsonValue> GameTestItemMatch::FindProperty(const FJsonObject& InProp
 	return nullptr;
 }
 
-int32 GameTestItemMatch::FindIndexByProperty(
-	const TArray<TSharedPtr<FGameTestListItem>>& InItems,
-	const FString& InProperty,
-	const FJsonValue& InExpected)
+int32 GameTestItemMatch::FindIndexByProperty(const TArray<TSharedPtr<FGameTestListItem>>& InItems, const FString& InProperty, const FJsonValue& InExpected)
 {
 	for (const TSharedPtr<FGameTestListItem>& Item : InItems)
 	{
@@ -65,10 +62,7 @@ int32 GameTestItemMatch::FindIndexByProperty(
 	return INDEX_NONE;
 }
 
-FString GameTestItemMatch::DescribeProperty(
-	const TArray<TSharedPtr<FGameTestListItem>>& InItems,
-	const FString& InPropertyName,
-	int32 InLimit)
+FString GameTestItemMatch::DescribeProperty(const TArray<TSharedPtr<FGameTestListItem>>& InItems, const FString& InPropertyName, int32 InLimit)
 {
 	TArray<FString> Pairs;
 	for (int32 Index = 0; Index < InItems.Num() && Index < InLimit; ++Index)

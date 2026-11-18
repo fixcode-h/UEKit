@@ -56,12 +56,7 @@ public:
 	 * 屏名命中多个屏、每个屏里都走得通（同一个 WBP 的几个实例）时，失败并把全部命中放进 `OutAmbiguous`（给了的话）：
 	 * 选择器自己不挑，由拿着录制线索的调用方决定（`GameTestHintPick`）。
 	 */
-	static bool Resolve(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const FParsed& InParsed,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError,
-		TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
+	static bool Resolve(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FParsed& InParsed, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError, TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
 
 	/**
 	 * 上一次解析失败是不是因为 `列表[...]` 指向的条目还没生成（虚拟化列表没滚到）：是的话交出列表和序号并清掉记录。
@@ -70,10 +65,5 @@ public:
 	static bool TakeUngeneratedEntry(TWeakObjectPtr<UListView>& OutList, int32& OutIndex, FString& OutListPath);
 
 	/** 解析 + 一步到位（`Resolve` 的便捷包装；@句柄 由调用方处理）。 */
-	static bool ResolveText(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const FString& InText,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError,
-		TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
+	static bool ResolveText(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FString& InText, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError, TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous = nullptr);
 };

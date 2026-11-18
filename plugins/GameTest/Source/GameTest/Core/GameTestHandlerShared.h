@@ -54,13 +54,7 @@ namespace GameTestHandlers
 	 * 按线索挑回录的那一个（`GameTestHintPick`），怎么挑的写进 `OutPickNote`；
 	 * 唯一命中但文字和录制时对不上时，在同容器里换成文字对得上的那个（`GameTestHintPick::Rematch`）。
 	 */
-	GAMETEST_API bool TryResolveTarget(
-		const FString& InTarget,
-		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutMessage,
-		const FJsonObject* InHint = nullptr,
-		FString* OutPickNote = nullptr);
+	GAMETEST_API bool TryResolveTarget(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutMessage, const FJsonObject* InHint = nullptr, FString* OutPickNote = nullptr);
 
 	/**
 	 * 解析这一步的 target，顺便记下"碰过谁"——视口高亮靠它把控件框出来。

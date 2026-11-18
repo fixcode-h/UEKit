@@ -61,8 +61,7 @@ namespace GameTestSkipIf
 	 * 此刻条件成立吗（做完核对每帧调）。`OutActual` 写实际值，失败消息用。
 	 * 条件看的控件不在屏上算不成立；反面条件所在的屏不在屏上也算不成立（核对要的是「确实达成了」）。
 	 */
-	GAMETEST_API bool Holds(const FJsonObject& InSkipIf, const FGameTestStep& InStep,
-		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FString& OutActual);
+	GAMETEST_API bool Holds(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FString& OutActual);
 }
 
 /** 跳过判断每帧的结论。 */

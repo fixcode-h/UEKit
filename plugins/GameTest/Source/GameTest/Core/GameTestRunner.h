@@ -151,11 +151,7 @@ public:
 	 * 开始一次 run。同一时刻只允许一个：已经有 run 在跑时返回 false（调用方负责给出提示）。
 	 * `InRuntimeState` 里的三本账由调用方（子系统）持有并保证生命周期。
 	 */
-	bool StartRun(
-		const FGameTestRunRequest& InRequest,
-		const FGameTestRuntimeState& InRuntimeState,
-		FGameTestOnFinished InOnFinished,
-		FString& OutError);
+	bool StartRun(const FGameTestRunRequest& InRequest, const FGameTestRuntimeState& InRuntimeState, FGameTestOnFinished InOnFinished, FString& OutError);
 
 	bool IsBusy() const
 	{

@@ -612,8 +612,7 @@ namespace
 	 * `gt.resolve checks`：步骤的跳过条件此刻成立吗。和回放用同一个判断（GameTestSkipIf::Holds），
 	 * 每项回 `{index, holds, say, actual?, error?}`；步骤写错的那项带 error，不影响别的项。
 	 */
-	bool CheckSkipIf(UGameTestSubsystem* Subsystem, const TArray<TSharedPtr<FJsonValue>>& InChecks,
-		TSharedPtr<FJsonObject>& Out, FString& Error)
+	bool CheckSkipIf(UGameTestSubsystem* Subsystem, const TArray<TSharedPtr<FJsonValue>>& InChecks, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		if (InChecks.Num() == 0 || InChecks.Num() > 50)
 		{

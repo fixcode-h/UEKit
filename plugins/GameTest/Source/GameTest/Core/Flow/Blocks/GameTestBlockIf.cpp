@@ -113,8 +113,7 @@ namespace
 			return MakeShared<FIfState>();
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			FIfState& State = static_cast<FIfState&>(InState);
 			const FIfData* Data = InNode.GetData<FIfData>();
@@ -190,8 +189,7 @@ namespace
 		}
 
 	private:
-		static EGameTestBlockStep Choose(FIfState& InState, const FString& InName, int32 InList, const FGameTestCondResult& InResult,
-			FGameTestBlockTick& Out)
+		static EGameTestBlockStep Choose(FIfState& InState, const FString& InName, int32 InList, const FGameTestCondResult& InResult, FGameTestBlockTick& Out)
 		{
 			InState.bChosen = true;
 			InState.Chosen = InName;

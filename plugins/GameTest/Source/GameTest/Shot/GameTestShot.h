@@ -31,10 +31,5 @@ public:
 	 * 截当前游戏窗口。
 	 * @param InAnnotateNodes 非空时按控件的窗口坐标画编号框，图例写进 OutPayload 的 boxes。
 	 */
-	static bool CaptureGameWindow(
-		UWorld* InWorld,
-		const FString& InAbsolutePath,
-		const TArray<TSharedPtr<FGameTestWidgetNode>>* InAnnotateNodes,
-		FString& OutMessage,
-		TSharedPtr<FJsonObject>& OutPayload);
+	static bool CaptureGameWindow(UWorld* InWorld, const FString& InAbsolutePath, const TArray<TSharedPtr<FGameTestWidgetNode>>* InAnnotateNodes, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload);
 };

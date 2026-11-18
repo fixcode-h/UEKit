@@ -477,8 +477,7 @@ bool GameTestCondition::Validate(const FJsonObject& InCond, const TArray<FString
 	return true;
 }
 
-void GameTestCondition::Check(const FJsonObject& InCond, const FGameTestWidgetNode* InNode, const FString& InResolveError,
-	FGameTestConditionCheck& OutCheck)
+void GameTestCondition::Check(const FJsonObject& InCond, const FGameTestWidgetNode* InNode, const FString& InResolveError, FGameTestConditionCheck& OutCheck)
 {
 	bool bExpectExists = true;
 	if (GameTestJson::TryGetBool(InCond, TEXT("exists"), bExpectExists))

@@ -11,8 +11,7 @@ TGameTestRegistry<FGameTestExprFunction>& GameTestExprFunctions::Get()
 	return Registry;
 }
 
-void GameTestExprFunctions::Add(const TCHAR* InName, int32 InMinArgs, int32 InMaxArgs, const TCHAR* InCategory, const TCHAR* InSignature,
-	const TCHAR* InSummary, FGameTestExprFunction::FCallFn&& InFn, bool bAcceptsUnresolved)
+void GameTestExprFunctions::Add(const TCHAR* InName, int32 InMinArgs, int32 InMaxArgs, const TCHAR* InCategory, const TCHAR* InSignature, const TCHAR* InSummary, FGameTestExprFunction::FCallFn&& InFn, bool bAcceptsUnresolved)
 {
 	TSharedRef<FGameTestExprFunction> Function = MakeShared<FGameTestExprFunction>();
 	Function->Name = InName;

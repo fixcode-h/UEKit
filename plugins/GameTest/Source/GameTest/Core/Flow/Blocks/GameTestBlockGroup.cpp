@@ -27,8 +27,7 @@ namespace
 			return MakeShared<GameTestBlockUtil::FOnceState>();
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			GameTestBlockUtil::FOnceState& State = static_cast<GameTestBlockUtil::FOnceState&>(InState);
 			if (State.bStarted || InNode.Lists.Num() == 0)

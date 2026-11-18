@@ -45,6 +45,5 @@ public:
 	static TGameTestRegistry<FGameTestExprFunction>& Get();
 
 	/** 一行登记：`GameTestExprFunctions::Add(TEXT("len"), 1, 1, TEXT("文字"), TEXT("len(x)"), TEXT("长度"), Fn);` */
-	static void Add(const TCHAR* InName, int32 InMinArgs, int32 InMaxArgs, const TCHAR* InCategory, const TCHAR* InSignature,
-		const TCHAR* InSummary, FGameTestExprFunction::FCallFn&& InFn, bool bAcceptsUnresolved = false);
+	static void Add(const TCHAR* InName, int32 InMinArgs, int32 InMaxArgs, const TCHAR* InCategory, const TCHAR* InSignature, const TCHAR* InSummary, FGameTestExprFunction::FCallFn&& InFn, bool bAcceptsUnresolved = false);
 };

@@ -246,12 +246,7 @@ const FJsonObject* GameTestHintPick::GetHint(const TSharedPtr<FJsonObject>& InSt
 	return Hint.Get();
 }
 
-bool GameTestHintPick::Pick(
-	const TArray<TSharedPtr<FGameTestWidgetNode>>& InCandidates,
-	const FJsonObject& InHint,
-	TSharedPtr<FGameTestWidgetNode>& OutNode,
-	FString& OutNote,
-	FString& OutWhy)
+bool GameTestHintPick::Pick(const TArray<TSharedPtr<FGameTestWidgetNode>>& InCandidates, const FJsonObject& InHint, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutNote, FString& OutWhy)
 {
 	using namespace GameTestHintPickDetail;
 
@@ -360,12 +355,7 @@ bool GameTestHintPick::Pick(
 	return true;
 }
 
-bool GameTestHintPick::Rematch(
-	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-	const FString& InTarget,
-	const FJsonObject& InHint,
-	TSharedPtr<FGameTestWidgetNode>& InOutNode,
-	FString& OutNote)
+bool GameTestHintPick::Rematch(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FString& InTarget, const FJsonObject& InHint, TSharedPtr<FGameTestWidgetNode>& InOutNode, FString& OutNote)
 {
 	using namespace GameTestHintPickDetail;
 

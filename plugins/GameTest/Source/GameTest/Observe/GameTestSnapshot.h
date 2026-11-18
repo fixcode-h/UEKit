@@ -37,11 +37,7 @@ public:
 	static TSharedPtr<FGameTestWidgetNode> CaptureSubtree(UWidget* InWidget, const FString& InPath, bool InIsScreenRoot, bool bInLight = false);
 
 	/** 屏清单 + 控件树 → JSON。`props` 打开时额外带上"声明在自己类上"的属性。 */
-	static TSharedPtr<FJsonObject> ScreensToJson(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		bool bInIncludeGeometry,
-		bool bInIncludeProps,
-		int32 InMaxNodes);
+	static TSharedPtr<FJsonObject> ScreensToJson(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, bool bInIncludeGeometry, bool bInIncludeProps, int32 InMaxNodes);
 
 	/** 类名去掉蓝图的 `_C` 后缀（选择器、快照、可选模块都用这一份写法）。 */
 	static FString FriendlyClassName(const UClass* InClass);

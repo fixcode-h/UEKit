@@ -76,13 +76,7 @@ namespace
 		}
 	}
 
-	void CollectBoxes(
-		const FGameTestWidgetNode& InNode,
-		const FVector2D& InWindowPosition,
-		float InScale,
-		int32& InOutIndex,
-		TArray<TSharedPtr<FJsonValue>>& OutBoxes,
-		TArray<FIntRect>& OutRects)
+	void CollectBoxes(const FGameTestWidgetNode& InNode, const FVector2D& InWindowPosition, float InScale, int32& InOutIndex, TArray<TSharedPtr<FJsonValue>>& OutBoxes, TArray<FIntRect>& OutRects)
 	{
 		if (InNode.bHasGeometry && InNode.Size.X > 1.0 && InNode.Size.Y > 1.0)
 		{
@@ -137,12 +131,7 @@ FString GameTestShot::ToProjectRelative(const FString& InAbsolutePath)
 	return Relative;
 }
 
-bool GameTestShot::CaptureGameWindow(
-	UWorld* InWorld,
-	const FString& InAbsolutePath,
-	const TArray<TSharedPtr<FGameTestWidgetNode>>* InAnnotateNodes,
-	FString& OutMessage,
-	TSharedPtr<FJsonObject>& OutPayload)
+bool GameTestShot::CaptureGameWindow(UWorld* InWorld, const FString& InAbsolutePath, const TArray<TSharedPtr<FGameTestWidgetNode>>* InAnnotateNodes, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload)
 {
 	// 调用方可能只关心成没成、传进来一个空指针（失败证据就是这样）：这里补上，下面写字段不会解引用空指针。
 	if (!OutPayload.IsValid())

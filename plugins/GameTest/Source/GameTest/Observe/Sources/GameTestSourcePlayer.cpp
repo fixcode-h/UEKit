@@ -22,8 +22,7 @@ namespace
 		virtual FString GetSummary() const override { return Summary; }
 		virtual FString GetSyntax() const override { return FString::Printf(TEXT("@%s.<属性>"), *Key.ToString()); }
 
-		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed,
-			FGameTestFlowContext& InContext) const override
+		virtual FGameTestValue Resolve(const FString& InSelector, TArrayView<const FGameTestPathSegment> InRest, int32& OutConsumed, FGameTestFlowContext& InContext) const override
 		{
 			OutConsumed = 0;
 			if (InContext.World == nullptr)

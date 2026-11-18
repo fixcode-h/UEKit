@@ -263,11 +263,7 @@ void GameTestActions::Suggest(const FString& InWritten, TArray<FString>& OutSugg
 	}
 }
 
-bool GameTestActions::ParseStep(
-	const TSharedPtr<FJsonObject>& InJson,
-	int32 InIndex,
-	FGameTestStep& OutStep,
-	TArray<FString>& OutErrors)
+bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InIndex, FGameTestStep& OutStep, TArray<FString>& OutErrors)
 {
 	OutStep = FGameTestStep();
 	OutStep.Index = InIndex;

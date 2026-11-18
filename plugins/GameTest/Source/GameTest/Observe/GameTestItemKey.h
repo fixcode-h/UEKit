@@ -132,8 +132,7 @@ namespace GameTestItemKey
 	 * 给一个候选打分（设计稿第 3 节 A）。`InEqualsIndex`：值正好等于条目序号（多半是位置）。
 	 * 不唯一、会变、浮点、布尔不进推荐（分数压到很低）；`OutWhy` 写主要的扣分原因。
 	 */
-	GAMETEST_API double Score(const FString& InSource, const FString& InPath, const FJsonValue& InValue,
-		bool bInUnique, bool bInEqualsIndex, bool bInChanged, bool bInLocalizedText, FString& OutWhy);
+	GAMETEST_API double Score(const FString& InSource, const FString& InPath, const FJsonValue& InValue, bool bInUnique, bool bInEqualsIndex, bool bInChanged, bool bInLocalizedText, FString& OutWhy);
 
 	/** 候选按分数排好后，最高的够不够准（不用问人）。 */
 	GAMETEST_API bool IsConfident(const TArray<FGameTestKeyCandidate>& InSorted);
@@ -171,31 +170,26 @@ namespace GameTestItemKey
 	GAMETEST_API TSharedPtr<FJsonObject> DumpLuaFields(UObject* InObject, FGameTestKeyCache& InOutCache);
 
 	/** 读一个条目在某个来源、路径上的值；读不到返回空。 */
-	GAMETEST_API TSharedPtr<FJsonValue> ReadValue(const FGameTestKeyEntry& InEntry, bool bInList,
-		const FString& InSource, const FString& InPath, FGameTestKeyCache& InOutCache);
+	GAMETEST_API TSharedPtr<FJsonValue> ReadValue(const FGameTestKeyEntry& InEntry, bool bInList, const FString& InSource, const FString& InPath, FGameTestKeyCache& InOutCache);
 
 	/** 按条件找命中的条目下标（最多找 InMaxHits 个就停）。 */
-	GAMETEST_API void FindMatches(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const TArray<FGameTestKeyCond>& InConds,
-		FGameTestKeyCache& InOutCache, int32 InMaxHits, TArray<int32>& OutHits);
+	GAMETEST_API void FindMatches(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const TArray<FGameTestKeyCond>& InConds, FGameTestKeyCache& InOutCache, int32 InMaxHits, TArray<int32>& OutHits);
 
 	/** 失败消息里的「现有的值」：第一个条件的字段在各条目上是什么（最多 InLimit 个）。 */
-	GAMETEST_API FString DescribeValues(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FGameTestKeyCond& InCond,
-		FGameTestKeyCache& InOutCache, int32 InLimit);
+	GAMETEST_API FString DescribeValues(const TArray<FGameTestKeyEntry>& InEntries, bool bInList, const FGameTestKeyCond& InCond, FGameTestKeyCache& InOutCache, int32 InLimit);
 
 	/**
 	 * 给容器里第 InMine 个条目挑候选标识，按分数从高到低排好（最多 InMax 个）。
 	 * 单个字段都不唯一时，试一下前几个字段两两组合，组合唯一的也放进来（bCombo）。
 	 */
-	GAMETEST_API void BuildCandidates(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-		int32 InMax, TArray<FGameTestKeyCandidate>& OutCandidates);
+	GAMETEST_API void BuildCandidates(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine, int32 InMax, TArray<FGameTestKeyCandidate>& OutCandidates);
 
 	/**
 	 * gt.keys 的「全部字段」：按来源分组列出条目的每个字段和它在容器里命中几个。
 	 * 返回 `{groups: [{source, title, class?, note?, fields: [{by, path, v, hits, unique}], more?}], total, count}`。
 	 * InMaxChars：返回给客户端的默认 11000 字左右截断（ADR 0067）；录制时存缓存文件要全量，传大的。
 	 */
-	GAMETEST_API TSharedPtr<FJsonObject> ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine,
-		const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars = 11000);
+	GAMETEST_API TSharedPtr<FJsonObject> ListFields(UWidget* InContainer, const TArray<FGameTestKeyEntry>& InEntries, int32 InMine, const FString& InFilter, int32 InOffset, int32 InLimit, int32 InMaxChars = 11000);
 
 	/**
 	 * 录制写选择器时给站点挑标识：收条目、挑候选（最多 12 个），有规则按规则（`by = rule`），
@@ -215,8 +209,7 @@ namespace GameTestItemKey
 	 * 默认取按下那一刻的值（候选里的值、PressedFields），没有才现读：录制时松开后列表可能已经刷新，现读会拼出别的条目的值。
 	 * bInNow 只取现在的值（核对「点完变没变」用）。OutChanged 收按下和松开之间变了的字段（候选标了 bChanged 的）。
 	 */
-	GAMETEST_API FString CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy, TArray<FString>* OutChanged = nullptr,
-		bool bInNow = false);
+	GAMETEST_API FString CondFromFields(const FGameTestKeySite& InSite, const TArray<FString>& InBy, TArray<FString>* OutChanged = nullptr, bool bInNow = false);
 
 	/** 按下时存的全部字段（PressedFields）按 gt.keys 的 filter / offset / limit 取一页，形状和 ListFields 一样。 */
 	GAMETEST_API TSharedPtr<FJsonObject> PageFields(const FJsonObject& InAll, const FString& InFilter, int32 InOffset, int32 InLimit);

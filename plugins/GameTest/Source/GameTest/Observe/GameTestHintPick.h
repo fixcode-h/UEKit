@@ -28,12 +28,7 @@ namespace GameTestHintPick
 	 * 在候选里挑一个。挑中返回 true，`OutNote` 写怎么挑的（进步骤结果）；
 	 * 挑不出返回 false，`OutWhy` 写还差什么（回放会接着等，超时时拼进失败原因）。
 	 */
-	GAMETEST_API bool Pick(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InCandidates,
-		const FJsonObject& InHint,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutNote,
-		FString& OutWhy);
+	GAMETEST_API bool Pick(const TArray<TSharedPtr<FGameTestWidgetNode>>& InCandidates, const FJsonObject& InHint, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutNote, FString& OutWhy);
 
 	/**
 	 * 选择器唯一命中了，但文字和录制时对不上：在**同一个容器**里找文字对得上的那个换过去。
@@ -51,10 +46,5 @@ namespace GameTestHintPick
 	 *
 	 * 换了返回 true，`InOutNode` 换成匹配的那个，`OutNote` 写怎么换的（进步骤结果的 `picked`）。
 	 */
-	GAMETEST_API bool Rematch(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const FString& InTarget,
-		const FJsonObject& InHint,
-		TSharedPtr<FGameTestWidgetNode>& InOutNode,
-		FString& OutNote);
+	GAMETEST_API bool Rematch(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FString& InTarget, const FJsonObject& InHint, TSharedPtr<FGameTestWidgetNode>& InOutNode, FString& OutNote);
 }

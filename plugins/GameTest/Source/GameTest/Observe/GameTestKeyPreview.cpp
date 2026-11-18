@@ -39,8 +39,7 @@ namespace GameTestKeyPreviewDetail
 			return FVector2D::ZeroVector;
 		}
 
-		virtual int32 OnPaint(const FPaintArgs& InArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InMyCullingRect,
-			FSlateWindowElementList& OutDrawElements, const int32 InLayerId, const FWidgetStyle& InWidgetStyle, const bool bInParentEnabled) const override
+		virtual int32 OnPaint(const FPaintArgs& InArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InMyCullingRect, FSlateWindowElementList& OutDrawElements, const int32 InLayerId, const FWidgetStyle& InWidgetStyle, const bool bInParentEnabled) const override
 		{
 			const FPaint* PaintData = Paint.Get();
 			if (PaintData == nullptr || PaintData->Widgets.Num() == 0)

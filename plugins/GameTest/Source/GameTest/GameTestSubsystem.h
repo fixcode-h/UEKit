@@ -70,13 +70,7 @@ public:
 	 * 游戏线程：起一次整场景 run，立即返回 runId；失败时 OutResult 是原因。
 	 * `InStepDelayMs` ≥ 0 时覆盖设置里的步间隔（场景的 `stepDelayMs`，录制的场景写 0）。
 	 */
-	bool BeginScenarioRun(
-		const TArray<TSharedPtr<FJsonObject>>& InSteps,
-		const FString& InName,
-		int32 InRevision,
-		FString& OutRunId,
-		TSharedPtr<FJsonObject>& OutResult,
-		int32 InStepDelayMs = -1);
+	bool BeginScenarioRun(const TArray<TSharedPtr<FJsonObject>>& InSteps, const FString& InName, int32 InRevision, FString& OutRunId, TSharedPtr<FJsonObject>& OutResult, int32 InStepDelayMs = -1);
 
 	/** 游戏线程：跑一份场景文件（`gt.run scenario=`）。和上面一样，只是报告带上场景路径，结束时记进按场景的历史。 */
 	bool BeginScenarioFileRun(const FGameTestScenarioRun& InRun, FString& OutRunId, TSharedPtr<FJsonObject>& OutResult);
@@ -124,14 +118,9 @@ private:
 	 * 把要跑的东西解析成脚本：场景文件整份解析（块、守护、call 的子脚本），临时步骤只解析步骤；
 	 * 从场景跑时把运行配置的 setup 接在最前面。写错了返回空，OutResult 是错误返回体（带 diagnostics）。
 	 */
-	TSharedPtr<FGameTestScript> BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig,
-		TSharedPtr<FJsonObject>& OutResult) const;
+	TSharedPtr<FGameTestScript> BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig, TSharedPtr<FJsonObject>& OutResult) const;
 
-	bool StartRunOnGameThread(
-		const FGameTestScenarioRun& InRun,
-		FString& OutRunId,
-		bool& bOutAlreadyFinished,
-		TSharedPtr<FJsonObject>& OutResult);
+	bool StartRunOnGameThread(const FGameTestScenarioRun& InRun, FString& OutRunId, bool& bOutAlreadyFinished, TSharedPtr<FJsonObject>& OutResult);
 
 	/** 批量运行中、执行器空下来时起下一个场景（每帧调）。 */
 	void DriveBatch();

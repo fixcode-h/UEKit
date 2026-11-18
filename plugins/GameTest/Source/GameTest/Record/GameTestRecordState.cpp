@@ -334,8 +334,7 @@ bool FGameTestRecordState::IsMeaningfulTextChange(const FString& InBefore, const
 	return !NormalAfter.IsEmpty() && NormalAfter != GameTestTextMatch::Normalize(InBefore);
 }
 
-int32 FGameTestRecordState::ComputeAlso(const TArray<TSharedRef<FJsonObject>>& InSteps, int32 InIndex, const TArray<FString>& InOpened,
-	const TArray<FString>& InBlockerScreens)
+int32 FGameTestRecordState::ComputeAlso(const TArray<TSharedRef<FJsonObject>>& InSteps, int32 InIndex, const TArray<FString>& InOpened, const TArray<FString>& InBlockerScreens)
 {
 	TArray<FString> Opened;
 	for (const FString& Screen : InOpened)
@@ -626,8 +625,7 @@ bool FGameTestRecordState::VerifyAuto(const TSharedPtr<FJsonObject>& InStep, con
 	return true;
 }
 
-void FGameTestRecordState::Conclude(FPending& InPending, bool bInTakeNow, FString* OutNotice,
-	TFunctionRef<int32(const TSharedPtr<FJsonObject>&)> InStepIndex)
+void FGameTestRecordState::Conclude(FPending& InPending, bool bInTakeNow, FString* OutNotice, TFunctionRef<int32(const TSharedPtr<FJsonObject>&)> InStepIndex)
 {
 	const TSharedPtr<FJsonObject> Step = InPending.Step;
 	if (!Step.IsValid() || !InPending.Before.bValid)

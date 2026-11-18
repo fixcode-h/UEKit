@@ -34,9 +34,5 @@ public:
 	 * 在当前游戏世界里逐个解析。没有游戏世界（PIE 没开）时返回 false 和原因——这时什么都核对不了，
 	 * 不能把所有选择器都报成「找不到」。
 	 */
-	static bool Resolve(
-		const TArray<FTarget>& InTargets,
-		TMap<FString, TWeakObjectPtr<UWidget>>* InHandles,
-		TSharedPtr<FJsonObject>& OutResult,
-		FString& OutError);
+	static bool Resolve(const TArray<FTarget>& InTargets, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 };

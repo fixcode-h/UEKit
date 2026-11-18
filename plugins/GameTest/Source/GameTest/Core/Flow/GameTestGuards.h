@@ -61,8 +61,7 @@ namespace GameTestGuards
 	GAMETEST_API const TArray<FString>& Fields();
 
 	/** 解析 `guards` 数组（场景顶层、块、运行配置）。`InPath` 是数组的路径（`guards`、`steps.3.guards`）。 */
-	GAMETEST_API void ParseList(const TSharedPtr<FJsonValue>& InJson, const FString& InScope, const FString& InPath, FGameTestScriptParser& InParser,
-		TArray<TSharedRef<FGameTestGuardDef>>& OutGuards);
+	GAMETEST_API void ParseList(const TSharedPtr<FJsonValue>& InJson, const FString& InScope, const FString& InPath, FGameTestScriptParser& InParser, TArray<TSharedRef<FGameTestGuardDef>>& OutGuards);
 
 	/**
 	 * 阻挡界面迁移（协议第 5.1 节）：`_settings.json` 里的 `blockers` 改写成 `guards`（纯数据变换，不读写文件）。
@@ -86,8 +85,7 @@ public:
 	 * `InStepTargets`：正在执行的那一步的 target / toTarget（unlessStepTargets 用）。
 	 * `OutPending`：有守护的 when 已经成立、还在稳住——每步开始前遇到它要等一等再开始这一步，不然稳住永远等不到。
 	 */
-	const FGameTestGuardDef* Poll(const TArray<TSharedRef<FGameTestGuardDef>>& InActive, bool bWaiting, const TArray<FString>& InStepTargets,
-		FGameTestFlowContext& InContext, double InNowSeconds, bool& OutPending);
+	const FGameTestGuardDef* Poll(const TArray<TSharedRef<FGameTestGuardDef>>& InActive, bool bWaiting, const TArray<FString>& InStepTargets, FGameTestFlowContext& InContext, double InNowSeconds, bool& OutPending);
 
 	/** 开始处理：次数 +1。超过 max 返回 false（`OutError` 写 guard_max 的原因）。 */
 	bool BeginHandle(const FGameTestGuardDef& InGuard, double InNowSeconds, FString& OutError);

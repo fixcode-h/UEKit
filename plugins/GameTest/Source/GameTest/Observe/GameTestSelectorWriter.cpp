@@ -160,8 +160,7 @@ namespace GameTestSelectorWriterDetail
 	TSharedPtr<FGameTestKeySite> GSite;
 	bool bCollectSites = false;
 
-	void NoteSite(int32 InDepth, int32 InOrder, UWidget* InContainer, UWidget* InEntryWidget, const UObject* InItem,
-		const FString& InBase, const FString& InPositional)
+	void NoteSite(int32 InDepth, int32 InOrder, UWidget* InContainer, UWidget* InEntryWidget, const UObject* InItem, const FString& InBase, const FString& InPositional)
 	{
 		if (!bCollectSites || InContainer == nullptr)
 		{
@@ -229,8 +228,7 @@ namespace GameTestSelectorWriterDetail
 	}
 
 	/** Describe 拼好 target 后，把这一层里面板条目的段记成站点：Base 是到父面板为止的前缀。 */
-	void NoteSegmentSites(int32 InDepth, const FString& InTarget, const FString& InRelative, const TArray<FString>& InSegments,
-		const TArray<TPair<int32, UWidget*>>& InEntries)
+	void NoteSegmentSites(int32 InDepth, const FString& InTarget, const FString& InRelative, const TArray<FString>& InSegments, const TArray<TPair<int32, UWidget*>>& InEntries)
 	{
 		const FString Prefix = InTarget.Left(InTarget.Len() - InRelative.Len());
 		for (const TPair<int32, UWidget*>& Entry : InEntries)

@@ -115,14 +115,7 @@ namespace
 			return FVector2D::ZeroVector;
 		}
 
-		virtual int32 OnPaint(
-			const FPaintArgs& InArgs,
-			const FGeometry& InAllottedGeometry,
-			const FSlateRect& InMyCullingRect,
-			FSlateWindowElementList& OutDrawElements,
-			const int32 InLayerId,
-			const FWidgetStyle& InWidgetStyle,
-			const bool bInParentEnabled) const override
+		virtual int32 OnPaint(const FPaintArgs& InArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InMyCullingRect, FSlateWindowElementList& OutDrawElements, const int32 InLayerId, const FWidgetStyle& InWidgetStyle, const bool bInParentEnabled) const override
 		{
 			// 基类（SLeafWidget）把 OnPaint 关成 private，不打算被调用：本层自己起一套层号。
 			const int32 LayerId = InLayerId;
@@ -430,8 +423,7 @@ void UGameTestSubsystem::ClearHighlight()
 	Highlight.Reset();
 }
 
-TSharedPtr<FGameTestScript> UGameTestSubsystem::BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig,
-	TSharedPtr<FJsonObject>& OutResult) const
+TSharedPtr<FGameTestScript> UGameTestSubsystem::BuildScript(const FGameTestScenarioRun& InRun, const FGameTestRunConfig& InConfig, TSharedPtr<FJsonObject>& OutResult) const
 {
 	FGameTestDiagSink Sink;
 	FGameTestScriptParser Parser(UGameTestSettings::ResolveScenarioRootDir(), Sink, InConfig.ScriptOptions);
@@ -471,11 +463,7 @@ TSharedPtr<FGameTestScript> UGameTestSubsystem::BuildScript(const FGameTestScena
 	return Script;
 }
 
-bool UGameTestSubsystem::StartRunOnGameThread(
-	const FGameTestScenarioRun& InRun,
-	FString& OutRunId,
-	bool& bOutAlreadyFinished,
-	TSharedPtr<FJsonObject>& OutResult)
+bool UGameTestSubsystem::StartRunOnGameThread(const FGameTestScenarioRun& InRun, FString& OutRunId, bool& bOutAlreadyFinished, TSharedPtr<FJsonObject>& OutResult)
 {
 	bOutAlreadyFinished = false;
 	OutRunId.Reset();
@@ -705,13 +693,7 @@ void UGameTestSubsystem::RunStepInline(const TSharedPtr<FJsonObject>& InStepJson
 	OutResult = BuildOutcomeJson(bAlreadyFinished);
 }
 
-bool UGameTestSubsystem::BeginScenarioRun(
-	const TArray<TSharedPtr<FJsonObject>>& InSteps,
-	const FString& InName,
-	int32 InRevision,
-	FString& OutRunId,
-	TSharedPtr<FJsonObject>& OutResult,
-	int32 InStepDelayMs)
+bool UGameTestSubsystem::BeginScenarioRun(const TArray<TSharedPtr<FJsonObject>>& InSteps, const FString& InName, int32 InRevision, FString& OutRunId, TSharedPtr<FJsonObject>& OutResult, int32 InStepDelayMs)
 {
 	checkf(IsInGameThread(), TEXT("GameTest 的入口必须在游戏线程上调用（UELink 的操作本来就在游戏线程执行）"));
 

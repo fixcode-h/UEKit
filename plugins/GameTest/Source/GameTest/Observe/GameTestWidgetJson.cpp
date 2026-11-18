@@ -27,12 +27,7 @@ TSharedPtr<FGameTestWidgetNode> FGameTestWidgetNode::FindByPath(const FString& I
 	return nullptr;
 }
 
-TSharedPtr<FJsonObject> GameTestWidgetJson::ToJson(
-	const FGameTestWidgetNode& InNode,
-	bool bInIncludeGeometry,
-	bool bInIncludeProps,
-	int32 InMaxNodes,
-	int32& InOutNodeCount)
+TSharedPtr<FJsonObject> GameTestWidgetJson::ToJson(const FGameTestWidgetNode& InNode, bool bInIncludeGeometry, bool bInIncludeProps, int32 InMaxNodes, int32& InOutNodeCount)
 {
 	const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
 	Json->SetStringField(TEXT("name"), InNode.Name);

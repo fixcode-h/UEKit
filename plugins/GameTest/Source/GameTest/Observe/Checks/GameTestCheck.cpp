@@ -147,8 +147,7 @@ namespace GameTestCompare
 		}
 	}
 
-	bool Evaluate(const FJsonObject& InJson, const FGameTestValue& InActual,
-		TFunctionRef<FGameTestValue(const TSharedPtr<FJsonValue>&)> InResolve, FString& OutSay)
+	bool Evaluate(const FJsonObject& InJson, const FGameTestValue& InActual, TFunctionRef<FGameTestValue(const TSharedPtr<FJsonValue>&)> InResolve, FString& OutSay)
 	{
 		if (InActual.IsUnresolved())
 		{
@@ -259,8 +258,7 @@ namespace GameTestCompare
 		return true;
 	}
 
-	void EvaluateInto(const FJsonObject& InJson, const FGameTestValue& InActual, FGameTestFlowContext& InContext,
-		FGameTestCheckResult& OutResult)
+	void EvaluateInto(const FJsonObject& InJson, const FGameTestValue& InActual, FGameTestFlowContext& InContext, FGameTestCheckResult& OutResult)
 	{
 		OutResult.Actual = InActual;
 		if (InActual.IsUnresolved())

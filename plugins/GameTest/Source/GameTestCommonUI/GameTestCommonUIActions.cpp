@@ -16,12 +16,7 @@ using namespace GameTestHandlers;
 
 namespace
 {
-	bool PushStackWidget(
-		UCommonActivatableWidgetContainerBase* InContainer,
-		const FString& InClassPath,
-		UCommonActivatableWidget*& OutPushedWidget,
-		FString& OutMessage,
-		TSharedPtr<FJsonObject>& OutPayload)
+	bool PushStackWidget(UCommonActivatableWidgetContainerBase* InContainer, const FString& InClassPath, UCommonActivatableWidget*& OutPushedWidget, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload)
 	{
 		OutPushedWidget = nullptr;
 
@@ -52,11 +47,7 @@ namespace
 		return true;
 	}
 
-	bool PopStackWidget(
-		UCommonActivatableWidgetContainerBase* InContainer,
-		UCommonActivatableWidget*& OutPoppedWidget,
-		FString& OutMessage,
-		TSharedPtr<FJsonObject>& OutPayload)
+	bool PopStackWidget(UCommonActivatableWidgetContainerBase* InContainer, UCommonActivatableWidget*& OutPoppedWidget, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload)
 	{
 		OutPoppedWidget = nullptr;
 

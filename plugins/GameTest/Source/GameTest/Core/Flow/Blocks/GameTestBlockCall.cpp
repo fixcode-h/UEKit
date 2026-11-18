@@ -100,8 +100,7 @@ namespace
 			return MakeShared<FCallState>();
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			FCallState& State = static_cast<FCallState&>(InState);
 			const FCallData* Data = InNode.GetData<FCallData>();
@@ -170,8 +169,7 @@ namespace
 			}
 		}
 
-		virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState,
-			FGameTestFlowContext& InContext) const override
+		virtual bool CatchSignal(EGameTestFlowSignal InSignal, const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext) const override
 		{
 			FCallState& State = static_cast<FCallState&>(InState);
 			if (InSignal == EGameTestFlowSignal::Return)

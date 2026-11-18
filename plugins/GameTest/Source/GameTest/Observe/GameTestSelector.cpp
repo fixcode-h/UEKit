@@ -58,11 +58,7 @@ namespace
 	}
 
 	/** 一个路径段的匹配：0 个 → 失败（带候选），多个 → 歧义（带候选），恰好 1 个 → 成功。 */
-	bool SelectChild(
-		const FString& InSegment,
-		const TSharedPtr<FGameTestWidgetNode>& InParent,
-		TSharedPtr<FGameTestWidgetNode>& OutChild,
-		FString& OutError)
+	bool SelectChild(const FString& InSegment, const TSharedPtr<FGameTestWidgetNode>& InParent, TSharedPtr<FGameTestWidgetNode>& OutChild, FString& OutError)
 	{
 		TArray<TSharedPtr<FGameTestWidgetNode>> Matches;
 
@@ -153,11 +149,7 @@ namespace
 	 * （唯一性由下一段负责），其余段在每个前沿节点上按"该段必须唯一"的规则匹配。
 	 * 这样 `Root/../Hint` 表示"Root 下面某处的 Hint"，只有当有两处才报歧义。
 	 */
-	bool WalkPath(
-		const TSharedPtr<FGameTestWidgetNode>& InScreen,
-		const TArray<FString>& InSegments,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError)
+	bool WalkPath(const TSharedPtr<FGameTestWidgetNode>& InScreen, const TArray<FString>& InSegments, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError)
 	{
 		TArray<TSharedPtr<FGameTestWidgetNode>> Frontier;
 		Frontier.Add(InScreen);
@@ -336,10 +328,7 @@ namespace GameTestSelectorDetail
 	}
 
 	/** 条目控件 → 它在快照里的节点：容器的子节点里有就用它（和 `#类名#序号` 走到的是同一个），没有再找它那棵屏。 */
-	TSharedPtr<FGameTestWidgetNode> FindEntryNode(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const TSharedPtr<FGameTestWidgetNode>& InContainer,
-		const UWidget* InWidget)
+	TSharedPtr<FGameTestWidgetNode> FindEntryNode(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const TSharedPtr<FGameTestWidgetNode>& InContainer, const UWidget* InWidget)
 	{
 		for (const TSharedPtr<FGameTestWidgetNode>& Child : InContainer->Children)
 		{
@@ -356,12 +345,7 @@ namespace GameTestSelectorDetail
 	 * - `[序号]`：ListView 系是第几个数据项（只认已经生成的，没生成交给自动滚动），其他容器是第几个子控件；
 	 * - `[条件,条件]`（1.4.0）：在**全部**条目里按标识找（GameTestItemKey），ListView 系按数据项找，没滚到的也能找到。
 	 */
-	bool ResolveListEntry(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const TSharedPtr<FGameTestWidgetNode>& InList,
-		const FString& InInner,
-		TSharedPtr<FGameTestWidgetNode>& OutEntry,
-		FString& OutError)
+	bool ResolveListEntry(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const TSharedPtr<FGameTestWidgetNode>& InList, const FString& InInner, TSharedPtr<FGameTestWidgetNode>& OutEntry, FString& OutError)
 	{
 		UWidget* Container = InList->Widget.Get();
 		UListView* List = Cast<UListView>(Container);
@@ -441,12 +425,7 @@ namespace GameTestSelectorDetail
 	 * 带列表条目的路径：段里有 `名字[...]` 时，先用名字找到列表，再跳到条目控件那棵屏，后面的段在条目里继续走。
 	 * 没有方括号的段交给原来的 WalkPath（逐段唯一）。
 	 */
-	bool WalkPathWithEntries(
-		const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-		const TSharedPtr<FGameTestWidgetNode>& InStart,
-		const TArray<FString>& InSegments,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError)
+	bool WalkPathWithEntries(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const TSharedPtr<FGameTestWidgetNode>& InStart, const TArray<FString>& InSegments, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError)
 	{
 		TSharedPtr<FGameTestWidgetNode> Current = InStart;
 		TArray<FString> Pending;
@@ -585,12 +564,7 @@ namespace GameTestSelectorDetail
 	}
 
 	/** 在若干 Slate 根下按段找；每段在上一段命中的任意深度里找，最后必须唯一。 */
-	bool ResolveSlate(
-		const TArray<TSharedRef<SWidget>>& InRoots,
-		const FString& InAnchorPath,
-		const TArray<FString>& InSegments,
-		TSharedPtr<FGameTestWidgetNode>& OutNode,
-		FString& OutError)
+	bool ResolveSlate(const TArray<TSharedRef<SWidget>>& InRoots, const FString& InAnchorPath, const TArray<FString>& InSegments, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError)
 	{
 		TArray<TSharedRef<SWidget>> Frontier = InRoots;
 		for (const FString& SegmentText : InSegments)
@@ -824,12 +798,7 @@ bool GameTestSelector::MatchScreen(const FString& InScreen, const FGameTestWidge
 		|| GameTestSelectorDetail::MatchAssetPath(InScreen, InScreenRoot);
 }
 
-bool GameTestSelector::Resolve(
-	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-	const FParsed& InParsed,
-	TSharedPtr<FGameTestWidgetNode>& OutNode,
-	FString& OutError,
-	TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
+bool GameTestSelector::Resolve(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FParsed& InParsed, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError, TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
 {
 	if (OutAmbiguous != nullptr)
 	{
@@ -960,12 +929,7 @@ bool GameTestSelector::Resolve(
 	return GameTestSelectorDetail::ResolveSlate(Roots, OutNode->Path, InParsed.SlateSegments, OutNode, OutError);
 }
 
-bool GameTestSelector::ResolveText(
-	const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens,
-	const FString& InText,
-	TSharedPtr<FGameTestWidgetNode>& OutNode,
-	FString& OutError,
-	TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
+bool GameTestSelector::ResolveText(const TArray<TSharedPtr<FGameTestWidgetNode>>& InScreens, const FString& InText, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutError, TArray<TSharedPtr<FGameTestWidgetNode>>* OutAmbiguous)
 {
 	FParsed Parsed;
 	if (GameTestSelector::Parse(InText, Parsed, OutError))

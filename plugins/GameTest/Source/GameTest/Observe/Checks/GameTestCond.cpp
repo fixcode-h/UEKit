@@ -52,8 +52,7 @@ namespace
 
 	EGameTestCondState EvalNode(const FJsonObject& InCond, FGameTestFlowContext& InContext, const FString& InPath, FGameTestCondResult& OutResult);
 
-	EGameTestCondState EvalList(const FJsonObject& InCond, const TCHAR* InKey, FGameTestFlowContext& InContext, const FString& InPath,
-		FGameTestCondResult& OutResult)
+	EGameTestCondState EvalList(const FJsonObject& InCond, const TCHAR* InKey, FGameTestFlowContext& InContext, const FString& InPath, FGameTestCondResult& OutResult)
 	{
 		const TArray<TSharedPtr<FJsonValue>>* Items = nullptr;
 		TArray<EGameTestCondState> States;
@@ -115,8 +114,7 @@ namespace
 			: State == EGameTestCondState::Holds ? EGameTestCondState::NotHolds : EGameTestCondState::Holds;
 	}
 
-	void ValidateCondNode(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
-		const TArray<FString>& InExtraAllowed)
+	void ValidateCondNode(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, const TArray<FString>& InExtraAllowed)
 	{
 		FString Text;
 		if (InCond.IsValid() && InCond->TryGetString(Text))
@@ -313,8 +311,7 @@ namespace GameTestCond
 		return InCond->TryGetObject(Object) && Object ? *Object : nullptr;
 	}
 
-	void Validate(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
-		const TArray<FString>& InExtraAllowed)
+	void Validate(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, const TArray<FString>& InExtraAllowed)
 	{
 		ValidateCondNode(InCond, InScope, InSink, InExtraAllowed);
 	}

@@ -60,15 +60,13 @@ namespace GameTestCond
 	 * 写法检查。`InExtraAllowed` 是条件之外宿主还允许的字段（skipIf 的 `also` / `verify`）。
 	 * 1.6 的旧条件对象原样能过（它就是一条判断）。
 	 */
-	GAMETEST_API void Validate(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink,
-		const TArray<FString>& InExtraAllowed = TArray<FString>());
+	GAMETEST_API void Validate(const TSharedPtr<FJsonValue>& InCond, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, const TArray<FString>& InExtraAllowed = TArray<FString>());
 
 	/**
 	 * 此刻成不成立（不等待、不稳住）。`InSubject` 是 `invoke expect` / `api expect` 的返回值：
 	 * 判断里不写 `target` / `value` / `api` / `expr` 时比的就是它。在只读状态下判断。
 	 */
-	GAMETEST_API FGameTestCondResult Evaluate(const FJsonObject& InCond, FGameTestFlowContext& InContext,
-		const FGameTestValue* InSubject = nullptr);
+	GAMETEST_API FGameTestCondResult Evaluate(const FJsonObject& InCond, FGameTestFlowContext& InContext, const FGameTestValue* InSubject = nullptr);
 
 	/** 条件根上的 settleMs / elseSettleMs，没写用运行配置的默认值。 */
 	GAMETEST_API int32 SettleMs(const FJsonObject& InCond, const FGameTestFlowContext& InContext);

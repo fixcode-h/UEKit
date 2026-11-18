@@ -132,8 +132,7 @@ namespace
 		return Out;
 	}
 
-	void Add(const TCHAR* InName, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs, const TCHAR* InReturns, bool bReadOnly,
-		FGameTestLambdaApi::FCallFn&& InFn)
+	void Add(const TCHAR* InName, const TCHAR* InSummary, TArray<FGameTestApiArg>&& InArgs, const TCHAR* InReturns, bool bReadOnly, FGameTestLambdaApi::FCallFn&& InFn)
 	{
 		FGameTestApiDesc Desc;
 		Desc.Name = InName;

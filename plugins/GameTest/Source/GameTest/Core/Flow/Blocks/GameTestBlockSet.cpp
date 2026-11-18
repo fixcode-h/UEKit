@@ -95,8 +95,7 @@ namespace
 			InOutNode.Data = Data;
 		}
 
-		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext,
-			double InNowSeconds, FGameTestBlockTick& Out) const override
+		virtual EGameTestBlockStep Tick(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, double InNowSeconds, FGameTestBlockTick& Out) const override
 		{
 			const FSetData* Data = InNode.GetData<FSetData>();
 			if (!Data || Data->Var.IsEmpty())

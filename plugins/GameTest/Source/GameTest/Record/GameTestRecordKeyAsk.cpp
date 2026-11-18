@@ -87,8 +87,7 @@ FString FGameTestRecorder::KeyChoiceId(const FGameTestKeySite& InSite)
 	return (Entry + TEXT("|") + InSite.Base).ToLower();
 }
 
-bool FGameTestRecorder::ApplyKeyChoice(const TSharedPtr<FJsonObject>& InStep, FGameTestKeySite& InOutSite, const FKeyChoice& InChoice,
-	const FString& InBy, FString& OutWhy) const
+bool FGameTestRecorder::ApplyKeyChoice(const TSharedPtr<FJsonObject>& InStep, FGameTestKeySite& InOutSite, const FKeyChoice& InChoice, const FString& InBy, FString& OutWhy) const
 {
 	using namespace GameTestRecordKeyAskDetail;
 	if (!InStep.IsValid())
@@ -611,8 +610,7 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 	return true;
 }
 
-void FGameTestRecorder::ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite,
-	const FString& InChoiceId, const FKeyChoice& InChoice, FJsonObject& OutResult)
+void FGameTestRecorder::ApplyChoiceToList(const TSharedPtr<FJsonObject>& InSkipStep, const FGameTestKeySite& InSkipSite, const FString& InChoiceId, const FKeyChoice& InChoice, FJsonObject& OutResult)
 {
 	int32 Applied = 0;
 	TArray<TSharedPtr<FJsonValue>> Skipped;
