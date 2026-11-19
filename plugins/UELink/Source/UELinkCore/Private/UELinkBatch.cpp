@@ -471,6 +471,7 @@ namespace AgentPanel
 				Counts.FindOrAdd(State) += 1;
 				const TSharedRef<FJsonObject> It = MakeShared<FJsonObject>();
 				It->SetStringField(TEXT("path"), B.Paths[i]);
+				It->SetNumberField(TEXT("item"), i);
 				It->SetStringField(TEXT("state"), State);
 				if (!Error.IsEmpty())
 				{

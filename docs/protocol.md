@@ -249,7 +249,7 @@
 - 真改时有失败（含编译出错）：`onError: "rollback"`（默认）后面的不做，把这批已改成功的按倒序撤回：`bp.edit`、`datatable.set` 用结果里的 `tx` 调 `asset.undo`，`set` 用结果里的 `prev` 把值设回去；复制、改名、删除没有事务，撤不回，汇总里写明。`"keep"` 保留改成功的，接着做后面的。
 - `bp.edit` 的 `compile: "end"`：每个蓝图改完不编译，整批改完再逐个 `bp.compile`（有父子关系的一批蓝图不会被反复编译）。
 - 每步在作业里的阶段：`dryRun`、`apply`（写）/ `run`（读）、`compile`、`undo`。
-- `job.get` / `job.wait` 对批量作业不列每一步，而是给 `batch`：`{op, items, ok?, failed?, skipped?, rolledBack?, dryRunOk?, pending?, stopped?, listed?, list: [{path, state, error?}]}`。各状态的个数只写不为 0 的；`list` 失败和回滚的排前面，放不下时只列前 `listed` 个。每步的完整参数和结果在 `report` 文件（`Saved/UELink/jobs/<作业号>.json`，`steps` 每项带 `item`、`phase`，另有不截断的 `batch`）。
+- `job.get` / `job.wait` 对批量作业不列每一步，而是给 `batch`：`{op, items, ok?, failed?, skipped?, rolledBack?, dryRunOk?, pending?, stopped?, listed?, list: [{path, item, state, error?}]}`（`item` 是这个资源在 paths / items 里的下标）。各状态的个数只写不为 0 的；`list` 失败和回滚的排前面，放不下时只列前 `listed` 个。每步的完整参数和结果在 `report` 文件（`Saved/UELink/jobs/<作业号>.json`，`steps` 每项带 `item`、`phase`，另有不截断的 `batch`）。
 - 作业整体的 `status`：有资源失败、演练没过或回滚过时是 `failed`，否则 `done`。`job.stop` 取消批量作业时不回滚已经做完的。
 - 作业的 `steps`（`job.start`）上限 2.14 起是 2000 步（原来 500）。
 
