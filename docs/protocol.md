@@ -242,7 +242,7 @@
 登记了能批量的操作，参数里给 `paths` 或 `items` 时不直接执行，而是展开成一个作业（上一节），同一组参数逐个作用到每个资源，马上回作业号。客户端按 `GET /info` 的 `batchOps`（能批量的操作名）判断。
 
 - 能批量的操作：读 `bp.outline`、`bp.graph`、`bp.compile`、`asset.describe`、`asset.refs`、`asset.export`、`get`、`props`；写 `bp.edit`、`set`、`datatable.set`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.undo`（撤回一整批：`items: [{path, tx}]`）。新操作要支持批量，在登记处加一行 `AddBatchOp(名字, FAgentPanelBatchInfo)`（编辑器的在 `AgentPanelBridgeEditor.cpp` 的 `RegisterEditorBatchOps`）。
-- `<操作> {"paths": [路径...] | "items": [{"path", "vars"?, ...这一项自己的参数}], ...其余参数照常, "dryRun"?, "dryRunFirst"?: true, "onError"?: "rollback", "compile"?: "end"}`，或 `job.batch {"op", 同上}`。一次 1 到 2000 个资源，同一路径不能出现两次。
+- `<操作> {"paths": [路径...] | "items": [{"path", "vars"?, ...这一项自己的参数}], ...其余参数照常, "dryRun"?, "dryRunFirst"?: true, "onError"?: "rollback", "compile"?: "end"}`，或 `job.batch {"op", 同上}`。一次至少 1 个资源（2.14 最多 2000 个，2.15 起不限），同一路径不能出现两次。
   - 公共参数和这一项的参数合并（同名的以这一项为准），`path` 换成这一项的路径。
   - 字符串参数里的占位符逐个替换：`{name}`（资源名，`/Game/A/BP_X.BP_X` → `BP_X`）、`{path}`、`{dir}`（`/Game/A`）、`{vars.键}`（这一项 `vars` 里的值；整个字符串就是 `{vars.键}` 时原样换成那个值，数字、对象都行）。认不出的原样留着。
 - 写操作（`bp.edit`、`asset.duplicate / rename / delete`）认 `dryRun` 的先整批演练（`dryRunFirst: false` 跳过）：有一个失败（含蓝图编译出错）整批不改，`batch.stopped = "dryRun"`。`dryRun: true` 只演练。
@@ -264,6 +264,8 @@
 `bp.edit` 的增加类操作（`add_variable`、`add_function`、`add_component`（给了 `name` 时）、`add_interface`）2.14 起认 `ifMissing: true`：已经有同名的就跳过，这一步结果带 `skipped: true`，不算失败。同一组操作可以放心重跑。
 
 `assets` 2.14 起多三个筛选，都只读资源注册表、不加载资源：`parent`（蓝图父类名，含间接继承，原生父类按 `NativeParentClass` 标签认，带不带 `_C` 都行）、`tags`（`{"键": "值"}`，值写 `"*"` 表示有这个标签就行）、`recursive`（默认 true，false 只看这一层目录）。
+
+`assets` 2.15 起：`paths`（目录数组，给了就不看 `path`）；`name`（名字通配符，字符串或数组，`*`、`?`，不分大小写，对上任一个就留）、`exclude`（同样写法，对上任一个就去掉），模式里带 `/` 时比对包路径（如 `/Game/Enemies/Old/*`），否则比对资源名；`parent` 给 C++ 类时认整条继承链（蓝图最近的 C++ 父类是它的子类就算，以前只认最近那一层）。`limit` 写 0 时不截断（其他值照旧 1–2000）。批量操作（`paths` / `items`）2.15 起不再限 2000 个。旧版本不认这几个字段会忽略，客户端按版本判断或自己再筛一遍。
 
 ## 3. 推送通道：TCP，一行一个 JSON
 
