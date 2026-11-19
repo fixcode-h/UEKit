@@ -5,9 +5,11 @@
 #include "AgentPanelBridge.h"
 #include "AssetForgeVersion.h"
 #include "Core/ForgeDiffSnapshot.h"
+#include "Core/ForgeDocSource.h"
 #include "Core/ForgeJsonText.h"
 #include "Core/ForgePipeline.h"
 #include "Core/ForgePropertySchema.h"
+#include "Core/ForgeSections.h"
 #include "Core/ForgeTypes.h"
 #include "Integration/ForgeJobs.h"
 #include "Registry/ForgeKindRegistry.h"
@@ -315,6 +317,57 @@ namespace
 		Out->SetObjectField(TEXT("entry"), Entry.ToJson());
 		Out->SetStringField(TEXT("stateLabel"), ForgeState::GetLabel(Entry.State).ToString());
 		Out->SetStringField(TEXT("stateDescription"), ForgeState::GetDescription(Entry.State).ToString());
+
+		// 段：配置长时 Agent 只取一段（section），面板按段导航。include 对这里透明：读的是展开后的文档。
+		const FString Section = Str(Args, TEXT("section"));
+		ForgeDocSource::FExpanded Expanded;
+		TArray<FForgeDiagnostic> ExpandDiagnostics;
+		const bool bExpanded = ForgeDocSource::LoadFile(ConfigPath, Expanded, ExpandDiagnostics);
+		if (bExpanded)
+		{
+			const TArray<FString> BodySections = ForgeKindSchema::GetBodySections(Entry.Kind);
+			TArray<TSharedPtr<FJsonValue>> SectionItems;
+			for (const FString& Name : ForgeSections::ListPresent(Expanded.Json, BodySections))
+			{
+				const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
+				Item->SetStringField(TEXT("name"), Name);
+				if (const FString* Fragment = Expanded.Origins.Find(Name))
+				{
+					// 整段放在片段文件里（相对主文件）
+					Item->SetStringField(TEXT("include"), *Fragment);
+				}
+				SectionItems.Add(MakeShared<FJsonValueObject>(Item));
+			}
+			Out->SetArrayField(TEXT("sections"), SectionItems);
+
+			if (!Section.IsEmpty())
+			{
+				const TSharedPtr<FJsonObject> Part = ForgeSections::Extract(Expanded.Json, Section, BodySections);
+				if (!Part.IsValid())
+				{
+					Error = FString::Printf(TEXT("这份配置没有「%s」段（有的段：%s）"), *Section,
+						*FString::Join(ForgeSections::ListPresent(Expanded.Json, BodySections), TEXT("、")));
+					return false;
+				}
+				const FString SectionText = ForgeJsonText::ToPrettyString(Part);
+				const bool bSectionTruncated = SectionText.Len() > MaxConfigTextChars;
+				Out->SetStringField(TEXT("section"), Section);
+				Out->SetStringField(TEXT("sectionText"), bSectionTruncated ? SectionText.Left(MaxConfigTextChars) : SectionText);
+				if (bSectionTruncated)
+				{
+					Out->SetBoolField(TEXT("sectionTextTruncated"), true);
+					Out->SetNumberField(TEXT("sectionTextLength"), SectionText.Len());
+				}
+				// 只要一段时不再带整份原文：省返回长度，这正是按段读的目的。
+				return true;
+			}
+		}
+		else if (!Section.IsEmpty())
+		{
+			Error = FString::Printf(TEXT("配置读不了，取不了段：%s"),
+				ExpandDiagnostics.Num() > 0 ? *ExpandDiagnostics[0].Message : TEXT("未知原因"));
+			return false;
+		}
 
 		FString Text;
 		if (FFileHelper::LoadFileToString(Text, *ConfigPath))

@@ -2,4 +2,4 @@
 // 登记扩展时报给 UELink（名片和 /info 的 extensions），面板据此判断编辑器里实际加载的是哪一版。
 #pragma once
 
-#define ASSETFORGE_VERSION TEXT("1.5.1")
+#define ASSETFORGE_VERSION TEXT("1.6.0")

@@ -15,7 +15,7 @@
 namespace ForgeEditorUtils
 {
 	/**
-	 * 名字（单个文件名或目录名）是不是插件的生成物——以 `_` 开头。
+	 * 名字（单个文件名或目录名）是不是插件的生成物——以 `_` 或 `.` 开头（`.schema/`；`.`、`..` 除外）。
 	 *
 	 * 用**形状**而不是名字清单：`_schema/`、`_forge-state.json` 都是插件自己写的，
 	 * 将来再加一个生成物也不必改这里。历史上三处各写各的（`StartsWith("_")` /
@@ -52,6 +52,8 @@ namespace ForgeEditorUtils
 
 		/** `Parsed` 时有值。 */
 		FString Kind;
+		/** 展开过的片段文件（include，绝对路径）。 */
+		TArray<FString> Fragments;
 		FString AssetPath;
 		FString ParentClass;
 		int32 Revision = 0;

@@ -58,6 +58,7 @@
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
 | 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors`、`asset.import`、`asset.reimport`、`editor.functions`、`editor.call` |
+| 控件蓝图（编辑器，2.17） | `umg.design`、`umg.anims`、`umg.render` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
@@ -101,6 +102,22 @@
 - `tasks {"t0"?, "t1"?, "sort"?: "exec|wait", "filter"?, "top"?}` → `{"tasks", "names", "items": [{"name", "count", "execMs", "execMaxMs", "waitMs", "waitMaxMs"}], "slowest": [{"name", "start", "execMs", "waitMs", "lane"}]}`（`task` 通道）。`wait` 是从发起到开始执行的排队时间。
 - `switches {"t0"?, "t1"?, "lanes"?}` → `{"items": [{"lane", "name", "runMs", "runShare", "switches"}]}`（`contextswitch` 通道，Windows 要管理员权限）：每条线程真正在 CPU 上跑的时间。
 - `net {"t0"?, "t1"?}` → `{"instances": [{"instance", "server", "connections": [{"name", "address", "out"?: {"packets", "kb", "maxBytes", "kbPerSec"}, "in"?: {…}}]}]}`（`net` 通道）。
+
+2.17.0 起按 UE 控件蓝图编辑器的样子在网页上看 UMG（只在编辑器进程里有，`umg.render` 还要有 Slate 渲染器，后台编辑器里不行；`features` 里有 `umg.design`、`umg.render`、`umg.anims`，旧桥接没有时网页降级成近似预览）。`path` 都认控件蓝图资源路径（`/Game/A/WBP_X`、`/Game/A/WBP_X.WBP_X`）、生成类（`.WBP_X_C`）、类默认对象和蓝图里某个控件模板的路径：
+
+- `umg.design {"path"}` → `{"asset", "parent"?, "root": 节点 | null, "animations": 动画个数}`：控件蓝图设计时的控件树（`UWidgetBlueprint::WidgetTree`，不是运行中的实例，不用开 PIE；`umg.tree` 只认运行中的实例）。`parent` 是父类路径（父类就是 `UserWidget` 时不写）；没有根控件时 `root` 为 `null`。
+  - 节点 `{"name", "class", "path", "var"?: true, "visibility"?, "slot"?, "active"?, "user"?: true, "asset"?, "children": [节点], "truncated"?: true}`：`path` 是控件模板的完整对象路径（`/Game/A/WBP_X.WBP_X:WidgetTree.Btn_OK`），拿它调 `props` / `get` 读细节；`var` 是「是变量」；`visibility` 不是 `Visible` 时才写（`Collapsed`、`Hidden`、`HitTestInvisible`、`SelfHitTestInvisible`）；`slot` 是插槽类短名（`CanvasPanelSlot`）；`active` 是 WidgetSwitcher 的当前页（第 0 页也写）；嵌套的控件蓝图标 `user`，`asset` 是它的资源路径，不展开它的内部（点进去再对它调 `umg.design`）。子控件按面板的子控件和命名插槽（Named Slot）的内容走。
+  - 上限和 `umg.tree` 一样：深度 64、节点 5000，超了的那一层标 `truncated`。
+- `umg.anims {"path"}` → `{"animations": [{"name", "length", "tracks": [{"target", "channel", "keys": [[秒, 值, "cubic|linear|constant"]]}], "skipped"?: [{"target", "channel"?, "reason"}]}], "truncated"?: true}`：只读，形状和 AssetForge 配置的 `animations` 一致（没装 AssetForge 也能看）。
+  - `length` 是播放范围的秒数；`target` 是控件路径（`Root/Shell/Btn_OK`，第一段是根控件名，和 AssetForge 一致）；`channel` 沿用 AssetForge 的白名单：`RenderOpacity`、`RenderTransform.Translation.X|Y`、`RenderTransform.Scale.X|Y`、`RenderTransform.Shear.X|Y`、`RenderTransform.Angle`、`slot.Padding.Left|Top|Right|Bottom`。UE 编辑器建的 2D 变换轨道和整条 Padding 轨道拆成这些分量。
+  - 读不懂的轨道（颜色、可见性、事件、绑在控件蓝图自身上的、别的属性）列在这个动画的 `skipped` 里，不悄悄丢；一条轨道多个片段时只读第一段，也记一条。
+  - 关键帧总数最多 1500，超了截断并回 `truncated: true`。
+- `umg.render {"path", "width"?: 1920, "height"?: 1080, "dpi"?: 1, "anim"?, "time"?: 0}` → `{"file", "width", "height", "widgets": [{"name", "x", "y", "w", "h"}], "ms", "note"?}`：离屏渲染一帧预览图。
+  - 做法照 UE 设计器：在编辑器世界里建一个打了设计器标志的实例（不跑 Construct，跑 PreConstruct），用 UMG 的 `FWidgetRenderer` 画进 RenderTarget、读回像素存 PNG（带透明通道）。`width` / `height` 是图的像素（16–7680 × 16–4320），`dpi` 是 UE 设计器的 DPI 缩放（0.25–4，布局区域 = 像素 / dpi）。同步做，一次在百毫秒级。
+  - 图写进 `<项目>/Saved/UELink/preview/<资产名>-<路径 CRC>.png`，同一个资产覆盖旧图（网页按 `ms` 或时间戳防缓存）。
+  - `widgets` 是控件蓝图自己这棵树里每个画出来的控件在图里的矩形（像素，按绘制几何，不含渲染变换的旋转），名字和 `umg.design` 的 `name` 对应；折叠、隐藏、零尺寸的不列，最多 2000 个；取不到时为空数组并在 `note` 里说明。
+  - 给了 `anim`（动画名，见 `umg.anims`）时按 `time`（秒）求该动画白名单通道的值写到实例上再画（曲线首尾之外按首尾值）；找不到动画、有不支持的轨道时照常画，并在 `note` 里写明。
+  - 蓝图有没编译的改动时画的是上次编译的结果（`note` 里写明）；编译出错、没有生成类、抽象类时返回 `ok: false` 和原因。
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。

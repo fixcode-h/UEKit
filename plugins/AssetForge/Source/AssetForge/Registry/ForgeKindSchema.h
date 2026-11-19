@@ -28,4 +28,14 @@ namespace ForgeKindSchema
 	 * 未登记的 kind 返回空。
 	 */
 	ASSETFORGE_API TSharedPtr<FJsonObject> Build(const FString& InKind);
+
+	/**
+	 * 这种 kind 的大段，按写回顺序：`styles`、`root`，再加形状里登记的段（UMG 的 `animations`……）。
+	 * 头段（kind、asset 等小字段）不在里面，总是排在最前。配置写回时顶层字段按它重排（`ForgeSections::Reorder`），
+	 * schema 的 `x-forge.sections` 也列同一份。未登记的 kind 给 `styles`、`root`。
+	 */
+	ASSETFORGE_API TArray<FString> GetBodySections(const FString& InKind);
+
+	/** 片段文件（被 include 的那种）的 schema：`fragment` + 同名字段，不许有 kind。 */
+	ASSETFORGE_API TSharedPtr<FJsonObject> BuildFragment();
 }

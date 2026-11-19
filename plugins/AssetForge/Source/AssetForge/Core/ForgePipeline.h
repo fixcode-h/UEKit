@@ -41,7 +41,13 @@ namespace ForgePipeline
 	 */
 	ASSETFORGE_API bool CollectRefConfigs(const FString& InConfigPath, TArray<FString>& OutConfigPaths);
 
-	/** 读配置文件 → 文档（含注释剥离、字段校验、schema 版本门禁与 ref 解析）。 */
+	/** 给编辑器用的 JSON Schema 文件目录：`<配置根>/.schema`（`.` 开头，扫描配置时跳过）。 */
+	ASSETFORGE_API FString GetSchemaDir();
+
+	/** 配置文件头部 `$schema` 的写法：从这个文件到 `.schema/<InSchemaName>.schema.json` 的相对路径。 */
+	ASSETFORGE_API FString MakeSchemaRef(const FString& InFilePath, const FString& InSchemaName);
+
+	/** 读配置文件 → 文档（含注释剥离、include 展开、字段校验、schema 版本门禁与 ref 解析）。 */
 	ASSETFORGE_API bool LoadDocument(const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
 	/**
@@ -50,7 +56,10 @@ namespace ForgePipeline
 	 */
 	ASSETFORGE_API bool LoadDocumentFromText(const FString& InText, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 
-	/** 把文档写回配置文件。 */
+	/**
+	 * 把文档写回配置文件：保留原来的 include 结构（片段内容写回片段文件），每个文件补 `$schema`、
+	 * 顶层按段重排（`ForgeKindSchema::GetBodySections`），内容和磁盘上等价的文件不重写。
+	 */
 	ASSETFORGE_API bool SaveDocument(const FString& InConfigPath, const FForgeDocument& InDocument, FForgeReport& OutReport);
 
 	/**

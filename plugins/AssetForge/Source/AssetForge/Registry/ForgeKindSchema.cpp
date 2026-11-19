@@ -3,6 +3,8 @@
 #include "Registry/ForgeKindSchema.h"
 
 #include "Core/ForgeDoc.h"
+#include "Core/ForgeSections.h"
+#include "Kinds/Umg/UmgAnimationCodec.h"
 #include "Registry/ForgeKindRegistry.h"
 
 #include "Kinds/Actor/ActorBlueprintForge.h"
@@ -59,8 +61,13 @@ namespace
 		/** `parent` 说明；空 = 这个 kind 不用 `parent`。 */
 		const TCHAR* ParentHint = nullptr;
 		bool bParentRequired = false;
-		/** 文档顶层的扩展字段。 */
+		/** 文档顶层的小字段（写在头段里，如 skeleton、blackboard）。 */
 		TArray<FField> DocFields;
+		/**
+		 * 文档顶层的大段，按写回顺序排在 root 后面（UMG 的 animations……）。
+		 * 段的顺序就是配置写回时顶层字段的顺序，面板的段导航和 Agent 的按段读写也按它来。
+		 */
+		TArray<FField> Sections;
 		/** 节点（根和子节点）上的扩展字段。 */
 		TArray<FField> NodeFields;
 		/** 写配置时最容易踩的坑，一两句。 */
@@ -82,7 +89,7 @@ namespace
 				S.PropsHint = PropsByClass;
 				S.ChildrenHint = TEXT("子控件，结构同根节点；按 name 匹配（缺的建、有的改、多的删、顺序变的重排），整棵树里 name 不能重名；slot 写父面板槽的属性（CanvasPanelSlot 的 LayoutData 等）");
 				S.ParentHint = TEXT("控件蓝图父类，缺省 /Script/UMG.UserWidget");
-				S.DocFields = {{TEXT("animations"), TEXT("array"), TEXT("控件动画；没写等于资产里不该有动画")}};
+				S.Sections = {{TEXT("animations"), TEXT("array"), TEXT("控件动画；没写等于资产里不该有动画。关键帧可写简写 [时间, 值, 插值?]")}};
 				S.Notes = TEXT("先 plan 演练再 import；属性和默认值相同时会被归一化删掉");
 			}
 			{
@@ -126,8 +133,8 @@ namespace
 				S.RootClassHint = TEXT("根状态（照导出的写）");
 				S.PropsHint = TEXT("状态没有 props，字段写在节点的扩展字段里");
 				S.ChildrenHint = TEXT("子状态，按 name 匹配（改名 = 删旧建新）");
-				S.DocFields = {
-					{TEXT("schema"), TEXT("string"), TEXT("状态树 schema 类")},
+				S.DocFields = {{TEXT("schema"), TEXT("string"), TEXT("状态树 schema 类")}};
+				S.Sections = {
 					{TEXT("parameters"), TEXT("object"), TEXT("全局参数")},
 					{TEXT("evaluators"), TEXT("array"), TEXT("评估器：[{type, name, props}]")},
 					{TEXT("globalTasks"), TEXT("array"), TEXT("全局任务：[{type, name, props}]")},
@@ -276,14 +283,6 @@ namespace
 		return P;
 	}
 
-	void AddFields(const TSharedRef<FJsonObject>& InProps, const TArray<FField>& InFields)
-	{
-		for (const FField& F : InFields)
-		{
-			InProps->SetObjectField(F.Name, Prop(F.Type, F.Description));
-		}
-	}
-
 	TArray<TSharedPtr<FJsonValue>> Names(std::initializer_list<const TCHAR*> InNames)
 	{
 		TArray<TSharedPtr<FJsonValue>> Out;
@@ -292,6 +291,134 @@ namespace
 			Out.Add(MakeShared<FJsonValueString>(N));
 		}
 		return Out;
+	}
+
+	TArray<TSharedPtr<FJsonValue>> StringValues(const TArray<FString>& InValues)
+	{
+		TArray<TSharedPtr<FJsonValue>> Out;
+		for (const FString& Value : InValues)
+		{
+			Out.Add(MakeShared<FJsonValueString>(Value));
+		}
+		return Out;
+	}
+
+	/** 「这里写 A，或写 B」：两个分支都给成对象再包 anyOf。 */
+	TSharedRef<FJsonObject> AnyOf(const TSharedRef<FJsonObject>& InFirst, const TSharedRef<FJsonObject>& InSecond, const FString& InDescription)
+	{
+		const TSharedRef<FJsonObject> P = MakeShared<FJsonObject>();
+		if (!InDescription.IsEmpty())
+		{
+			P->SetStringField(TEXT("description"), InDescription);
+		}
+		TArray<TSharedPtr<FJsonValue>> Options;
+		Options.Add(MakeShared<FJsonValueObject>(InFirst));
+		Options.Add(MakeShared<FJsonValueObject>(InSecond));
+		P->SetArrayField(TEXT("anyOf"), Options);
+		return P;
+	}
+
+	/** `{ "include": "相对路径.json" }`：节点或整段放在片段文件里（还是同一个资产，和 ref 不同）。 */
+	TSharedRef<FJsonObject> IncludeSchema()
+	{
+		const TSharedRef<FJsonObject> Include = Prop(TEXT("object"), TEXT("内容放在片段文件里：路径相对本文件，片段顶层写 fragment（node 或段名）和同名字段"));
+		const TSharedRef<FJsonObject> Props = MakeShared<FJsonObject>();
+		Props->SetObjectField(TEXT("include"), Prop(TEXT("string"), TEXT("片段文件路径（相对引用它的文件）")));
+		Props->SetObjectField(TEXT("//"), Prop(TEXT("string"), TEXT("注释")));
+		Include->SetObjectField(TEXT("properties"), Props);
+		Include->SetArrayField(TEXT("required"), Names({TEXT("include")}));
+		Include->SetBoolField(TEXT("additionalProperties"), false);
+		return Include;
+	}
+
+	/** 节点上的 `style`：样式名或样式名数组（后面的覆盖前面的）。名字要在顶层 styles 里有，演练会查。 */
+	TSharedRef<FJsonObject> StyleRefSchema()
+	{
+		const TSharedRef<FJsonObject> Item = Prop(TEXT("string"), TEXT("样式名"));
+		Item->SetNumberField(TEXT("minLength"), 1);
+		const TSharedRef<FJsonObject> List = Prop(TEXT("array"), TEXT("几个样式，后面的覆盖前面的"));
+		List->SetObjectField(TEXT("items"), Item);
+		List->SetNumberField(TEXT("minItems"), 1);
+		return AnyOf(Item, List, TEXT("引用顶层 styles 里的样式；节点自己写的 props / slot 覆盖样式"));
+	}
+
+	/** 顶层 `styles`：样式名 → { props?, slot? }。 */
+	TSharedRef<FJsonObject> StylesSchema()
+	{
+		const TSharedRef<FJsonObject> Style = Prop(TEXT("object"), TEXT("一个样式"));
+		const TSharedRef<FJsonObject> StyleProps = MakeShared<FJsonObject>();
+		StyleProps->SetObjectField(TEXT("props"), Prop(TEXT("object"), TEXT("节点属性（和节点的 props 同写法）")));
+		StyleProps->SetObjectField(TEXT("slot"), Prop(TEXT("object"), TEXT("父容器槽的属性（和节点的 slot 同写法）")));
+		StyleProps->SetObjectField(TEXT("//"), Prop(TEXT("string"), TEXT("注释")));
+		Style->SetObjectField(TEXT("properties"), StyleProps);
+		Style->SetBoolField(TEXT("additionalProperties"), false);
+
+		const TSharedRef<FJsonObject> Styles = Prop(TEXT("object"), TEXT("命名样式：节点写 \"style\": \"名字\" 引用；对象字段逐个合并，节点自己写的覆盖样式"));
+		Styles->SetObjectField(TEXT("additionalProperties"), Style);
+		return Styles;
+	}
+
+	/** UMG `animations` 的细结构：通道给枚举，关键帧两种写法。 */
+	TSharedRef<FJsonObject> UmgAnimationsSchema(const FString& InDescription)
+	{
+		const TSharedRef<FJsonObject> KeyObject = Prop(TEXT("object"), TEXT("关键帧"));
+		{
+			const TSharedRef<FJsonObject> KeyProps = MakeShared<FJsonObject>();
+			KeyProps->SetObjectField(TEXT("time"), Prop(TEXT("number"), TEXT("秒")));
+			KeyProps->SetObjectField(TEXT("value"), Prop(TEXT("number"), TEXT("值")));
+			const TSharedRef<FJsonObject> Interp = Prop(TEXT("string"), TEXT("插值，缺省 cubic"));
+			Interp->SetArrayField(TEXT("enum"), Names({TEXT("cubic"), TEXT("linear"), TEXT("constant")}));
+			KeyProps->SetObjectField(TEXT("interp"), Interp);
+			KeyObject->SetObjectField(TEXT("properties"), KeyProps);
+			KeyObject->SetArrayField(TEXT("required"), Names({TEXT("time"), TEXT("value")}));
+			KeyObject->SetBoolField(TEXT("additionalProperties"), false);
+		}
+
+		const TSharedRef<FJsonObject> KeyShort = Prop(TEXT("array"), TEXT("简写 [时间(秒), 值, 插值?]"));
+		{
+			const TSharedRef<FJsonObject> Interp = Prop(TEXT("string"), TEXT("插值"));
+			Interp->SetArrayField(TEXT("enum"), Names({TEXT("cubic"), TEXT("linear"), TEXT("constant")}));
+			TArray<TSharedPtr<FJsonValue>> Items;
+			Items.Add(MakeShared<FJsonValueObject>(Prop(TEXT("number"), TEXT("时间（秒）"))));
+			Items.Add(MakeShared<FJsonValueObject>(Prop(TEXT("number"), TEXT("值"))));
+			Items.Add(MakeShared<FJsonValueObject>(Interp));
+			KeyShort->SetArrayField(TEXT("prefixItems"), Items);
+			KeyShort->SetNumberField(TEXT("minItems"), 2);
+			KeyShort->SetNumberField(TEXT("maxItems"), 3);
+		}
+
+		const TSharedRef<FJsonObject> Keys = Prop(TEXT("array"), TEXT("关键帧，至少一个"));
+		Keys->SetObjectField(TEXT("items"), AnyOf(KeyShort, KeyObject, FString()));
+		Keys->SetNumberField(TEXT("minItems"), 1);
+
+		const TSharedRef<FJsonObject> Channel = Prop(TEXT("string"), TEXT("通道"));
+		Channel->SetArrayField(TEXT("enum"), StringValues(UmgAnimationCodec::GetChannelNames()));
+
+		const TSharedRef<FJsonObject> Track = Prop(TEXT("object"), TEXT("轨道"));
+		{
+			const TSharedRef<FJsonObject> TrackProps = MakeShared<FJsonObject>();
+			TrackProps->SetObjectField(TEXT("target"), Prop(TEXT("string"), TEXT("控件路径，从根控件名起：Root/Main/Title")));
+			TrackProps->SetObjectField(TEXT("channel"), Channel);
+			TrackProps->SetObjectField(TEXT("keys"), Keys);
+			Track->SetObjectField(TEXT("properties"), TrackProps);
+			Track->SetArrayField(TEXT("required"), Names({TEXT("target"), TEXT("channel"), TEXT("keys")}));
+		}
+
+		const TSharedRef<FJsonObject> Tracks = Prop(TEXT("array"), TEXT("轨道"));
+		Tracks->SetObjectField(TEXT("items"), Track);
+
+		const TSharedRef<FJsonObject> Animation = Prop(TEXT("object"), TEXT("一条动画"));
+		{
+			const TSharedRef<FJsonObject> AnimationProps = MakeShared<FJsonObject>();
+			AnimationProps->SetObjectField(TEXT("name"), Prop(TEXT("string"), TEXT("动画名，资产内唯一")));
+			AnimationProps->SetObjectField(TEXT("tracks"), Tracks);
+			Animation->SetObjectField(TEXT("properties"), AnimationProps);
+			Animation->SetArrayField(TEXT("required"), Names({TEXT("name")}));
+		}
+
+		const TSharedRef<FJsonObject> Animations = Prop(TEXT("array"), InDescription);
+		Animations->SetObjectField(TEXT("items"), Animation);
+		return Animations;
 	}
 
 	/** 节点 schema：根和子节点结构一样，区别只在 class 约束、children 许不许有。 */
@@ -312,6 +439,7 @@ namespace
 		}
 		Props->SetObjectField(TEXT("name"), Prop(TEXT("string"), bRoot ? TEXT("根节点名（一般和资产同名，仅作对照）") : TEXT("节点名")));
 		Props->SetObjectField(TEXT("ref"), Prop(TEXT("string"), TEXT("引用另一份配置（嵌套资产时用），给了可以省 class")));
+		Props->SetObjectField(TEXT("style"), StyleRefSchema());
 
 		FString PropsHint = InShape != nullptr && InShape->PropsHint != nullptr ? InShape->PropsHint : PropsByClass;
 		if (!bRoot)
@@ -326,7 +454,8 @@ namespace
 			Props->SetObjectField(TEXT("slot"), Prop(TEXT("object"), TEXT("父容器槽的属性（UMG 用）")));
 			const TSharedRef<FJsonObject> Children = Prop(
 				TEXT("array"), InShape != nullptr && InShape->ChildrenHint != nullptr ? InShape->ChildrenHint : TEXT("子节点"));
-			Children->SetObjectField(TEXT("items"), Ref(TEXT("node")));
+			// 子节点位置可以写 include：片段里的一个或一组节点原样展开到这里。
+			Children->SetObjectField(TEXT("items"), AnyOf(Ref(TEXT("node")), Ref(TEXT("include")), FString()));
 			Props->SetObjectField(TEXT("children"), Children);
 		}
 		else if (bRoot)
@@ -338,17 +467,42 @@ namespace
 
 		if (InShape != nullptr)
 		{
-			AddFields(Props, InShape->NodeFields);
+			for (const FField& F : InShape->NodeFields)
+			{
+				Props->SetObjectField(F.Name, Prop(F.Type, F.Description));
+			}
 		}
 		Node->SetObjectField(TEXT("properties"), Props);
 		Node->SetArrayField(TEXT("required"), Names({TEXT("name")}));
 		return Node;
+	}
+
+	TSharedRef<FJsonObject> SectionInfo(const FString& InName, const FString& InDescription)
+	{
+		const TSharedRef<FJsonObject> Info = MakeShared<FJsonObject>();
+		Info->SetStringField(TEXT("name"), InName);
+		Info->SetStringField(TEXT("description"), InDescription);
+		return Info;
 	}
 }
 
 bool HasShape(const FString& InKind)
 {
 	return FindShape(InKind) != nullptr;
+}
+
+TArray<FString> GetBodySections(const FString& InKind)
+{
+	// styles 在 root 前：树里引用它，人从上往下读时先看到定义。
+	TArray<FString> Out = {TEXT("styles"), TEXT("root")};
+	if (const FShape* Shape = FindShape(InKind))
+	{
+		for (const FField& F : Shape->Sections)
+		{
+			Out.Add(F.Name);
+		}
+	}
+	return Out;
 }
 
 TSharedPtr<FJsonObject> Build(const FString& InKind)
@@ -365,11 +519,13 @@ TSharedPtr<FJsonObject> Build(const FString& InKind)
 	Schema->SetStringField(TEXT("title"), FString::Printf(TEXT("AssetForge %s 配置"), Info->DisplayName));
 	Schema->SetStringField(
 		TEXT("description"),
-		FString::Printf(TEXT("放在配置根的 %s/ 下，路径和资产路径对应（/Game/A/B ↔ %s/A/B.json）。允许 // 注释。"),
+		FString::Printf(TEXT("放在配置根的 %s/ 下，路径和资产路径对应（/Game/A/B ↔ %s/A/B.json）。允许 // 注释。顶层按段排：头 → styles → root → 其余段（见 x-forge.sections）。"),
 			Info->ConfigDirName, Info->ConfigDirName));
 	Schema->SetStringField(TEXT("type"), TEXT("object"));
 
 	const TSharedRef<FJsonObject> Props = MakeShared<FJsonObject>();
+	Props->SetObjectField(TEXT("$schema"), Prop(TEXT("string"), TEXT("给编辑器的格式指针，导出时自动写，读时忽略")));
+	Props->SetObjectField(TEXT("//"), Prop(TEXT("string"), TEXT("注释")));
 	Props->SetObjectField(TEXT("kind"), ConstProp(Info->Kind, TEXT("")));
 	{
 		const TSharedRef<FJsonObject> Version = Prop(TEXT("integer"), TEXT("配置格式版本"));
@@ -386,10 +542,28 @@ TSharedPtr<FJsonObject> Build(const FString& InKind)
 	{
 		Props->SetObjectField(TEXT("parent"), Prop(TEXT("string"), Shape != nullptr ? Shape->ParentHint : TEXT("父类")));
 	}
-	Props->SetObjectField(TEXT("root"), Ref(TEXT("root")));
+
+	// 大段都可以整段写成 { "include": "片段.json" }。
+	Props->SetObjectField(TEXT("styles"), AnyOf(StylesSchema(), Ref(TEXT("include")), TEXT("命名样式")));
+	Props->SetObjectField(TEXT("root"), AnyOf(Ref(TEXT("root")), Ref(TEXT("include")), TEXT("主体：控件树、组件树、行……")));
+
+	TArray<TSharedPtr<FJsonValue>> Sections;
+	Sections.Add(MakeShared<FJsonValueObject>(SectionInfo(ForgeSections::HeaderSection, TEXT("头：$schema、//、kind、schemaVersion、revision、asset、parent 和其余小字段"))));
+	Sections.Add(MakeShared<FJsonValueObject>(SectionInfo(TEXT("styles"), TEXT("命名样式（可选），树里用 style 引用"))));
+	Sections.Add(MakeShared<FJsonValueObject>(SectionInfo(TEXT("root"), TEXT("主体：根节点和整棵子树"))));
 	if (Shape != nullptr)
 	{
-		AddFields(Props, Shape->DocFields);
+		for (const FField& F : Shape->DocFields)
+		{
+			Props->SetObjectField(F.Name, Prop(F.Type, F.Description));
+		}
+		for (const FField& F : Shape->Sections)
+		{
+			const bool bUmgAnimations = InKind == UmgForge::Kind && FCString::Strcmp(F.Name, TEXT("animations")) == 0;
+			const TSharedRef<FJsonObject> Body = bUmgAnimations ? UmgAnimationsSchema(F.Description) : Prop(F.Type, F.Description);
+			Props->SetObjectField(F.Name, AnyOf(Body, Ref(TEXT("include")), F.Description));
+			Sections.Add(MakeShared<FJsonValueObject>(SectionInfo(F.Name, F.Description)));
+		}
 	}
 	Schema->SetObjectField(TEXT("properties"), Props);
 
@@ -406,6 +580,7 @@ TSharedPtr<FJsonObject> Build(const FString& InKind)
 	{
 		Defs->SetObjectField(TEXT("node"), NodeSchema(Shape, /*bRoot=*/false));
 	}
+	Defs->SetObjectField(TEXT("include"), IncludeSchema());
 	Schema->SetObjectField(TEXT("$defs"), Defs);
 
 	// x-forge：不是 JSON Schema 的标准字段，给写配置的人（和 Agent）的提示
@@ -418,8 +593,36 @@ TSharedPtr<FJsonObject> Build(const FString& InKind)
 	{
 		Hints->SetStringField(TEXT("notes"), Shape->Notes);
 	}
-	Hints->SetStringField(TEXT("workflow"), TEXT("写完先 forge.plan（演练）看诊断和动作，再 forge.import"));
+	Hints->SetArrayField(TEXT("sections"), Sections);
+	Hints->SetStringField(TEXT("workflow"), TEXT("写完先 forge.plan（演练）看诊断和动作，再 forge.import；配置长时用 forge.describe section=<段名> 只读一段"));
 	Schema->SetObjectField(TEXT("x-forge"), Hints);
+	return Schema;
+}
+
+TSharedPtr<FJsonObject> BuildFragment()
+{
+	const TSharedRef<FJsonObject> Schema = MakeShared<FJsonObject>();
+	Schema->SetStringField(TEXT("$schema"), TEXT("https://json-schema.org/draft/2020-12/schema"));
+	Schema->SetStringField(TEXT("title"), TEXT("AssetForge 片段"));
+	Schema->SetStringField(TEXT("description"), TEXT("被某份配置 include 的片段：fragment 写 node（节点或节点数组，放在 node 字段）或段名（内容放在同名字段）。片段不是资源，不能写 kind。"));
+	Schema->SetStringField(TEXT("type"), TEXT("object"));
+
+	const TSharedRef<FJsonObject> Props = MakeShared<FJsonObject>();
+	Props->SetObjectField(TEXT("$schema"), Prop(TEXT("string"), TEXT("给编辑器的格式指针")));
+	Props->SetObjectField(TEXT("//"), Prop(TEXT("string"), TEXT("注释")));
+	Props->SetObjectField(TEXT("fragment"), Prop(TEXT("string"), TEXT("node，或段名（root、styles、animations……）")));
+	{
+		const TSharedRef<FJsonObject> NodeList = Prop(TEXT("array"), TEXT("一组节点"));
+		NodeList->SetObjectField(TEXT("items"), Prop(TEXT("object"), TEXT("节点，或 { \"include\": … }")));
+		Props->SetObjectField(TEXT("node"), AnyOf(Prop(TEXT("object"), TEXT("一个节点")), NodeList, TEXT("fragment = node 时的内容")));
+	}
+	Schema->SetObjectField(TEXT("properties"), Props);
+	Schema->SetArrayField(TEXT("required"), Names({TEXT("fragment")}));
+
+	// 片段和资源配置互斥：有 kind 的是资源配置
+	const TSharedRef<FJsonObject> NotKind = MakeShared<FJsonObject>();
+	NotKind->SetArrayField(TEXT("required"), Names({TEXT("kind")}));
+	Schema->SetObjectField(TEXT("not"), NotKind);
 	return Schema;
 }
 }

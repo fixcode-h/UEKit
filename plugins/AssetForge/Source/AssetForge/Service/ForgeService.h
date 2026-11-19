@@ -39,6 +39,9 @@ struct ASSETFORGE_API FForgeEntry
 	/** 解析失败原因等一句话说明。 */
 	FString Message;
 
+	/** 这份配置 include 的片段文件（绝对路径）；片段改了，这一项也算改了。 */
+	TArray<FString> Fragments;
+
 	bool IsConfig() const { return !ConfigPath.IsEmpty(); }
 	bool HasAsset() const { return !AssetPath.IsEmpty(); }
 
@@ -82,7 +85,10 @@ namespace ForgeService
 {
 	// ---- 扫描 ----
 
-	/** 递归扫描配置根下的全部配置（跳过 `_` 开头的生成物），并给出快速同步状态。 */
+	/**
+	 * 递归扫描配置根下的全部配置（跳过 `_`、`.` 开头的生成物和被 include 的片段文件），并给出快速同步状态。
+	 * 一个片段被几份配置引用时，在这几项的 Message 里提示。
+	 */
 	ASSETFORGE_API TArray<FForgeEntry> ScanConfigs();
 
 	/** 描述一份配置（解析 + 快速状态）。 */
