@@ -29,6 +29,8 @@ public class AssetForgeTests : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "UMG", "Json", "JsonUtilities", "CQTest" });
 		// Slate / SlateCore：示例测试界面（Sample/）的父类要绑下拉框、输入框的委托，参数类型 ESelectInfo / ETextCommit 在 SlateCore
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		// InputCore：示例界面的按键选择器回调要读 FKey 的名字（FKey 的函数在 InputCore 里导出，少了链接报 LNK2019）
+		PrivateDependencyModuleNames.Add("InputCore");
 		// 状态树只在 UE 5.8 上编（和 AssetForge.Build.cs 同一个判断，用例按 ASSETFORGE_WITH_STATETREE 跳过）
 		if (Target.Version.MajorVersion > 5 || (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion >= 8))
 		{
