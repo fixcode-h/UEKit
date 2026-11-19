@@ -340,19 +340,6 @@ namespace
 
 	//~ JSON 序列化（导出方向） ------------------------------------------------
 
-	TSharedRef<FJsonObject> KeyToJson(const FUmgKey& InKey)
-	{
-		TSharedRef<FJsonObject> Object = MakeShared<FJsonObject>();
-		Object->SetNumberField(TEXT("time"), FrameToSeconds(InKey.Frame));
-		Object->SetNumberField(TEXT("value"), InKey.Value);
-		// 缺省即 cubic：默认值不写，配置保持干净（与属性 delta 同一个品味）。
-		if (InKey.Interp != EUmgInterp::Cubic)
-		{
-			Object->SetStringField(TEXT("interp"), InterpToString(InKey.Interp));
-		}
-		return Object;
-	}
-
 	TSharedRef<FJsonObject> TrackToJson(const FUmgTrack& InTrack)
 	{
 		TSharedRef<FJsonObject> Object = MakeShared<FJsonObject>();
@@ -363,7 +350,7 @@ namespace
 		KeyValues.Reserve(InTrack.Keys.Num());
 		for (const FUmgKey& Key : InTrack.Keys)
 		{
-			KeyValues.Add(MakeShared<FJsonValueObject>(KeyToJson(Key)));
+			KeyValues.Add(KeyToJson(Key));
 		}
 		Object->SetArrayField(TEXT("keys"), KeyValues);
 		return Object;
@@ -599,6 +586,129 @@ double FrameToSeconds(int32 InFrame)
 	return static_cast<double>(InFrame) / static_cast<double>(TicksPerSecond);
 }
 
+namespace
+{
+	/** 插值文字 → 枚举；不认识时报错（路径指到插值所在的位置）。 */
+	bool ParseInterpField(const FString& InText, const FString& InPath, FUmgKey& OutKey, FForgeReport& OutReport)
+	{
+		if (TryParseInterp(InText, OutKey.Interp))
+		{
+			return true;
+		}
+		OutReport.AddError(InPath, FString::Printf(TEXT("interp 只能是 cubic / linear / constant，收到 `%s`"), *InText));
+		return false;
+	}
+
+	/**
+	 * 简写 `[time, value]` / `[time, value, "interp"]`。
+	 *
+	 * 按 JSON 类型严格判断（不用 TryGetNumber / TryGetString）：引擎的 JSON 值会把数字串当数字、
+	 * 把数字转成字符串，宽松读会让 `["0.3", 1]` 这种笔误悄悄通过。
+	 */
+	bool ParseShortKey(const TArray<TSharedPtr<FJsonValue>>& InItems, const FString& InKeyPath, FUmgKey& OutKey, FForgeReport& OutReport)
+	{
+		if (InItems.Num() < 2 || InItems.Num() > 3)
+		{
+			OutReport.AddError(InKeyPath, FString::Printf(TEXT("关键帧简写是 [时间, 值] 或 [时间, 值, \"cubic|linear|constant\"]，这里有 %d 项"), InItems.Num()));
+			return false;
+		}
+		const TSharedPtr<FJsonValue>& TimeValue = InItems[0];
+		const TSharedPtr<FJsonValue>& NumberValue = InItems[1];
+		if (!TimeValue.IsValid() || TimeValue->Type != EJson::Number)
+		{
+			OutReport.AddError(InKeyPath + TEXT("[0]"), TEXT("简写的第 1 项是时间（秒），必须是数字"));
+			return false;
+		}
+		if (!NumberValue.IsValid() || NumberValue->Type != EJson::Number)
+		{
+			OutReport.AddError(InKeyPath + TEXT("[1]"), TEXT("简写的第 2 项是值，必须是数字"));
+			return false;
+		}
+		OutKey.Frame = SecondsToFrame(TimeValue->AsNumber());
+		OutKey.Value = NumberValue->AsNumber();
+		if (InItems.Num() == 3)
+		{
+			const TSharedPtr<FJsonValue>& InterpValue = InItems[2];
+			if (!InterpValue.IsValid() || InterpValue->Type != EJson::String)
+			{
+				OutReport.AddError(InKeyPath + TEXT("[2]"), TEXT("简写的第 3 项是插值，必须是字符串 cubic / linear / constant"));
+				return false;
+			}
+			return ParseInterpField(InterpValue->AsString(), InKeyPath + TEXT("[2]"), OutKey, OutReport);
+		}
+		return true;
+	}
+
+	/** 一个关键帧：对象写法 `{time, value, interp?}` 或简写数组，两种等价。 */
+	bool ParseKey(const TSharedPtr<FJsonValue>& InValue, const FString& InKeyPath, FUmgKey& OutKey, FForgeReport& OutReport)
+	{
+		if (!InValue.IsValid())
+		{
+			OutReport.AddError(InKeyPath, TEXT("关键帧不能为空"));
+			return false;
+		}
+
+		const TArray<TSharedPtr<FJsonValue>>* ShortItems = nullptr;
+		if (InValue->Type == EJson::Array && InValue->TryGetArray(ShortItems) && ShortItems != nullptr)
+		{
+			return ParseShortKey(*ShortItems, InKeyPath, OutKey, OutReport);
+		}
+
+		const TSharedPtr<FJsonObject>* KeyObject = nullptr;
+		if (!InValue->TryGetObject(KeyObject) || KeyObject == nullptr || !KeyObject->IsValid())
+		{
+			OutReport.AddError(InKeyPath, TEXT("关键帧写成 {\"time\", \"value\", \"interp\"?} 对象，或简写 [时间, 值, 插值?]"));
+			return false;
+		}
+
+		double Time = 0.0;
+		double Value = 0.0;
+		if (!(*KeyObject)->TryGetNumberField(TEXT("time"), Time))
+		{
+			OutReport.AddError(InKeyPath + TEXT(".time"), TEXT("time 缺失（单位：秒）"));
+			return false;
+		}
+		if (!(*KeyObject)->TryGetNumberField(TEXT("value"), Value))
+		{
+			OutReport.AddError(InKeyPath + TEXT(".value"), TEXT("value 缺失"));
+			return false;
+		}
+		OutKey.Frame = SecondsToFrame(Time);
+		OutKey.Value = Value;
+
+		FString InterpText;
+		if ((*KeyObject)->TryGetStringField(TEXT("interp"), InterpText) && !InterpText.IsEmpty())
+		{
+			return ParseInterpField(InterpText, InKeyPath + TEXT(".interp"), OutKey, OutReport);
+		}
+		return true;
+	}
+}
+
+TArray<FString> GetChannelNames()
+{
+	TArray<FString> Out;
+	for (const FChannelSpec& Spec : SupportedChannels)
+	{
+		Out.Add(Spec.ConfigPath);
+	}
+	return Out;
+}
+
+TSharedPtr<FJsonValue> KeyToJson(const FUmgKey& InKey)
+{
+	// 导出写简写 `[时间, 值]`（插值不是缺省的 cubic 时加第 3 项）：动画一条轨道十几个关键帧，
+	// 对象写法一帧占三行，简写让配置能一眼看完一条轨道。读取时两种写法都认。
+	TArray<TSharedPtr<FJsonValue>> Items;
+	Items.Add(MakeShared<FJsonValueNumber>(FrameToSeconds(InKey.Frame)));
+	Items.Add(MakeShared<FJsonValueNumber>(InKey.Value));
+	if (InKey.Interp != EUmgInterp::Cubic)
+	{
+		Items.Add(MakeShared<FJsonValueString>(InterpToString(InKey.Interp)));
+	}
+	return MakeShared<FJsonValueArray>(Items);
+}
+
 bool ParseAnimations(const FForgeDocument& InDocument, TArray<FUmgAnimation>& OutAnimations, FForgeReport& OutReport)
 {
 	OutAnimations.Reset();
@@ -720,46 +830,12 @@ bool ParseAnimations(const FForgeDocument& InDocument, TArray<FUmgAnimation>& Ou
 
 			for (int32 KeyIndex = 0; KeyIndex < KeyValues->Num(); ++KeyIndex)
 			{
-				const FString KeyPath = FString::Printf(TEXT("%s.keys[%d]"), *TrackPath, KeyIndex);
-
-				const TSharedPtr<FJsonObject>* KeyObject = nullptr;
-				if (!(*KeyValues)[KeyIndex]->TryGetObject(KeyObject) || KeyObject == nullptr)
-				{
-					OutReport.AddError(KeyPath, TEXT("每个关键帧必须是 JSON 对象"));
-					bOk = false;
-					continue;
-				}
-
-				double Time = 0.0;
-				double Value = 0.0;
-				if (!(*KeyObject)->TryGetNumberField(TEXT("time"), Time))
-				{
-					OutReport.AddError(KeyPath + TEXT(".time"), TEXT("time 缺失（单位：秒）"));
-					bOk = false;
-					continue;
-				}
-				if (!(*KeyObject)->TryGetNumberField(TEXT("value"), Value))
-				{
-					OutReport.AddError(KeyPath + TEXT(".value"), TEXT("value 缺失"));
-					bOk = false;
-					continue;
-				}
-
 				FUmgKey Key;
-				Key.Frame = SecondsToFrame(Time);
-				Key.Value = Value;
-
-				FString InterpText;
-				if ((*KeyObject)->TryGetStringField(TEXT("interp"), InterpText) && !InterpText.IsEmpty())
+				if (!ParseKey((*KeyValues)[KeyIndex], FString::Printf(TEXT("%s.keys[%d]"), *TrackPath, KeyIndex), Key, OutReport))
 				{
-					if (!TryParseInterp(InterpText, Key.Interp))
-					{
-						OutReport.AddError(KeyPath + TEXT(".interp"), FString::Printf(TEXT("interp 只能是 cubic / linear / constant，收到 `%s`"), *InterpText));
-						bOk = false;
-						continue;
-					}
+					bOk = false;
+					continue;
 				}
-
 				Track.Keys.Add(MoveTemp(Key));
 			}
 

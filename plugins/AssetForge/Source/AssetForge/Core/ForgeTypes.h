@@ -101,6 +101,14 @@ struct ASSETFORGE_API FForgeNode
 	 * 去改契约层（那是所有 kind 共用的东西）。
 	 */
 	TSharedPtr<FJsonObject> Extra;
+
+	/**
+	 * 节点引用的命名样式（配置里的 `"style": "NavButton"` 或数组，后面的覆盖前面的）。
+	 *
+	 * `ForgeDoc::Parse` 解析时已把样式展开进 Props / Slot，导入方向的各 kind 不必认它；
+	 * 留着名字是为了写回（`ForgeDoc::ToJson`）时还原成引用、不把样式里的属性抄到每个节点上。
+	 */
+	TArray<FString> Styles;
 };
 
 /** 一份资产配置文档。 */
@@ -129,6 +137,21 @@ struct ASSETFORGE_API FForgeDocument
 
 	/** 配置文件里未被本插件识别的顶层字段，原样保留以便回写时不丢信息。 */
 	TSharedPtr<FJsonObject> Extra;
+
+	/**
+	 * 顶层 `styles`：样式名 → `{ props?, slot? }`。只用于写回（节点上和样式相同的属性不重复写）；
+	 * 导入看的是展开后的 Props / Slot。空 = 配置没写样式。
+	 */
+	TSharedPtr<FJsonObject> Styles;
+
+	/**
+	 * 读这份配置时展开过的片段文件（`include`，绝对路径）。不存进配置：读的时候由文档来源层填，
+	 * 扫描时据此提示「一个片段被几份配置引用」，面板据此知道改哪些文件会影响这个资源。
+	 */
+	TArray<FString> IncludedFiles;
+
+	/** 展开后的字段路径前缀 → 片段文件（相对主文件）：导入的诊断据此加上文件名（`ForgeDocSource::LabelDiagnostics`）。 */
+	TMap<FString, FString> IncludeOrigins;
 };
 
 /** 导入结果。 */

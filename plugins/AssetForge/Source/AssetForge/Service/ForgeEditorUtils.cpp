@@ -10,6 +10,11 @@ namespace ForgeEditorUtils
 {
 	bool IsGeneratedEntry(const FString& InName)
 	{
+		// `.` 开头的（`.schema/`）也是插件写的生成物；`.`、`..` 是路径里的上级目录写法，不算。
+		if (InName.StartsWith(TEXT(".")))
+		{
+			return InName != TEXT(".") && InName != TEXT("..");
+		}
 		return InName.StartsWith(TEXT("_"));
 	}
 
@@ -86,8 +91,10 @@ namespace ForgeEditorUtils
 		FForgeReport Report;
 		if (ForgePipeline::LoadDocument(InAbsolutePath, Document, Report))
 		{
-			return ClassifyConfig(
+			FForgeConfigClassification Parsed = ClassifyConfig(
 				/*bInParsed=*/true, Document, Report, /*InRawJson=*/nullptr, SupportedKinds);
+			Parsed.Fragments = Document.IncludedFiles;
+			return Parsed;
 		}
 
 		// 再读一次原始 JSON：文档建不起来的原因是 kind 不认识，而不是 JSON 坏了。

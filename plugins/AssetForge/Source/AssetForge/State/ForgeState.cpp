@@ -3,6 +3,7 @@
 #include "State/ForgeState.h"
 #include "AssetForge.h"
 
+#include "Core/ForgeDocSource.h"
 #include "Core/ForgeHash.h"
 #include "Core/ForgeJsonText.h"
 #include "Core/ForgeManifest.h"
@@ -89,7 +90,20 @@ namespace
 		}
 
 		// 按剥离注释后的文本算：只改注释不该触发重新导入。
-		OutHash = ForgeHash::HashText(ForgeJsonText::StripComments(Text));
+		const FString Stripped = ForgeJsonText::StripComments(Text);
+		OutHash = ForgeHash::HashText(Stripped);
+
+		// 有 include 的按展开后的文档算：片段改了也要算「配置已改」。没有 include 的仍按文本算——
+		// 两种算法对同一份文档结果不同，全换成展开后的会让升级插件后所有已同步的配置都变成「配置已改」。
+		if (Stripped.Contains(TEXT("\"include\"")))
+		{
+			ForgeDocSource::FExpanded Expanded;
+			TArray<FForgeDiagnostic> Ignored;
+			if (ForgeDocSource::LoadText(Text, InConfigPath, Expanded, Ignored) && Expanded.Fragments.Num() > 0)
+			{
+				OutHash = ForgeHash::HashText(ForgeJsonText::ToCondensedString(Expanded.Json));
+			}
+		}
 		return true;
 	}
 

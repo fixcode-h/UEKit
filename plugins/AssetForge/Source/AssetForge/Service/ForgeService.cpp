@@ -3,7 +3,9 @@
 #include "Service/ForgeService.h"
 #include "AssetForge.h"
 
+#include "Core/ForgeDocSource.h"
 #include "Core/ForgePipeline.h"
+#include "Core/ForgeStyles.h"
 #include "Registry/ForgeKindRegistry.h"
 #include "Service/ForgeBatch.h"
 #include "Service/ForgeEditorUtils.h"
@@ -77,6 +79,18 @@ TSharedPtr<FJsonObject> FForgeEntry::ToJson() const
 	if (!Message.IsEmpty())
 	{
 		Json->SetStringField(TEXT("message"), Message);
+	}
+	if (Fragments.Num() > 0)
+	{
+		// 片段相对配置根：面板盯文件时，这些文件变了也算这一项变了。
+		TArray<TSharedPtr<FJsonValue>> Includes;
+		for (const FString& Fragment : Fragments)
+		{
+			FString Relative = Fragment;
+			FPaths::MakePathRelativeTo(Relative, *(ForgePipeline::GetConfigRootDir() + TEXT("/")));
+			Includes.Add(MakeShared<FJsonValueString>(Relative));
+		}
+		Json->SetArrayField(TEXT("includes"), Includes);
 	}
 	return Json;
 }
@@ -195,7 +209,38 @@ TArray<FForgeEntry> ScanConfigs()
 			continue;
 		}
 
+		// 片段（顶层 fragment、没有 kind）是某份配置的一部分，永远不当资源，也不报「解析失败」。
+		if (ForgeDocSource::IsFragmentFile(File))
+		{
+			continue;
+		}
+
 		Entries.Add(DescribeConfig(File));
+	}
+
+	// 一个片段只该属于一个资源：被几份配置 include 时，改它会同时改几个资产，在这几项上提示。
+	TMap<FString, TArray<int32>> FragmentUsers;
+	for (int32 Index = 0; Index < Entries.Num(); ++Index)
+	{
+		for (const FString& Fragment : Entries[Index].Fragments)
+		{
+			FragmentUsers.FindOrAdd(Fragment).AddUnique(Index);
+		}
+	}
+	for (const TPair<FString, TArray<int32>>& Users : FragmentUsers)
+	{
+		if (Users.Value.Num() < 2)
+		{
+			continue;
+		}
+		for (const int32 UserIndex : Users.Value)
+		{
+			FForgeEntry& User = Entries[UserIndex];
+			const FString Note = FString::Printf(
+				TEXT("片段 %s 被 %d 份配置引用：改它会同时改这几个资产；要复用请用 styles 或 ref 子界面"),
+				*MakeRelativeToRoot(Users.Key), Users.Value.Num());
+			User.Message = User.Message.IsEmpty() ? Note : User.Message + TEXT("；") + Note;
+		}
 	}
 
 	Entries.Sort([](const FForgeEntry& A, const FForgeEntry& B) { return A.RelativePath < B.RelativePath; });
@@ -219,6 +264,7 @@ FForgeEntry DescribeConfig(const FString& InConfigPath)
 		Entry.AssetPath = ForgeState::NormalizeAssetPath(Classification.AssetPath);
 		Entry.ParentClass = Classification.ParentClass;
 		Entry.Revision = Classification.Revision;
+		Entry.Fragments = Classification.Fragments;
 		Entry.State = ForgeState::QuickState(Entry.ConfigPath, Entry.AssetPath);
 		break;
 
@@ -420,6 +466,8 @@ FForgeReport ExportAsset(const FString& InAssetPath, FString* OutConfigPath)
 		if (ForgePipeline::LoadDocument(ExistingPath, Existing, ExistingReport))
 		{
 			Document.Revision = Existing.Revision;
+			// 导出不反推样式，但保留手写的：原配置的 styles 和各节点的 style 引用搬过来，写回时去掉和样式相同的属性。
+			ForgeStyles::CarryStyles(Existing, Document);
 		}
 	}
 

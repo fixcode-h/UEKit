@@ -3,6 +3,8 @@
 #include "Core/ForgeDoc.h"
 #include "AssetForgeCompat.h"
 
+#include "Core/ForgeStyles.h"
+
 namespace ForgeDoc
 {
 
@@ -20,6 +22,10 @@ namespace
 	const TCHAR* const FieldProps = TEXT("props");
 	const TCHAR* const FieldSlot = TEXT("slot");
 	const TCHAR* const FieldChildren = TEXT("children");
+	const TCHAR* const FieldStyle = TEXT("style");
+	const TCHAR* const FieldStyles = TEXT("styles");
+	/** 编辑器用的 JSON Schema 指针：写回时由管道按配置位置重新算，读的时候忽略。 */
+	const TCHAR* const FieldSchemaRef = TEXT("$schema");
 
 	FString MakeChildPath(const FString& InParentPath, const FString& InField)
 	{
@@ -88,6 +94,12 @@ bool ParseNode(const TSharedPtr<FJsonObject>& InJson, const FString& InNodePath,
 		OutNode.Slot = *SlotObject;
 	}
 
+	// 样式引用只在这里认名字；展开要等整份文档的 styles 读完（见 Parse），单独解析节点时名字原样留着。
+	if (const TSharedPtr<FJsonValue>* StyleValue = InJson->Values.Find(FForgeJsonKey(FString(FieldStyle))); StyleValue != nullptr)
+	{
+		bOk &= ForgeStyles::ParseStyleRefs(*StyleValue, MakeChildPath(InNodePath, FieldStyle), OutNode.Styles, OutDiagnostics);
+	}
+
 	if (const TArray<TSharedPtr<FJsonValue>>* ChildrenArray = nullptr; InJson->TryGetArrayField(FieldChildren, ChildrenArray))
 	{
 		int32 Index = 0;
@@ -121,6 +133,7 @@ bool ParseNode(const TSharedPtr<FJsonObject>& InJson, const FString& InNodePath,
 				&& KeyString != FieldRef
 				&& KeyString != FieldProps
 				&& KeyString != FieldSlot
+				&& KeyString != FieldStyle
 				&& KeyString != FieldChildren)
 			{
 				Extra->SetField(KeyString, Pair.Value);
@@ -164,6 +177,20 @@ TSharedPtr<FJsonObject> NodeToJson(const FForgeNode& InNode)
 	if (!InNode.Ref.IsEmpty())
 	{
 		Json->SetStringField(FieldRef, InNode.Ref);
+	}
+
+	if (InNode.Styles.Num() == 1)
+	{
+		Json->SetStringField(FieldStyle, InNode.Styles[0]);
+	}
+	else if (InNode.Styles.Num() > 1)
+	{
+		TArray<TSharedPtr<FJsonValue>> StyleNames;
+		for (const FString& StyleName : InNode.Styles)
+		{
+			StyleNames.Add(MakeShared<FJsonValueString>(StyleName));
+		}
+		Json->SetArrayField(FieldStyle, StyleNames);
 	}
 
 	if (InNode.Props.IsValid() && InNode.Props->Values.Num() > 0)
@@ -247,6 +274,29 @@ bool Parse(const TSharedPtr<FJsonObject>& InJson, const FString& InSourcePath, F
 
 	bOk &= ParseNode(*RootObject, FieldRoot, OutDocument.Root, OutDiagnostics);
 
+	// 样式在这里展开进 Props / Slot：后面的导入、演练、差异看到的就是「手抄了样式」的文档，都不用认样式。
+	if (InJson->HasField(FieldStyles))
+	{
+		const TSharedPtr<FJsonObject>* StylesObject = nullptr;
+		if (!InJson->TryGetObjectField(FieldStyles, StylesObject) || StylesObject == nullptr || !StylesObject->IsValid())
+		{
+			OutDiagnostics.Emplace(EForgeSeverity::Error, FieldStyles, TEXT("styles 必须是对象：{ \"样式名\": { \"props\": {…}, \"slot\": {…} } }"));
+			bOk = false;
+		}
+		else if (ForgeStyles::ValidateStyles(*StylesObject, OutDiagnostics))
+		{
+			OutDocument.Styles = *StylesObject;
+		}
+		else
+		{
+			bOk = false;
+		}
+	}
+	if (bOk)
+	{
+		bOk &= ForgeStyles::ExpandTree(OutDocument.Root, FieldRoot, OutDocument.Styles, OutDiagnostics);
+	}
+
 	// 未识别字段原样留着：回写时不丢信息，也便于将来加字段时向前兼容。
 	const TSharedPtr<FJsonObject> Extra = MakeShared<FJsonObject>();
 	for (const auto& Pair : InJson->Values)
@@ -258,7 +308,9 @@ bool Parse(const TSharedPtr<FJsonObject>& InJson, const FString& InSourcePath, F
 			&& KeyString != FieldRevision
 			&& KeyString != FieldAsset
 			&& KeyString != FieldParent
-			&& KeyString != FieldRoot)
+			&& KeyString != FieldRoot
+			&& KeyString != FieldStyles
+			&& KeyString != FieldSchemaRef)
 		{
 			Extra->SetField(KeyString, Pair.Value);
 		}
@@ -284,7 +336,16 @@ TSharedPtr<FJsonObject> ToJson(const FForgeDocument& InDocument)
 		Json->SetStringField(FieldParent, InDocument.Parent);
 	}
 
-	Json->SetObjectField(FieldRoot, NodeToJson(InDocument.Root));
+	// 写回时还原样式：styles 原样写，引用了样式的节点去掉和样式相同的属性（不改 InDocument 本身）。
+	if (InDocument.Styles.IsValid())
+	{
+		Json->SetObjectField(FieldStyles, InDocument.Styles);
+		Json->SetObjectField(FieldRoot, NodeToJson(ForgeStyles::StripTree(InDocument.Root, InDocument.Styles)));
+	}
+	else
+	{
+		Json->SetObjectField(FieldRoot, NodeToJson(InDocument.Root));
+	}
 
 	if (InDocument.Extra.IsValid())
 	{
