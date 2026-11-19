@@ -1276,7 +1276,9 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 		// 2.15：name / exclude 是通配符（字符串或数组），Agent 不用把几百个资源名逐个列进 paths
 		FilterAssetsByName(StrList(A, TEXT("name")), StrList(A, TEXT("exclude")), Found);
 		const FString Prefix = Str(A, TEXT("prefix"));
-		const int32 Limit = FMath::Clamp(Int(A, TEXT("limit"), 300), 1, 2000);
+		// 2.15：limit=0 不截断（批量操作的 select 不限个数）；其他照旧最多 2000
+		const int32 WantLimit = Int(A, TEXT("limit"), 300);
+		const int32 Limit = WantLimit == 0 ? MAX_int32 : FMath::Clamp(WantLimit, 1, 2000);
 		TArray<TSharedPtr<FJsonValue>> Items;
 		int32 Total = 0;
 		for (const FAssetData& D : Found)
