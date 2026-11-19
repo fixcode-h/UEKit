@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.16.0",
-        "versionCode": 40,
+        "version": "2.17.0",
+        "versionCode": 41,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.16.0",
-        "asset": "UELink-2.16.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.16.0/UELink-2.16.0-src.zip",
-        "sha256": "45a8dda58a3ac705bb80a028f1c15df5b0eac6d796eb52a2e2a9f85dea39572d",
-        "size": 324671,
+        "tag": "UELink-v2.17.0",
+        "asset": "UELink-2.17.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.17.0/UELink-2.17.0-src.zip",
+        "sha256": "09f9980d78f35c4b75fc6fa02936528ef82a56e02685a5ea839c6900e43ba8f7",
+        "size": 339962,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **导入外部文件** — 把磁盘上的 FBX、贴图、音频等导入成资源，可以一次导入多个、先演练看会生成哪些资源、已有的要明确写覆盖才覆盖；不弹导入选项对话框，也不自动保存\n- **重新导入** — 按资源记下的源文件重新导入，能一次处理一批\n- **调编辑器函数库** — 能列出和调用编辑器函数库里蓝图能调的静态函数（比如静态网格的 LOD、碰撞设置），每次调用包进编辑器事务可以撤回，能一次对一批资源调"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **在网页上按 UE 设计器的样子看控件蓝图** — 能读控件蓝图设计时的控件树（类、是否变量、可见性、插槽类型、WidgetSwitcher 当前页、嵌套的控件蓝图），不用开 PIE；点控件能直接读它的属性\n- **控件蓝图离屏预览** — 编辑器在后台把控件蓝图画成一张图，按给的屏幕尺寸和 DPI 缩放，同时给出每个控件在图里的位置，网页据此画选框；可以把某个动画定格在某个时刻再画\n- **读控件蓝图的动画** — 动画的轨道和关键帧（透明度、渲染变换各分量、插槽 Padding），和 AssetForge 配置里的 `animations` 同一个写法，没装 AssetForge 也能看；读不懂的轨道单独列出来，不悄悄丢"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -75,8 +75,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.5.1",
-        "versionCode": 18,
+        "version": "1.6.0",
+        "versionCode": 19,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -108,13 +108,13 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.5.1",
-        "asset": "AssetForge-1.5.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.5.1/AssetForge-1.5.1-src.zip",
-        "sha256": "95acfa9fc38919dfa32a172ec6633f480592de053bb59b471a261b2d1dcf4188",
-        "size": 446791,
+        "tag": "AssetForge-v1.6.0",
+        "asset": "AssetForge-1.6.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.6.0/AssetForge-1.6.0-src.zip",
+        "sha256": "e763d7ba91e22ba7626e1efd3383380b1b06db34d86b7ade676dce35dd9b7835",
+        "size": 484814,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "> 只补了测试模块的一个链接依赖；还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 修复\n- **AssetForgeTests 链接失败** — 示例界面的按键选择器读按键名用到了 InputCore，测试模块没声明这个依赖，链接时报 `FKey::GetFName` 无法解析（LNK2019）。已补上"
+        "notes": "> 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版的 C++（include、样式、关键帧简写、按段写回、schema 文件）和新加的自动化测试都没在本地编译和跑过，编译有问题请反馈。\n\n### 新功能\n- **配置按固定顺序分段** — 一个资源还是一个 JSON，顶层按「头 → styles → root → animations（UMG）」排；导出到配置时自动排好，内容没变的文件不再重写（P4 不用签出）。`forge.describe` 加 `section` 参数，Agent 读长配置时可以只取一段\n- **include：把一段或几个控件放进片段文件** — `\"animations\": { \"include\": \"WBP_Shop.parts/animations.json\" }` 整段放到别的文件，`children` 里写 `{ \"include\": \"…\" }` 把一组控件放到片段里；导入时原样展开，还是同一个资产。导出到配置时保留 include 结构，片段的内容写回片段文件。诊断会带上片段文件名\n- **样式复用** — 顶层 `styles` 定义命名样式（props + slot），节点写 `\"style\": \"NavButton\"`（或数组）引用，节点自己写的覆盖样式；导出时保留手写的样式，节点上和样式相同的属性不再重复写\n- **关键帧简写** — 动画关键帧可以写成 `[0.3, 0.85, \"cubic\"]`，和对象写法等价；导出改写简写，动画段短了很多\n- **编辑器边写边检查** — 配置根 `.schema/` 下写好每种资产的 JSON Schema，导出的配置头部带 `$schema`，在 VS Code / Rider 里改配置时字段拼错会标红、动画通道和插值有补全\n\n### 注意\n- 升级后第一次导出到配置，配置会多出 `$schema` 一行、顶层字段按段重排，这一次会显示成改动"
       },
       "prerelease": null,
       "displayName": "AssetForge",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-19T16:33:21.451Z"
+  "updatedAt": "2026-11-19T16:49:20.029Z"
 }
