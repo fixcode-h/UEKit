@@ -353,6 +353,38 @@ static void RegisterEditorOps()
 	});
 }
 
+/**
+ * 2.14：编辑器里能批量（paths / items）的操作，展开和回滚在 UELinkCore 的 UELinkBatch.cpp。
+ * 让新操作支持批量只在这里加一行：读的照抄 Read；改的写清楚认不认 dryRun、怎么回滚
+ */
+static void RegisterEditorBatchOps()
+{
+	FAgentPanelBridge& B = FAgentPanelBridge::Get();
+	const FAgentPanelBatchInfo Read;
+	for (const TCHAR* Op : {TEXT("bp.outline"), TEXT("bp.graph"), TEXT("bp.compile"), TEXT("asset.describe"), TEXT("asset.refs"), TEXT("asset.export")})
+	{
+		B.AddBatchOp(Op, Read);
+	}
+	FAgentPanelBatchInfo Edit;
+	Edit.bWrite = true;
+	Edit.bDryRun = true;
+	Edit.bCompile = true;
+	Edit.Undo = TEXT("tx");
+	B.AddBatchOp(TEXT("bp.edit"), Edit);
+	// 复制、改名、删除：能演练，但没有事务，回滚不了（失败时结果里写明哪些已经做了）
+	FAgentPanelBatchInfo Structural;
+	Structural.bWrite = true;
+	Structural.bDryRun = true;
+	for (const TCHAR* Op : {TEXT("asset.duplicate"), TEXT("asset.rename"), TEXT("asset.delete")})
+	{
+		B.AddBatchOp(Op, Structural);
+	}
+	FAgentPanelBatchInfo Cell;
+	Cell.bWrite = true;
+	Cell.Undo = TEXT("tx");
+	B.AddBatchOp(TEXT("datatable.set"), Cell);
+}
+
 class FAgentPanelBridgeEditorModule : public IModuleInterface
 {
 public:
@@ -368,6 +400,7 @@ public:
 		RegisterStreamOps();
 		RegisterSelectionOps();
 		RegisterEditorToolsOps();
+		RegisterEditorBatchOps();
 		// 2.7：编辑器就绪。ready: false 要在第一次写名片前记下，所以在模块启动时就放进名片字段
 		RegisterEditorReadyOps();
 		PresetEditorReady();

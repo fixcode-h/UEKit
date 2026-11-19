@@ -460,6 +460,9 @@ namespace
 			}
 		}
 
+		/** ifMissing 用：要加的变量、函数、组件、接口是不是已经有了；不认识的操作返回 false（照常执行） */
+		bool AlreadyHas(const FString& What, const TSharedPtr<FJsonObject>& Op);
+
 		FBPVariableDescription* Var(const FName Name)
 		{
 			for (FBPVariableDescription& V : BP->NewVariables)
@@ -789,10 +792,54 @@ namespace
 		return N;
 	}
 
+	bool FEdit::AlreadyHas(const FString& What, const TSharedPtr<FJsonObject>& Op)
+	{
+		const FString Name = Str(Op, TEXT("name"));
+		if (What == TEXT("add_variable"))
+		{
+			return Var(FName(*Name)) != nullptr;
+		}
+		if (What == TEXT("add_function"))
+		{
+			for (const UEdGraph* G : AllGraphs(BP))
+			{
+				if (G && G->GetName().Equals(Name, ESearchCase::IgnoreCase))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		if (What == TEXT("add_component"))
+		{
+			return !Name.IsEmpty() && BP->SimpleConstructionScript && BP->SimpleConstructionScript->FindSCSNode(FName(*Name));
+		}
+		if (What == TEXT("add_interface"))
+		{
+			const UClass* I = FindClassByName(Str(Op, TEXT("interface")));
+			for (const FBPInterfaceDescription& D : BP->ImplementedInterfaces)
+			{
+				if (I && D.Interface.Get() == I)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		return false;
+	}
+
 	bool FEdit::Run(const TSharedPtr<FJsonObject>& Op, TSharedPtr<FJsonObject>& Res, FString& Error)
 	{
 		const FString What = Str(Op, TEXT("op"));
 		const FString Name = Str(Op, TEXT("name"));
+
+		// 2.14：ifMissing 的增加类操作，已经有了就跳过（批量重跑同一组操作时不因为「已经存在」失败）
+		if (Bool(Op, TEXT("ifMissing"), false) && AlreadyHas(What, Op))
+		{
+			Res->SetBoolField(TEXT("skipped"), true);
+			return true;
+		}
 
 		// ----- 成员 -----
 		if (What == TEXT("add_variable"))
