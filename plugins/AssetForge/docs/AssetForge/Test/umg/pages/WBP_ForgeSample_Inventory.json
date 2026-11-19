@@ -1,0 +1,891 @@
+{
+  "//": "示例界面的「Inventory」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Inventory）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Inventory",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "InventoryRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "InvHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Inventory_Title",
+            "props": {"Text":"背包","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_All",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_All","props":{"Text":"全部","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Weapon",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Weapon","props":{"Text":"武器","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Potion",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Potion","props":{"Text":"药水","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          }
+        ]
+      },
+      {
+        "class": "HorizontalBox",
+        "name": "InvBody",
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "Border",
+            "name": "InvGridCard",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":14,"Top":14,"Right":14,"Bottom":14}
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":2},"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}},
+            "children": [
+              {
+                "class": "WidgetSwitcher",
+                "name": "InvTabs",
+                "children": [
+                  {
+                    "class": "ScrollBox",
+                    "name": "Tab_All",
+                    "children": [
+                      {
+                        "class": "UniformGridPanel",
+                        "name": "Grid_All",
+                        "props": {"SlotPadding":{"Left":6,"Top":6,"Right":6,"Bottom":6},"MinDesiredSlotWidth":120,"MinDesiredSlotHeight":130},
+                        "children": [
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Sword_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"攻击 +12，基础单手武器"},
+                            "slot": {"Row":0,"Column":0},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Sword_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Sword_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Sword_All",
+                                        "props": {
+                                          "Text": "剑",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Sword_All",
+                                    "props": {"Text":"铁剑","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Bow_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"远程攻击，射程 25 米"},
+                            "slot": {"Row":0,"Column":1},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Bow_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Bow_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Bow_All",
+                                        "props": {
+                                          "Text": "弓",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Bow_All",
+                                    "props": {"Text":"猎弓","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Staff_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"法术强度 +18"},
+                            "slot": {"Row":0,"Column":2},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Staff_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Staff_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Staff_All",
+                                        "props": {
+                                          "Text": "杖",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.5457,"G":0.2582,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Staff_All",
+                                    "props": {"Text":"橡木法杖","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Axe_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"攻击 +20，攻速较慢"},
+                            "slot": {"Row":0,"Column":3},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Axe_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Axe_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Axe_All",
+                                        "props": {
+                                          "Text": "斧",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Axe_All",
+                                    "props": {"Text":"战斧","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Hp_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"立即恢复 300 点生命"},
+                            "slot": {"Row":1,"Column":0},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Hp_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Hp_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Hp_All",
+                                        "props": {
+                                          "Text": "红",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":1,"G":0.1946,"B":0.1946,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Hp_All",
+                                    "props": {"Text":"生命药水","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Mp_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"立即恢复 200 点法力"},
+                            "slot": {"Row":1,"Column":1},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Mp_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Mp_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Mp_All",
+                                        "props": {
+                                          "Text": "蓝",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.159,"G":0.4452,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Mp_All",
+                                    "props": {"Text":"法力药水","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Speed_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"移动速度 +30%，持续 20 秒"},
+                            "slot": {"Row":1,"Column":2},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Speed_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Speed_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Speed_All",
+                                        "props": {
+                                          "Text": "速",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.1144,"G":0.6514,"B":0.3231,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Speed_All",
+                                    "props": {"Text":"疾行药剂","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Elixir_All",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"解除所有负面状态"},
+                            "slot": {"Row":1,"Column":3},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Elixir_All",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Elixir_All",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Elixir_All",
+                                        "props": {
+                                          "Text": "灵",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Elixir_All",
+                                    "props": {"Text":"万能灵药","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "ScrollBox",
+                    "name": "Tab_Weapon",
+                    "children": [
+                      {
+                        "class": "UniformGridPanel",
+                        "name": "Grid_Weapon",
+                        "props": {"SlotPadding":{"Left":6,"Top":6,"Right":6,"Bottom":6},"MinDesiredSlotWidth":120,"MinDesiredSlotHeight":130},
+                        "children": [
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Sword_Weapon",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"攻击 +12，基础单手武器"},
+                            "slot": {"Row":0,"Column":0},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Sword_Weapon",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Sword_Weapon",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Sword_Weapon",
+                                        "props": {
+                                          "Text": "剑",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Sword_Weapon",
+                                    "props": {"Text":"铁剑","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Bow_Weapon",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"远程攻击，射程 25 米"},
+                            "slot": {"Row":0,"Column":1},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Bow_Weapon",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Bow_Weapon",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Bow_Weapon",
+                                        "props": {
+                                          "Text": "弓",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Bow_Weapon",
+                                    "props": {"Text":"猎弓","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Staff_Weapon",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"法术强度 +18"},
+                            "slot": {"Row":0,"Column":2},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Staff_Weapon",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Staff_Weapon",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Staff_Weapon",
+                                        "props": {
+                                          "Text": "杖",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.5457,"G":0.2582,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Staff_Weapon",
+                                    "props": {"Text":"橡木法杖","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Axe_Weapon",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"攻击 +20，攻速较慢"},
+                            "slot": {"Row":0,"Column":3},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Axe_Weapon",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Axe_Weapon",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Axe_Weapon",
+                                        "props": {
+                                          "Text": "斧",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2122,"G":0.3864,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Axe_Weapon",
+                                    "props": {"Text":"战斧","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "ScrollBox",
+                    "name": "Tab_Potion",
+                    "children": [
+                      {
+                        "class": "UniformGridPanel",
+                        "name": "Grid_Potion",
+                        "props": {"SlotPadding":{"Left":6,"Top":6,"Right":6,"Bottom":6},"MinDesiredSlotWidth":120,"MinDesiredSlotHeight":130},
+                        "children": [
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Hp_Potion",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"立即恢复 300 点生命"},
+                            "slot": {"Row":0,"Column":0},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Hp_Potion",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Hp_Potion",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Hp_Potion",
+                                        "props": {
+                                          "Text": "红",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":1,"G":0.1946,"B":0.1946,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Hp_Potion",
+                                    "props": {"Text":"生命药水","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Mp_Potion",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"立即恢复 200 点法力"},
+                            "slot": {"Row":0,"Column":1},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Mp_Potion",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Mp_Potion",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Mp_Potion",
+                                        "props": {
+                                          "Text": "蓝",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.159,"G":0.4452,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Mp_Potion",
+                                    "props": {"Text":"法力药水","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Speed_Potion",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"移动速度 +30%，持续 20 秒"},
+                            "slot": {"Row":0,"Column":2},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Speed_Potion",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Speed_Potion",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Speed_Potion",
+                                        "props": {
+                                          "Text": "速",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.1144,"G":0.6514,"B":0.3231,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Speed_Potion",
+                                    "props": {"Text":"疾行药剂","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Pick_DetailName__Elixir_Potion",
+                            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1},"ToolTipText":"解除所有负面状态"},
+                            "slot": {"Row":0,"Column":3},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "ItemCol_Elixir_Potion",
+                                "children": [
+                                  {
+                                    "class": "Border",
+                                    "name": "ItemIcon_Elixir_Potion",
+                                    "props": {
+                                      "Background": {
+                                        "DrawAs": "RoundedBox",
+                                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                                      },
+                                      "Padding": {"Left":20,"Top":14,"Right":20,"Bottom":14}
+                                    },
+                                    "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":4,"Right":0,"Bottom":8}},
+                                    "children": [
+                                      {
+                                        "class": "TextBlock",
+                                        "name": "ItemGlyph_Elixir_Potion",
+                                        "props": {
+                                          "Text": "灵",
+                                          "Font": {"Size":22,"TypefaceFontName":"Bold"},
+                                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "L_Pick_DetailName__Elixir_Potion",
+                                    "props": {"Text":"万能灵药","Font":{"Size":13,"TypefaceFontName":"Regular"},"Justification":"Center"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Center"}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "DetailCard",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":20,"Top":20,"Right":20,"Bottom":20}
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "DetailCol",
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "DetailLabel",
+                    "props": {
+                      "Text": "物品详情",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "DetailName",
+                    "props": {"Text":"选择一件物品","Font":{"Size":22,"TypefaceFontName":"Bold"}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "DetailName_Subject",
+                    "props": {
+                      "Text": "点左边的格子查看说明。",
+                      "Font": {"Size":14,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.4678,"G":0.5271,"B":0.6514,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "AutoWrapText": true
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":20}}
+                  },
+                  {"class":"Spacer","name":"DetailFill","props":{"Size":{"X":1,"Y":1}},"slot":{"Size":{"SizeRule":"Fill","Value":1}}},
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_UseItem",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_UseItem","props":{"Text":"使用","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Discard",
+                    "props": {"BackgroundColor":{"R":0.8714,"G":0.1274,"B":0.1274,"A":1}},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Discard","props":{"Text":"丢弃","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

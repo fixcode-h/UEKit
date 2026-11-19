@@ -1,0 +1,466 @@
+{
+  "//": "示例界面的「Tasks」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Tasks）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Tasks",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "TasksRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "TaskHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Tasks_Title",
+            "props": {"Text":"任务","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Daily",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Daily","props":{"Text":"每日","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Weekly",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Weekly","props":{"Text":"每周","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Story",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Story","props":{"Text":"主线","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          }
+        ]
+      },
+      {
+        "class": "WidgetSwitcher",
+        "name": "TaskTabs",
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "ScrollBox",
+            "name": "Tab_Daily",
+            "children": [
+              {
+                "class": "Border",
+                "name": "TaskRow_Daily1",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Daily1",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Daily1",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Daily1","props":{"Text":"完成 3 场匹配","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Daily1",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Daily1","props":{"Percent":0.66,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Daily1",
+                        "props": {
+                          "Text": "2 / 3",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Daily1",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"完成 3 场匹配"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Daily1","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "Border",
+                "name": "TaskRow_Daily2",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Daily2",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Daily2",
+                        "props": {"CheckedState":"Checked"},
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Daily2","props":{"Text":"击败 50 个敌人","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Daily2",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Daily2","props":{"Percent":1,"FillColorAndOpacity":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Daily2",
+                        "props": {
+                          "Text": "50 / 50",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Daily2",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"击败 50 个敌人"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Daily2","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "Border",
+                "name": "TaskRow_Daily3",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Daily3",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Daily3",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Daily3","props":{"Text":"在商店购买任意物品","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Daily3",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Daily3","props":{"Percent":0,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Daily3",
+                        "props": {
+                          "Text": "0 / 1",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Daily3",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"在商店购买任意物品"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Daily3","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "ScrollBox",
+            "name": "Tab_Weekly",
+            "children": [
+              {
+                "class": "Border",
+                "name": "TaskRow_Weekly1",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Weekly1",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Weekly1",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Weekly1","props":{"Text":"通关团队副本「熔火之心」","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Weekly1",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Weekly1","props":{"Percent":0.25,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Weekly1",
+                        "props": {
+                          "Text": "1 / 4",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Weekly1",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"通关团队副本「熔火之心」"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Weekly1","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "Border",
+                "name": "TaskRow_Weekly2",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Weekly2",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Weekly2",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Weekly2","props":{"Text":"累计在线 10 小时","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Weekly2",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Weekly2","props":{"Percent":0.7,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Weekly2",
+                        "props": {
+                          "Text": "7 / 10",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Weekly2",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"累计在线 10 小时"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Weekly2","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "ScrollBox",
+            "name": "Tab_Story",
+            "children": [
+              {
+                "class": "Border",
+                "name": "TaskRow_Story1",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Story1",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Story1",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Story1","props":{"Text":"第三章：失落的王冠","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Story1",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Story1","props":{"Percent":0.5,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Story1",
+                        "props": {
+                          "Text": "进行中",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Story1",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"第三章：失落的王冠"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Story1","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "Border",
+                "name": "TaskRow_Story2",
+                "props": {
+                  "Background": {
+                    "DrawAs": "RoundedBox",
+                    "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                    "OutlineSettings": {
+                      "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                      "RoundingType": "FixedRadius",
+                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                      "Width": 1
+                    }
+                  },
+                  "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "TaskBox_Story2",
+                    "children": [
+                      {
+                        "class": "CheckBox",
+                        "name": "Task_Story2",
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"TaskName_Story2","props":{"Text":"第四章：北境来信","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      },
+                      {
+                        "class": "SizeBox",
+                        "name": "TaskBarSize_Story2",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":12,"Bottom":0}},
+                        "children": [{"class":"ProgressBar","name":"TaskBar_Story2","props":{"Percent":0,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "TaskProgress_Story2",
+                        "props": {
+                          "Text": "未解锁",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Go_Page_TaskDetail__Story2",
+                        "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1},"ToolTipText":"第四章：北境来信"},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"TextBlock","name":"L_Go_Page_TaskDetail__Story2","props":{"Text":"详情","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,943 @@
+{
+  "//": "示例界面的「Controls」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Controls）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Controls",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "ControlsRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "ControlsHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Controls_Title",
+            "props": {"Text":"控件","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "TextBlock",
+            "name": "ControlsHint",
+            "props": {
+              "Text": "每种能操作的控件各一个：GameTest 的点击、打字、按键、设值、滚动、菜单都能在这页练；结果写在控件右边和顶栏状态里。",
+              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "AutoWrapText": true
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          }
+        ]
+      },
+      {
+        "class": "ScrollBox",
+        "name": "ControlsScroll",
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "HorizontalBox",
+            "name": "ControlsBody",
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "ControlsLeft",
+                "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "BtnCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "BtnCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "BtnCardTitle",
+                            "props": {"Text":"按钮","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "BtnCardSub",
+                            "props": {
+                              "Text": "普通点击、禁用到可用、长按、悬停",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "BtnRow1",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "Button",
+                                "name": "Btn_Normal",
+                                "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"TextBlock","name":"L_Btn_Normal","props":{"Text":"普通按钮","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Btn_Gated",
+                                "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"bIsEnabled":false},
+                                "children": [{"class":"TextBlock","name":"L_Btn_Gated","props":{"Text":"勾上才能点","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "CheckBox",
+                            "name": "Enable_Btn_Gated",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [{"class":"TextBlock","name":"L_Enable_Btn_Gated","props":{"Text":"允许点上面那个按钮","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "HoldRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "Button",
+                                "name": "Hold_Charge",
+                                "props": {"BackgroundColor":{"R":0.9131,"G":0.4342,"B":0.0685,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Hold_Charge","props":{"Text":"按住蓄力（1 秒）","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Hold_Charge_Value",
+                                "props": {
+                                  "Text": "未按",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "HoverRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "Button",
+                                "name": "Hover_Card",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Hover_Card","props":{"Text":"把鼠标移上来","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Hover_Card_Value",
+                                "props": {
+                                  "Text": "未悬停",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "TextCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "TextCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "TextCardTitle",
+                            "props": {"Text":"文字输入","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "TextCardSub",
+                            "props": {
+                              "Text": "单行（无边框 / 带边框）、多行；带边框的按回车提交",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "Nickname_Title",
+                            "props": {
+                              "Text": "昵称（EditableText）",
+                              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "NicknameRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "Border",
+                                "name": "NicknameBg",
+                                "props": {
+                                  "Background": {
+                                    "DrawAs": "RoundedBox",
+                                    "TintColor": {"SpecifiedColor":{"R":0.006,"G":0.0086,"B":0.016,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                    "OutlineSettings": {
+                                      "CornerRadii": {"X":8,"Y":8,"Z":8,"W":8},
+                                      "RoundingType": "FixedRadius",
+                                      "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                      "Width": 1
+                                    }
+                                  },
+                                  "Padding": {"Left":10,"Top":6,"Right":10,"Bottom":6}
+                                },
+                                "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"EditableText","name":"Nickname","props":{"HintText":"输入昵称"}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Submit_Nickname",
+                                "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"TextBlock","name":"L_Submit_Nickname","props":{"Text":"保存","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Nickname_Echo",
+                                "props": {
+                                  "Text": "未设置",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "SearchBox_Title",
+                            "props": {
+                              "Text": "搜索（EditableTextBox，回车提交）",
+                              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                          },
+                          {"class":"EditableTextBox","name":"SearchBox","props":{"HintText":"输入后按回车"},"slot":{"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}},
+                          {
+                            "class": "TextBlock",
+                            "name": "Feedback_Title",
+                            "props": {
+                              "Text": "反馈（MultiLineEditableTextBox）",
+                              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                          },
+                          {
+                            "class": "SizeBox",
+                            "name": "FeedbackSize",
+                            "props": {"bOverride_HeightOverride":true,"HeightOverride":72},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                            "children": [{"class":"MultiLineEditableTextBox","name":"Feedback","props":{"HintText":"可以换行"}}]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "FeedbackRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "Button",
+                                "name": "Submit_Feedback",
+                                "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Submit_Feedback","props":{"Text":"提交反馈","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Feedback_Echo",
+                                "props": {
+                                  "Text": "未提交",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "NumCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "NumCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "NumCardTitle",
+                            "props": {"Text":"数值","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "NumCardSub",
+                            "props": {
+                              "Text": "滑条（拖动或直接设值）、微调框",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "BrightnessRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "Brightness_Title",
+                                "props": {"Text":"亮度","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "SizeBox",
+                                "name": "BrightnessSize",
+                                "props": {"bOverride_WidthOverride":true,"WidthOverride":220},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [
+                                  {
+                                    "class": "Slider",
+                                    "name": "Brightness",
+                                    "props": {
+                                      "Value": 50,
+                                      "MinValue": 0,
+                                      "MaxValue": 100,
+                                      "StepSize": 1,
+                                      "SliderBarColor": {"R":0.0423,"G":0.0595,"B":0.117,"A":1},
+                                      "SliderHandleColor": {"R":0.1022,"G":0.3005,"B":1,"A":1}
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Brightness_Value",
+                                "props": {
+                                  "Text": "50",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "ProgressBar",
+                            "name": "Brightness_Bar",
+                            "props": {"Percent":0.5,"FillColorAndOpacity":{"R":0.9131,"G":0.4342,"B":0.0685,"A":1}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "AmountRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "Amount_Title",
+                                "props": {"Text":"数量","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "SizeBox",
+                                "name": "AmountSize",
+                                "props": {"bOverride_WidthOverride":true,"WidthOverride":120},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"SpinBox","name":"Amount","props":{"Value":1}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Amount_Value",
+                                "props": {
+                                  "Text": "1",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "ControlsRight",
+                "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ChoiceCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "ChoiceCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "ChoiceCardTitle",
+                            "props": {"Text":"选择","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "ChoiceCardSub",
+                            "props": {
+                              "Text": "下拉框、复选框、单选按钮组、按键选择器",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "ServerRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "Server_Title",
+                                "props": {"Text":"服务器","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "SizeBox",
+                                "name": "ServerSize",
+                                "props": {"bOverride_WidthOverride":true,"WidthOverride":200},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"ComboBoxString","name":"Server","props":{"DefaultOptions":["华东一区","华南二区","海外"],"SelectedOption":"华东一区"}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Server_Value",
+                                "props": {
+                                  "Text": "华东一区",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "AutoLootRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "CheckBox",
+                                "name": "AutoLoot",
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"TextBlock","name":"L_AutoLoot","props":{"Text":"自动拾取","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "AutoLoot_Value",
+                                "props": {
+                                  "Text": "关",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "DifficultyRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "Difficulty_Title",
+                                "props": {"Text":"难度","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Pick_Difficulty__Easy",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"TextBlock","name":"L_Pick_Difficulty__Easy","props":{"Text":"简单","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Pick_Difficulty__Normal",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"TextBlock","name":"L_Pick_Difficulty__Normal","props":{"Text":"普通","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Pick_Difficulty__Hard",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Pick_Difficulty__Hard","props":{"Text":"困难","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Difficulty",
+                                "props": {
+                                  "Text": "普通",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "JumpKeyRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "JumpKey_Title",
+                                "props": {"Text":"跳跃键","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "SizeBox",
+                                "name": "JumpKeySize",
+                                "props": {"bOverride_WidthOverride":true,"WidthOverride":160},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"InputKeySelector","name":"JumpKey"}]
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "JumpKey_Value",
+                                "props": {
+                                  "Text": "未设置",
+                                  "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":12,"Top":0,"Right":0,"Bottom":0}}
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "BoxCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "BoxCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "BoxCardTitle",
+                            "props": {"Text":"容器","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "BoxCardSub",
+                            "props": {
+                              "Text": "长列表（滚动、滚轮）、页签切换器",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "LogHead",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "LogLabel",
+                                "props": {
+                                  "Text": "已选：",
+                                  "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "LogPicked",
+                                "props": {
+                                  "Text": "无",
+                                  "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "SizeBox",
+                            "name": "LogSize",
+                            "props": {"bOverride_HeightOverride":true,"HeightOverride":150},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                            "children": [
+                              {
+                                "class": "ScrollBox",
+                                "name": "LogList",
+                                "children": [
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__1",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__1","props":{"Text":"日志 01 · 战斗","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__2",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__2","props":{"Text":"日志 02 · 商店","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__3",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__3","props":{"Text":"日志 03 · 任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__4",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__4","props":{"Text":"日志 04 · 登录","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__5",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__5","props":{"Text":"日志 05 · 战斗","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__6",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__6","props":{"Text":"日志 06 · 商店","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__7",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__7","props":{"Text":"日志 07 · 任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__8",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__8","props":{"Text":"日志 08 · 登录","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__9",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__9","props":{"Text":"日志 09 · 战斗","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__10",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__10","props":{"Text":"日志 10 · 商店","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__11",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__11","props":{"Text":"日志 11 · 任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__12",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__12","props":{"Text":"日志 12 · 登录","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__13",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__13","props":{"Text":"日志 13 · 战斗","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__14",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__14","props":{"Text":"日志 14 · 商店","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__15",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__15","props":{"Text":"日志 15 · 任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__16",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__16","props":{"Text":"日志 16 · 登录","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__17",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__17","props":{"Text":"日志 17 · 战斗","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__18",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__18","props":{"Text":"日志 18 · 商店","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__19",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__19","props":{"Text":"日志 19 · 任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Pick_LogPicked__20",
+                                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}},
+                                    "children": [{"class":"TextBlock","name":"L_Pick_LogPicked__20","props":{"Text":"日志 20 · 登录","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "StepTabs",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+                            "children": [
+                              {
+                                "class": "Button",
+                                "name": "Go_StepA",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"TextBlock","name":"L_Go_StepA","props":{"Text":"第一步","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Go_StepB",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                                "children": [{"class":"TextBlock","name":"L_Go_StepB","props":{"Text":"第二步","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Go_StepC",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Go_StepC","props":{"Text":"第三步","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "WidgetSwitcher",
+                            "name": "Steps",
+                            "children": [
+                              {"class":"TextBlock","name":"StepA","props":{"Text":"第一步：填写资料","Font":{"Size":14,"TypefaceFontName":"Regular"}}},
+                              {"class":"TextBlock","name":"StepB","props":{"Text":"第二步：选择服务器","Font":{"Size":14,"TypefaceFontName":"Regular"}}},
+                              {"class":"TextBlock","name":"StepC","props":{"Text":"第三步：确认","Font":{"Size":14,"TypefaceFontName":"Regular"}}}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "MenuCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "MenuCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "MenuCardTitle",
+                            "props": {"Text":"菜单","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "MenuCardSub",
+                            "props": {
+                              "Text": "菜单锚点：按钮开菜单，菜单里的项是另一个窗口里的控件",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "MenuRow",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "MenuAnchor",
+                                "name": "ActionAnchor",
+                                "props": {"MenuClass":"/Script/AssetForgeTests.ForgeSampleMenu","Placement":"MenuPlacement_BelowAnchor"},
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}},
+                                "children": [
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "ActionAnchorText",
+                                    "props": {
+                                      "Text": "（菜单从这里弹出）",
+                                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Menu_ActionAnchor",
+                                "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Menu_ActionAnchor","props":{"Text":"更多操作 ▾","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

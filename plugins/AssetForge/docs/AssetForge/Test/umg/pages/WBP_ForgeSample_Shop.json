@@ -1,0 +1,677 @@
+{
+  "//": "示例界面的「Shop」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Shop）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Shop",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "ShopRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "ShopHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Shop_Title",
+            "props": {"Text":"商店","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "TextBlock",
+            "name": "ShopGoldLabel",
+            "props": {
+              "Text": "持有金币",
+              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+            },
+            "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":8,"Bottom":0}}
+          },
+          {
+            "class": "TextBlock",
+            "name": "ShopGold",
+            "props": {
+              "Text": "12,800",
+              "Font": {"Size":16,"TypefaceFontName":"Bold"},
+              "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+            },
+            "slot": {"VerticalAlignment":"VAlign_Center"}
+          }
+        ]
+      },
+      {
+        "class": "ScrollBox",
+        "name": "ShopList",
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "Border",
+            "name": "ShopRow_Hp",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Hp",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Hp",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Hp",
+                        "props": {
+                          "Text": "红",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":1,"G":0.1946,"B":0.1946,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Hp",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Hp",
+                        "props": {"Text":"生命药水","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Hp",
+                        "props": {
+                          "Text": "立即恢复 300 点生命",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Hp",
+                    "props": {
+                      "Text": "120 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Hp",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"生命药水 · 120 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Hp","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Mp",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Mp",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Mp",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Mp",
+                        "props": {
+                          "Text": "蓝",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.159,"G":0.4452,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Mp",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Mp",
+                        "props": {"Text":"法力药水","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Mp",
+                        "props": {
+                          "Text": "立即恢复 200 点法力",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Mp",
+                    "props": {
+                      "Text": "100 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Mp",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"法力药水 · 100 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Mp","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Scroll",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Scroll",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Scroll",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Scroll",
+                        "props": {
+                          "Text": "卷",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Scroll",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Scroll",
+                        "props": {"Text":"回城卷轴","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Scroll",
+                        "props": {
+                          "Text": "5 秒后传送回主城",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Scroll",
+                    "props": {
+                      "Text": "60 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Scroll",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"回城卷轴 · 60 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Scroll","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Gem",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Gem",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Gem",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Gem",
+                        "props": {
+                          "Text": "宝",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":1,"G":0.1946,"B":0.3325,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Gem",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Gem",
+                        "props": {"Text":"红宝石","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Gem",
+                        "props": {
+                          "Text": "镶嵌后攻击 +5",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Gem",
+                    "props": {
+                      "Text": "880 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Gem",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"红宝石 · 880 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Gem","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Pet",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Pet",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Pet",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Pet",
+                        "props": {
+                          "Text": "狐",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":1,"G":0.3663,"B":0.107,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Pet",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Pet",
+                        "props": {"Text":"幼年狐狸","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Pet",
+                        "props": {
+                          "Text": "跟随宠物，拾取范围 +2 米",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Pet",
+                    "props": {
+                      "Text": "2,400 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Pet",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"幼年狐狸 · 2,400 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Pet","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Mount",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Mount",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Mount",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Mount",
+                        "props": {
+                          "Text": "马",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.3467,"G":0.6514,"B":0.159,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Mount",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Mount",
+                        "props": {"Text":"疾风马","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Mount",
+                        "props": {
+                          "Text": "坐骑，移动速度 +60%",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Mount",
+                    "props": {
+                      "Text": "6,800 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Mount",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"疾风马 · 6,800 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Mount","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "ShopRow_Bag",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":12,"Top":12,"Right":12,"Bottom":12}
+            },
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}},
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "ShopRowBox_Bag",
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "ShopIcon_Bag",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0232,"G":0.0356,"B":0.0802,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":10,"Y":10,"Z":10,"W":10},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopGlyph_Bag",
+                        "props": {
+                          "Text": "包",
+                          "Font": {"Size":18,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2747,"G":0.3663,"B":0.5711,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "VerticalBox",
+                    "name": "ShopText_Bag",
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopName_Bag",
+                        "props": {"Text":"扩容背包","Font":{"Size":15,"TypefaceFontName":"Bold"}},
+                        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "ShopDesc_Bag",
+                        "props": {
+                          "Text": "背包格子 +12",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "ShopPrice_Bag",
+                    "props": {
+                      "Text": "1,500 金币",
+                      "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}}
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Buy__Bag",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1},"ToolTipText":"扩容背包 · 1,500 金币"},
+                    "slot": {"VerticalAlignment":"VAlign_Center"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Buy__Bag","props":{"Text":"购买","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

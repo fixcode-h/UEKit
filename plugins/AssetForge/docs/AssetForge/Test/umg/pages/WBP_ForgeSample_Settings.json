@@ -1,0 +1,382 @@
+{
+  "//": "示例界面的「Settings」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Settings）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Settings",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "SettingsRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "SetHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Settings_Title",
+            "props": {"Text":"设置","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Audio",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Audio","props":{"Text":"声音","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Video",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Video","props":{"Text":"画面","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          },
+          {
+            "class": "Button",
+            "name": "Go_Tab_Controls",
+            "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+            "children": [{"class":"TextBlock","name":"L_Go_Tab_Controls","props":{"Text":"操作","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+          }
+        ]
+      },
+      {
+        "class": "Border",
+        "name": "SetCard",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":24,"Top":24,"Right":24,"Bottom":24}
+        },
+        "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "WidgetSwitcher",
+            "name": "SettingsTabs",
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "Tab_Audio",
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_MasterVolume",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "MasterVolume_Title",
+                        "props": {"Text":"主音量","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_MasterVolume","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_MasterVolume",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [
+                          {
+                            "class": "Slider",
+                            "name": "MasterVolume",
+                            "props": {
+                              "Value": 80,
+                              "MinValue": 0,
+                              "MaxValue": 100,
+                              "StepSize": 1,
+                              "SliderBarColor": {"R":0.0423,"G":0.0595,"B":0.117,"A":1},
+                              "SliderHandleColor": {"R":0.1022,"G":0.3005,"B":1,"A":1}
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "MasterVolume_Value",
+                        "props": {
+                          "Text": "80",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_MusicVolume",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "MusicVolume_Title",
+                        "props": {"Text":"音乐","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_MusicVolume","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_MusicVolume",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [
+                          {
+                            "class": "Slider",
+                            "name": "MusicVolume",
+                            "props": {
+                              "Value": 60,
+                              "MinValue": 0,
+                              "MaxValue": 100,
+                              "StepSize": 1,
+                              "SliderBarColor": {"R":0.0423,"G":0.0595,"B":0.117,"A":1},
+                              "SliderHandleColor": {"R":0.1022,"G":0.3005,"B":1,"A":1}
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "MusicVolume_Value",
+                        "props": {
+                          "Text": "60",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_SfxVolume",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "SfxVolume_Title",
+                        "props": {"Text":"音效","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_SfxVolume","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_SfxVolume",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [
+                          {
+                            "class": "Slider",
+                            "name": "SfxVolume",
+                            "props": {
+                              "Value": 70,
+                              "MinValue": 0,
+                              "MaxValue": 100,
+                              "StepSize": 1,
+                              "SliderBarColor": {"R":0.0423,"G":0.0595,"B":0.117,"A":1},
+                              "SliderHandleColor": {"R":0.1022,"G":0.3005,"B":1,"A":1}
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "SfxVolume_Value",
+                        "props": {
+                          "Text": "70",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "CheckBox",
+                    "name": "Mute",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [{"class":"TextBlock","name":"L_Mute","props":{"Text":"静音","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "Tab_Video",
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_Quality",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "Quality_Title",
+                        "props": {"Text":"画质","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_Quality","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_Quality",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"ComboBoxString","name":"Quality","props":{"DefaultOptions":["低","中","高","极高"],"SelectedOption":"高"}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "Quality_Value",
+                        "props": {
+                          "Text": "高",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_FrameCap",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "FrameCap_Title",
+                        "props": {"Text":"帧率上限","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_FrameCap","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_FrameCap",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [{"class":"ComboBoxString","name":"FrameCap","props":{"DefaultOptions":["30","60","120","不限"],"SelectedOption":"60"}}]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "FrameCap_Value",
+                        "props": {
+                          "Text": "60",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "CheckBox",
+                    "name": "VSync",
+                    "props": {"CheckedState":"Checked"},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [{"class":"TextBlock","name":"L_VSync","props":{"Text":"垂直同步","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  },
+                  {
+                    "class": "CheckBox",
+                    "name": "Fullscreen",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [{"class":"TextBlock","name":"L_Fullscreen","props":{"Text":"全屏","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "Tab_Controls",
+                "children": [
+                  {
+                    "class": "HorizontalBox",
+                    "name": "Row_Sensitivity",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "Sensitivity_Title",
+                        "props": {"Text":"灵敏度","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                        "slot": {"VerticalAlignment":"VAlign_Center"}
+                      },
+                      {"class":"Spacer","name":"RowGap_Sensitivity","props":{"Size":{"X":24,"Y":1}}},
+                      {
+                        "class": "SizeBox",
+                        "name": "Ctl_Sensitivity",
+                        "props": {"bOverride_WidthOverride":true,"WidthOverride":280},
+                        "slot": {"VerticalAlignment":"VAlign_Center"},
+                        "children": [
+                          {
+                            "class": "Slider",
+                            "name": "Sensitivity",
+                            "props": {
+                              "Value": 5,
+                              "MinValue": 1,
+                              "MaxValue": 10,
+                              "StepSize": 1,
+                              "SliderBarColor": {"R":0.0423,"G":0.0595,"B":0.117,"A":1},
+                              "SliderHandleColor": {"R":0.1022,"G":0.3005,"B":1,"A":1}
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "class": "TextBlock",
+                        "name": "Sensitivity_Value",
+                        "props": {
+                          "Text": "5",
+                          "Font": {"Size":14,"TypefaceFontName":"Bold"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        },
+                        "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":14,"Top":0,"Right":0,"Bottom":0}}
+                      }
+                    ]
+                  },
+                  {
+                    "class": "CheckBox",
+                    "name": "InvertY",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [{"class":"TextBlock","name":"L_InvertY","props":{"Text":"反转 Y 轴","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  },
+                  {
+                    "class": "CheckBox",
+                    "name": "Vibration",
+                    "props": {"CheckedState":"Checked"},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [{"class":"TextBlock","name":"L_Vibration","props":{"Text":"手柄震动","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Reset",
+                    "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                    "slot": {"HorizontalAlignment":"HAlign_Left","Padding":{"Left":0,"Top":8,"Right":0,"Bottom":0}},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Reset","props":{"Text":"恢复默认","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "class": "HorizontalBox",
+        "name": "SetFoot",
+        "children": [
+          {"class":"Spacer","name":"SetFootFill","props":{"Size":{"X":1,"Y":1}},"slot":{"Size":{"SizeRule":"Fill","Value":1}}},
+          {
+            "class": "Button",
+            "name": "Open_Popup_Saved",
+            "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+            "children": [{"class":"TextBlock","name":"L_Open_Popup_Saved","props":{"Text":"保存设置","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+          }
+        ]
+      }
+    ]
+  }
+}

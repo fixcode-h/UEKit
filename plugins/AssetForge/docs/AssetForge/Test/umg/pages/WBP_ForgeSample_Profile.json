@@ -1,0 +1,297 @@
+{
+  "//": "示例界面的「Profile」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Profile）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Profile",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "HorizontalBox",
+    "name": "ProfileRoot",
+    "children": [
+      {
+        "class": "Border",
+        "name": "ProfileCard",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":24,"Top":24,"Right":24,"Bottom":24}
+        },
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}},
+        "children": [
+          {
+            "class": "VerticalBox",
+            "name": "ProfileCol",
+            "children": [
+              {
+                "class": "SizeBox",
+                "name": "AvatarSize",
+                "props": {"bOverride_WidthOverride":true,"WidthOverride":96,"bOverride_HeightOverride":true,"HeightOverride":96},
+                "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "Avatar",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0262,"G":0.0742,"B":0.2623,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":48,"Y":48,"Z":48,"W":48},"RoundingType":"FixedRadius"}
+                      },
+                      "HorizontalAlignment": "HAlign_Center",
+                      "VerticalAlignment": "VAlign_Center"
+                    },
+                    "children": [{"class":"TextBlock","name":"AvatarText","props":{"Text":"指","Font":{"Size":36,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              },
+              {
+                "class": "TextBlock",
+                "name": "Page_Profile_Title",
+                "props": {"Text":"资料","Font":{"Size":20,"TypefaceFontName":"Bold"},"Justification":"Center"},
+                "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":0,"Right":0,"Bottom":4}}
+              },
+              {
+                "class": "TextBlock",
+                "name": "ProfileId",
+                "props": {
+                  "Text": "ID 100 238 771",
+                  "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                },
+                "slot": {"HorizontalAlignment":"HAlign_Center","Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}}
+              },
+              {
+                "class": "TextBlock",
+                "name": "ExpLabel",
+                "props": {
+                  "Text": "经验 7,420 / 10,000",
+                  "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+              },
+              {
+                "class": "ProgressBar",
+                "name": "ExpBar",
+                "props": {"Percent":0.742,"FillColorAndOpacity":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}}
+              },
+              {
+                "class": "CheckBox",
+                "name": "PublicProfile",
+                "props": {"CheckedState":"Checked"},
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                "children": [{"class":"TextBlock","name":"L_PublicProfile","props":{"Text":"公开资料","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+              },
+              {
+                "class": "CheckBox",
+                "name": "FriendRequests",
+                "props": {"CheckedState":"Checked"},
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                "children": [{"class":"TextBlock","name":"L_FriendRequests","props":{"Text":"允许好友申请","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "class": "Border",
+        "name": "ProfileForm",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":24,"Top":24,"Right":24,"Bottom":24}
+        },
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "VerticalBox",
+            "name": "ProfileFormCol",
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "Field_PlayerName",
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}},
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "PlayerName_Title",
+                    "props": {
+                      "Text": "昵称",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "FieldRow_PlayerName",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "EditableTextBox",
+                        "name": "PlayerName",
+                        "props": {"HintText":"输入昵称（2–12 个字）"},
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Submit_PlayerName",
+                        "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                        "children": [{"class":"TextBlock","name":"L_Submit_PlayerName","props":{"Text":"保存","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "EchoRow_PlayerName",
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "EchoLabel_PlayerName",
+                        "props": {
+                          "Text": "当前：",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      },
+                      {"class":"TextBlock","name":"PlayerName_Echo","props":{"Text":"未设置","Font":{"Size":12,"TypefaceFontName":"Regular"}}}
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "Field_Signature",
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}},
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "Signature_Title",
+                    "props": {
+                      "Text": "个性签名",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "FieldRow_Signature",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "EditableTextBox",
+                        "name": "Signature",
+                        "props": {"HintText":"写一句话介绍自己"},
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Submit_Signature",
+                        "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                        "children": [{"class":"TextBlock","name":"L_Submit_Signature","props":{"Text":"保存","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "EchoRow_Signature",
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "EchoLabel_Signature",
+                        "props": {
+                          "Text": "当前：",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      },
+                      {"class":"TextBlock","name":"Signature_Echo","props":{"Text":"未设置","Font":{"Size":12,"TypefaceFontName":"Regular"}}}
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "Field_InviteCode",
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}},
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "InviteCode_Title",
+                    "props": {
+                      "Text": "邀请码",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "FieldRow_InviteCode",
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "EditableTextBox",
+                        "name": "InviteCode",
+                        "props": {"HintText":"输入好友的邀请码"},
+                        "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}}
+                      },
+                      {
+                        "class": "Button",
+                        "name": "Submit_InviteCode",
+                        "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                        "children": [{"class":"TextBlock","name":"L_Submit_InviteCode","props":{"Text":"保存","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "HorizontalBox",
+                    "name": "EchoRow_InviteCode",
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "EchoLabel_InviteCode",
+                        "props": {
+                          "Text": "当前：",
+                          "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      },
+                      {"class":"TextBlock","name":"InviteCode_Echo","props":{"Text":"未设置","Font":{"Size":12,"TypefaceFontName":"Regular"}}}
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "Button",
+                "name": "Open_Popup_Logout",
+                "props": {"BackgroundColor":{"R":0.8714,"G":0.1274,"B":0.1274,"A":1}},
+                "slot": {"HorizontalAlignment":"HAlign_Left"},
+                "children": [{"class":"TextBlock","name":"L_Open_Popup_Logout","props":{"Text":"退出登录","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

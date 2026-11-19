@@ -29,6 +29,18 @@ namespace ForgePipeline
 	 */
 	ASSETFORGE_API FString ResolveConfigPath(const FString& InConfigPath);
 
+	/**
+	 * 节点上 `ref`（引用另一份配置，UMG 的子界面）指向的配置文件：先按引用它的配置所在的目录找，
+	 * 再按 `ResolveConfigPath` 的规则（项目根、配置根）找。
+	 */
+	ASSETFORGE_API FString ResolveRefPath(const FString& InRef, const FString& InFromConfigPath);
+
+	/**
+	 * 一份配置直接引用的其他配置（节点上的 `ref`，去重，磁盘绝对路径）。
+	 * 导入时用它把子界面的配置一起带上（先导入子界面，父界面才解析得到子界面的类）。读不了、解析不了返回 false。
+	 */
+	ASSETFORGE_API bool CollectRefConfigs(const FString& InConfigPath, TArray<FString>& OutConfigPaths);
+
 	/** 读配置文件 → 文档（含注释剥离、字段校验、schema 版本门禁与 ref 解析）。 */
 	ASSETFORGE_API bool LoadDocument(const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport);
 

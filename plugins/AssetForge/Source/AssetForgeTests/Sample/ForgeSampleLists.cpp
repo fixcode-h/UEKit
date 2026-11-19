@@ -4,6 +4,8 @@
 
 #include "Sample/ForgeSampleScreen.h"
 
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -176,6 +178,19 @@ void UForgeSampleEntry::Report(const FString& InText) const
 	if (UForgeSampleScreen* Screen = GetTypedOuter<UForgeSampleScreen>())
 	{
 		Screen->ReportStatus(InText);
+		return;
+	}
+	// 菜单锚点弹出的菜单 Outer 是玩家控制器，不在界面下面：在世界里找示例界面
+	TArray<UUserWidget*> Screens;
+	UWidgetBlueprintLibrary::GetAllWidgetsOfClass(const_cast<UForgeSampleEntry*>(this), Screens, UForgeSampleScreen::StaticClass(), /*TopLevelOnly=*/false);
+	for (UUserWidget* Found : Screens)
+	{
+		if (UForgeSampleScreen* Screen = Cast<UForgeSampleScreen>(Found))
+		{
+			Screen->ReportStatus(InText);
+			Screen->CloseMenus();
+			return;
+		}
 	}
 }
 
@@ -432,7 +447,7 @@ void ForgeSampleLists::Populate(UUserWidget& InScreen)
 	}
 
 	// TileView 是 ListView 的子类，一起按 ListView 找
-	if (UListView* Bag = Cast<UListView>(InScreen.WidgetTree->FindWidget(TEXT("ItemList"))))
+	if (UListView* Bag = Cast<UListView>(FindDeep(InScreen, TEXT("ItemList"))))
 	{
 		if (Bag->GetNumItems() == 0)
 		{
@@ -450,7 +465,7 @@ void ForgeSampleLists::Populate(UUserWidget& InScreen)
 		}
 	}
 
-	if (UListView* Mails = Cast<UListView>(InScreen.WidgetTree->FindWidget(TEXT("MailList"))))
+	if (UListView* Mails = Cast<UListView>(FindDeep(InScreen, TEXT("MailList"))))
 	{
 		if (Mails->GetNumItems() == 0)
 		{
@@ -468,7 +483,7 @@ void ForgeSampleLists::Populate(UUserWidget& InScreen)
 		}
 	}
 
-	if (UWrapBox* Bar = Cast<UWrapBox>(InScreen.WidgetTree->FindWidget(TEXT("SkillBar"))))
+	if (UWrapBox* Bar = Cast<UWrapBox>(FindDeep(InScreen, TEXT("SkillBar"))))
 	{
 		if (Bar->GetChildrenCount() == 0)
 		{
@@ -489,4 +504,86 @@ void ForgeSampleLists::Populate(UUserWidget& InScreen)
 			}
 		}
 	}
+}
+
+void ForgeSampleLists::ForEachDeep(UUserWidget& InScreen, TFunctionRef<void(UWidget*)> InVisit)
+{
+	if (InScreen.WidgetTree == nullptr)
+	{
+		return;
+	}
+	TArray<UUserWidget*> Nested;
+	InScreen.WidgetTree->ForEachWidget([&InVisit, &Nested](UWidget* Widget)
+	{
+		if (Widget == nullptr)
+		{
+			return;
+		}
+		InVisit(Widget);
+		UUserWidget* Child = Cast<UUserWidget>(Widget);
+		if (Child != nullptr && Cast<UWidgetBlueprintGeneratedClass>(Child->GetClass()) != nullptr)
+		{
+			Nested.Add(Child);
+		}
+	});
+	for (UUserWidget* Child : Nested)
+	{
+		// 嵌套子界面一般在外层 Initialize 时就建好了树；没建的话这里补一次（已经初始化过的直接返回）
+		Child->Initialize();
+		ForEachDeep(*Child, InVisit);
+	}
+}
+
+UWidget* ForgeSampleLists::FindDeep(UUserWidget& InScreen, FName InName)
+{
+	UWidget* Found = nullptr;
+	ForEachDeep(InScreen, [&Found, InName](UWidget* Widget)
+	{
+		if (Found == nullptr && Widget->GetFName() == InName)
+		{
+			Found = Widget;
+		}
+	});
+	return Found;
+}
+
+// ---- 菜单 ----
+
+void UForgeSampleMenu::BuildTree(UWidgetTree& InTree)
+{
+	using namespace ForgeSampleListsDetail;
+	UBorder* Frame = MakeBorder(InTree, TEXT("MenuBg"), Rounded(Hex(TEXT("202838")), 10.0f, TEXT("2A3346")), FMargin(8.0f));
+	InTree.RootWidget = Frame;
+	UVerticalBox* Col = InTree.ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("MenuCol"));
+	Frame->SetContent(Col);
+
+	UButton* Copy = MakeButton(InTree, TEXT("MenuCopy"), TEXT("复制"), TEXT("222A3A"));
+	UButton* Rename = MakeButton(InTree, TEXT("MenuRename"), TEXT("重命名"), TEXT("222A3A"));
+	UButton* Delete = MakeButton(InTree, TEXT("MenuDelete"), TEXT("删除"), TEXT("F06464"));
+	Copy->OnClicked.AddDynamic(this, &UForgeSampleMenu::OnCopy);
+	Rename->OnClicked.AddDynamic(this, &UForgeSampleMenu::OnRename);
+	Delete->OnClicked.AddDynamic(this, &UForgeSampleMenu::OnDelete);
+	AddRow(*Col, Copy, 4.0f, HAlign_Fill);
+	AddRow(*Col, Rename, 4.0f, HAlign_Fill);
+	AddRow(*Col, Delete, 0.0f, HAlign_Fill);
+}
+
+void UForgeSampleMenu::OnCopy()
+{
+	Pick(TEXT("复制"));
+}
+
+void UForgeSampleMenu::OnRename()
+{
+	Pick(TEXT("重命名"));
+}
+
+void UForgeSampleMenu::OnDelete()
+{
+	Pick(TEXT("删除"));
+}
+
+void UForgeSampleMenu::Pick(const TCHAR* InWhat) const
+{
+	Report(FString::Printf(TEXT("菜单：%s"), InWhat));
 }

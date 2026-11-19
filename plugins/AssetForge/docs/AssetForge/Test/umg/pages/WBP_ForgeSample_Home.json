@@ -1,0 +1,553 @@
+{
+  "//": "示例界面的「Home」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Home）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Home",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "HomeRoot",
+    "children": [
+      {
+        "class": "Border",
+        "name": "Hero",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0116,"G":0.0319,"B":0.117,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":14,"Y":14,"Z":14,"W":14},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0262,"G":0.0742,"B":0.2623,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":28,"Top":24,"Right":28,"Bottom":24}
+        },
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+        "children": [
+          {
+            "class": "VerticalBox",
+            "name": "HeroCol",
+            "children": [
+              {
+                "class": "TextBlock",
+                "name": "HeroTitle",
+                "props": {"Text":"欢迎回来，指挥官","Font":{"Size":28,"TypefaceFontName":"Bold"}},
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":8}}
+              },
+              {
+                "class": "TextBlock",
+                "name": "HeroDesc",
+                "props": {
+                  "Text": "这是 AssetForge 用 JSON 生成的多页面界面：每一页是一个子 WBP，导入父界面时一起生成。侧栏跳页、页签、返回、弹窗、列表、各种输入控件、计数和定时弹窗都有，用来练习 GameTest 录制和脚本。",
+                  "Font": {"Size":14,"TypefaceFontName":"Regular"},
+                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.4851,"G":0.5711,"B":0.7758,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "AutoWrapText": true
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":18}}
+              },
+              {
+                "class": "HorizontalBox",
+                "name": "HeroBtns",
+                "children": [
+                  {
+                    "class": "Button",
+                    "name": "Go_Page_Shop__Hero",
+                    "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                    "children": [{"class":"TextBlock","name":"L_Go_Page_Shop__Hero","props":{"Text":"去商店","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Go_Page_Tasks__Hero",
+                    "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                    "children": [{"class":"TextBlock","name":"L_Go_Page_Tasks__Hero","props":{"Text":"查看任务","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Reward__Daily",
+                    "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1},"ToolTipText":"每日登录奖励：金币 ×500"},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Reward__Daily","props":{"Text":"领取每日奖励","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "class": "HorizontalBox",
+        "name": "Stats",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}},
+        "children": [
+          {
+            "class": "Border",
+            "name": "StatGold",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":20,"Top":20,"Right":20,"Bottom":20}
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0}},
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "StatGoldCol",
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "StatGoldLabel",
+                    "props": {
+                      "Text": "金币",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "StatGoldValue",
+                    "props": {
+                      "Text": "12,800",
+                      "Font": {"Size":26,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "StatLevel",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":20,"Top":20,"Right":20,"Bottom":20}
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0}},
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "StatLevelCol",
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "StatLevelLabel",
+                    "props": {
+                      "Text": "等级",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {"class":"TextBlock","name":"StatLevelValue","props":{"Text":"Lv.27","Font":{"Size":26,"TypefaceFontName":"Bold"}}}
+                ]
+              }
+            ]
+          },
+          {
+            "class": "Border",
+            "name": "StatEnergy",
+            "props": {
+              "Background": {
+                "DrawAs": "RoundedBox",
+                "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                "OutlineSettings": {
+                  "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                  "RoundingType": "FixedRadius",
+                  "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "Width": 1
+                }
+              },
+              "Padding": {"Left":20,"Top":20,"Right":20,"Bottom":20}
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":14,"Bottom":0}},
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "StatEnergyCol",
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "StatEnergyLabel",
+                    "props": {
+                      "Text": "体力",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "StatEnergyValue",
+                    "props": {
+                      "Text": "96 / 120",
+                      "Font": {"Size":26,"TypefaceFontName":"Bold"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.1144,"G":0.6514,"B":0.3231,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    }
+                  },
+                  {
+                    "class": "ProgressBar",
+                    "name": "EnergyBar",
+                    "props": {"Percent":0.8,"FillColorAndOpacity":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":10,"Right":0,"Bottom":0}}
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "class": "Border",
+        "name": "NewsCard",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":20,"Top":20,"Right":20,"Bottom":20}
+        },
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "VerticalBox",
+            "name": "NewsCol",
+            "children": [
+              {
+                "class": "HorizontalBox",
+                "name": "NewsHead",
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":10}},
+                "children": [
+                  {
+                    "class": "TextBlock",
+                    "name": "NewsTitle",
+                    "props": {"Text":"公告","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                    "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "NewsPickedLabel",
+                    "props": {
+                      "Text": "已读：",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center"}
+                  },
+                  {
+                    "class": "TextBlock",
+                    "name": "NewsPicked",
+                    "props": {
+                      "Text": "无",
+                      "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                    },
+                    "slot": {"VerticalAlignment":"VAlign_Center"}
+                  }
+                ]
+              },
+              {
+                "class": "ScrollBox",
+                "name": "NewsList",
+                "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+                "children": [
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__1",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow1",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag1",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0137,"G":0.0262,"B":0.0742,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText1",
+                                "props": {
+                                  "Text": "版本",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__1",
+                            "props": {"Text":"2.4 版本更新说明：新增跨服竞技场","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__2",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow2",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag2",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0423,"G":0.0284,"B":0.006,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText2",
+                                "props": {
+                                  "Text": "活动",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.8879,"G":0.3968,"B":0.0437,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__2",
+                            "props": {"Text":"周末双倍经验，周六 10:00 开始","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__3",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow3",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag3",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0137,"G":0.0262,"B":0.0742,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText3",
+                                "props": {
+                                  "Text": "维护",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__3",
+                            "props": {"Text":"11 月 20 日 6:00–8:00 停服维护","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__4",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow4",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag4",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0137,"G":0.0262,"B":0.0742,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText4",
+                                "props": {
+                                  "Text": "公告",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__4",
+                            "props": {"Text":"防沉迷系统升级说明","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__5",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow5",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag5",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0423,"G":0.0284,"B":0.006,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText5",
+                                "props": {
+                                  "Text": "活动",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.8879,"G":0.3968,"B":0.0437,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__5",
+                            "props": {"Text":"首充礼包限时返场","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Pick_NewsPicked__6",
+                    "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}},
+                    "children": [
+                      {
+                        "class": "HorizontalBox",
+                        "name": "NewsRow6",
+                        "children": [
+                          {
+                            "class": "Border",
+                            "name": "NewsTag6",
+                            "props": {
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0137,"G":0.0262,"B":0.0742,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {"CornerRadii":{"X":6,"Y":6,"Z":6,"W":6},"RoundingType":"FixedRadius"}
+                              },
+                              "Padding": {"Left":8,"Top":2,"Right":8,"Bottom":2}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "NewsTagText6",
+                                "props": {
+                                  "Text": "社区",
+                                  "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "L_Pick_NewsPicked__6",
+                            "props": {"Text":"优秀攻略征集，奖励限定称号","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

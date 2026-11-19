@@ -249,6 +249,21 @@ namespace
 	{
 		FString ClassError;
 		UClass* WidgetClass = UmgWidgetCodec::ResolveWidgetClass(InNode.ClassName, ClassError);
+		if (WidgetClass == nullptr && !InNode.Ref.IsEmpty())
+		{
+			// 子界面（ref）还没导入成资产。批量导入会先导入它（ForgeBatch 把 ref 的配置排在前面），
+			// 但演练不生成资产，单独演练父界面时这里必然找不到：演练只提示，真导入时才算错。
+			const FString Where = JoinNodePath(InNodePath, TEXT("ref"));
+			if (OutReport.bDryRun)
+			{
+				OutReport.AddWarning(Where, FString::Printf(TEXT("子界面 %s 还没导入成资产：导入这份配置时会先导入它，演练看不到它里面的控件"), *InNode.Ref));
+			}
+			else
+			{
+				OutReport.AddError(Where, FString::Printf(TEXT("子界面 %s 还没导入成资产（%s）：从 AssetForge 页导入这份配置会连带先导入子界面"), *InNode.Ref, *ClassError));
+			}
+			return;
+		}
 		if (WidgetClass == nullptr)
 		{
 			OutReport.AddError(JoinNodePath(InNodePath, TEXT("class")), ClassError);

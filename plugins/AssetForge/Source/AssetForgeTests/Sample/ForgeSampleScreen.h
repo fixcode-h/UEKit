@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Engine/TimerHandle.h"
+#include "Framework/Commands/InputChord.h"
 #include "Types/SlateEnums.h"
 #include "ForgeSampleScreen.generated.h"
 
@@ -43,6 +45,22 @@ public:
 	UFUNCTION()
 	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitMethod);
 
+	/** 长按、悬停（`Hold_`、`Hover_` 按钮）才绑这几个 */
+	UFUNCTION()
+	void OnPressed();
+
+	UFUNCTION()
+	void OnReleased();
+
+	UFUNCTION()
+	void OnHovered();
+
+	UFUNCTION()
+	void OnUnhovered();
+
+	UFUNCTION()
+	void OnKeySelected(FInputChord InSelectedKey);
+
 	/** 解绑这个对象挂过的所有委托（界面重建 / 析构时调） */
 	void Unbind();
 };
@@ -66,6 +84,19 @@ public:
  * - 所有操作的结果写进 `Status`，当前页的标题写进 `Crumb`（页标题取 `<页>_Title`，没有就取导航按钮的文字）：
  *   GameTest 断言这两个文字就能确认点对了。
  * - 指向当前所在页 / 页签的 `Go_` 按钮染成 ActiveTint，其余恢复原来的 BackgroundColor。
+ *
+ * 1.5.0 起每一页是一个子 WBP（配置里 `ref` 引用 `pages/` 下的子配置），控件分在几棵 WidgetTree 里：
+ * 名字约定照旧在**整个界面**里找（先自己的树，再进嵌套的蓝图子界面），所以名字在所有页里都不重名。
+ * 「流程」「控件」两页给 GameTest 的脚本功能当靶子，多了这些约定（实现在 ForgeSampleFlow.cpp）：
+ * - `Inc_<文字>` / `Dec_<文字>` / `Reset_<文字>`：文字里的整数 +1 / -1 / 归零；文字控件叫 `Counter` 时同步到 `Counter` 属性。
+ * - `Claim_<名>`：第一次点把按钮上的字改成「已领取」，再点只提示领过了（练「已达成就跳过」）。
+ * - `Delay_<控件>`：RevealDelaySeconds 秒后把控件显示出来（练等待）；`Toggle_<控件>`：显示 / 折叠来回切（练分支）。
+ * - `Arm_<弹窗>`：ArmDelaySeconds 秒后自己弹出来（练守护：不定时弹出、挡住后面步骤的界面）。
+ * - 复选框 `Enable_<控件>`：勾上才让那个控件可用（练「可点」判断）。
+ * - `Hold_<名>`：按住到松开的时长写进 `<名>_Value`，满 HoldSeconds 算「蓄力完成」（练长按）。
+ * - `Hover_<名>`：鼠标进出写进 `<名>_Value`（练真实鼠标悬停）。
+ * - `Menu_<菜单锚点>`：开 / 关菜单（菜单内容是 C++ 类 ForgeSampleMenu）。
+ * - 滑条有 `<名>_Bar` 进度条时一起动；按键选择器选的键写进 `<名>_Value`。
  */
 UCLASS(Blueprintable)
 class UForgeSampleScreen : public UUserWidget
@@ -85,9 +116,52 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ForgeSample")
 	bool bShowCursor = true;
 
+	/** `Delay_` 按钮多久之后把目标显示出来（秒） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ForgeSample")
+	float RevealDelaySeconds = 1.5f;
+
+	/** `Arm_` 按钮多久之后弹出弹窗（秒） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ForgeSample")
+	float ArmDelaySeconds = 1.0f;
+
+	/** `Hold_` 按钮按住多久算长按（秒） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ForgeSample")
+	float HoldSeconds = 1.0f;
+
+	/** 「流程」页的计数（和 `Counter` 文字同步）：GameTest 的 field / invoke / 对象定位读它 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ForgeSample")
+	int32 Counter = 0;
+
+	/** 领过的 `Claim_` 名字个数 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ForgeSample")
+	int32 ClaimCount = 0;
+
 	/** 回到首页、清空历史、关掉所有弹窗 */
 	UFUNCTION(BlueprintCallable, Category = "ForgeSample")
 	void ResetScreen();
+
+	/** 把计数设成某个值（GameTest invoke 练调函数、带参数） */
+	UFUNCTION(BlueprintCallable, Category = "ForgeSample")
+	void SetCounter(int32 InValue);
+
+	/** 计数加 InDelta，返回加完的值（invoke 的 saveAs 练返回值） */
+	UFUNCTION(BlueprintCallable, Category = "ForgeSample")
+	int32 AddCounter(int32 InDelta);
+
+	/** 只读：当前计数（条件、表达式里能调的只读函数） */
+	UFUNCTION(BlueprintPure, Category = "ForgeSample")
+	int32 GetCounter() const { return Counter; }
+
+	/** 只读：某个 `Claim_` 名字领过没有 */
+	UFUNCTION(BlueprintPure, Category = "ForgeSample")
+	bool IsClaimed(const FString& InName) const { return ClaimedNames.Contains(InName); }
+
+	/** 把「流程」页恢复原样：计数归零、领取状态清掉、延时显示的控件藏回去（无参，widget.call 能调） */
+	UFUNCTION(BlueprintCallable, Category = "ForgeSample")
+	void ResetFlow();
+
+	/** 关掉所有弹出的菜单（菜单里的按钮点完调） */
+	void CloseMenus();
 
 	/** 列表条目页的条目控件（ForgeSampleLists）把操作结果写进 Status 用 */
 	void ReportStatus(const FString& InText) { SetStatus(InText); }
@@ -97,6 +171,13 @@ public:
 	void HandleValue(UWidget* InSource, float InValue);
 	void HandleOption(UWidget* InSource, const FString& InItem);
 	void HandleCommit(UWidget* InSource, const FText& InText);
+	void HandlePressed(UWidget* InSource);
+	void HandleReleased(UWidget* InSource);
+	void HandleHover(UWidget* InSource, bool bInHovered);
+	void HandleKeySelected(UWidget* InSource, const FInputChord& InKey);
+
+	/** 整个界面（含子界面）里按名字找控件 */
+	UWidget* FindAny(const FString& InName) const;
 
 protected:
 	virtual void NativeConstruct() override;
@@ -111,6 +192,11 @@ private:
 
 	/** 页 / 弹窗的标题：`<名字>_Title`，没有就取 `Go_<名字>__Nav` 按钮的文字，再没有就用名字 */
 	FString TitleOf(const FString& InName) const;
+
+	/** 「流程」「控件」两页的名字约定（ForgeSampleFlow.cpp）；认得这个名字返回 true */
+	bool HandleFlowClick(UWidget* InSource, const FString& InName, const FString& InLabel);
+	void SetVisible(UWidget* InWidget, bool bInVisible);
+	void OpenPopup(UWidget* InPopup, const UWidget* InSource, const FString& InLabel);
 
 	void BindAll();
 	void UnbindAll();
@@ -134,4 +220,16 @@ private:
 
 	/** 每个 Go_ 按钮在配置里的底色，染色之后靠它恢复 */
 	TMap<TWeakObjectPtr<UButton>, FLinearColor> NormalTints;
+
+	/** 名字 → 控件（BindAll 时建；子界面里的控件也在） */
+	TMap<FName, TWeakObjectPtr<UWidget>> ByName;
+
+	/** 领过的 `Claim_` 名字 */
+	TSet<FString> ClaimedNames;
+
+	/** `Hold_` 按钮按下的时刻（FPlatformTime::Seconds） */
+	TMap<FName, double> PressedAt;
+
+	/** `Delay_` / `Arm_` 的计时器：重置界面时一起取消 */
+	TArray<FTimerHandle> Timers;
 };
