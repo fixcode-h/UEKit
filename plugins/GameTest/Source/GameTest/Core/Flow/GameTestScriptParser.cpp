@@ -319,7 +319,11 @@ void FGameTestScriptParser::ParseBlock(const FJsonObject& InJson, FGameTestNode&
 	FGameTestStep& Step = OutNode.Step;
 	Step.Action = OutNode.Action;
 	InJson.TryGetStringField(TEXT("note"), Step.Note);
-	InJson.TryGetNumberField(TEXT("timeoutMs"), Step.TimeoutMs);
+	if (InJson.TryGetNumberField(TEXT("timeoutMs"), Step.TimeoutMs) && Step.TimeoutMs <= 0)
+	{
+		// 写了 0 = 整块不限时（和叶子一样记成 -1）；块本来没写就不限，这里只为和叶子一致
+		Step.TimeoutMs = -1;
+	}
 	FString OnFail;
 	if (InJson.TryGetStringField(TEXT("onFail"), OnFail))
 	{

@@ -49,6 +49,7 @@ struct FGameTestStep
 	FName Action;
 	FString Target;
 	FString Note;
+	/** 0 = 没写（用默认）；小于 0 = 写了 0，不限时（用户 2026-11-19：0 表示不限），解析时把写了的 0 换成 -1 */
 	int32 TimeoutMs = 0;
 	EGameTestFailMode FailMode = EGameTestFailMode::Stop;
 	int32 Index = 0;

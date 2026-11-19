@@ -27,7 +27,8 @@ namespace
 		In,
 	};
 
-	constexpr int32 MaxLimit = 1000;
+	/** 写了正数时的上限，只防手误；要更多轮写 0（不限） */
+	constexpr int32 MaxLimit = 1000000;
 	/** 条目没生成时最多等多久（秒）：滚过去后列表下一帧才生成控件，慢的界面要几帧。 */
 	constexpr double EntryWaitSeconds = 3.0;
 
@@ -160,20 +161,14 @@ namespace
 				}
 			}
 
-			const bool bHasMax = Json.TryGetNumberField(TEXT("max"), Data->Max);
-			if (!bHasMax && Data->Mode != ELoopMode::Times)
+			// max：0 或不写 = 不限轮数（用户 2026-11-19 定）。不限时靠整块的 timeoutMs 或面板的「停止」收住，
+			// 每轮至少让出一帧，不会卡住编辑器。
+			Json.TryGetNumberField(TEXT("max"), Data->Max);
+			if (Data->Max < 0 || Data->Max > MaxLimit)
 			{
-				Sink.Error(TEXT("loop_no_max"), TEXT("loop 缺少 max（最多几轮，防止死循环；times 以外都要写，上限 1000）"));
+				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 0–%d 之间（0 = 不限），写的是 %d"), MaxLimit, Data->Max));
 			}
-			else if (bHasMax && (Data->Max < 1 || Data->Max > MaxLimit))
-			{
-				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 1–%d 之间，写的是 %d"), MaxLimit, Data->Max));
-			}
-			if (!bHasMax)
-			{
-				Data->Max = MaxLimit;
-			}
-			Data->Max = FMath::Clamp(Data->Max, 1, MaxLimit);
+			Data->Max = FMath::Clamp(Data->Max, 0, MaxLimit);
 			Json.TryGetNumberField(TEXT("gapMs"), Data->GapMs);
 			Data->GapMs = FMath::Clamp(Data->GapMs, 0, 600000);
 			FString OnMax;
@@ -235,7 +230,7 @@ namespace
 					{
 						return Finish(State, TEXT("count"), Out);
 					}
-					if (State.Iter >= Data->Max)
+					if (Data->Max > 0 && State.Iter >= Data->Max)
 					{
 						if (Data->bOnMaxContinue)
 						{
