@@ -490,6 +490,25 @@ namespace AgentPanel
 		return Out;
 	}
 
+	TArray<TSharedPtr<FJsonValue>> ListSavedProps(UObject* Obj, int32 MaxChars)
+	{
+		TArray<TSharedPtr<FJsonValue>> Out;
+		if (!Obj)
+		{
+			return Out;
+		}
+		for (TFieldIterator<FProperty> It(Obj->GetClass()); It; ++It)
+		{
+			FProperty* Prop = *It;
+			if (Prop->HasAnyPropertyFlags(CPF_Transient | CPF_DuplicateTransient))
+			{
+				continue;
+			}
+			Out.Add(MakeShared<FJsonValueObject>(PropInfo(Prop, Obj, MaxChars, Obj)));
+		}
+		return Out;
+	}
+
 	TArray<TSharedPtr<FJsonValue>> ParamsOf(UFunction* Func)
 	{
 		TArray<TSharedPtr<FJsonValue>> Out;

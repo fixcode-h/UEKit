@@ -365,6 +365,7 @@ public:
 		RegisterBlueprintEditOps();
 		RegisterTraceOps();
 		RegisterTextifyOps();
+		RegisterSnapshotOps();
 		RegisterStreamOps();
 		RegisterSelectionOps();
 		RegisterEditorToolsOps();

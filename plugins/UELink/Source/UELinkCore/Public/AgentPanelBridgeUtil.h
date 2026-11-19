@@ -66,6 +66,9 @@ namespace AgentPanel
 	/** 一个结构的属性列表（名字、类型、分类、同步、只读、值），Filter 是名字前缀 */
 	UELINKCORE_API TArray<TSharedPtr<FJsonValue>> ListProps(UStruct* Struct, const void* Container, const FString& Filter, int32 MaxChars, const UObject* Owner = nullptr);
 
+	/** 对象存盘的属性（跳过 Transient：两版内容一样时它也可能不一样，比版本差异时会造出假差异），每项的形状和 ListProps 一样（2.14） */
+	UELINKCORE_API TArray<TSharedPtr<FJsonValue>> ListSavedProps(UObject* Obj, int32 MaxChars);
+
 	/** 函数的参数说明：[{name, type, enum?:[]}]，不含返回值 */
 	UELINKCORE_API TArray<TSharedPtr<FJsonValue>> ParamsOf(UFunction* Func);
 

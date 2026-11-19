@@ -57,13 +57,19 @@
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open`、`asset.redirectors` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
+
+`asset.snapshot {"out", "package", "file"?}`（2.14）：资源的结构化快照，给面板资源页的「版本差异」逐项比较。`file` 是某一版资源的临时文件（和 `asset.textify` 一样挂到临时挂载点加载、用完卸载）；不给 `file` 就读编辑器里已加载的那份（含没保存的改动）。快照写进 `out`（面板给的绝对路径，UTF-8 紧凑 JSON），回包只有 `{out, bytes, class}`。快照里的临时包名都换回 `package`。形状：
+
+- `class`、`props`（属性列表，每项和 `props` 操作一样带 `name`/`displayName`/`category`/`type`/`value`，跳过 Transient，值不截断）、`note?`；
+- 蓝图另有 `blueprint`：`parent`、`interfaces[]`、`variables[{name, type, category, flags[]}]`、`components[{name, class, parent, source: native|scs|inherited, props}]`、`graphs[{name, kind, nodes[{id, guid, title, class, comment?, pins{引脚: 默认值}, links["出引脚->节点id.入引脚"]}], pseudo}]`，`props` 是类默认值；
+- 其他资源另有 `subobjects[{name(相对资源的路径), class, props}]`，数据表 / 曲线表另有 `rows`（`GetTableAsJSON` 的原文）、`rowStruct`。
 
 `trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
 
