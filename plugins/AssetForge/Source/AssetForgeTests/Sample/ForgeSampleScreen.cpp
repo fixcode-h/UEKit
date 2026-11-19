@@ -10,12 +10,16 @@
 #include "Components/ComboBoxString.h"
 #include "Components/EditableText.h"
 #include "Components/EditableTextBox.h"
+#include "Components/InputKeySelector.h"
 #include "Components/MultiLineEditableTextBox.h"
+#include "Components/ProgressBar.h"
 #include "Components/Slider.h"
 #include "Components/SpinBox.h"
 #include "Components/TextBlock.h"
 #include "Components/WidgetSwitcher.h"
+#include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogForgeSample, Log, All);
 
@@ -61,12 +65,56 @@ void UForgeSampleBinding::OnTextCommitted(const FText& InText, ETextCommit::Type
 	}
 }
 
+void UForgeSampleBinding::OnPressed()
+{
+	if (UForgeSampleScreen* Owner = Screen.Get())
+	{
+		Owner->HandlePressed(Source.Get());
+	}
+}
+
+void UForgeSampleBinding::OnReleased()
+{
+	if (UForgeSampleScreen* Owner = Screen.Get())
+	{
+		Owner->HandleReleased(Source.Get());
+	}
+}
+
+void UForgeSampleBinding::OnHovered()
+{
+	if (UForgeSampleScreen* Owner = Screen.Get())
+	{
+		Owner->HandleHover(Source.Get(), true);
+	}
+}
+
+void UForgeSampleBinding::OnUnhovered()
+{
+	if (UForgeSampleScreen* Owner = Screen.Get())
+	{
+		Owner->HandleHover(Source.Get(), false);
+	}
+}
+
+void UForgeSampleBinding::OnKeySelected(FInputChord InSelectedKey)
+{
+	if (UForgeSampleScreen* Owner = Screen.Get())
+	{
+		Owner->HandleKeySelected(Source.Get(), InSelectedKey);
+	}
+}
+
 void UForgeSampleBinding::Unbind()
 {
 	UWidget* Widget = Source.Get();
 	if (UButton* Button = Cast<UButton>(Widget))
 	{
 		Button->OnClicked.RemoveAll(this);
+		Button->OnPressed.RemoveAll(this);
+		Button->OnReleased.RemoveAll(this);
+		Button->OnHovered.RemoveAll(this);
+		Button->OnUnhovered.RemoveAll(this);
 	}
 	else if (UCheckBox* Check = Cast<UCheckBox>(Widget))
 	{
@@ -91,6 +139,14 @@ void UForgeSampleBinding::Unbind()
 	else if (UEditableText* Text = Cast<UEditableText>(Widget))
 	{
 		Text->OnTextCommitted.RemoveAll(this);
+	}
+	else if (UMultiLineEditableTextBox* MultiLine = Cast<UMultiLineEditableTextBox>(Widget))
+	{
+		MultiLine->OnTextCommitted.RemoveAll(this);
+	}
+	else if (UInputKeySelector* KeySelector = Cast<UInputKeySelector>(Widget))
+	{
+		KeySelector->OnKeySelected.RemoveAll(this);
 	}
 }
 
@@ -120,6 +176,14 @@ void UForgeSampleScreen::NativeConstruct()
 
 void UForgeSampleScreen::NativeDestruct()
 {
+	if (UWorld* World = GetWorld())
+	{
+		for (FTimerHandle& Timer : Timers)
+		{
+			World->GetTimerManager().ClearTimer(Timer);
+		}
+	}
+	Timers.Reset();
 	UnbindAll();
 	Super::NativeDestruct();
 }
@@ -132,8 +196,15 @@ void UForgeSampleScreen::BindAll()
 		return;
 	}
 
-	WidgetTree->ForEachWidget([this](UWidget* Widget)
+	// 每一页是子 WBP：连同嵌套的蓝图子界面一起走，页里的按钮也按名字约定接上
+	ForgeSampleLists::ForEachDeep(*this, [this](UWidget* Widget)
 	{
+		// 名字在整个界面里不重名（gen.mjs 核对）；万一重了留先找到的那个（自己的树优先）
+		if (!ByName.Contains(Widget->GetFName()))
+		{
+			ByName.Add(Widget->GetFName(), Widget);
+		}
+
 		auto MakeBinding = [this, Widget]()
 		{
 			UForgeSampleBinding* Binding = NewObject<UForgeSampleBinding>(this);
@@ -145,10 +216,22 @@ void UForgeSampleScreen::BindAll()
 
 		if (UButton* Button = Cast<UButton>(Widget))
 		{
-			Button->OnClicked.AddDynamic(MakeBinding(), &UForgeSampleBinding::OnClicked);
-			if (BaseName(Button).StartsWith(TEXT("Go_")))
+			UForgeSampleBinding* Binding = MakeBinding();
+			Button->OnClicked.AddDynamic(Binding, &UForgeSampleBinding::OnClicked);
+			const FString Base = BaseName(Button);
+			if (Base.StartsWith(TEXT("Go_")))
 			{
 				NormalTints.Add(Button, Button->GetBackgroundColor());
+			}
+			else if (Base.StartsWith(TEXT("Hold_")))
+			{
+				Button->OnPressed.AddDynamic(Binding, &UForgeSampleBinding::OnPressed);
+				Button->OnReleased.AddDynamic(Binding, &UForgeSampleBinding::OnReleased);
+			}
+			else if (Base.StartsWith(TEXT("Hover_")))
+			{
+				Button->OnHovered.AddDynamic(Binding, &UForgeSampleBinding::OnHovered);
+				Button->OnUnhovered.AddDynamic(Binding, &UForgeSampleBinding::OnUnhovered);
 			}
 		}
 		else if (UCheckBox* Check = Cast<UCheckBox>(Widget))
@@ -175,6 +258,14 @@ void UForgeSampleScreen::BindAll()
 		{
 			Text->OnTextCommitted.AddDynamic(MakeBinding(), &UForgeSampleBinding::OnTextCommitted);
 		}
+		else if (UMultiLineEditableTextBox* MultiLine = Cast<UMultiLineEditableTextBox>(Widget))
+		{
+			MultiLine->OnTextCommitted.AddDynamic(MakeBinding(), &UForgeSampleBinding::OnTextCommitted);
+		}
+		else if (UInputKeySelector* KeySelector = Cast<UInputKeySelector>(Widget))
+		{
+			KeySelector->OnKeySelected.AddDynamic(MakeBinding(), &UForgeSampleBinding::OnKeySelected);
+		}
 	});
 }
 
@@ -189,10 +280,12 @@ void UForgeSampleScreen::UnbindAll()
 	}
 	Bindings.Reset();
 	NormalTints.Reset();
+	ByName.Reset();
 }
 
 void UForgeSampleScreen::ResetScreen()
 {
+	ResetFlow();
 	History.Reset();
 	CloseAllPopups();
 	if (UWidgetSwitcher* Pages = PageSwitcher())
@@ -201,6 +294,19 @@ void UForgeSampleScreen::ResetScreen()
 	}
 	Refresh();
 	SetStatus(TEXT("就绪"));
+}
+
+UWidget* UForgeSampleScreen::FindAny(const FString& InName) const
+{
+	if (const TWeakObjectPtr<UWidget>* Found = ByName.Find(FName(*InName)))
+	{
+		if (UWidget* Widget = Found->Get())
+		{
+			return Widget;
+		}
+	}
+	// 还没 BindAll（构造早期）时退回到逐棵树找
+	return WidgetTree != nullptr ? ForgeSampleLists::FindDeep(*const_cast<UForgeSampleScreen*>(this), FName(*InName)) : nullptr;
 }
 
 FString UForgeSampleScreen::BaseName(const UWidget* InWidget)
@@ -243,7 +349,7 @@ FString UForgeSampleScreen::LabelOf(const UWidget* InWidget) const
 	{
 		return FString();
 	}
-	if (const UTextBlock* Named = Cast<UTextBlock>(WidgetTree->FindWidget(*(TEXT("L_") + InWidget->GetName()))))
+	if (const UTextBlock* Named = Cast<UTextBlock>(FindAny(TEXT("L_") + InWidget->GetName())))
 	{
 		return Named->GetText().ToString();
 	}
@@ -269,11 +375,11 @@ FString UForgeSampleScreen::TitleOf(const FString& InName) const
 {
 	if (WidgetTree != nullptr)
 	{
-		if (const UTextBlock* Title = Cast<UTextBlock>(WidgetTree->FindWidget(*(InName + TEXT("_Title")))))
+		if (const UTextBlock* Title = Cast<UTextBlock>(FindAny(InName + TEXT("_Title"))))
 		{
 			return Title->GetText().ToString();
 		}
-		if (const UWidget* Nav = WidgetTree->FindWidget(*(TEXT("Go_") + InName + TEXT("__Nav"))))
+		if (const UWidget* Nav = FindAny(TEXT("Go_") + InName + TEXT("__Nav")))
 		{
 			return LabelOf(Nav);
 		}
@@ -283,7 +389,7 @@ FString UForgeSampleScreen::TitleOf(const FString& InName) const
 
 UWidgetSwitcher* UForgeSampleScreen::PageSwitcher() const
 {
-	return WidgetTree != nullptr ? Cast<UWidgetSwitcher>(WidgetTree->FindWidget(PageSwitcherName)) : nullptr;
+	return WidgetTree != nullptr ? Cast<UWidgetSwitcher>(FindAny(PageSwitcherName.ToString())) : nullptr;
 }
 
 void UForgeSampleScreen::SetText(const FString& InWidgetName, const FString& InText)
@@ -292,7 +398,7 @@ void UForgeSampleScreen::SetText(const FString& InWidgetName, const FString& InT
 	{
 		return;
 	}
-	if (UTextBlock* Text = Cast<UTextBlock>(WidgetTree->FindWidget(*InWidgetName)))
+	if (UTextBlock* Text = Cast<UTextBlock>(FindAny(InWidgetName)))
 	{
 		Text->SetText(FText::FromString(InText));
 	}
@@ -324,7 +430,7 @@ void UForgeSampleScreen::CloseAllPopups()
 	{
 		return;
 	}
-	WidgetTree->ForEachWidget([](UWidget* Widget)
+	ForgeSampleLists::ForEachDeep(*this, [](UWidget* Widget)
 	{
 		if (IsPopupName(Widget->GetName()))
 		{
@@ -396,7 +502,7 @@ void UForgeSampleScreen::Refresh()
 		{
 			continue;
 		}
-		const UWidget* Target = WidgetTree->FindWidget(*BaseName(Button).RightChop(3));
+		const UWidget* Target = FindAny(BaseName(Button).RightChop(3));
 		const UWidgetSwitcher* Switcher = Target != nullptr ? Cast<UWidgetSwitcher>(Target->GetParent()) : nullptr;
 		const bool bActive = Switcher != nullptr && Switcher->GetActiveWidget() == Target;
 		Button->SetBackgroundColor(bActive ? ActiveTint : Pair.Value);
@@ -417,10 +523,15 @@ void UForgeSampleScreen::HandleClick(UWidget* InSource)
 		Back();
 		return;
 	}
+	// 长按、悬停按钮的结果由按下 / 松开、进出事件写，点击本身不再覆盖状态栏
+	if (Name.StartsWith(TEXT("Hold_")) || Name.StartsWith(TEXT("Hover_")))
+	{
+		return;
+	}
 
 	auto FindTarget = [this, &Name](int32 InPrefixLen) -> UWidget*
 	{
-		UWidget* Target = WidgetTree->FindWidget(*Name.RightChop(InPrefixLen));
+		UWidget* Target = FindAny(Name.RightChop(InPrefixLen));
 		if (Target == nullptr)
 		{
 			UE_LOG(LogForgeSample, Warning, TEXT("按钮 %s 指向的控件 %s 不存在"), *Name, *Name.RightChop(InPrefixLen));
@@ -441,11 +552,7 @@ void UForgeSampleScreen::HandleClick(UWidget* InSource)
 	{
 		if (UWidget* Target = FindTarget(5))
 		{
-			SetSubject(Target->GetName(), InSource);
-			Target->SetVisibility(ESlateVisibility::Visible);
-			OpenPopups.Remove(Target);
-			OpenPopups.Add(Target);
-			SetStatus(FString::Printf(TEXT("%s：打开「%s」"), *Label, *TitleOf(Target->GetName())));
+			OpenPopup(Target, InSource, Label);
 		}
 	}
 	else if (Name.StartsWith(TEXT("Close_")))
@@ -483,10 +590,23 @@ void UForgeSampleScreen::HandleClick(UWidget* InSource)
 		SetText(InputName + TEXT("_Echo"), Value.IsEmpty() ? TEXT("（空）") : Value);
 		SetStatus(FString::Printf(TEXT("%s：已保存「%s」"), *Label, *Value));
 	}
-	else
+	else if (!HandleFlowClick(InSource, Name, Label))
 	{
 		SetStatus(FString::Printf(TEXT("点击「%s」"), *Label));
 	}
+}
+
+void UForgeSampleScreen::OpenPopup(UWidget* InPopup, const UWidget* InSource, const FString& InLabel)
+{
+	if (InPopup == nullptr)
+	{
+		return;
+	}
+	SetSubject(InPopup->GetName(), InSource);
+	InPopup->SetVisibility(ESlateVisibility::Visible);
+	OpenPopups.Remove(InPopup);
+	OpenPopups.Add(InPopup);
+	SetStatus(FString::Printf(TEXT("%s：打开「%s」"), *InLabel, *TitleOf(InPopup->GetName())));
 }
 
 void UForgeSampleScreen::HandleCheck(UWidget* InSource, bool bIsChecked)
@@ -497,6 +617,14 @@ void UForgeSampleScreen::HandleCheck(UWidget* InSource, bool bIsChecked)
 	}
 	const FString State = bIsChecked ? TEXT("开") : TEXT("关");
 	SetText(InSource->GetName() + TEXT("_Value"), State);
+	const FString Name = BaseName(InSource);
+	if (Name.StartsWith(TEXT("Enable_")))
+	{
+		if (UWidget* Target = FindAny(Name.RightChop(7)))
+		{
+			Target->SetIsEnabled(bIsChecked);
+		}
+	}
 	SetStatus(FString::Printf(TEXT("%s：%s"), *LabelOf(InSource), *State));
 }
 
@@ -508,6 +636,14 @@ void UForgeSampleScreen::HandleValue(UWidget* InSource, float InValue)
 	}
 	const FString Value = FString::FromInt(FMath::RoundToInt(InValue));
 	SetText(InSource->GetName() + TEXT("_Value"), Value);
+	if (const USlider* Slider = Cast<USlider>(InSource))
+	{
+		if (UProgressBar* Bar = Cast<UProgressBar>(FindAny(InSource->GetName() + TEXT("_Bar"))))
+		{
+			const float Range = Slider->GetMaxValue() - Slider->GetMinValue();
+			Bar->SetPercent(Range > 0.0f ? (InValue - Slider->GetMinValue()) / Range : 0.0f);
+		}
+	}
 	SetStatus(FString::Printf(TEXT("%s = %s"), *TitleOf(InSource->GetName()), *Value));
 }
 

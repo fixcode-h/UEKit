@@ -165,8 +165,42 @@ private:
 	TWeakObjectPtr<UBorder> Pip2;
 };
 
+/**
+ * 「控件」页菜单锚点弹出来的菜单（MenuClass 填 `/Script/AssetForgeTests.ForgeSampleMenu`）：复制、重命名、删除三项，
+ * 点了写进示例界面的 Status 再关掉菜单。在代码里搭控件树，不用另一个蓝图资源。
+ */
+UCLASS()
+class UForgeSampleMenu : public UForgeSampleEntry
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void BuildTree(UWidgetTree& InTree) override;
+
+private:
+	UFUNCTION()
+	void OnCopy();
+
+	UFUNCTION()
+	void OnRename();
+
+	UFUNCTION()
+	void OnDelete();
+
+	void Pick(const TCHAR* InWhat) const;
+};
+
 namespace ForgeSampleLists
 {
 	/** 示例界面构造时调：列表还空着就填数据、生成技能格（重复加进视口不重复填） */
 	void Populate(UUserWidget& InScreen);
+
+	/**
+	 * 走遍界面的控件：先走自己的 WidgetTree，再进嵌套的**蓝图**子界面（每一页是一个子 WBP）。
+	 * 不进运行时生成的 C++ 条目、格子（它们的按钮自己接线），也不进列表条目（不在 WidgetTree 里）。
+	 */
+	void ForEachDeep(UUserWidget& InScreen, TFunctionRef<void(UWidget*)> InVisit);
+
+	/** 在整个界面（含子界面）里按名字找控件，找不到返回 nullptr */
+	UWidget* FindDeep(UUserWidget& InScreen, FName InName);
 }

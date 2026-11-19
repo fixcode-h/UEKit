@@ -1,0 +1,491 @@
+{
+  "//": "示例界面的「Flow」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_Flow）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_Flow",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "FlowRoot",
+    "children": [
+      {
+        "class": "HorizontalBox",
+        "name": "FlowHead",
+        "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+        "children": [
+          {
+            "class": "TextBlock",
+            "name": "Page_Flow_Title",
+            "props": {"Text":"流程","Font":{"Size":20,"TypefaceFontName":"Bold"}},
+            "slot": {"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0},"VerticalAlignment":"VAlign_Center"}
+          },
+          {
+            "class": "TextBlock",
+            "name": "FlowHint",
+            "props": {
+              "Text": "给 GameTest 脚本练手：计数配循环和分支，领取配「已达成就跳过」，延时出现配等待，定时弹公告配守护。离开界面或重置后恢复原样。",
+              "Font": {"Size":12,"TypefaceFontName":"Regular"},
+              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "AutoWrapText": true
+            },
+            "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+          }
+        ]
+      },
+      {
+        "class": "ScrollBox",
+        "name": "FlowScroll",
+        "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+        "children": [
+          {
+            "class": "HorizontalBox",
+            "name": "FlowBody",
+            "children": [
+              {
+                "class": "VerticalBox",
+                "name": "FlowLeft",
+                "slot": {"Size":{"SizeRule":"Fill","Value":1},"Padding":{"Left":0,"Top":0,"Right":16,"Bottom":0}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "CountCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "CountCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "CountCardTitle",
+                            "props": {"Text":"计数","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "CountCardSub",
+                            "props": {
+                              "Text": "循环几次、按到某个数为止、按数分支",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "CountRow",
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "Counter_Title",
+                                "props": {
+                                  "Text": "计数",
+                                  "Font": {"Size":14,"TypefaceFontName":"Regular"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"VerticalAlignment":"VAlign_Center","Padding":{"Left":0,"Top":0,"Right":12,"Bottom":0}}
+                              },
+                              {
+                                "class": "TextBlock",
+                                "name": "Counter",
+                                "props": {
+                                  "Text": "0",
+                                  "Font": {"Size":36,"TypefaceFontName":"Bold"},
+                                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.9131,"G":0.552,"B":0.0823,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                },
+                                "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Dec_Counter",
+                                "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"TextBlock","name":"L_Dec_Counter","props":{"Text":"-1","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Inc_Counter",
+                                "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                                "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0},"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"TextBlock","name":"L_Inc_Counter","props":{"Text":"+1","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Reset_Counter",
+                                "props": {"BackgroundColor":{"R":0.016,"G":0.0232,"B":0.0423,"A":1}},
+                                "slot": {"VerticalAlignment":"VAlign_Center"},
+                                "children": [{"class":"TextBlock","name":"L_Reset_Counter","props":{"Text":"归零","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "ClaimCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "ClaimCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "ClaimCardTitle",
+                            "props": {"Text":"领取","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "ClaimCardSub",
+                            "props": {
+                              "Text": "点过一次按钮变成「已领取」：回放时已经领过就该跳过",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "ClaimRow_Daily",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":10}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "ClaimName_Daily",
+                                "props": {"Text":"每日签到","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Claim_Daily",
+                                "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Claim_Daily","props":{"Text":"领取","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "ClaimRow_Weekly",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":10}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "ClaimName_Weekly",
+                                "props": {"Text":"每周宝箱","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Claim_Weekly",
+                                "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Claim_Weekly","props":{"Text":"领取","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "HorizontalBox",
+                            "name": "ClaimRow_Mail",
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "TextBlock",
+                                "name": "ClaimName_Mail",
+                                "props": {"Text":"系统邮件","Font":{"Size":14,"TypefaceFontName":"Regular"}},
+                                "slot": {"Size":{"SizeRule":"Fill","Value":1},"VerticalAlignment":"VAlign_Center"}
+                              },
+                              {
+                                "class": "Button",
+                                "name": "Claim_Mail",
+                                "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1}},
+                                "children": [{"class":"TextBlock","name":"L_Claim_Mail","props":{"Text":"领取","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "VerticalBox",
+                "name": "FlowRight",
+                "slot": {"Size":{"SizeRule":"Fill","Value":1}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "WaitCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "WaitCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "WaitCardTitle",
+                            "props": {"Text":"等待","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "WaitCardSub",
+                            "props": {
+                              "Text": "点了不马上出现：1.5 秒后才显示，脚本要等它",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Delay_Reveal_Loot",
+                            "props": {"BackgroundColor":{"R":0.1022,"G":0.3005,"B":1,"A":1}},
+                            "slot": {"HorizontalAlignment":"HAlign_Left"},
+                            "children": [{"class":"TextBlock","name":"L_Delay_Reveal_Loot","props":{"Text":"1.5 秒后出现宝箱","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                          },
+                          {
+                            "class": "Border",
+                            "name": "Reveal_Loot",
+                            "props": {
+                              "Visibility": "Collapsed",
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0086,"G":0.0423,"B":0.0232,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {
+                                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                                  "RoundingType": "FixedRadius",
+                                  "Color": {"SpecifiedColor":{"R":0.0262,"G":0.147,"B":0.0685,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                  "Width": 1
+                                }
+                              },
+                              "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":12,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "RevealCol_Loot",
+                                "children": [
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "Reveal_Loot_Title",
+                                    "props": {
+                                      "Text": "宝箱出现了",
+                                      "Font": {"Size":15,"TypefaceFontName":"Bold"},
+                                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.0284,"G":0.521,"B":0.1651,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                    },
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                                  },
+                                  {
+                                    "class": "Button",
+                                    "name": "Open_Popup_Reward__Loot",
+                                    "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1},"ToolTipText":"宝箱：金币 ×100"},
+                                    "slot": {"HorizontalAlignment":"HAlign_Left"},
+                                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Reward__Loot","props":{"Text":"打开宝箱","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "BranchCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "BranchCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "BranchCardTitle",
+                            "props": {"Text":"分支","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "BranchCardSub",
+                            "props": {
+                              "Text": "提示时有时无：脚本按它在不在走不同的路",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Toggle_Reveal_Tip",
+                            "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                            "slot": {"HorizontalAlignment":"HAlign_Left"},
+                            "children": [{"class":"TextBlock","name":"L_Toggle_Reveal_Tip","props":{"Text":"显示 / 隐藏提示","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                          },
+                          {
+                            "class": "Border",
+                            "name": "Reveal_Tip",
+                            "props": {
+                              "Visibility": "Collapsed",
+                              "Background": {
+                                "DrawAs": "RoundedBox",
+                                "TintColor": {"SpecifiedColor":{"R":0.0086,"G":0.0423,"B":0.0232,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                "OutlineSettings": {
+                                  "CornerRadii": {"X":10,"Y":10,"Z":10,"W":10},
+                                  "RoundingType": "FixedRadius",
+                                  "Color": {"SpecifiedColor":{"R":0.0262,"G":0.147,"B":0.0685,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                  "Width": 1
+                                }
+                              },
+                              "Padding": {"Left":14,"Top":10,"Right":14,"Bottom":10}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":12,"Right":0,"Bottom":0}},
+                            "children": [
+                              {
+                                "class": "VerticalBox",
+                                "name": "RevealCol_Tip",
+                                "children": [
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "Reveal_Tip_Title",
+                                    "props": {
+                                      "Text": "提示",
+                                      "Font": {"Size":15,"TypefaceFontName":"Bold"},
+                                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.0284,"G":0.521,"B":0.1651,"A":1},"ColorUseRule":"UseColor_Specified"}
+                                    },
+                                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+                                  },
+                                  {
+                                    "class": "TextBlock",
+                                    "name": "TipBody",
+                                    "props": {
+                                      "Text": "提示面板显示着：这条路要先把它关掉。",
+                                      "Font": {"Size":13,"TypefaceFontName":"Regular"},
+                                      "ColorAndOpacity": {"SpecifiedColor":{"R":0.4678,"G":0.5271,"B":0.6514,"A":1},"ColorUseRule":"UseColor_Specified"},
+                                      "AutoWrapText": true
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "GuardCard",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {
+                          "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+                          "RoundingType": "FixedRadius",
+                          "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+                          "Width": 1
+                        }
+                      },
+                      "Padding": {"Left":18,"Top":18,"Right":18,"Bottom":18}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":0}},
+                    "children": [
+                      {
+                        "class": "VerticalBox",
+                        "name": "GuardCardCol",
+                        "children": [
+                          {
+                            "class": "TextBlock",
+                            "name": "GuardCardTitle",
+                            "props": {"Text":"守护","Font":{"Size":16,"TypefaceFontName":"Bold"}},
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":2}}
+                          },
+                          {
+                            "class": "TextBlock",
+                            "name": "GuardCardSub",
+                            "props": {
+                              "Text": "公告会在 1 秒后自己弹出来、挡住界面：脚本里的守护看到它就关掉",
+                              "Font": {"Size":11,"TypefaceFontName":"Regular"},
+                              "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                            },
+                            "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":14}}
+                          },
+                          {
+                            "class": "Button",
+                            "name": "Arm_Popup_Notice",
+                            "props": {"BackgroundColor":{"R":0.9131,"G":0.4342,"B":0.0685,"A":1}},
+                            "slot": {"HorizontalAlignment":"HAlign_Left"},
+                            "children": [{"class":"TextBlock","name":"L_Arm_Popup_Notice","props":{"Text":"1 秒后弹公告","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

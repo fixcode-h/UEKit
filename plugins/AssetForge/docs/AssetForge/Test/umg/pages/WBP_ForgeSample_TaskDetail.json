@@ -1,0 +1,141 @@
+{
+  "//": "示例界面的「TaskDetail」页，被 ../WBP_ForgeSample.json 的 Pages 引用（Page_TaskDetail）。按钮的行为由父界面 ForgeSampleScreen 按名字统一处理，这里只摆控件；控件名在父界面和所有子页面里都不能重名。",
+  "kind": "umg-widget",
+  "schemaVersion": 1,
+  "revision": 1,
+  "asset": "/Game/AgentTest/AssetForge/Pages/WBP_ForgeSample_TaskDetail",
+  "parent": "/Script/UMG.UserWidget",
+  "root": {
+    "class": "VerticalBox",
+    "name": "TaskDetailRoot",
+    "children": [
+      {
+        "class": "Border",
+        "name": "TaskDetailCard",
+        "props": {
+          "Background": {
+            "DrawAs": "RoundedBox",
+            "TintColor": {"SpecifiedColor":{"R":0.0103,"G":0.0152,"B":0.0296,"A":1},"ColorUseRule":"UseColor_Specified"},
+            "OutlineSettings": {
+              "CornerRadii": {"X":12,"Y":12,"Z":12,"W":12},
+              "RoundingType": "FixedRadius",
+              "Color": {"SpecifiedColor":{"R":0.0232,"G":0.0331,"B":0.0612,"A":1},"ColorUseRule":"UseColor_Specified"},
+              "Width": 1
+            }
+          },
+          "Padding": {"Left":28,"Top":28,"Right":28,"Bottom":28}
+        },
+        "slot": {"HorizontalAlignment":"HAlign_Fill"},
+        "children": [
+          {
+            "class": "VerticalBox",
+            "name": "TaskDetailCol",
+            "children": [
+              {
+                "class": "TextBlock",
+                "name": "Page_TaskDetail_Title",
+                "props": {
+                  "Text": "任务详情",
+                  "Font": {"Size":12,"TypefaceFontName":"Regular"},
+                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.2664,"G":0.3095,"B":0.4072,"A":1},"ColorUseRule":"UseColor_Specified"}
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":6}}
+              },
+              {
+                "class": "TextBlock",
+                "name": "Page_TaskDetail_Subject",
+                "props": {"Text":"（从任务列表点「详情」进来）","Font":{"Size":24,"TypefaceFontName":"Bold"}},
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":12}}
+              },
+              {
+                "class": "TextBlock",
+                "name": "TaskDetailDesc",
+                "props": {
+                  "Text": "完成后可领取奖励。这一页不在侧栏里，只能从任务列表进来，用「返回」回去：用来录多层跳转。",
+                  "Font": {"Size":14,"TypefaceFontName":"Regular"},
+                  "ColorAndOpacity": {"SpecifiedColor":{"R":0.4678,"G":0.5271,"B":0.6514,"A":1},"ColorUseRule":"UseColor_Specified"},
+                  "AutoWrapText": true
+                },
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":16}}
+              },
+              {
+                "class": "HorizontalBox",
+                "name": "TaskRewards",
+                "slot": {"Padding":{"Left":0,"Top":0,"Right":0,"Bottom":20}},
+                "children": [
+                  {
+                    "class": "Border",
+                    "name": "RewardGold",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0423,"G":0.0284,"B":0.006,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":8,"Y":8,"Z":8,"W":8},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":12,"Top":6,"Right":12,"Bottom":6}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "RewardGoldText",
+                        "props": {
+                          "Text": "金币 ×300",
+                          "Font": {"Size":13,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.8879,"G":0.3968,"B":0.0437,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "class": "Border",
+                    "name": "RewardExp",
+                    "props": {
+                      "Background": {
+                        "DrawAs": "RoundedBox",
+                        "TintColor": {"SpecifiedColor":{"R":0.0137,"G":0.0262,"B":0.0742,"A":1},"ColorUseRule":"UseColor_Specified"},
+                        "OutlineSettings": {"CornerRadii":{"X":8,"Y":8,"Z":8,"W":8},"RoundingType":"FixedRadius"}
+                      },
+                      "Padding": {"Left":12,"Top":6,"Right":12,"Bottom":6}
+                    },
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                    "children": [
+                      {
+                        "class": "TextBlock",
+                        "name": "RewardExpText",
+                        "props": {
+                          "Text": "经验 ×1200",
+                          "Font": {"Size":13,"TypefaceFontName":"Regular"},
+                          "ColorAndOpacity": {"SpecifiedColor":{"R":0.0782,"G":0.2623,"B":1,"A":1},"ColorUseRule":"UseColor_Specified"}
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "class": "HorizontalBox",
+                "name": "TaskDetailBtns",
+                "children": [
+                  {
+                    "class": "Button",
+                    "name": "Open_Popup_Reward__Task",
+                    "props": {"BackgroundColor":{"R":0.0369,"G":0.5841,"B":0.1946,"A":1},"ToolTipText":"任务奖励：金币 ×300、经验 ×1200"},
+                    "slot": {"Padding":{"Left":0,"Top":0,"Right":10,"Bottom":0}},
+                    "children": [{"class":"TextBlock","name":"L_Open_Popup_Reward__Task","props":{"Text":"领取奖励","Font":{"Size":14,"TypefaceFontName":"Bold"}}}]
+                  },
+                  {
+                    "class": "Button",
+                    "name": "Go_Page_Shop__Task",
+                    "props": {"BackgroundColor":{"R":0.0319,"G":0.0452,"B":0.0844,"A":1}},
+                    "children": [{"class":"TextBlock","name":"L_Go_Page_Shop__Task","props":{"Text":"去商店补给","Font":{"Size":14,"TypefaceFontName":"Regular"}}}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 16,
-  "VersionName": "1.4.3",
+  "Version": 17,
+  "VersionName": "1.5.0",
   "FriendlyName": "AssetForge",
   "Description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等资产：导入、导出、演练、同步状态、属性差异。界面在 Agent 面板的 UE 页，经 UELink 通信。",
   "Category": "Developer Tools",

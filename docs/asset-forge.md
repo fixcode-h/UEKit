@@ -12,6 +12,7 @@
 
 - 配置根默认跟着项目的文档根：项目外层同级有 `ProjectDoc/docs`（P4 / SVN 项目的文档常放在项目外）就是 `ProjectDoc/docs/AssetForge`，否则是项目里的 `docs/AssetForge`。要换就在项目设置 → 插件 → Asset Forge 里指定（相对项目根，`../` 可以指到项目外，也接受绝对路径），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
 - 文件格式：`{ "kind", "schemaVersion": 1, "revision", "asset", "parent"?, "root": { "class", "name", "props", "slot"?, "children"? } }`，属性名用 UE 属性名原样。允许 `//` 注释。
+- **子界面（`ref`）**：UMG 配置里某个节点写 `"ref": "相对路径.json"`（不写 `class`）表示这个位置放另一份 UMG 配置生成的子 WBP，类名由被引用配置的 `asset` 推出（`<asset>.<资产名>_C`），一个页面太大时按块拆成几份。路径先按引用它的配置所在目录找，找不到再按项目根、配置根找；引用成环报错。**导入父配置时先导入它引用的子配置**（批量导入按依赖排序，子界面在前，深度优先、去重），父界面生成时子界面的类已经在了；演练时子界面还没导入只给警告（演练看不到子界面里的控件），真导入时子界面导入失败就报错停下。
 - 同步清单在 `Saved/AssetForge/state.json`（本机状态，不进版本管理）：记每份配置的内容哈希和导入时资产文件的修改时间，用来快速判定状态。
 
 ### 同步状态
@@ -66,11 +67,14 @@
 
 插件目录的 `docs/AssetForge/Test/` 带一套多页面 UMG 界面（给 GameTest 录制练手），编辑器启动时 `Service/ForgeSamples.cpp` 把它装进配置根的 `Test/`，其中 `_GameTest/` 的场景另装进 GameTest 场景根的 `AssetForgeSample/`（项目开了 GameTest 才装）。只补缺的、只更新上次装进去以后没被改过的，装过的文件哈希记在 `Saved/AssetForge/samples.json`，删掉的不再装回来；项目设置「安装示例测试界面」可关。
 
+- 界面 `umg/WBP_ForgeSample.json` 只有外壳（侧栏、顶栏、弹窗），每一页是 `umg/pages/WBP_ForgeSample_<页>.json` 的子 WBP（1.5.0 起，用 `ref` 引用，导入父界面会连带导入）。父类按名字在父界面和所有子界面里找控件，所以控件名在整套界面里不能重名（生成脚本会查）。
 - 界面 `umg/WBP_ForgeSample.json` 的父类 `ForgeSampleScreen`、地图 `map/Map_ForgeSample.json` 的 GameMode `ForgeSampleGameMode` 都在测试模块 `AssetForgeTests/Sample/`（UncookedOnly，只在编辑器和 PIE 里有），所以示例资产不能打进包。
 - 跳页按控件名约定（`Go_`、`Back`、`Open_` / `Close_`、`Pick_`、`Submit_`，`__` 后缀只为不重名），细节见 `docs/AssetForge/Test/README.md`。
-- 配置由仓库根的 `docs/asset-forge-sample/gen.mjs` 生成（控件名和场景里的选择器路径一起算），改界面改脚本再生成。
+- 配置由仓库根的 `docs/asset-forge-sample/gen.mjs` 生成（控件名和场景里的选择器路径一起算），改界面改脚本再生成：页面在 `ui-pages.mjs`、`ui-new-pages.mjs`，积木在 `ui-kit.mjs`，场景在 `scenarios.mjs`。生成后把 `_GameTest/` 整个目录拷到面板插件 `agent-plugins` 的 `ue/server/uekit/fixtures/forge-sample/`，跑那边的 `gt-samples.test.ts` 做离线校验。
+- 「控件」页（1.5.0 起）每种能操作的控件各一个：普通 / 禁用到可用 / 长按 / 悬停按钮、单行和多行输入框、滑条和进度条、微调框、下拉框、复选框、单选按钮组、按键选择器、长滚动框、切换器、菜单锚点（菜单内容是 C++ 界面 `ForgeSampleMenu`）。「流程」页给脚本当靶子：计数、领取（点过变「已领取」）、延时出现、显示切换、定时弹出的公告。名字约定见 `docs/AssetForge/Test/README.md`，实现在 `Sample/ForgeSampleFlow.cpp`。
 - 控制台命令 `AssetForge.Sample`：在当前游戏世界打开 / 关掉示例界面。
 - 「列表条目」页（1.4.0 起）是 GameTest「条目标识」的靶子：仓库 TileView（数据对象有 `ItemId`，录制时自动认）、邮件 ListView（只有 `SentAt` 不重复，录制时暂停问）、技能栏 WrapBox（运行时生成的格子，要 `SkillType` + `Level` 组合，录制时暂停问）。数据对象和条目控件在 `Sample/ForgeSampleLists.cpp`，条目控件是 C++ 类、控件树在代码里搭，配置里只有空容器；配套场景 `_GameTest/ForgeSample-条目标识.json`。
+- 配套场景（GameTest 1.9.0 起的 v3 脚本）：`冒烟`（跳页、弹窗、返回）、`条目标识`（按数据认条目、select、scroll）、`控件操作`（每种控件的 set / type / 点击 / 菜单和观察类动作）、`流程脚本`（块、条件、表达式、守护、invoke、接口、skipIf）、`真实输入`（真实鼠标键盘：悬停、长按、拖动、滚轮、下拉框选项、按键），都先 `call AssetForgeSample/common/打开示例界面`，单独跑哪份都行。
 
 ## 其他入口
 

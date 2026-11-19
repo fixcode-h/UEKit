@@ -31,7 +31,7 @@ namespace
 	const TCHAR* const FieldFieldPath = TEXT("fieldPath");
 	const TCHAR* const FieldMessage = TEXT("message");
 
-	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, TSet<FString>& InVisiting, FForgeReport& OutReport);
+	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, const FString& InFromConfigPath, TSet<FString>& InVisiting, FForgeReport& OutReport);
 
 	/** 包名 → 对象路径（`/Game/A/B` → `/Game/A/B.B`），已带对象名的原样返回。 */
 	FString AsObjectPath(const FString& InAssetPath)
@@ -50,7 +50,7 @@ namespace
 	 * 根本没有这样的属性。**子界面的生成类本身就是那个控件的类**，所以 ref 要做的事只有一件：
 	 * 读出被引用配置的目标资产，加生成类后缀 `_C`，写进 class。
 	 */
-	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, TSet<FString>& InVisiting, FForgeReport& OutReport)
+	bool ResolveRefs(FForgeNode& InOutNode, const FString& InNodePath, const FString& InFromConfigPath, TSet<FString>& InVisiting, FForgeReport& OutReport)
 	{
 		if (!InOutNode.Ref.IsEmpty())
 		{
@@ -66,7 +66,7 @@ namespace
 				return false;
 			}
 
-			const FString RefPath = ResolveConfigPath(InOutNode.Ref);
+			const FString RefPath = ResolveRefPath(InOutNode.Ref, InFromConfigPath);
 			if (!FPaths::FileExists(RefPath))
 			{
 				OutReport.AddError(
@@ -109,7 +109,7 @@ namespace
 			const FString ChildPath = InNodePath.IsEmpty()
 				? Child.Name
 				: FString::Printf(TEXT("%s/%s"), *InNodePath, *Child.Name);
-			bOk &= ResolveRefs(Child, ChildPath, InVisiting, OutReport);
+			bOk &= ResolveRefs(Child, ChildPath, InFromConfigPath, InVisiting, OutReport);
 		}
 
 		return bOk;
@@ -194,6 +194,55 @@ FString ResolveConfigPath(const FString& InConfigPath)
 	return ProjectRelative;
 }
 
+FString ResolveRefPath(const FString& InRef, const FString& InFromConfigPath)
+{
+	// 先按引用它的那份配置所在的目录找：父界面和子界面的配置放在一起时写 `./pages/WBP_X.json` 就行，
+	// 整个目录拷到别处（示例界面装进配置根的 Test/）也不用改路径。找不到再按项目根、配置根找（老写法）。
+	if (!InRef.IsEmpty() && FPaths::IsRelative(InRef) && !InFromConfigPath.IsEmpty())
+	{
+		const FString Sibling = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::GetPath(InFromConfigPath), InRef));
+		if (FPaths::FileExists(Sibling))
+		{
+			return Sibling;
+		}
+	}
+	return ResolveConfigPath(InRef);
+}
+
+namespace
+{
+	void CollectRefsOfNode(const FForgeNode& InNode, const FString& InFromConfigPath, TArray<FString>& OutConfigPaths)
+	{
+		if (!InNode.Ref.IsEmpty())
+		{
+			OutConfigPaths.AddUnique(ResolveRefPath(InNode.Ref, InFromConfigPath));
+		}
+		for (const FForgeNode& Child : InNode.Children)
+		{
+			CollectRefsOfNode(Child, InFromConfigPath, OutConfigPaths);
+		}
+	}
+}
+
+bool CollectRefConfigs(const FString& InConfigPath, TArray<FString>& OutConfigPaths)
+{
+	// 只读文档、不解析 ref：被引用的配置坏了也要把它列出来，让它在批量里自己报错，而不是父配置这里先吞掉。
+	TSharedPtr<FJsonObject> Json;
+	FString Error;
+	if (!ForgeJsonText::LoadObject(InConfigPath, Json, Error))
+	{
+		return false;
+	}
+	FForgeDocument Document;
+	TArray<FForgeDiagnostic> Diagnostics;
+	if (!ForgeDoc::Parse(Json, InConfigPath, Document, Diagnostics))
+	{
+		return false;
+	}
+	CollectRefsOfNode(Document.Root, InConfigPath, OutConfigPaths);
+	return true;
+}
+
 namespace
 {
 	/** 文件和文本两条入口共用：字段校验、schema 版本门禁、ref 解析（ref 按 InConfigPath 所在目录找）。 */
@@ -209,7 +258,7 @@ namespace
 
 		TSet<FString> Visiting;
 		Visiting.Add(FPaths::ConvertRelativePathToFull(InConfigPath));
-		return ResolveRefs(OutDocument.Root, TEXT("root"), Visiting, OutReport);
+		return ResolveRefs(OutDocument.Root, TEXT("root"), InConfigPath, Visiting, OutReport);
 	}
 }
 
