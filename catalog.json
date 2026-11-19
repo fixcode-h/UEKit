@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.12.2",
-        "versionCode": 35,
+        "version": "2.13.0",
+        "versionCode": 36,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.12.2",
-        "asset": "UELink-2.12.2-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.12.2/UELink-2.12.2-src.zip",
-        "sha256": "33f256bf4238a0408ebb34caef34fb17948a05912b9c38ec23badd18f4037777",
-        "size": 281308,
+        "tag": "UELink-v2.13.0",
+        "asset": "UELink-2.13.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.13.0/UELink-2.13.0-src.zip",
+        "sha256": "33ddb59c5d02e826092b019555dec5140ac1e52a06c127bd427fb8c24869b95c",
+        "size": 292139,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 修复\n- **UE 5.8 编译失败（内存分配的调用栈）** — 不再写死取调用栈的接口名，编译时看引擎里有哪个就用哪个；都没有时只是不能按调用栈分组，其他照常\n- **UE 5.8 的弃用警告** — 性能分析读区域（Timing Regions）改用 5.8 的新接口，不再报「下个版本会编不过」的警告"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **集合和映射能按键加删元素** — 改属性时集合、映射除了清空，也能按键加一项、删一项；数组加元素、插入元素时可以直接给新元素的值\n- **新建内嵌子对象** — 实例化（Instanced）属性能像细节面板的「选类」下拉一样新建一个子对象，数组和映射里加元素时也能直接建好（输入触发器、修饰器、DataAsset 里的内嵌对象这类）\n- **长操作变作业** — 编译蓝图、改名、删除、批量校验这类要等很久的操作可以作为作业运行：马上拿到作业号，进度实时推送，做完再取结果，不再一次请求卡几分钟"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-18T16:00:06.853Z"
+  "updatedAt": "2026-11-19T03:26:04.701Z"
 }
