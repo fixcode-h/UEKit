@@ -119,9 +119,39 @@ for (const p of plugins) {
     // 原项目的前缀 Tk 已经去掉，防止搬代码时漏改
     if (/\b[FUSE]?Tk[A-Z]\w*|TK(ASSETFORGE|GAMETEST)\w*_API/.test(text)) fail(`${rel} 还有原项目前缀 Tk 的名字`)
   }
+  if (p.name === 'UELink') checkEditorSharedNamespace(p.dir, fail)
   for (const name of moduleNames) if (!implemented.has(name)) fail(`没有找到 IMPLEMENT_MODULE(..., ${name})`)
   if (!errors.some((e) => e.startsWith(`${p.name}：`)))
     console.log(`✓ ${p.name} ${up.VersionName}（Version ${up.Version}，UE ${kit.engineMin}+）检查通过，${files.length} 个文件`)
+}
+
+// UELinkEditor 的共用工具（NoteDirty、FindClassByName、FTx……）都在 AgentPanelEditorShared.h 的 namespace AgentPanelEd 里。
+// 只 include 了头文件、代码却写在 namespace AgentPanel 里直接用它们会「找不到标识符」（UELink 2.14.0 的 UELinkBpNames.cpp、
+// UELinkTableMulti.cpp 就是这样）：要么文件里 using namespace AgentPanelEd，要么写全名 AgentPanelEd::X
+function checkEditorSharedNamespace(dir, fail) {
+  const edDir = path.join(dir, 'Source/UELinkEditor/Private')
+  let header
+  try {
+    header = readFileSync(path.join(edDir, 'AgentPanelEditorShared.h'), 'utf8')
+  } catch {
+    return
+  }
+  const body = header.slice(header.indexOf('namespace AgentPanelEd'))
+  const names = new Set()
+  for (const m of body.matchAll(/^\t(?:inline\s+)?[\w:<>*&, ]+?[\s*&]+(\w+)\s*\(/gm)) names.add(m[1])
+  for (const m of body.matchAll(/^\tstruct (\w+)/gm)) names.add(m[1])
+  for (const f of walk(edDir).filter((x) => x.endsWith('.cpp'))) {
+    const text = readFileSync(f, 'utf8')
+    // using 了，或者自己就在 namespace AgentPanelEd 里定义这些工具的文件不查
+    if (/using\s+namespace\s+AgentPanelEd\s*;|namespace\s+AgentPanelEd\s*\{?\s*$/m.test(text)) continue
+    const rel = path.relative(dir, f).replace(/\\/g, '/')
+    text.split('\n').forEach((line, i) => {
+      if (/^\s*(\/\/|\*)/.test(line)) return
+      for (const n of names)
+        if (new RegExp(`(^|[^\\w:.>])${n}\\b`).test(line))
+          fail(`${rel} 第 ${i + 1} 行直接用了 ${n}：它在 namespace AgentPanelEd 里，写成 AgentPanelEd::${n} 或在文件开头 using namespace AgentPanelEd`)
+    })
+  }
 }
 
 if (errors.length) {
