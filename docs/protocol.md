@@ -57,7 +57,7 @@
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors`、`asset.import`、`asset.reimport`、`editor.functions`、`editor.call` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
@@ -266,6 +266,13 @@
 `assets` 2.14 起多三个筛选，都只读资源注册表、不加载资源：`parent`（蓝图父类名，含间接继承，原生父类按 `NativeParentClass` 标签认，带不带 `_C` 都行）、`tags`（`{"键": "值"}`，值写 `"*"` 表示有这个标签就行）、`recursive`（默认 true，false 只看这一层目录）。
 
 `assets` 2.15 起：`paths`（目录数组，给了就不看 `path`）；`name`（名字通配符，字符串或数组，`*`、`?`，不分大小写，对上任一个就留）、`exclude`（同样写法，对上任一个就去掉），模式里带 `/` 时比对包路径（如 `/Game/Enemies/Old/*`），否则比对资源名；`parent` 给 C++ 类时认整条继承链（蓝图最近的 C++ 父类是它的子类就算，以前只认最近那一层）。`limit` 写 0 时不截断（其他值照旧 1–2000）。批量操作（`paths` / `items`）2.15 起不再限 2000 个。旧版本不认这几个字段会忽略，客户端按版本判断或自己再筛一遍。
+
+导入和编辑器函数库（2.16.0，只在编辑器进程里有，代码在 `UELinkImportCallOps.cpp`）：
+
+- `asset.import {"files": [磁盘路径] | "file", "dest": "/Game/目录", "name"?, "replace"?: false, "dryRun"?}` → `{"items": [{"file", "objects": [资源路径], "error"?}], "imported", "dirtied"?: [连带弄脏的包]}`：用 `AssetTools.ImportAssetTasks` 导入（`bAutomated`，不弹选项对话框，不保存）。相对路径按项目目录算；资源名默认取文件名，`name` 只在导入一个文件时能用。先列计划：文件不存在、目标已有又没写 `replace` 时整批不导入，报错列出全部问题；`dryRun` 只回计划 `items: [{"file", "path", "exists"?}]`。不进撤销栈，没保存前用 `asset.revert` 丢掉。
+- `asset.reimport {"path", "dryRun"?}` → `{"path", "reimported": true}`：`FReimportManager` 按资源记下的源文件重新导入（不问新文件、自动化）；不能重新导入的资源报错。能批量（`paths` / `items`），认演练，没有事务、回滚不了。
+- `editor.functions {"class"? , "query"?, "limit"?: 60}` → `{"items": [{"class", "name", "params": [{"name", "type", "out"?}], "ret"?, "tooltip"?}], "total", "more"?}`：函数库（`UBlueprintFunctionLibrary` 子类，给了 `class` 时就是这个类）里蓝图能调的静态函数；`query` 按类名、函数名里的文字搜。
+- `editor.call {"class", "function", "args"?, "path"?}` → 返回值和输出参数同 `call`，外加 `tx`：只调静态、蓝图能调（或标了 `AgentPanel`）的函数，在类默认对象上执行，包进编辑器事务（函数里 `Modify` 过的对象能用 `asset.undo` 撤回）。能批量：`paths` / `items` 每项一次，`args` 里的 `{path}` `{name}` 按资源替换，失败整批按 `tx` 撤回；没有演练。
 
 ## 3. 推送通道：TCP，一行一个 JSON
 
