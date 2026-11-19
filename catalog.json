@@ -75,8 +75,8 @@
         "displayName": "AssetForge",
         "description": "用 JSON 配置管理 UMG、蓝图、行为树、状态树、材质、Niagara 等 17 种资产：导入、导出、演练、同步状态、属性差异。在 Agent 面板的 AssetForge 页操作。",
         "kind": "extension",
-        "version": "1.5.0",
-        "versionCode": 17,
+        "version": "1.5.1",
+        "versionCode": 18,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -108,13 +108,13 @@
         "panelTools": [
           "ue_forge"
         ],
-        "tag": "AssetForge-v1.5.0",
-        "asset": "AssetForge-1.5.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.5.0/AssetForge-1.5.0-src.zip",
-        "sha256": "0f5a6b91c511e708d482a7d74c7f33c28fd2377ef393a46c491ccef2ac9f388b",
-        "size": 446689,
+        "tag": "AssetForge-v1.5.1",
+        "asset": "AssetForge-1.5.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/AssetForge-v1.5.1/AssetForge-1.5.1-src.zip",
+        "sha256": "95acfa9fc38919dfa32a172ec6633f480592de053bb59b471a261b2d1dcf4188",
+        "size": 446791,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/AssetForge",
-        "notes": "> 按用户要求直接发正式版：云端编不了 UE，这一版的 C++（子界面连带导入、示例界面父类新加的约定）还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **子界面单独一份配置，导入父界面时连带生成** — UMG 配置里某个节点写 `ref` 引用另一份配置，它就是一个子 WBP；从 AssetForge 页导入父配置时先把引用的子配置导入成资产，再生成父界面。路径可以写相对引用它的那份配置，一个页面太大时按块拆开\n- **示例测试界面按页拆成子界面，新加「控件」「流程」两页** — 每页一份配置；「控件」页每种能操作的控件各一个（禁用到可用、长按、悬停的按钮，单行 / 多行输入框，滑条、微调框、下拉框、复选框、单选组、按键选择器、长滚动框、切换器、菜单），「流程」页有计数、领取、延时出现、显示切换和定时弹出的公告，给 GameTest 脚本当靶子\n- **示例场景扩到五份** — 原来的「冒烟」「条目标识」换成新路径，新加「各类控件操作」「脚本流程」「真实鼠标和键盘」，基本覆盖 GameTest 的全部动作和脚本写法；都先调一个公共子脚本进图并重置界面，单独跑哪份都行。没改过的示例配置和场景升级插件后自动换成新的，重新导入一次 `WBP_ForgeSample` 就能用\n\n### 改进\n- **演练时子界面还没导入只给警告** — 以前引用的子界面没生成过，演练直接报「类找不到」；现在提示导入时会先导入它"
+        "notes": "> 只补了测试模块的一个链接依赖；还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 修复\n- **AssetForgeTests 链接失败** — 示例界面的按键选择器读按键名用到了 InputCore，测试模块没声明这个依赖，链接时报 `FKey::GetFName` 无法解析（LNK2019）。已补上"
       },
       "prerelease": null,
       "displayName": "AssetForge",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-19T16:14:31.172Z"
+  "updatedAt": "2026-11-19T16:33:21.451Z"
 }
