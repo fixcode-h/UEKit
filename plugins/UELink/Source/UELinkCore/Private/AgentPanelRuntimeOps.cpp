@@ -5,6 +5,7 @@
 #include "AgentPanelBlueprintComps.h"
 #include "AgentPanelOutliner.h"
 #include "AgentPanelAssetTree.h"
+#include "UELinkAssetFilter.h"
 #include "UELinkConfigOps.h"
 #include "UELinkJobOps.h"
 #include "UELinkPropEdit.h"
@@ -1183,7 +1184,8 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 	{
 		IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
 		FARFilter Filter;
-		Filter.bRecursivePaths = true;
+		// 2.14：recursive=false 只看这一层目录
+		Filter.bRecursivePaths = Bool(A, TEXT("recursive"), true);
 		Filter.PackagePaths.Add(FName(*Str(A, TEXT("path"), TEXT("/Game"))));
 		const FString ClassName = Str(A, TEXT("class"));
 		if (!ClassName.IsEmpty())
@@ -1199,6 +1201,17 @@ void FAgentPanelBridge::RegisterRuntimeOps()
 		}
 		TArray<FAssetData> Found;
 		AR.GetAssets(Filter, Found);
+		// 2.14：按蓝图父类（含间接的）、资源注册表标签筛，都只读注册表、不加载资源（批量操作选目标用）
+		const FString Parent = Str(A, TEXT("parent"));
+		if (!Parent.IsEmpty())
+		{
+			FilterAssetsByParent(AR, Parent, Found);
+		}
+		const TSharedPtr<FJsonObject>* Tags = nullptr;
+		if (A->TryGetObjectField(TEXT("tags"), Tags) && Tags && Tags->IsValid())
+		{
+			FilterAssetsByTags(*Tags, Found);
+		}
 		const FString Prefix = Str(A, TEXT("prefix"));
 		const int32 Limit = FMath::Clamp(Int(A, TEXT("limit"), 300), 1, 2000);
 		TArray<TSharedPtr<FJsonValue>> Items;
