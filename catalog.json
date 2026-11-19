@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.14.1",
-        "versionCode": 38,
+        "version": "2.15.0",
+        "versionCode": 39,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.14.1",
-        "asset": "UELink-2.14.1-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.14.1/UELink-2.14.1-src.zip",
-        "sha256": "33d1e95b65d31bc96d1c05170cae424c6852b51e1d7cdfc8025fcd0e4e21482c",
-        "size": 318235,
+        "tag": "UELink-v2.15.0",
+        "asset": "UELink-2.15.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.15.0/UELink-2.15.0-src.zip",
+        "sha256": "d5c9bbe686eaa38bb724478b4de0fe18e6c998e638ccf5940d318b4780023b1d",
+        "size": 319541,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **2.14.0 编译不过** — 修好编辑器模块的「找不到标识符 FindClassByName / FTx / NoteDirty」：一条蓝图操作改多个组件、DataTable 一次改多行这两处用了编辑器共用工具却没写对命名空间；顺带把两处 TSharedPtr / TSharedRef、字符串和 FString 混在条件表达式里的写法改成普通的 if，免得别的编译器版本报类型不一致"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### 新功能\n- **按名字通配符选资源** — 资源搜索可以写 `*_Boss`、`BP_Enemy*` 这样的名字模式，也能写要排除的模式；批量操作按条件选一批蓝图时，Agent 不用再把几百个资源名逐个列出来\n- **一次搜多个目录** — 资源搜索可以同时给几个目录\n- **批量操作不限个数** — 一次批量不再限 2000 个资源；资源搜索 `limit` 写 0 时不截断，Agent 按条件选一大批时一次做完\n\n### 改进\n- **按 C++ 父类选蓝图认整条继承链** — 以前只认蓝图最近的那个 C++ 父类（继承 Character 的蓝图写 Pawn 选不中），现在写 Pawn、Actor 这类更上层的 C++ 类也能选中"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-19T15:39:57.413Z"
+  "updatedAt": "2026-11-19T15:47:30.766Z"
 }
