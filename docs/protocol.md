@@ -62,6 +62,7 @@
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
+| 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop` |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
 `trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
@@ -97,6 +98,14 @@
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
+
+`set {"path", "prop", "value"?, "array"?, "index"?, "key"?, "class"?}` → `{"prev", "value", "asset", "replicated", "client", "created"?, "index"?}`。三种写法：
+
+- 只给 `value`：整体写（JSON，或 UE 文本格式）。
+- 给 `array`（细节面板容器的那几个按钮，直接改容器，不整体替换，实例化子对象里的数据不会丢）：
+  - 数组：`add`（末尾加）、`insert`（在 `index` 前插）、`duplicate`（复制第 `index` 个，实例化子对象会复制成新对象）、`remove`（删第 `index` 个）、`clear`。2.13.0 起 `add` / `insert` 可以带 `value`（新元素的值）或 `class`（元素是对象时新建这个类的内嵌子对象放进去），回包 `index` 是新元素的下标。
+  - 集合、映射（2.13.0 起）：`add` / `remove` 按 `key`（元素或键，JSON 或 UE 文本格式，和属性路径 `Tags["Fire"]` 里的写法一样），`clear` 清空。映射 `add` 可以带 `value` 或 `class`（值是对象时新建子对象）；键已经在时拒绝，改已有键的值用 `prop=名字[键]` + `value`。旧版本集合和映射只认 `clear`。
+- 只给 `class`（2.13.0 起）：给对象属性新建内嵌子对象（细节面板实例化属性的「选类」下拉），`prop` 可以是 `Triggers[2]` 这样的数组元素。子对象的 Outer 是属性所在的对象，标志随它传下去（类默认值里的是原型）。属性要是 Instanced，或者类是 EditInlineNew；抽象类、Actor、不是属性要的类都拒绝。回包 `created` 是新子对象的路径。`class` 写原生类名或蓝图类路径（`/Game/BP_Foo`，没加载时会加载）。
 
 2.2.0 起的世界大纲和 UObject 树（只给名字和层级，属性点了再用 `props` 读）：
 
@@ -210,6 +219,17 @@
 - `livecoding` → `{"started": true}`；已经在编译时 `{"started": false, "message": "already compiling"}`。结果用下面的 `livecoding.status` 查。
 - `livecoding.status` → `{"available", "phase": "idle|compiling|finished", "result": "success|failed|noChanges|cancelled|unknown", "message", "durationMs", "output": [最近的编译输出]}`。不管是谁触发的编译都会记录。
 - `tests.run {"filter": "Project.Foo", "id"?}` → `{"id"}`；`tests.status` → `{"running", "id", "filter", "passed", "failed", "current"?, "durationMs", "message"?, "tests": [{"name", "result", "durationMs", "errors"}]}`。同一时间只能跑一组。
+
+### 作业（2.13.0 起）
+
+要等很久的操作（编译蓝图、改名、删除、批量校验……）可以作为作业跑：马上拿到作业号，HTTP 不用一直挂着，进度走推送。客户端按 `GET /info` 的 `ops` 里有没有 `job.start` 判断支持（推送通道的 `features` 里也有 `jobs`）。
+
+- `job.start {"op", "args"}`（一步）或 `{"steps": [{"op", "args"}], "title"?, "stopOnError"?: true}`（最多 500 步）→ `{"job": 作业号, "id", "title", "status": "queued", "total", "finished", "failed", "startedAt"}`。每一步就是一个已登记的同步操作，参数和返回字段和直接调时完全一样；异步操作（`trace.query`、`job.*`）不能放进作业。`stopOnError` 为 true 时某一步失败后面的不做（算 `skipped`）。
+- 作业按先后排队，同一时间只跑一个；每帧做到 30 毫秒为止（一步本身超过时至少做一步）。
+- `job.get {"id"}` → 摘要 + 结果：`status`（`queued` / `running` / `done` / `failed` / `cancelled`）、`total`、`finished`、`failed`、`current`?（正在做的操作）、`skipped`?、`startedAt`、`endedAt`?、`ms`?、`report`?。只有一步的作业把这一步的 `result`（操作的回包）/ `error` 提到顶层；多步的给 `steps: [{"op", "state": "ok|failed|skipped", "error"?, "ms"?, "result"?}]`，各步结果合计超过 12000 字时后面的只给状态并标 `truncated: true`。做完后全部结果（含每步参数）写进 `Saved/UELink/jobs/<作业号>.json`（`report`，留最近 50 份）。不给 `id` → `{"items": [摘要]}`，最近的在前，内存里留最近 20 个结束的作业。
+- `job.wait {"id", "timeoutMs"?: 20000}`：异步操作，作业做完或等满 `timeoutMs`（最多 60000）才回，回包同 `job.get`；没做完时 `status` 还是 `running` / `queued`，客户端再调一次接着等，不用轮询 `job.get`。
+- `job.stop {"id"}` → 摘要 + `stopped`：取消还没做的步骤（正在做的那一步做完才停），已经结束的回 `stopped: false`。
+- 推送事件 `uelink.job`（订阅时 `topics` 里写它）：摘要字段 + `phase`：`queued`、`started`、`progress`（每帧做完一批还没完时）、`finished`。后台编辑器（commandlet）没有推送通道，客户端用 `job.wait` 等。
 
 ## 3. 推送通道：TCP，一行一个 JSON
 
