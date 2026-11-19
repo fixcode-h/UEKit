@@ -383,6 +383,10 @@ static void RegisterEditorBatchOps()
 	Cell.bWrite = true;
 	Cell.Undo = TEXT("tx");
 	B.AddBatchOp(TEXT("datatable.set"), Cell);
+	// 撤回本身也能批量：客户端撤回一整批时把每个资源的 tx 一次交过来
+	FAgentPanelBatchInfo Undo;
+	Undo.bWrite = true;
+	B.AddBatchOp(TEXT("asset.undo"), Undo);
 }
 
 class FAgentPanelBridgeEditorModule : public IModuleInterface
