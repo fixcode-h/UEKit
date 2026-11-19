@@ -3,6 +3,7 @@
 // 任何一步失败整批取消；dryRun 照常执行和编译，拿到结果后取消，不留改动。
 #include "UELinkCompat.h"
 #include "AgentPanelEditorShared.h"
+#include "UELinkBpNames.h"
 
 #include "BlueprintActionDatabase.h"
 #include "BlueprintFunctionNodeSpawner.h"
@@ -1377,9 +1378,37 @@ void AgentPanelEd::RegisterBlueprintEditOps()
 			else
 			{
 				Res->SetStringField(TEXT("op"), Str(*Op, TEXT("op")));
-				if (!Edit.Run(*Op, Res, OpError) && OpError.IsEmpty())
+				// 2.14：name / node 给数组、通配符或 componentClass 时展开成多条同样的操作（UELinkBpNames.cpp）
+				TArray<TSharedPtr<FJsonObject>> Each;
+				if (ExpandBlueprintOp(BP, *Op, Each, OpError))
 				{
-					OpError = TEXT("没有成功（引擎没给原因）");
+					TArray<TSharedPtr<FJsonValue>> Subs;
+					for (const TSharedPtr<FJsonObject>& One : Each)
+					{
+						TSharedPtr<FJsonObject> Sub = Each.Num() == 1 ? Res : MakeShared<FJsonObject>();
+						if (!Edit.Run(One, Sub, OpError))
+						{
+							if (OpError.IsEmpty())
+							{
+								OpError = TEXT("没有成功（引擎没给原因）");
+							}
+							if (Each.Num() > 1)
+							{
+								OpError = FString::Printf(TEXT("%s：%s"), *Str(One, TEXT("node"), Str(One, TEXT("name"))), *OpError);
+							}
+							break;
+						}
+						if (Each.Num() > 1)
+						{
+							Sub->SetStringField(TEXT("name"), Str(One, TEXT("node"), Str(One, TEXT("name"))));
+							Subs.Add(JObj(Sub));
+						}
+					}
+					if (Each.Num() > 1)
+					{
+						Res->SetNumberField(TEXT("count"), Each.Num());
+						Res->SetArrayField(TEXT("each"), Subs);
+					}
 				}
 			}
 			if (!OpError.IsEmpty())

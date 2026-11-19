@@ -253,6 +253,8 @@
 - 作业整体的 `status`：有资源失败、演练没过或回滚过时是 `failed`，否则 `done`。`job.stop` 取消批量作业时不回滚已经做完的。
 - 作业的 `steps`（`job.start`）上限 2.14 起是 2000 步（原来 500）。
 
+`bp.edit` 一条操作作用到多个成员（2.14.0）：`set_variable`、`remove_variable`、`remove_function`、`set_component`、`remove_component` 的 `name` 可以给数组，每项或单个名字都可以写通配符（`*`、`?`，不分大小写）；两个组件操作另认 `componentClass`（组件类，含子类），`name` 不写时就是这个类的全部组件；`remove_node` 的 `node` 可以给 id 数组。展开后逐个执行，同在一个事务里，任一个失败整批取消（报错带出是哪个名字）；结果里这一步带 `count` 和 `each`（每个名字的结果）。一个都没匹配上算失败。`set_variable` 一次多个时不能带 `rename`。
+
 `bp.edit` 的增加类操作（`add_variable`、`add_function`、`add_component`（给了 `name` 时）、`add_interface`）2.14 起认 `ifMissing: true`：已经有同名的就跳过，这一步结果带 `skipped: true`，不算失败。同一组操作可以放心重跑。
 
 `assets` 2.14 起多三个筛选，都只读资源注册表、不加载资源：`parent`（蓝图父类名，含间接继承，原生父类按 `NativeParentClass` 标签认，带不带 `_C` 都行）、`tags`（`{"键": "值"}`，值写 `"*"` 表示有这个标签就行）、`recursive`（默认 true，false 只看这一层目录）。
