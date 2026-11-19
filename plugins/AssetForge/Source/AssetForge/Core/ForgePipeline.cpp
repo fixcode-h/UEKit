@@ -5,8 +5,11 @@
 
 #include "Core/ForgeAssetHealth.h"
 #include "Core/ForgeDoc.h"
+#include "Core/ForgeDocSource.h"
 #include "Core/ForgeJsonText.h"
+#include "Core/ForgeSections.h"
 #include "Registry/ForgeKindRegistry.h"
+#include "Registry/ForgeKindSchema.h"
 #include "Settings/AssetForgeSettings.h"
 
 #include "Misc/PackageName.h"
@@ -227,15 +230,15 @@ namespace
 bool CollectRefConfigs(const FString& InConfigPath, TArray<FString>& OutConfigPaths)
 {
 	// 只读文档、不解析 ref：被引用的配置坏了也要把它列出来，让它在批量里自己报错，而不是父配置这里先吞掉。
-	TSharedPtr<FJsonObject> Json;
-	FString Error;
-	if (!ForgeJsonText::LoadObject(InConfigPath, Json, Error))
+	// 先展开 include：子界面的 ref 可能写在片段里。
+	ForgeDocSource::FExpanded Expanded;
+	TArray<FForgeDiagnostic> Diagnostics;
+	if (!ForgeDocSource::LoadFile(InConfigPath, Expanded, Diagnostics))
 	{
 		return false;
 	}
 	FForgeDocument Document;
-	TArray<FForgeDiagnostic> Diagnostics;
-	if (!ForgeDoc::Parse(Json, InConfigPath, Document, Diagnostics))
+	if (!ForgeDoc::Parse(Expanded.Json, InConfigPath, Document, Diagnostics))
 	{
 		return false;
 	}
@@ -262,43 +265,94 @@ namespace
 	}
 }
 
+namespace
+{
+	/** 展开 include 后的文档 → 解析；解析出的诊断按片段加上文件名。 */
+	bool ParseExpanded(const bool bInExpanded, const ForgeDocSource::FExpanded& InExpanded, TArray<FForgeDiagnostic>& InExpandDiagnostics, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
+	{
+		// 展开时的诊断不加文件名：它们指的是 include 所在的位置，消息里已经写了片段文件。
+		OutReport.Diagnostics.Append(MoveTemp(InExpandDiagnostics));
+		if (!bInExpanded)
+		{
+			return false;
+		}
+		const int32 FirstDiagnostic = OutReport.Diagnostics.Num();
+		const bool bOk = ParseLoadedDocument(InExpanded.Json, InConfigPath, OutDocument, OutReport);
+		OutDocument.IncludedFiles = InExpanded.Fragments;
+		OutDocument.IncludeOrigins = InExpanded.Origins;
+		ForgeDocSource::LabelDiagnostics(InExpanded.Origins, OutReport.Diagnostics, FirstDiagnostic);
+		return bOk;
+	}
+}
+
 bool LoadDocument(const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
 {
 	OutReport.SourcePath = InConfigPath;
 
-	TSharedPtr<FJsonObject> Json;
-	FString Error;
-	if (!ForgeJsonText::LoadObject(InConfigPath, Json, Error))
-	{
-		OutReport.AddError(FString(), Error);
-		return false;
-	}
-	return ParseLoadedDocument(Json, InConfigPath, OutDocument, OutReport);
+	ForgeDocSource::FExpanded Expanded;
+	TArray<FForgeDiagnostic> Diagnostics;
+	const bool bExpanded = ForgeDocSource::LoadFile(InConfigPath, Expanded, Diagnostics);
+	return ParseExpanded(bExpanded, Expanded, Diagnostics, InConfigPath, OutDocument, OutReport);
 }
 
 bool LoadDocumentFromText(const FString& InText, const FString& InConfigPath, FForgeDocument& OutDocument, FForgeReport& OutReport)
 {
 	OutReport.SourcePath = InConfigPath;
 
-	TSharedPtr<FJsonObject> Json;
-	FString Error;
-	if (!ForgeJsonText::ParseObject(ForgeJsonText::StripComments(InText), Json, Error))
-	{
-		OutReport.AddError(FString(), Error);
-		return false;
-	}
-	return ParseLoadedDocument(Json, InConfigPath, OutDocument, OutReport);
+	ForgeDocSource::FExpanded Expanded;
+	TArray<FForgeDiagnostic> Diagnostics;
+	const bool bExpanded = ForgeDocSource::LoadText(InText, InConfigPath, Expanded, Diagnostics);
+	return ParseExpanded(bExpanded, Expanded, Diagnostics, InConfigPath, OutDocument, OutReport);
+}
+
+FString GetSchemaDir()
+{
+	return FPaths::Combine(GetConfigRootDir(), TEXT(".schema"));
+}
+
+FString MakeSchemaRef(const FString& InFilePath, const FString& InSchemaName)
+{
+	FString Target = FPaths::ConvertRelativePathToFull(FPaths::Combine(GetSchemaDir(), InSchemaName + TEXT(".schema.json")));
+	Target.ReplaceInline(TEXT("\\"), TEXT("/"));
+	FString FromDir = FPaths::ConvertRelativePathToFull(FPaths::GetPath(InFilePath));
+	FromDir.ReplaceInline(TEXT("\\"), TEXT("/"));
+	// 相对路径：整个配置根拷到别处（或别人机器上路径不同）时编辑器照样找得到；跨盘时退回绝对路径。
+	FPaths::MakePathRelativeTo(Target, *(FromDir + TEXT("/")));
+	return Target;
 }
 
 bool SaveDocument(const FString& InConfigPath, const FForgeDocument& InDocument, FForgeReport& OutReport)
 {
 	OutReport.SourcePath = InConfigPath;
 
-	FString Error;
-	if (!ForgeJsonText::SaveObject(InConfigPath, ForgeDoc::ToJson(InDocument), Error))
+	// 按原来的 include 结构拆回各文件；每个文件写前：补 $schema、顶层按段重排（内容不动）、和磁盘上一样就不写。
+	TArray<ForgeDocSource::FFileWrite> Writes;
+	TArray<FForgeDiagnostic> Diagnostics;
+	const bool bCollapsed = ForgeDocSource::Collapse(ForgeDoc::ToJson(InDocument), InConfigPath, ForgeDocSource::DiskLoader(), Writes, Diagnostics);
+	OutReport.Diagnostics.Append(MoveTemp(Diagnostics));
+	if (!bCollapsed)
 	{
-		OutReport.AddError(FString(), Error);
 		return false;
+	}
+
+	const TArray<FString> BodySections = ForgeKindSchema::GetBodySections(InDocument.Kind);
+	for (const ForgeDocSource::FFileWrite& Write : Writes)
+	{
+		if (!Write.Json.IsValid())
+		{
+			continue;
+		}
+		Write.Json->SetStringField(TEXT("$schema"), MakeSchemaRef(Write.Path, Write.bFragment ? FString(TEXT("fragment")) : InDocument.Kind));
+		// 片段只有 $schema、//、fragment 和内容：不给大段名单，按头字段规则排即可。
+		const TSharedPtr<FJsonObject> Ordered = ForgeSections::Reorder(Write.Json, Write.bFragment ? TArray<FString>() : BodySections);
+
+		bool bWritten = false;
+		FString Error;
+		if (!ForgeDocSource::WriteIfChanged(Write.Path, Ordered, bWritten, Error))
+		{
+			OutReport.AddError(FString(), Error);
+			return false;
+		}
 	}
 
 	return true;
@@ -309,6 +363,7 @@ bool Import(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport)
 	OutReport.bDryRun = bDryRun;
 	OutReport.SourcePath = InDocument.SourcePath;
 	OutReport.AssetPath = InDocument.Asset;
+	const int32 FirstDiagnostic = OutReport.Diagnostics.Num();
 
 	bool bSucceeded = false;
 
@@ -345,6 +400,9 @@ bool Import(FForgeDocument& InDocument, bool bDryRun, FForgeReport& OutReport)
 			}
 		}
 	}
+
+	// 导入的诊断按展开后的字段路径给：来自片段的加上片段文件名，用户才知道去哪个文件改。
+	ForgeDocSource::LabelDiagnostics(InDocument.IncludeOrigins, OutReport.Diagnostics, FirstDiagnostic);
 
 	// 清单记录不在这里做：它属于「一次用户操作」的语义，由 ForgeService 统一处理
 	// （单元测试直接调 Import 时也就不会污染项目清单）。

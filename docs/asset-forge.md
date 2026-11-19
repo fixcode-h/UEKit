@@ -13,7 +13,19 @@
 - 配置根默认跟着项目的文档根：项目外层同级有 `ProjectDoc/docs`（P4 / SVN 项目的文档常放在项目外）就是 `ProjectDoc/docs/AssetForge`，否则是项目里的 `docs/AssetForge`。要换就在项目设置 → 插件 → Asset Forge 里指定（相对项目根，`../` 可以指到项目外，也接受绝对路径），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
 - 文件格式：`{ "kind", "schemaVersion": 1, "revision", "asset", "parent"?, "root": { "class", "name", "props", "slot"?, "children"? } }`，属性名用 UE 属性名原样。允许 `//` 注释。
 - **子界面（`ref`）**：UMG 配置里某个节点写 `"ref": "相对路径.json"`（不写 `class`）表示这个位置放另一份 UMG 配置生成的子 WBP，类名由被引用配置的 `asset` 推出（`<asset>.<资产名>_C`），一个页面太大时按块拆成几份。路径先按引用它的配置所在目录找，找不到再按项目根、配置根找；引用成环报错。**导入父配置时先导入它引用的子配置**（批量导入按依赖排序，子界面在前，深度优先、去重），父界面生成时子界面的类已经在了；演练时子界面还没导入只给警告（演练看不到子界面里的控件），真导入时子界面导入失败就报错停下。
-- 同步清单在 `Saved/AssetForge/state.json`（本机状态，不进版本管理）：记每份配置的内容哈希和导入时资产文件的修改时间，用来快速判定状态。
+- **按段排列**（1.6.0 起）：一个资源一个 JSON，顶层字段就是「段」，按固定顺序：头（`$schema`、`//`、`kind`、`schemaVersion`、`revision`、`asset`、`parent`，以及 `skeleton`、`blackboard` 这类小字段）→ `styles` → `root` → 各 kind 登记的大段（UMG 的 `animations`；状态树的 `parameters`、`evaluators`、`globalTasks`、`bindings`）。手写顺序不对也能读；导出到配置时按这个顺序重排顶层字段（字段内容不动），和磁盘上内容相同的文件不重写（不动修改时间，P4 不用签出）。每种 kind 的段登记在 `Registry/ForgeKindSchema.cpp` 的形状里（`Sections`），`forge.kinds kind=` 的 schema 在 `x-forge.sections` 列出 `[{name, description}]`；`forge.describe section=<段名>` 只读一段（头段叫 `header`）。
+- **关键帧简写**（1.6.0 起）：UMG 动画的 `keys` 里 `[时间, 值]` 或 `[时间, 值, "cubic|linear|constant"]` 等价于 `{ "time", "value", "interp" }`，两种可以混写；导出一律写简写（插值是缺省的 cubic 时只写两项）。
+- **样式复用**（1.6.0 起）：顶层 `styles: { "NavButton": { "props": {…}, "slot": {…} } }` 定义命名样式，节点写 `"style": "NavButton"` 或 `["Base", "NavButton"]`（后面的覆盖前面的）引用，节点自己写的 `props` / `slot` 再覆盖样式。合并时对象按字段递归（`"Padding": { "Left": 8 }` 只改左边，其余取样式），数组和标量整个覆盖，字段名按导入的规则认（`bIsEnabled` 和 `IsEnabled` 是同一个）。样式在文档解析阶段展开，对所有 kind 都生效（props / slot 是通用的节点字段），后面的演练、差异、导入看到的都是展开后的。样式里只能写 `props`、`slot`；引用不存在的样式名报错，路径指到节点的 `style`。导出不反推样式，但保留原配置里手写的：`styles` 原样写回，节点按 name 认回原来的 `style` 引用，和样式相同的属性不再重复写。注意：资产里某个属性回到了默认值（导出时省掉），而样式里写了它，重新导入时还是样式的值。
+- **include**（1.6.0 起）：某一段或某个子节点可以放进片段文件，导入时原样展开，还是同一个资产（和生成子 WBP 的 `ref` 不同）。
+  - 段：`"animations": { "include": "WBP_Shop.parts/animations.json" }`，片段写 `{ "fragment": "animations", "animations": [ … ] }`；任何大段（`styles`、`root`、`animations`……）都行，头字段不行。
+  - 节点：`children` 里写 `{ "include": "WBP_Shop.parts/Side.json" }`，片段写 `{ "fragment": "node", "node": 一个节点或节点数组 }`，展开到 include 的位置。
+  - 片段顶层有 `fragment`、没有 `kind`，两者互斥（同时有报错）；扫描配置根时片段永远不当资源。`fragment` 说明它能放在哪，放错报错（动画片段不能 include 到控件树里）。片段只能写 `fragment`、同名字段、`//` 和 `$schema`；include 对象只能写 `include`（和 `//`）。
+  - 路径相对引用它的文件，约定放在主文件旁边的 `<资产名>.parts/`（不强制）。片段还能再 include 片段，成环报错；同一个片段在一份配置里引用多次、或被几份配置引用都给警告（复用请用 `styles` 或 `ref`）。
+  - 读的时候先展开 include 再走后面的流程，演练、差异、导入、哈希都按展开后的文档；来自片段的诊断路径带上片段文件名：`WBP_Shop.parts/animations.json: animations[0].tracks[0].channel`。
+  - 写回（导出到配置）保留 include 结构：整段 include 的新内容写回那个片段；子节点按 name 认回原来的片段（include 留在它第一个节点的位置），片段里没有的新节点写在引用它的文件；片段的节点都没了时 include 还留着、片段写成空数组。片段读不了时那部分写回引用它的文件并给警告，片段成环时整份写主文件。没变的片段不重写。
+  - 实现集中在文档来源层 `Core/ForgeDocSource`（展开、写回、诊断加文件名），别处看不见 include。
+- **编辑器边写边检查**（1.6.0 起）：编辑器启动时把每种 kind 的 JSON Schema 写到配置根 `.schema/<kind>.schema.json`，片段用的是 `.schema/fragment.schema.json`（内容和 `forge.kinds kind=` 回的一样；没变不重写；`.` 开头的目录扫描时跳过）。导出时配置和片段头部写 `"$schema": "<到 .schema 的相对路径>/<kind>.schema.json"`，VS Code / Rider 改配置时字段拼错标红、通道和插值给补全；读的时候忽略 `$schema`。Schema 里有段、include / fragment、关键帧两种写法、UMG 动画通道枚举、节点 `style`。
+- 同步清单在 `Saved/AssetForge/state.json`（本机状态，不进版本管理）：记每份配置的内容哈希和导入时资产文件的修改时间，用来快速判定状态。没有 include 的配置按去掉注释的文本算哈希，有 include 的按展开后的文档算（片段改了也算「配置已改」）。
 
 ### 同步状态
 
@@ -38,8 +50,8 @@
 | --- | --- | --- |
 | `forge.health` | — | `version`、`configRoot`、`configRootExists`、`scanRoots`、`kinds`（数量）、`jobRunning` |
 | `forge.kinds` | `kind`?、`class`?、`filter`、`offset`、`limit`（默认 60，最多 150） | 不给参数：`kinds: [{kind, displayName, dir, assetClass, propertyDiff, propertyDiffReason?}]`；给 `kind`：`schema`（这种配置的 JSON Schema，见下）；给 `class`（类或结构体，全路径或短名）：`props: {class, isStruct, properties, total, offset, truncated?, next?}`，只列导入认的属性（和 `ForgePropertyCodec::IsCodecProperty` 同一判据）。两个可以一起给 |
-| `forge.entries` | `unmanaged`（默认 true）、`deep`、`kind`、`state`（状态 id 或 `needsImport`）、`query`、`offset`、`limit`（默认 200，最多 1000） | `entries`、`total`、`offset`、`states`（各状态计数）、`kinds`（各 kind 计数） |
-| `forge.describe` | `config` 或 `asset` | `managed`、`entry`、`stateLabel`、`stateDescription`、`configText`（超长时 `configTextTruncated`）；没纳管的资产回 `exportable`、`kind` |
+| `forge.entries` | `unmanaged`（默认 true）、`deep`、`kind`、`state`（状态 id 或 `needsImport`）、`query`、`offset`、`limit`（默认 200，最多 1000） | `entries`、`total`、`offset`、`states`（各状态计数）、`kinds`（各 kind 计数）。条目有 include 时带 `includes`（片段路径，相对配置根）；片段被几份配置引用时 `message` 里提示 |
+| `forge.describe` | `config` 或 `asset`；`section`?（段名，`header` 是头段） | `managed`、`entry`、`stateLabel`、`stateDescription`、`sections: [{name, include?}]`（文档里有的段，整段来自片段时 `include` 是片段路径）、`configText`（主文件原文，超长时 `configTextTruncated`）；给了 `section` 时不回 `configText`，改回 `section`、`sectionText`（展开 include 后这一段的 JSON：`{ "段名": 内容 }`，头段是头字段组成的对象；超长时 `sectionTextTruncated`），没有这段时报错并列出有的段；没纳管的资产回 `exportable`、`kind` |
 | `forge.plan` | `config`、`configText`?（没存盘的内容） | `report`（`actions`、`diagnostics`、`created/updated/deleted`）、`state` |
 | `forge.diff` | `config`、`configText`?、`baselineText`?（和这份配置比，面板从 git 取上次提交的版本） | `diff: {supported, reason?, baseline: asset\|config, changes: [{property, before, after}], total, truncated?}` |
 | `forge.import` | `configs: [...]` 或 `pending: true`；`dryRun` | `job`、`total`（作业在后台跑） |
@@ -49,7 +61,7 @@
 
 ### 配置的 JSON Schema（`forge.kinds kind=`）
 
-给 Agent 写配置前取（面板 `ue_forge action=schema`）。按 JSON Schema 2020-12 写：顶层的 `kind`、`schemaVersion`、`asset`、`parent`（用不用、必不必写因 kind 而异）、文档级扩展字段（`skeleton`、`blackboard`、`animations`……）；`$defs.root` 是根节点（固定的 `class` 写成 `const`，没有子节点的 kind 写 `children.maxItems: 0`），`$defs.node` 是子节点。`props` 里的属性不展开（一个类几百个属性），`x-forge.propsClass` 给出属性来自的类时，再用 `forge.kinds class=` 取属性表；`x-forge.notes` 是这种配置最容易踩的坑。
+给 Agent 写配置前取（面板 `ue_forge action=schema`），也写成配置根 `.schema/<kind>.schema.json` 给编辑器用。按 JSON Schema 2020-12 写：顶层的 `$schema`、`kind`、`schemaVersion`、`asset`、`parent`（用不用、必不必写因 kind 而异）、`styles`、文档级扩展字段（`skeleton`、`blackboard`、`animations`……，大段都可以写成 `{ "include": … }`）；`$defs.include` 是 include 对象；`x-forge.sections` 是这种 kind 的段和顺序；`$defs.root` 是根节点（固定的 `class` 写成 `const`，没有子节点的 kind 写 `children.maxItems: 0`），`$defs.node` 是子节点。`props` 里的属性不展开（一个类几百个属性），`x-forge.propsClass` 给出属性来自的类时，再用 `forge.kinds class=` 取属性表；`x-forge.notes` 是这种配置最容易踩的坑。
 
 形状写在 `Source/AssetForge/Registry/ForgeKindSchema.cpp`，照各 kind 头文件开头的「配置形状」注释；加 kind 时同时加一项（`AssetForge.Schema` 用例会拦）。Schema 只描述结构，字段写没写对最终以 `forge.plan` 的诊断为准。
 
@@ -83,5 +95,5 @@
 
 ## 限制
 
-- 云端编不了 C++：每一版都要在本地 UE 5.4 和 5.8 各完整编译一次验证，没验证过的版本号带 `-beta.N`。
+- 云端编不了 C++：每一版都要在本地 UE 5.4 和 5.8 各完整编译一次验证；没验证过的版本照样发正式版，在 CHANGELOG 那一节开头写明。
 - 自动化测试（`AssetForge.*`）里依赖项目资产的用例，在 `/Game/AssetForgeTest/` 下没有对应资产时跳过，见 `Source/AssetForgeTests/ForgeTestAssets.h`。

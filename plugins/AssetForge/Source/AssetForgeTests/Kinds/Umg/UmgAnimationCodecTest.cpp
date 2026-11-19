@@ -375,6 +375,70 @@ TEST_CLASS_WITH_FLAGS(UmgAnimationCodecTest, "AssetForge.UmgAnimation",
 		UmgAnimationCodec::ComputePlan(Target, Current, Plan);
 		ASSERT_THAT(IsTrue(Plan.Num() == 0, TEXT("double 与 float 之间的精度差不该判为差异")));
 	}
+
+	//~ 关键帧简写 -------------------------------------------------------------
+
+	TEST_METHOD(关键帧简写和对象写法等价)
+	{
+		FForgeDocument Document;
+		ASSERT_THAT(IsTrue(ParseDocument(SimpleRoot(), TEXT(R"("animations": [
+			{ "name": "Intro", "tracks": [
+				{ "target": "Root/Title", "channel": "RenderOpacity", "keys": [
+					[0, 0],
+					{ "time": 0.3, "value": 0.85, "interp": "cubic" },
+					[0.6, 1, "linear"]
+				] }
+			] }
+		])"), Document), TEXT("测试文档本身应能解析")));
+
+		TArray<UmgAnimationCodec::FUmgAnimation> Animations;
+		FForgeReport Report;
+		ASSERT_THAT(IsTrue(UmgAnimationCodec::ParseAnimations(Document, Animations, Report), TEXT("简写和对象写法混用应通过")));
+		const TArray<UmgAnimationCodec::FUmgKey>& Keys = Animations[0].Tracks[0].Keys;
+		ASSERT_THAT(IsTrue(Keys.Num() == 3, TEXT("三个关键帧")));
+		ASSERT_THAT(IsTrue(Keys[0].Frame == 0 && Keys[0].Interp == UmgAnimationCodec::EUmgInterp::Cubic, TEXT("[0, 0]：第 0 帧，缺省 cubic")));
+		ASSERT_THAT(IsTrue(Keys[2].Frame == 36000 && FMath::IsNearlyEqual(Keys[2].Value, 1.0), TEXT("[0.6, 1, ...]：0.6 秒、值 1")));
+		ASSERT_THAT(IsTrue(Keys[2].Interp == UmgAnimationCodec::EUmgInterp::Linear, TEXT("第 3 项是插值")));
+	}
+
+	TEST_METHOD(关键帧简写写错被拒绝)
+	{
+		FForgeDocument Document;
+		ASSERT_THAT(IsTrue(ParseDocument(SimpleRoot(), TEXT(R"("animations": [
+			{ "name": "A", "tracks": [ { "target": "Root/Title", "channel": "RenderOpacity", "keys": [ [0.3] ] } ] },
+			{ "name": "B", "tracks": [ { "target": "Root/Title", "channel": "RenderOpacity", "keys": [ ["0.3", 1] ] } ] },
+			{ "name": "C", "tracks": [ { "target": "Root/Title", "channel": "RenderOpacity", "keys": [ [0, 1, "bouncy"] ] } ] },
+			{ "name": "D", "tracks": [ { "target": "Root/Title", "channel": "RenderOpacity", "keys": [ 5 ] } ] }
+		])"), Document), TEXT("测试文档本身应能解析")));
+
+		TArray<UmgAnimationCodec::FUmgAnimation> Animations;
+		FForgeReport Report;
+		ASSERT_THAT(IsFalse(UmgAnimationCodec::ParseAnimations(Document, Animations, Report)));
+		ASSERT_THAT(IsTrue(HasErrorAt(Report, TEXT("animations[0].tracks[0].keys[0]")), TEXT("只有一项：错误指向这个关键帧")));
+		ASSERT_THAT(IsTrue(HasErrorAt(Report, TEXT("animations[1].tracks[0].keys[0][0]")), TEXT("时间写成字符串：指向第 1 项")));
+		ASSERT_THAT(IsTrue(HasErrorAt(Report, TEXT("animations[2].tracks[0].keys[0][2]")), TEXT("插值不认识：指向第 3 项")));
+		ASSERT_THAT(IsTrue(HasErrorAt(Report, TEXT("animations[3].tracks[0].keys[0]")), TEXT("既不是数组也不是对象")));
+	}
+
+	TEST_METHOD(导出写简写)
+	{
+		UmgAnimationCodec::FUmgKey Cubic;
+		Cubic.Frame = UmgAnimationCodec::SecondsToFrame(0.3);
+		Cubic.Value = 0.85;
+
+		const TSharedPtr<FJsonValue> CubicJson = UmgAnimationCodec::KeyToJson(Cubic);
+		const TArray<TSharedPtr<FJsonValue>>* CubicItems = nullptr;
+		ASSERT_THAT(IsTrue(CubicJson.IsValid() && CubicJson->TryGetArray(CubicItems) && CubicItems != nullptr, TEXT("导出是数组")));
+		ASSERT_THAT(IsTrue(CubicItems->Num() == 2, TEXT("cubic 是缺省，只写 [时间, 值]")));
+		ASSERT_THAT(IsTrue(FMath::IsNearlyEqual((*CubicItems)[0]->AsNumber(), 0.3) && FMath::IsNearlyEqual((*CubicItems)[1]->AsNumber(), 0.85)));
+
+		UmgAnimationCodec::FUmgKey Constant = Cubic;
+		Constant.Interp = UmgAnimationCodec::EUmgInterp::Constant;
+		const TSharedPtr<FJsonValue> ConstantJson = UmgAnimationCodec::KeyToJson(Constant);
+		const TArray<TSharedPtr<FJsonValue>>* ConstantItems = nullptr;
+		ASSERT_THAT(IsTrue(ConstantJson.IsValid() && ConstantJson->TryGetArray(ConstantItems) && ConstantItems != nullptr && ConstantItems->Num() == 3));
+		ASSERT_THAT(IsTrue((*ConstantItems)[2]->AsString() == TEXT("constant"), TEXT("非缺省插值写第 3 项")));
+	}
 };
 
 #endif // WITH_AUTOMATION_WORKER

@@ -67,8 +67,18 @@ namespace UmgAnimationCodec
 	/** 帧 → 秒。 */
 	ASSETFORGE_API double FrameToSeconds(int32 InFrame);
 
+	/** 支持的通道名（配置里 channel 的取值），给 schema 做枚举。 */
+	ASSETFORGE_API TArray<FString> GetChannelNames();
+
+	/**
+	 * 一个关键帧 → 配置写法。导出一律写简写 `[时间, 值]`，插值不是缺省的 cubic 时写 `[时间, 值, "linear"]`；
+	 * 读取（`ParseAnimations`）简写和对象写法 `{time, value, interp?}` 都认。
+	 */
+	ASSETFORGE_API TSharedPtr<FJsonValue> KeyToJson(const FUmgKey& InKey);
+
 	/**
 	 * 解析文档顶层 `animations` 字段（含字段级校验）。
+	 * 关键帧两种写法等价：`{ "time": 0.3, "value": 0.85, "interp": "cubic" }` 或简写 `[0.3, 0.85, "cubic"]`。
 	 *
 	 * 校验内容：动画名非空且唯一；target 能在**配置的控件树**里解析到、且它的控件名
 	 * 在整棵树里唯一（引擎按名绑定，同名控件会让运行时绑错）；channel 在白名单里；

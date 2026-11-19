@@ -5,6 +5,7 @@
 
 #include "Core/ForgeDiff.h"
 #include "Core/ForgeDoc.h"
+#include "Core/ForgeDocSource.h"
 #include "Core/ForgeJsonText.h"
 #include "Core/ForgePipeline.h"
 #include "Core/ForgePropertyCodec.h"
@@ -850,18 +851,19 @@ namespace
 	{
 		const FString ConfigPath = ForgePipeline::MakeDefaultConfigPath(InAssetPath, Kind);
 
-		TSharedPtr<FJsonObject> Json;
-		FString ParseError;
-		// 走通用层的 LoadObject（读文件 → **剥注释** → 解析）：配置里带注释是常态
-		//（自检配置就带），用裸解析器会让带注释的配置在这里莫名「对照失败」。
-		if (!ForgeJsonText::LoadObject(ConfigPath, Json, ParseError) || !Json.IsValid())
+		// 走文档来源层（读文件 → **剥注释** → 解析 → 展开 include）：配置里带注释是常态
+		//（自检配置就带），用裸解析器会让带注释的配置在这里莫名「对照失败」；发射器也可能写在片段里。
+		ForgeDocSource::FExpanded Expanded;
+		TArray<FForgeDiagnostic> LoadDiagnostics;
+		if (!ForgeDocSource::LoadFile(ConfigPath, Expanded, LoadDiagnostics) || !Expanded.Json.IsValid())
 		{
 			OutDiagnostics.Emplace(
 				EForgeSeverity::Warning,
 				TEXT("asset"),
-				FString::Printf(TEXT("模板来源对照：配置读取或解析失败（%s）"), *ParseError));
+				FString::Printf(TEXT("模板来源对照：配置读取或解析失败（%s）"), LoadDiagnostics.Num() > 0 ? *LoadDiagnostics[0].Message : TEXT("未知原因")));
 			return;
 		}
+		const TSharedPtr<FJsonObject> Json = Expanded.Json;
 
 		const TSharedPtr<FJsonObject>* RootObject = nullptr;
 		if (!Json->TryGetObjectField(TEXT("root"), RootObject) || RootObject == nullptr)
