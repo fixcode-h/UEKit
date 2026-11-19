@@ -57,7 +57,7 @@
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors`、`asset.import`、`asset.reimport`、`editor.functions`、`editor.call` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors`、`asset.import`、`asset.reimport`、`asset.preview`、`editor.functions`、`editor.call` |
 | 控件蓝图（编辑器，2.17） | `umg.design`、`umg.anims`、`umg.render` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
@@ -118,6 +118,21 @@
   - `widgets` 是控件蓝图自己这棵树里每个画出来的控件在图里的矩形（像素，按绘制几何，不含渲染变换的旋转），名字和 `umg.design` 的 `name` 对应；折叠、隐藏、零尺寸的不列，最多 2000 个；取不到时为空数组并在 `note` 里说明。
   - 给了 `anim`（动画名，见 `umg.anims`）时按 `time`（秒）求该动画白名单通道的值写到实例上再画（曲线首尾之外按首尾值）；找不到动画、有不支持的轨道时照常画，并在 `note` 里写明。
   - 蓝图有没编译的改动时画的是上次编译的结果（`note` 里写明）；编译出错、没有生成类、抽象类时返回 `ok: false` 和原因。
+
+`asset.preview {"path", "width"?: 512, "height"?: 512, "view"?: {"yaw"?, "pitch"?, "distance"?}, "select"?}` → `{"file", "width", "height", "kind", "mode": "thumbnail", "ms", "note"?}`（2.18，只在编辑器进程里有，要有渲染器；`features` 里有 `asset.preview`）：把资源离屏画成一张 PNG，给面板资源查看页预览。
+  - 支持的类型（`kind`）：`staticMesh`、`skeletalMesh`、`material`（材质和材质实例，画在资源缩略图设置的图元上，默认是球）、`texture`、`blueprint`（只认 Actor 蓝图：缩略图场景里放它的组件）。`path` 也认蓝图的生成类（`_C`）和类默认对象。控件蓝图回 `ok: false` 让改用 `umg.render`；其他类型、没有生成类、没有可见组件的蓝图、网格或贴图还在异步编译时回 `ok: false` 和原因。
+  - 这一版用编辑器的缩略图渲染（`ThumbnailTools::RenderThumbnail`，和内容浏览器缩略图同一套画法），回包固定 `mode: "thumbnail"`，图是不透明的。以后做了真正的预览场景会换成别的 `mode`，客户端按 `mode` 判断。缩略图模式没有每个组件在图里的位置，所以不回 `components`（以后的模式对蓝图会给 `components: [{"name", "rect": {"x", "y", "w", "h"}}]`，算不出时省略）；给了 `select` 时只在 `note` 里说明没生效。
+  - `width` / `height` 是图的像素（16–2048）。`view` 照 UE 缩略图设置的轨道相机：`yaw`、`pitch` 是角度（`pitch` 负数是从上往下看，-90–90），`distance` 是在自动取景距离上加的偏移（0 是刚好装下包围球，正数更远）；没给的分量用资源自己的缩略图设置（没有就是 UE 默认的 yaw -157.5、pitch -11.25、distance 0）。视角是画的时候临时改资源的缩略图设置、画完改回，不标脏、不进撤销。贴图没有视角，给了 `view` 只写 `note`。
+  - 图和 `umg.render` 写在同一个目录：`<项目>/Saved/UELink/preview/<资产名>-<路径 CRC>.png`，同一个资产覆盖旧图（网页按 `ms` 或时间戳防缓存）。同步做，一次几十到几百毫秒。
+  - 蓝图有没编译的改动时画的是上次编译的结果（`note` 里写明）。
+
+2.18.0 起蓝图读操作补了给网页画图和大纲用的字段（`features` 里有 `bp.layout`；都是默认值时省略）：
+
+- `bp.graph {"path", "graph", "format": "json", "layout"?: true, ...}`：节点列表（整张图分页或 `around` 周围几跳）每个节点多 `x`、`y`（`NodePosX` / `NodePosY`，图表坐标）；注释节点另有 `w`、`h`（注释框的尺寸）和 `color`（`#rrggbb`，sRGB）。不给 `layout` 时和以前一样不带坐标。单个节点的详情（给 `node`）本来就有 `x`、`y`，注释节点现在也带 `w`、`h`、`color`。
+- `bp.outline`：
+  - `dispatchers[]` 每项多 `params: [{"name", "type"}]`（分发器签名的参数，没有参数时省略）。
+  - `graphs[]` 里 `kind: "function"` 的多 `category`（函数的分类，`Default` 时省略）、`access`（`protected` / `private`，public 时省略）、`const: true`。
+  - `variables[]`（和 `dispatchers[]`）多列出父蓝图链上定义的变量，标 `inherited: true`，排在自己定义的后面；默认值按当前蓝图类默认对象上的值（子类改过就是改过的值）。C++ 父类的属性不列。
 
 `components {"path"}` → `{"items": [{"path", "name", "class", "parent", "root", "scene", "created": "native|blueprint|script|instance", "inherited"?}], "scs"?}`。
 2.2.0 起 `path` 是蓝图资源（或它的类默认对象）时，除了 C++ 组件还带上蓝图组件列表（自己和父蓝图的 SCS）里的组件，`path` 是组件模板，用 `props` / `set` 读改它就是改蓝图里这个组件的默认值；`inherited` 标出来自父蓝图的，回包带 `"scs": true`。旧版本没有 `scs`，客户端自己用 `bp.outline` 的 `components` 补。
