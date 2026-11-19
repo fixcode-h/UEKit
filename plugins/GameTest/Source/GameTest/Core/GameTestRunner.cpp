@@ -289,7 +289,8 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	if (SkipIf.IsValid())
 	{
 		SkipGate = MakeShared<FGameTestSkipGate>(CurrentRecord.Step, SkipIf, Handles, SkipOptions, InNowSeconds);
-		const int32 GateTimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : UiWaitTimeoutMs;
+		// 步骤写了 0（TimeoutMs < 0）= 不限时，判断一直等
+		const int32 GateTimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : (Step.TimeoutMs < 0 ? 0 : UiWaitTimeoutMs);
 		CurrentRecord.Step.TimeoutMs = GateTimeoutMs;
 		StepDeadline = GateTimeoutMs > 0 ? InNowSeconds + GateTimeoutMs / 1000.0 : TNumericLimits<double>::Max();
 		CurrentRecord.Message = SkipGate->GetMessage();
@@ -304,11 +305,13 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 void FGameTestRunner::RunHandler(double InNowSeconds)
 {
 	const FGameTestStep& Step = CurrentStep;
-	const int32 TimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : DefaultStepTimeoutMs;
+	// 步骤写了 0（TimeoutMs < 0）= 不限时：一直等，人看到卡住了可以 stop（报告里 timeoutMs 记 0）
+	const bool bUnlimited = Step.TimeoutMs < 0;
+	const int32 TimeoutMs = Step.TimeoutMs > 0 ? Step.TimeoutMs : (bUnlimited ? 0 : DefaultStepTimeoutMs);
 
 	// 超时值写回记录：消息里要能报出真正的上限。
 	CurrentRecord.Step.TimeoutMs = TimeoutMs;
-	StepDeadline = InNowSeconds + TimeoutMs / 1000.0;
+	StepDeadline = bUnlimited ? TNumericLimits<double>::Max() : InNowSeconds + TimeoutMs / 1000.0;
 	PendingPredicate = nullptr;
 	PendingFailure.Reset();
 
@@ -366,12 +369,12 @@ void FGameTestRunner::RunHandler(double InNowSeconds)
 
 		// 步骤没写 timeoutMs、动作又给了自己的默认值：按动作的来（UI 自动等待默认短一些）。
 		// 小于 0 是「不设上限」：界面没出来就一直等，人看到卡住了可以 stop（报告里 timeoutMs 记 0）。
-		if (Step.TimeoutMs <= 0 && Context.DefaultTimeoutMs > 0)
+		if (Step.TimeoutMs == 0 && Context.DefaultTimeoutMs > 0)
 		{
 			CurrentRecord.Step.TimeoutMs = Context.DefaultTimeoutMs;
 			StepDeadline = InNowSeconds + Context.DefaultTimeoutMs / 1000.0;
 		}
-		else if (Step.TimeoutMs <= 0 && Context.DefaultTimeoutMs < 0)
+		else if (Step.TimeoutMs == 0 && Context.DefaultTimeoutMs < 0)
 		{
 			CurrentRecord.Step.TimeoutMs = 0;
 			StepDeadline = TNumericLimits<double>::Max();

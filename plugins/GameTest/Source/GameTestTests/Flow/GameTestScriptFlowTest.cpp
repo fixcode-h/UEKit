@@ -95,7 +95,7 @@ namespace GameTestScriptFlowTestLocal
 TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 {
-	/** 加载时就报的错：重复 id、循环没写 max、没声明的变量、块里拼错的字段。 */
+	/** 加载时就报的错：重复 id、循环 max 是负数（0 / 不写是不限，不报）、没声明的变量、块里拼错的字段。 */
 	TEST_METHOD(Parse_ReportsScriptErrors)
 	{
 		using namespace GameTestScriptFlowTestLocal;
@@ -103,11 +103,12 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":3,"name":"t","steps":[
 			{"id":"a","action":"mark","text":"1"},
 			{"id":"a","action":"mark","text":"2"},
-			{"id":"l","action":"loop","until":{"expr":"true"},"do":[{"action":"mark","text":"x"}]},
+			{"id":"l","action":"loop","until":{"expr":"true"},"max":-1,"do":[{"action":"mark","text":"x"}]},
+			{"id":"l0","action":"loop","until":{"expr":"true"},"do":[{"action":"mark","text":"x"}]},
 			{"action":"assert","expr":"$nope == 1"},
 			{"action":"group","name":"g","doo":[]}]})"), Sink);
 		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("dup_id")), DescribeDiags(Sink)));
-		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("loop_no_max")), DescribeDiags(Sink)));
+		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("bad_type")), DescribeDiags(Sink)));
 		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("var_undefined")), DescribeDiags(Sink)));
 		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("unknown_field")), DescribeDiags(Sink)));
 	}

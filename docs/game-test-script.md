@@ -53,7 +53,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | --- | --- | --- |
 | `group` | `name`, `do`, `recorded?`（录制产生的段，面板默认折叠） | 步骤段 |
 | `if` | `cond`, `then`, `elif: [{cond, then}]`, `else` | 从上往下第一条成立的走；都不成立走 `else`（可省）。`branch: "state"` 只是面板画成「按状态分支」的提示，执行一样 |
-| `loop` | 四选一：`until`（每轮做完看，成立就出）/ `while`（每轮开始前看）/ `times`（整数或 `$var`）/ `each`（容器选择器）+ `as`（默认 `item`）或 `in`（数组或 `$var`，配 `as`）；`max`（除 `times` 外必填，默认面板填 30，上限 1000）、`gapMs`、`onMax`（`fail` 默认 / `continue`）、`do` | 循环变量 `$index`（从 0）。`each` 遍历容器条目，自动滚动沿用 1.7 |
+| `loop` | 四选一：`until`（每轮做完看，成立就出）/ `while`（每轮开始前看）/ `times`（整数或 `$var`）/ `each`（容器选择器）+ `as`（默认 `item`）或 `in`（数组或 `$var`，配 `as`）；`max`（最多几轮，0 或不写 = 不限（1.11.3 起；以前除 `times` 外必填），写正数时上限 1000000；不限时靠整块的 `timeoutMs` 或「停止」收住）、`gapMs`、`onMax`（`fail` 默认 / `continue`）、`do` | 循环变量 `$index`（从 0）。`each` 遍历容器条目，自动滚动沿用 1.7 |
 | `call` | `script`（相对场景根，`.json` 可省）、`with`（参数） | 子脚本自己的 `guards` 在调用期间生效、和外层叠加；自己的 `vars` 独立；最多嵌套 8 层；加载时查环。返回值：子脚本 `return` 带的 `value` 存进 `saveAs` |
 | `set` | `var`、`value`（值、`$ref`、表达式）；或 `from: {target, read: "text"/"number"/"visible"/"enabled"}` | 没在 `vars` 里声明的变量第一次 `set` 时创建 |
 | `invoke` | `object`, `function`, `args`, `saveAs`, `expect`, `client` | 调函数（第 6 节） |
@@ -67,8 +67,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `wait` | 原有字段 + `until: "cond"` + `cond` | 等到统一条件成立 |
 
 - 块里的超时：`timeoutMs` 写在块上是整块的总时限；块里的每步各自的等待时限不变。
+- `timeoutMs` 写 0 = 不限时（1.11.3 起）：叶子步骤一直等到成立或被「停止」，块不设总时限；不写才用默认（`DefaultStepTimeoutMs` / 动作自己的默认）。
 - `onFail: retry` 写在块上是整块重做（从块的第一步开始）。
-- 校验：未知字段、未知动作、循环缺 `max`、`call` 找不到 / 成环、`$变量` 未定义、`id` 重复都在加载和 `gt.validate` 时报出来。
+- 校验：未知字段、未知动作、`call` 找不到 / 成环、`$变量` 未定义、`id` 重复都在加载和 `gt.validate` 时报出来。
 
 ## 3. 表达式
 
@@ -161,7 +162,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `do` | 步骤数组（任意步骤和块，常见 `call`、`widget.close`、`widget.call`、`console`、`invoke`） |
 | `check` | `beforeStep`（每步开始前）/ `whileWaiting`（等待中每 0.2 秒）/ `both`（默认） |
 | `after` | 处理完：`retry`（回到被打断的那一步重新开始等，默认）/ `skip`（那一步算跳过）/ `fail` |
-| `max` | 一次 run 里最多触发几次（默认 20），超过算失败 |
+| `max` | 一次 run 里最多触发几次（默认 20），超过算失败；写 0 = 不限（1.11.3 起） |
 | `cooldownMs` | 两次触发的最短间隔（默认 1000） |
 | `unlessStepTargets` | 正在执行的那一步的 `target` / `toTarget` 落在这个界面里时不触发（默认 true） |
 | `onFail` | `do` 失败时：`stop`（整个 run 失败，默认）/ `ignore`（记一条警告继续） |
@@ -372,7 +373,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ## 12. 错误码（`gt.validate` 和运行失败的 `code`）
 
-`unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`loop_no_max`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
+`unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
 `expr_syntax`、`expr_type`、`expr_not_readonly`、`path_missing`、`unresolved`、`fn_missing`、`fn_not_callable`、`arg_missing`、`arg_type`、`arg_object`（对象参数来源不可重找）、
 `api_missing`、`api_renamed`、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
 

@@ -317,7 +317,11 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 	GameTestJson::TryGetString(*InJson, TEXT("target"), OutStep.Target);
 	GameTestJson::TryGetString(*InJson, TEXT("note"), OutStep.Note);
 	GameTestJson::TryGetString(*InJson, TEXT("id"), OutStep.Id);
-	GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs);
+	if (GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs) && OutStep.TimeoutMs <= 0)
+	{
+		// 写了 0（或负数）= 不限时；和「没写，用默认」分开，记成 -1
+		OutStep.TimeoutMs = -1;
+	}
 
 	FString FailModeText;
 	if (GameTestJson::TryGetString(*InJson, TEXT("onFail"), FailModeText))
