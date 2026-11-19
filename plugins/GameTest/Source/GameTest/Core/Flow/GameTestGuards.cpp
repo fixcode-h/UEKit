@@ -170,9 +170,10 @@ namespace GameTestGuards
 			}
 			Json.TryGetNumberField(TEXT("max"), Guard->Max);
 			Json.TryGetNumberField(TEXT("cooldownMs"), Guard->CooldownMs);
-			if (Guard->Max < 1 || Guard->Max > 10000)
+			// max 写 0 = 不限次数（用户 2026-11-19：0 表示不限）；有 cooldownMs 隔开，不会空转
+			if (Guard->Max < 0 || Guard->Max > 10000)
 			{
-				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 1–10000 之间，写的是 %d"), Guard->Max));
+				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 0–10000 之间（0 = 不限），写的是 %d"), Guard->Max));
 			}
 			Guard->CooldownMs = FMath::Clamp(Guard->CooldownMs, 0, 600000);
 			Json.TryGetBoolField(TEXT("unlessStepTargets"), Guard->bUnlessStepTargets);
@@ -355,7 +356,7 @@ bool FGameTestGuardMonitor::BeginHandle(const FGameTestGuardDef& InGuard, double
 	FState& State = States.FindOrAdd(InGuard.Key());
 	++State.Count;
 	State.LastAt = InNowSeconds;
-	if (State.Count > InGuard.Max)
+	if (InGuard.Max > 0 && State.Count > InGuard.Max)
 	{
 		OutError = FString::Printf(TEXT("守护「%s」这次 run 已经触发 %d 次，超过 max=%d：界面可能在反复弹出，检查 when 是不是太宽，或把 max 调大"),
 			*InGuard.Label(), State.Count, InGuard.Max);

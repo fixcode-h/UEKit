@@ -162,7 +162,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `do` | 步骤数组（任意步骤和块，常见 `call`、`widget.close`、`widget.call`、`console`、`invoke`） |
 | `check` | `beforeStep`（每步开始前）/ `whileWaiting`（等待中每 0.2 秒）/ `both`（默认） |
 | `after` | 处理完：`retry`（回到被打断的那一步重新开始等，默认）/ `skip`（那一步算跳过）/ `fail` |
-| `max` | 一次 run 里最多触发几次（默认 20），超过算失败 |
+| `max` | 一次 run 里最多触发几次（默认 20），超过算失败；写 0 = 不限（1.11.3 起） |
 | `cooldownMs` | 两次触发的最短间隔（默认 1000） |
 | `unlessStepTargets` | 正在执行的那一步的 `target` / `toTarget` 落在这个界面里时不触发（默认 true） |
 | `onFail` | `do` 失败时：`stop`（整个 run 失败，默认）/ `ignore`（记一条警告继续） |
