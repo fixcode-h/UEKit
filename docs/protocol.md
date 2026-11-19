@@ -242,7 +242,7 @@
 登记了能批量的操作，参数里给 `paths` 或 `items` 时不直接执行，而是展开成一个作业（上一节），同一组参数逐个作用到每个资源，马上回作业号。客户端按 `GET /info` 的 `batchOps`（能批量的操作名）判断。
 
 - 能批量的操作：读 `bp.outline`、`bp.graph`、`bp.compile`、`asset.describe`、`asset.refs`、`asset.export`、`get`、`props`；写 `bp.edit`、`set`、`datatable.set`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.undo`（撤回一整批：`items: [{path, tx}]`）。新操作要支持批量，在登记处加一行 `AddBatchOp(名字, FAgentPanelBatchInfo)`（编辑器的在 `AgentPanelBridgeEditor.cpp` 的 `RegisterEditorBatchOps`）。
-- `<操作> {"paths": [路径...] | "items": [{"path", "vars"?, ...这一项自己的参数}], ...其余参数照常, "dryRun"?, "dryRunFirst"?: true, "onError"?: "rollback", "compile"?: "end"}`，或 `job.batch {"op", 同上}`。一次 1 到 2000 个资源，同一路径不能出现两次。
+- `<操作> {"paths": [路径...] | "items": [{"path", "vars"?, ...这一项自己的参数}], ...其余参数照常, "dryRun"?, "dryRunFirst"?: true, "onError"?: "rollback", "compile"?: "end"}`，或 `job.batch {"op", 同上}`。一次至少 1 个资源（2.14 最多 2000 个，2.15 起不限），同一路径不能出现两次。
   - 公共参数和这一项的参数合并（同名的以这一项为准），`path` 换成这一项的路径。
   - 字符串参数里的占位符逐个替换：`{name}`（资源名，`/Game/A/BP_X.BP_X` → `BP_X`）、`{path}`、`{dir}`（`/Game/A`）、`{vars.键}`（这一项 `vars` 里的值；整个字符串就是 `{vars.键}` 时原样换成那个值，数字、对象都行）。认不出的原样留着。
 - 写操作（`bp.edit`、`asset.duplicate / rename / delete`）认 `dryRun` 的先整批演练（`dryRunFirst: false` 跳过）：有一个失败（含蓝图编译出错）整批不改，`batch.stopped = "dryRun"`。`dryRun: true` 只演练。
