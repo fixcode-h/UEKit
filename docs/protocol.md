@@ -57,13 +57,19 @@
 | 控制台和变量 | `console`、`cvars`、`cvar.set`、`gm.list`、`gm.run`、`config.files`、`config.get`、`tags.list`、`tags.refs` |
 | 对象和属性 | `actors`、`outliner`、`objects`、`objects.children`、`classes`、`components`、`props`、`get`、`set`、`call`、`functions`、`watch`、`object.refs`、`umg.tree`、`screenshot` |
 | DataTable | `datatable`、`datatable.rows`、`datatable.row`、`datatable.set` |
-| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.open`、`asset.redirectors` |
+| 资源 | `assets`、`assets.children`、`asset.classes`、`asset.describe`、`asset.refs`、`asset.create`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.save`、`asset.revert`、`asset.dirty`、`asset.undo`、`asset.validate`、`asset.export`、`asset.textify`、`asset.snapshot`、`asset.open`、`asset.redirectors` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
-| 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop` |
+| 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop`；`job.batch`（2.14，见「批量」） |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
+
+`asset.snapshot {"out", "package", "file"?}`（2.14）：资源的结构化快照，给面板资源页的「版本差异」逐项比较。`file` 是某一版资源的临时文件（和 `asset.textify` 一样挂到临时挂载点加载、用完卸载）；不给 `file` 就读编辑器里已加载的那份（含没保存的改动）。快照写进 `out`（面板给的绝对路径，UTF-8 紧凑 JSON），回包只有 `{out, bytes, class}`。快照里的临时包名都换回 `package`。形状：
+
+- `class`、`props`（属性列表，每项和 `props` 操作一样带 `name`/`displayName`/`category`/`type`/`value`，跳过 Transient，值不截断）、`note?`；
+- 蓝图另有 `blueprint`：`parent`、`interfaces[]`、`variables[{name, type, category, flags[]}]`、`components[{name, class, parent, source: native|scs|inherited, props}]`、`graphs[{name, kind, nodes[{id, guid, title, class, comment?, pins{引脚: 默认值}, links["出引脚->节点id.入引脚"]}], pseudo}]`，`props` 是类默认值；
+- 其他资源另有 `subobjects[{name(相对资源的路径), class, props}]`，数据表 / 曲线表另有 `rows`（`GetTableAsJSON` 的原文）、`rowStruct`。
 
 `trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
 
@@ -230,6 +236,34 @@
 - `job.wait {"id", "timeoutMs"?: 20000}`：异步操作，作业做完或等满 `timeoutMs`（最多 60000）才回，回包同 `job.get`；没做完时 `status` 还是 `running` / `queued`，客户端再调一次接着等，不用轮询 `job.get`。
 - `job.stop {"id"}` → 摘要 + `stopped`：取消还没做的步骤（正在做的那一步做完才停），已经结束的回 `stopped: false`。
 - 推送事件 `uelink.job`（订阅时 `topics` 里写它）：摘要字段 + `phase`：`queued`、`started`、`progress`（每帧做完一批还没完时）、`finished`。后台编辑器（commandlet）没有推送通道，客户端用 `job.wait` 等。
+
+### 批量（2.14.0 起）
+
+登记了能批量的操作，参数里给 `paths` 或 `items` 时不直接执行，而是展开成一个作业（上一节），同一组参数逐个作用到每个资源，马上回作业号。客户端按 `GET /info` 的 `batchOps`（能批量的操作名）判断。
+
+- 能批量的操作：读 `bp.outline`、`bp.graph`、`bp.compile`、`asset.describe`、`asset.refs`、`asset.export`、`get`、`props`；写 `bp.edit`、`set`、`datatable.set`、`asset.duplicate`、`asset.rename`、`asset.delete`、`asset.undo`（撤回一整批：`items: [{path, tx}]`）。新操作要支持批量，在登记处加一行 `AddBatchOp(名字, FAgentPanelBatchInfo)`（编辑器的在 `AgentPanelBridgeEditor.cpp` 的 `RegisterEditorBatchOps`）。
+- `<操作> {"paths": [路径...] | "items": [{"path", "vars"?, ...这一项自己的参数}], ...其余参数照常, "dryRun"?, "dryRunFirst"?: true, "onError"?: "rollback", "compile"?: "end"}`，或 `job.batch {"op", 同上}`。一次 1 到 2000 个资源，同一路径不能出现两次。
+  - 公共参数和这一项的参数合并（同名的以这一项为准），`path` 换成这一项的路径。
+  - 字符串参数里的占位符逐个替换：`{name}`（资源名，`/Game/A/BP_X.BP_X` → `BP_X`）、`{path}`、`{dir}`（`/Game/A`）、`{vars.键}`（这一项 `vars` 里的值；整个字符串就是 `{vars.键}` 时原样换成那个值，数字、对象都行）。认不出的原样留着。
+- 写操作（`bp.edit`、`asset.duplicate / rename / delete`）认 `dryRun` 的先整批演练（`dryRunFirst: false` 跳过）：有一个失败（含蓝图编译出错）整批不改，`batch.stopped = "dryRun"`。`dryRun: true` 只演练。
+- 真改时有失败（含编译出错）：`onError: "rollback"`（默认）后面的不做，把这批已改成功的按倒序撤回：`bp.edit`、`datatable.set` 用结果里的 `tx` 调 `asset.undo`，`set` 用结果里的 `prev` 把值设回去；复制、改名、删除没有事务，撤不回，汇总里写明。`"keep"` 保留改成功的，接着做后面的。
+- `bp.edit` 的 `compile: "end"`：每个蓝图改完不编译，整批改完再逐个 `bp.compile`（有父子关系的一批蓝图不会被反复编译）。
+- 每步在作业里的阶段：`dryRun`、`apply`（写）/ `run`（读）、`compile`、`undo`。
+- `job.get` / `job.wait` 对批量作业不列每一步，而是给 `batch`：`{op, items, ok?, failed?, skipped?, rolledBack?, dryRunOk?, pending?, stopped?, listed?, list: [{path, item, state, error?}]}`（`item` 是这个资源在 paths / items 里的下标）。各状态的个数只写不为 0 的；`list` 失败和回滚的排前面，放不下时只列前 `listed` 个。每步的完整参数和结果在 `report` 文件（`Saved/UELink/jobs/<作业号>.json`，`steps` 每项带 `item`、`phase`，另有不截断的 `batch`）。
+- 作业整体的 `status`：有资源失败、演练没过或回滚过时是 `failed`，否则 `done`。`job.stop` 取消批量作业时不回滚已经做完的。
+- 作业的 `steps`（`job.start`）上限 2.14 起是 2000 步（原来 500）。
+
+`bp.edit` 一条操作作用到多个成员（2.14.0）：`set_variable`、`remove_variable`、`remove_function`、`set_component`、`remove_component` 的 `name` 可以给数组，每项或单个名字都可以写通配符（`*`、`?`，不分大小写）；两个组件操作另认 `componentClass`（组件类，含子类），`name` 不写时就是这个类的全部组件；`remove_node` 的 `node` 可以给 id 数组。展开后逐个执行，同在一个事务里，任一个失败整批取消（报错带出是哪个名字）；结果里这一步带 `count` 和 `each`（每个名字的结果）。一个都没匹配上算失败。`set_variable` 一次多个时不能带 `rename`。
+
+`bp.edit` 的 `set_component`、`set_default` 2.14.0 起：结果带原值 `prev` 和新值 `value`（演练时也有，可以看改前改后）；`props: {属性路径: 值}` 一条改多个属性（展开成一个属性一条）；`where` 是这个属性期望的当前值（用 `props` 时写成 `{属性路径: 期望值}`），对不上的跳过（结果带 `skipped: true`、`why`），比较时字符串不分大小写、数字按数值。`set` 操作同样认 `where`。
+
+`datatable.set` 2.14.0 起一次改多行：`row` 给数组或通配符（不写是全部行），`where: {列: 值}` 只改这些列现在的值都对得上的行；同一列改成同一个 `value`，整批一个事务（`tx`），认 `dryRun`；回 `count` 和 `rows: [{row, prev, value}]`（最多列 200 行）。一行都没挑中算失败。批量时同一张表可以在 `items` 里出现多次（每项改不同的行列）。
+
+`actors` 2.14.0 起认 `class`（含子类）和 `tag`（Actor 标签）筛选，给了其中一个时 `prefix` 可以空；`limit` 最多 2000。
+
+`bp.edit` 的增加类操作（`add_variable`、`add_function`、`add_component`（给了 `name` 时）、`add_interface`）2.14 起认 `ifMissing: true`：已经有同名的就跳过，这一步结果带 `skipped: true`，不算失败。同一组操作可以放心重跑。
+
+`assets` 2.14 起多三个筛选，都只读资源注册表、不加载资源：`parent`（蓝图父类名，含间接继承，原生父类按 `NativeParentClass` 标签认，带不带 `_C` 都行）、`tags`（`{"键": "值"}`，值写 `"*"` 表示有这个标签就行）、`recursive`（默认 true，false 只看这一层目录）。
 
 ## 3. 推送通道：TCP，一行一个 JSON
 
