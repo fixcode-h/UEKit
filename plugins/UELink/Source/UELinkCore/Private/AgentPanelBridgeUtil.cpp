@@ -3,6 +3,7 @@
 #include "Engine/Blueprint.h"
 #include "Misc/PackageName.h"
 #include "JsonObjectConverter.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "UObject/EnumProperty.h"
@@ -687,4 +688,33 @@ namespace AgentPanel
 		O->SetStringField(TEXT("class"), Obj->GetClass()->GetName());
 		return O;
 	}
+
+	bool SameJsonValue(const TSharedPtr<FJsonValue>& A, const TSharedPtr<FJsonValue>& B)
+	{
+		if (!A.IsValid() || !B.IsValid())
+		{
+			return A.IsValid() == B.IsValid();
+		}
+		FString SA;
+		FString SB;
+		if (A->TryGetString(SA) && B->TryGetString(SB))
+		{
+			return SA.Equals(SB, ESearchCase::IgnoreCase);
+		}
+		double NA = 0;
+		double NB = 0;
+		if (A->Type == EJson::Number && B->Type == EJson::Number && A->TryGetNumber(NA) && B->TryGetNumber(NB))
+		{
+			return FMath::IsNearlyEqual(NA, NB, 1e-6);
+		}
+		const auto Text = [](const TSharedPtr<FJsonValue>& V)
+		{
+			FString S;
+			const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> W = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&S);
+			FJsonSerializer::Serialize(V, FString(), W);
+			return S;
+		};
+		return Text(A) == Text(B);
+	}
+
 }

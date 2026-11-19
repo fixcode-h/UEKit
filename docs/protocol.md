@@ -255,6 +255,12 @@
 
 `bp.edit` 一条操作作用到多个成员（2.14.0）：`set_variable`、`remove_variable`、`remove_function`、`set_component`、`remove_component` 的 `name` 可以给数组，每项或单个名字都可以写通配符（`*`、`?`，不分大小写）；两个组件操作另认 `componentClass`（组件类，含子类），`name` 不写时就是这个类的全部组件；`remove_node` 的 `node` 可以给 id 数组。展开后逐个执行，同在一个事务里，任一个失败整批取消（报错带出是哪个名字）；结果里这一步带 `count` 和 `each`（每个名字的结果）。一个都没匹配上算失败。`set_variable` 一次多个时不能带 `rename`。
 
+`bp.edit` 的 `set_component`、`set_default` 2.14.0 起：结果带原值 `prev` 和新值 `value`（演练时也有，可以看改前改后）；`props: {属性路径: 值}` 一条改多个属性（展开成一个属性一条）；`where` 是这个属性期望的当前值（用 `props` 时写成 `{属性路径: 期望值}`），对不上的跳过（结果带 `skipped: true`、`why`），比较时字符串不分大小写、数字按数值。`set` 操作同样认 `where`。
+
+`datatable.set` 2.14.0 起一次改多行：`row` 给数组或通配符（不写是全部行），`where: {列: 值}` 只改这些列现在的值都对得上的行；同一列改成同一个 `value`，整批一个事务（`tx`），认 `dryRun`；回 `count` 和 `rows: [{row, prev, value}]`（最多列 200 行）。一行都没挑中算失败。批量时同一张表可以在 `items` 里出现多次（每项改不同的行列）。
+
+`actors` 2.14.0 起认 `class`（含子类）和 `tag`（Actor 标签）筛选，给了其中一个时 `prefix` 可以空；`limit` 最多 2000。
+
 `bp.edit` 的增加类操作（`add_variable`、`add_function`、`add_component`（给了 `name` 时）、`add_interface`）2.14 起认 `ifMissing: true`：已经有同名的就跳过，这一步结果带 `skipped: true`，不算失败。同一组操作可以放心重跑。
 
 `assets` 2.14 起多三个筛选，都只读资源注册表、不加载资源：`parent`（蓝图父类名，含间接继承，原生父类按 `NativeParentClass` 标签认，带不带 `_C` 都行）、`tags`（`{"键": "值"}`，值写 `"*"` 表示有这个标签就行）、`recursive`（默认 true，false 只看这一层目录）。

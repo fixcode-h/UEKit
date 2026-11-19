@@ -192,7 +192,7 @@ namespace AgentPanel
 				TSharedPtr<FJsonObject> Own;
 			};
 
-			bool ParseItems(const TSharedPtr<FJsonObject>& A, TArray<FItem>& Items, FString& Error)
+			bool ParseItems(const TSharedPtr<FJsonObject>& A, bool bRepeatPaths, TArray<FItem>& Items, FString& Error)
 			{
 				const TArray<TSharedPtr<FJsonValue>>* Arr = nullptr;
 				const bool bPaths = A->TryGetArrayField(TEXT("paths"), Arr) && Arr;
@@ -232,7 +232,7 @@ namespace AgentPanel
 						return false;
 					}
 					// 同一个资源出现两次：第二次改的是第一次的结果，回滚顺序也会乱，直接拒绝
-					if (Seen.Contains(It.Path))
+					if (!bRepeatPaths && Seen.Contains(It.Path))
 					{
 						Error = FString::Printf(TEXT("%s 出现了两次：同一个资源在一批里只能出现一次"), *It.Path);
 						return false;
@@ -527,7 +527,7 @@ namespace AgentPanel
 			return false;
 		}
 		TArray<Batch::FItem> Items;
-		if (!Batch::ParseItems(A, Items, Error))
+		if (!Batch::ParseItems(A, Info.bRepeatPaths, Items, Error))
 		{
 			return false;
 		}

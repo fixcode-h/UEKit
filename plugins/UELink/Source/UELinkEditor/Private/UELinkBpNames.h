@@ -15,4 +15,12 @@ namespace AgentPanel
 	 * 组件的两个操作另认 componentClass（含子类），name 不写时就是这个类的全部组件。一个都没匹配上返回 false 并写原因
 	 */
 	bool ExpandBlueprintOp(UBlueprint* BP, const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out, FString& Error);
+	/**
+	 * set_component / set_default 的 props（{属性路径: 值}）展开成一个属性一条；where 这时是 {属性路径: 期望的当前值}。
+	 * ExpandBlueprintOp 已经包含这一步，单独列出来给测试和别的操作用
+	 */
+	void ExpandBlueprintProps(const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out);
+	/** 展开后每一条的名字：组件名、变量名或节点 id，多属性时再加「.属性」，报错和结果里用 */
+	FString SubOpLabel(const TSharedPtr<FJsonObject>& Op);
+
 }

@@ -56,6 +56,8 @@ namespace AgentPanel
 
 	/** 值转 JSON：结构体、数组、Map 都转；太大的（序列化后超过 MaxChars）换成摘要，按路径单独取全量 */
 	UELINKCORE_API TSharedPtr<FJsonValue> ToJson(FProperty* Prop, const void* Value, int32 MaxChars = 4000);
+	/** 2.14：两个 JSON 值算不算相同（改属性的 where 条件用）：字符串不分大小写，数字按数值，其他按紧凑 JSON 文本 */
+	UELINKCORE_API bool SameJsonValue(const TSharedPtr<FJsonValue>& A, const TSharedPtr<FJsonValue>& B);
 
 	/** JSON 写进属性：先按 JSON 转，转不了的字符串按 UE 的文本格式（ImportText）写 */
 	UELINKCORE_API bool FromJson(FProperty* Prop, void* Value, const TSharedPtr<FJsonValue>& Json, FString& Error);

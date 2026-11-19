@@ -6,6 +6,7 @@
 #include "AgentPanelBridgeUtil.h"
 #include "AgentPanelEditorShared.h"
 #include "UELinkLuaDecl.h"
+#include "UELinkTableMulti.h"
 #include "UELinkStream.h"
 
 #include "DataTableEditorUtils.h"
@@ -85,6 +86,11 @@ static void RegisterEditorOps()
 		if (!DT)
 		{
 			return false;
+		}
+		// 2.14：row 给数组 / 通配符、或带 where 时一次改多行（UELinkTableMulti.cpp）
+		if (IsMultiRowSet(A))
+		{
+			return SetTableRows(DT, A, Out, Error);
 		}
 		const FName RowName(*Str(A, TEXT("row")));
 		uint8* Row = DT->FindRowUnchecked(RowName);
@@ -379,9 +385,11 @@ static void RegisterEditorBatchOps()
 	{
 		B.AddBatchOp(Op, Structural);
 	}
+	// DataTable 改单元格：同一张表可以在一批里出现多次（每项改不同的行和列）；多行写法认 dryRun
 	FAgentPanelBatchInfo Cell;
 	Cell.bWrite = true;
 	Cell.Undo = TEXT("tx");
+	Cell.bRepeatPaths = true;
 	B.AddBatchOp(TEXT("datatable.set"), Cell);
 	// 撤回本身也能批量：客户端撤回一整批时把每个资源的 tx 一次交过来
 	FAgentPanelBatchInfo Undo;

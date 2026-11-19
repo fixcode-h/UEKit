@@ -75,7 +75,7 @@ namespace AgentPanel
 		}
 	}
 
-	bool ExpandBlueprintOp(UBlueprint* BP, const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out, FString& Error)
+	bool ExpandBlueprintNames(UBlueprint* BP, const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out, FString& Error)
 	{
 		using namespace BpNames;
 		const EKind Kind = KindOf(Str(Op, TEXT("op")));
@@ -161,6 +161,65 @@ namespace AgentPanel
 			One->RemoveField(TEXT("componentClass"));
 			One->SetStringField(Key, N);
 			Out.Add(One);
+		}
+		return true;
+	}
+
+	FString SubOpLabel(const TSharedPtr<FJsonObject>& Op)
+	{
+		FString Label = Str(Op, TEXT("node"), Str(Op, TEXT("name")));
+		const FString Prop = Str(Op, TEXT("prop"));
+		if (BpNames::KindOf(Str(Op, TEXT("op"))) == BpNames::EKind::Node || Prop.IsEmpty())
+		{
+			return Label;
+		}
+		return Label.IsEmpty() ? Prop : Label + TEXT(".") + Prop;
+	}
+
+	void ExpandBlueprintProps(const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out)
+	{
+		const FString What = Str(Op, TEXT("op"));
+		const TSharedPtr<FJsonObject>* Props = nullptr;
+		if ((What != TEXT("set_component") && What != TEXT("set_default")) || !Op->TryGetObjectField(TEXT("props"), Props) || !Props || !Props->IsValid())
+		{
+			Out.Add(Op);
+			return;
+		}
+		const TSharedPtr<FJsonObject>* Where = nullptr;
+		const bool bWhere = Op->TryGetObjectField(TEXT("where"), Where) && Where && Where->IsValid();
+		for (const auto& Pair : (*Props)->Values)
+		{
+			const FString Prop = UELINK_JSON_KEY(Pair.Key);
+			const TSharedPtr<FJsonObject> One = MakeShared<FJsonObject>();
+			for (const auto& Field : Op->Values)
+			{
+				One->SetField(UELINK_JSON_KEY(Field.Key), Field.Value);
+			}
+			One->RemoveField(TEXT("props"));
+			One->RemoveField(TEXT("where"));
+			One->SetStringField(TEXT("prop"), Prop);
+			One->SetField(TEXT("value"), Pair.Value);
+			if (bWhere)
+			{
+				if (const TSharedPtr<FJsonValue> W = (*Where)->TryGetField(Prop))
+				{
+					One->SetField(TEXT("where"), W);
+				}
+			}
+			Out.Add(One);
+		}
+	}
+
+	bool ExpandBlueprintOp(UBlueprint* BP, const TSharedPtr<FJsonObject>& Op, TArray<TSharedPtr<FJsonObject>>& Out, FString& Error)
+	{
+		TArray<TSharedPtr<FJsonObject>> Named;
+		if (!ExpandBlueprintNames(BP, Op, Named, Error))
+		{
+			return false;
+		}
+		for (const TSharedPtr<FJsonObject>& One : Named)
+		{
+			ExpandBlueprintProps(One, Out);
 		}
 		return true;
 	}

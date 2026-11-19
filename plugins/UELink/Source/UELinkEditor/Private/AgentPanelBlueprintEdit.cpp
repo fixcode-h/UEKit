@@ -577,7 +577,11 @@ namespace
 			}
 		}
 
-		bool SetProp(UObject* Target, const TSharedPtr<FJsonObject>& Op, FString& Error)
+		/**
+		 * 改一个属性。结果里写原值 prev 和新值 value（2.14，演练时也能看到改前改后）；
+		 * where 给了且当前值和它对不上时跳过（skipped），用于「是 A 的才改成 B」
+		 */
+		bool SetProp(UObject* Target, const TSharedPtr<FJsonObject>& Op, TSharedPtr<FJsonObject>& Res, FString& Error)
 		{
 			FResolved R;
 			if (!ResolvePath(Target->GetClass(), Target, Target, Str(Op, TEXT("prop")), R, Error))
@@ -589,8 +593,23 @@ namespace
 				Error = FString::Printf(TEXT("%s 不能改：%s"), *Str(Op, TEXT("prop")), *R.ReadOnlyWhy);
 				return false;
 			}
+			const TSharedPtr<FJsonValue> Prev = ToJson(R.Prop, R.Value, 2000);
+			const TSharedPtr<FJsonValue> Where = Op->TryGetField(TEXT("where"));
+			if (Where.IsValid() && !SameJsonValue(Prev, Where))
+			{
+				Res->SetBoolField(TEXT("skipped"), true);
+				Res->SetStringField(TEXT("why"), TEXT("当前值和 where 对不上，没改"));
+				Res->SetField(TEXT("prev"), Prev);
+				return true;
+			}
 			Target->Modify();
-			return FromJson(R.Prop, R.Value, Op->TryGetField(TEXT("value")), Error);
+			if (!FromJson(R.Prop, R.Value, Op->TryGetField(TEXT("value")), Error))
+			{
+				return false;
+			}
+			Res->SetField(TEXT("prev"), Prev);
+			Res->SetField(TEXT("value"), ToJson(R.Prop, R.Value, 2000));
+			return true;
 		}
 
 		UEdGraphNode* AddNode(const TSharedPtr<FJsonObject>& Op, FString& Error);
@@ -1024,7 +1043,7 @@ namespace
 				Error = TEXT("这个蓝图还没有生成的类");
 				return false;
 			}
-			return SetProp(CDO, Op, Error);
+			return SetProp(CDO, Op, Res, Error);
 		}
 
 		// ----- 组件 -----
@@ -1102,7 +1121,7 @@ namespace
 				Error = FString::Printf(TEXT("组件 %s 没有模板对象"), *Name);
 				return false;
 			}
-			return SetProp(N->ComponentTemplate, Op, Error);
+			return SetProp(N->ComponentTemplate, Op, Res, Error);
 		}
 
 		// ----- 节点 -----
@@ -1394,13 +1413,13 @@ void AgentPanelEd::RegisterBlueprintEditOps()
 							}
 							if (Each.Num() > 1)
 							{
-								OpError = FString::Printf(TEXT("%s：%s"), *Str(One, TEXT("node"), Str(One, TEXT("name"))), *OpError);
+								OpError = FString::Printf(TEXT("%s：%s"), *SubOpLabel(One), *OpError);
 							}
 							break;
 						}
 						if (Each.Num() > 1)
 						{
-							Sub->SetStringField(TEXT("name"), Str(One, TEXT("node"), Str(One, TEXT("name"))));
+							Sub->SetStringField(TEXT("name"), SubOpLabel(One));
 							Subs.Add(JObj(Sub));
 						}
 					}

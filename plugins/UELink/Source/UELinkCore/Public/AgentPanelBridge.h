@@ -38,6 +38,8 @@ struct FAgentPanelBatchInfo
 	bool bDryRun = false;
 	/** 操作认 compile 参数（bp.edit）：compile = "end" 时逐个改完不编译，整批改完再逐个 bp.compile */
 	bool bCompile = false;
+	/** 同一个资源可以在一批里出现多次（datatable.set：同一张表改不同的行和列）；默认不行，免得第二次改的是第一次的结果 */
+	bool bRepeatPaths = false;
 	/** 回滚怎么做：tx（结果里的 tx 交给 asset.undo）、prev（同一个操作把 value 设回结果里的 prev）、空表示不能回滚 */
 	FString Undo;
 };
