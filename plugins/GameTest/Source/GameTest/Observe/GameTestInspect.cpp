@@ -1,6 +1,9 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestInspect.h"
+#include "Core/GameTestWorld.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Ref/GameTestRefFor.h"
 
 #include "Input/GameTestHandlerWatch.h"
 #include "Observe/GameTestSelectorWriter.h"
@@ -187,20 +190,24 @@ bool GameTestInspect::Inspect(const TOptional<FVector2D>& InNormalizedPoint, TSh
 		OutResult->SetStringField(TEXT("kind"), GameTestInspectDetail::KindOf(*Owner));
 		GameTestInspectDetail::WriteRect(*Owner, ViewGeometry, ViewSize, *OutResult);
 		GameTestInspectDetail::WriteScreen(*Owner, *OutResult);
+		// 2.0.0：出对象引用（docs/game-test-ref.md 7.4），和 gt.refFor 同一份：chain / ref / target / matches / ask
+		FGameTestFlowContext Flow;
+		Flow.World = GameTestWorld::FindGameWorld();
+		const TSharedRef<FJsonObject> Ref = GameTestRefFor::ToJson(Owner, Flow, 0);
+		for (const auto& Pair : Ref->Values)
+		{
+			OutResult->SetField(Pair.Key, Pair.Value);
+		}
+		if (!Ref->HasField(TEXT("ref")))
+		{
+			OutResult->SetStringField(TEXT("targetError"), TEXT("这个控件出不了引用（不在任何界面里）"));
+		}
+		// 录制线索（截图、文字、字段缓存）照旧给：面板只用来显示和换标识
 		FGameTestWrittenTarget Written;
 		FString WriteError;
-		if (GameTestSelectorWriter::Write(*Owner, Written, WriteError))
+		if (GameTestSelectorWriter::Write(*Owner, Written, WriteError) && Written.Hint.IsValid())
 		{
-			OutResult->SetStringField(TEXT("target"), Written.Target);
-			OutResult->SetBoolField(TEXT("verified"), Written.bVerified);
-			if (Written.Hint.IsValid())
-			{
-				OutResult->SetObjectField(TEXT("hint"), Written.Hint);
-			}
-		}
-		else
-		{
-			OutResult->SetStringField(TEXT("targetError"), WriteError);
+			OutResult->SetObjectField(TEXT("hint"), Written.Hint);
 		}
 	}
 	else

@@ -10,20 +10,6 @@ class FJsonValue;
 struct FGameTestGuardDef;
 
 /**
- * 一条「条目怎么认」规则（1.4.0）：录制时点到这类条目，直接按这几个字段写标识，不再问人。
- * 录制暂停询问时勾「以后都按这个认」写进来，面板运行设置里能改、删。
- */
-struct GAMETEST_API FGameTestKeyRule
-{
-	/** 条目的类名（`WBP_BagSlot`，带不带 `_C` 都行）。 */
-	FString Entry;
-	/** 只在这个容器里用（选择器，如 `WBP_Bag:Root/ItemList`）；空表示这类条目在哪都按它认。 */
-	FString Container;
-	/** 条件左边（`Data.ItemId`、`@lua.cfgId`），几个都满足才算。 */
-	TArray<FString> By;
-};
-
-/**
  * 项目级的运行配置：场景根下的 `_settings.json`，跟着项目文档走（和场景一样进版本管理、全组共用），
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
@@ -31,16 +17,19 @@ struct GAMETEST_API FGameTestKeyRule
  * { "uiWaitTimeoutMs": 0, "uiStepGapMs": 1000, "clickVia": "code", "randomSeed": 42,
  *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
  *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
- *   "guards": [ { "id": "b1", "when": { "target": "WBP_Notice:.", "onScreen": true },
- *                 "do": [ { "action": "widget.close", "target": "WBP_Notice:." } ] } ],
+ *   "guards": [ { "id": "b1", "when": { "obj": { "class": "WBP_Notice" }, "prop": ":onScreen" },
+ *                 "do": [ { "action": "obj.close", "obj": { "class": "WBP_Notice" } } ] } ],
  *   "allowLuaInvoke": true, "allowLuaInCond": false, "maxCallDepth": 8,
- *   "itemKeys": [ { "entry": "WBP_BagSlot", "container": "WBP_Bag:Root/ItemList", "by": ["Data.ItemId"] } ],
+ *   "identRules": [ { "class": "WBP_BagSlot", "ident": ["@item.Data.ItemId"] } ],
+ *   "closeRules": [ { "class": "WBP_Shop", "how": [ { "by": "call", "function": "CloseShop" } ] } ],
+ *   "refDefaults": { "many": "error", "ignoreCase": true, "tol": { "float": 0.001, "vector": 10 }, "closeVerifyMs": 2000 },
+ *   "allowDestroy": false,
  *   "skipIf": { "enabled": true, "settleMs": 300, "verify": true, "verifyTimeoutMs": 5000 } }
  * ```
  *
  * 1.9.0 起 `blockers`（阻挡界面）换成了 `guards`（守护，见 docs/game-test-script.md 第 5 节）：读到只有 blockers 的旧文件时
  * 在内存里改写成 guards，Load 顺手把文件改写掉（原文件存 .bak）。
- * 面板和别的工具往这个文件里加的字段（`api`、`objectKeys`…）原样保留：ToJson 从读到的原文出发，只改认得的字段。
+ * 面板和别的工具往这个文件里加的字段（`api`…）原样保留；2.0.0 起 1.x 的 `itemKeys` / `objectKeys` 报 settings_old（面板「升级脚本」迁成 identRules）：ToJson 从读到的原文出发，只改认得的字段。
  */
 struct GAMETEST_API FGameTestRunConfig
 {
@@ -57,7 +46,7 @@ struct GAMETEST_API FGameTestRunConfig
 	TSharedPtr<FJsonValue> Guards;
 	/** 解析好的全局守护（开跑时直接用）。 */
 	TArray<TSharedRef<FGameTestGuardDef>> ParsedGuards;
-	/** allowLuaInvoke / allowLuaInCond / maxCallDepth。 */
+	/** allowLuaInvoke / allowLuaInCond / maxCallDepth，对象引用的 identRules / closeRules / refDefaults / allowDestroy。 */
 	FGameTestScriptOptions ScriptOptions;
 	/** 读到的原文：写回时保留不认识的字段。 */
 	TSharedPtr<FJsonObject> Raw;
@@ -73,8 +62,6 @@ struct GAMETEST_API FGameTestRunConfig
 	 * 原样存成 JSON（校验见 GameTestMove::ValidateDefaults）；没写时为空。
 	 */
 	TSharedPtr<FJsonObject> Move;
-	/** 条目怎么认（`itemKeys`）。 */
-	TArray<FGameTestKeyRule> ItemKeys;
 	/**
 	 * 已达成就跳过（1.6.0）：`skipIf` 段原样存（`false` 或 `{enabled, settleMs, verify, verifyTimeoutMs}`，
 	 * 校验见 GameTestSkipIf::ApplyOptions）；没写时为空，按默认（开、300ms、做完核对 5 秒）。

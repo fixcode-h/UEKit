@@ -12,6 +12,10 @@
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestKeyRules.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Integration/Ref/GameTestRpcRef.h"
+#include "Observe/Ref/GameTestRefFor.h"
+#include "Record/V4/GameTestRecordV4.h"
 #include "GameTest.h"
 
 #include "Components/Widget.h"
@@ -45,6 +49,47 @@ namespace GameTestRecordKeyAskDetail
 			}
 		}
 		return Fields;
+	}
+
+	/** `ident` 的回答 → 录制的 by 字段。认不了的 prop（算出状态里只认 :text）、不是 eq 的 op 报错。 */
+	bool IdentToBy(const TArray<TSharedPtr<FJsonValue>>& InIdent, bool bInList, TArray<FString>& OutBy, FString& OutError)
+	{
+		for (const TSharedPtr<FJsonValue>& Value : InIdent)
+		{
+			const TSharedPtr<FJsonObject>* Item = nullptr;
+			FString Prop;
+			if (!Value.IsValid() || !Value->TryGetObject(Item) || Item == nullptr || !Item->IsValid() || !(*Item)->TryGetStringField(TEXT("prop"), Prop))
+			{
+				OutError = TEXT("ident 的每一项要写成 {prop, op, value}");
+				return false;
+			}
+			FString Op;
+			(*Item)->TryGetStringField(TEXT("op"), Op);
+			if (!Op.IsEmpty() && Op != TEXT("eq"))
+			{
+				OutError = FString::Printf(TEXT("录制时挑标识只认 eq（%s 写的是 %s）：录完在面板属性树里再改比较"), *Prop, *Op);
+				return false;
+			}
+			const FString Default = bInList ? TEXT("@item.") : TEXT("@self.");
+			if (Prop == TEXT(":text"))
+			{
+				OutBy.Add(TEXT("@text"));
+			}
+			else if (Prop.StartsWith(Default))
+			{
+				OutBy.Add(Prop.Mid(Default.Len()));
+			}
+			else if (Prop.StartsWith(TEXT("@self.")) || Prop.StartsWith(TEXT("@item.")) || Prop.StartsWith(TEXT("@lua.")) || Prop.StartsWith(TEXT("@itemLua.")))
+			{
+				OutBy.Add(Prop);
+			}
+			else
+			{
+				OutError = FString::Printf(TEXT("录制时挑标识只认条目上的字段（@item. / @self. / @lua. / @itemLua.）和 :text，不认 %s"), *Prop);
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** 步骤的 hint（没有就建一个挂上）。 */
@@ -372,7 +417,7 @@ void FGameTestRecorder::DescribeAsk(FJsonObject& OutStatus) const
 	Ask->SetNumberField(TEXT("step"), IndexOfStep(Step));
 	FString Target;
 	Step->TryGetStringField(TEXT("target"), Target);
-	Ask->SetStringField(TEXT("target"), Target);
+	Ask->SetStringField(TEXT("selector"), Target);
 	Ask->SetNumberField(TEXT("pausedSec"), FMath::RoundToInt(FPlatformTime::Seconds() - KeyAsk->StartedAt));
 	Ask->SetBoolField(TEXT("gamePaused"), KeyAsk->PausedWorld.IsValid());
 	if (const UWidget* Container = Site.Container.Get())
@@ -386,6 +431,39 @@ void FGameTestRecorder::DescribeAsk(FJsonObject& OutStatus) const
 	}
 	Ask->SetNumberField(TEXT("index"), Site.Entry.Index);
 	Ask->SetObjectField(TEXT("key"), GameTestItemKey::SiteToJson(Site, AskCandidates));
+	// 2.0.0：面板弹属性树用（docs/game-test-ref.md 第 8 节）：条目的引用、gt.tree 的节点、部件写法；录完存盘时也按这个改写
+	if (UWidget* EntryWidget = Site.Entry.Widget.Get())
+	{
+		FGameTestFlowContext Flow;
+		GameTestRpcRef::MakeContext(Flow);
+		FGameTestRefForResult RefFor;
+		if (GameTestRefFor::ForWidget(EntryWidget, Flow, RefFor) && RefFor.Ref.IsValid())
+		{
+			Ask->SetObjectField(TEXT("ref"), RefFor.Ref);
+		}
+		const FString Node = GameTestRpcRef::NodeIdOf(EntryWidget);
+		if (!Node.IsEmpty())
+		{
+			Ask->SetStringField(TEXT("node"), Node);
+		}
+	}
+	{
+		FString Todo;
+		FJsonObject Objects;
+		const TSharedPtr<FJsonObject>* Hint = nullptr;
+		const TSharedPtr<FJsonObject>* KeyHint = nullptr;
+		TSharedPtr<FJsonObject> Key;
+		if (Step->TryGetObjectField(TEXT("hint"), Hint) && Hint != nullptr && Hint->IsValid() && (*Hint)->TryGetObjectField(TEXT("key"), KeyHint) && KeyHint != nullptr)
+		{
+			Key = *KeyHint;
+		}
+		Ask->SetObjectField(TEXT("target"), GameTestRecordV4::TargetOf(Target, Key, Objects, Todo));
+		// 屏引用在存盘时才放进 objects：这里给内联的，面板直接能解析
+		if (Objects.Values.Num() > 0)
+		{
+			Ask->SetObjectField(TEXT("objects"), MakeShared<FJsonObject>(Objects));
+		}
+	}
 	// 按下那一刻的截图（录制截图开着时有）：弹窗左边显示
 	const TSharedPtr<FJsonObject>* Hint = nullptr;
 	if (Step->TryGetObjectField(TEXT("hint"), Hint) && Hint != nullptr && Hint->IsValid())
@@ -467,6 +545,22 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 		}
 	}
 
+	// 2.0.0：回答写成 ident: [{prop, op, value}]（docs/game-test-ref.md 7.6）。录制内部仍按 by 字段挑，这里换算：
+	// 默认来源（列表是 @item，其他容器是 @self）不带前缀，别的来源 `@lua.X`；值按条目此刻的值取（和 by 一样），op 只认 eq
+	const TArray<TSharedPtr<FJsonValue>>* IdentValues = nullptr;
+	if (Args->TryGetArrayField(TEXT("ident"), IdentValues) && IdentValues != nullptr)
+	{
+		if (!IdentToBy(*IdentValues, Site->bList, ByFields, OutError))
+		{
+			return false;
+		}
+		if (ByFields.Num() == 0 && Mode.IsEmpty())
+		{
+			// 空 ident：只按第几个认
+			Mode = TEXT("index");
+		}
+	}
+
 	FString NewBy;
 	if (Mode == TEXT("skip"))
 	{
@@ -497,7 +591,7 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 		}
 		if (Cond.IsEmpty())
 		{
-			OutError = TEXT("要给 cond（如 Data.ItemId=1001）、by（字段数组）或 mode（index / text / skip）之一");
+			OutError = TEXT("要给 ident（[{prop, op: \"eq\", value}]）、cond、by（字段数组）或 mode（index / text / skip）之一");
 			return false;
 		}
 		TArray<FGameTestKeyCond> Conds;

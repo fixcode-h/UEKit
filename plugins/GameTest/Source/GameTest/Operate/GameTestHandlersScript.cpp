@@ -1,8 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-// 1.9 脚本化的叶子动作（协议第 2、8 节）：api（调接口库）、widget.close / widget.call（原阻挡界面的两种处理），
-// 以及 assert / wait 认统一条件（cond、expr）。都只是接口库和统一条件的薄包装：
-// 关界面、调函数、判断的实现各只有一份（Api/Builtin、Observe/Checks），这里不另写。
+// 1.9 脚本化的叶子动作（协议第 2、8 节）：api（调接口库），以及 assert / wait 认统一条件（cond、expr）。
+// 都只是接口库和统一条件的薄包装：调函数、判断的实现各只有一份（Api/Builtin、Observe/Checks），这里不另写。
+// 2.0.0 起 widget.close / widget.call 删掉了，关界面走 obj.close（Operate/Close）。
 
 #include "Api/GameTestApi.h"
 #include "Core/GameTestHandlerShared.h"
@@ -22,22 +22,6 @@ namespace GameTestScriptLeafLocal
 	{
 		InContext.Message = FString::Printf(TEXT("这一步没有脚本上下文（%s 只能在 1.9 的场景里用）"), InAction);
 		return GameTestHandlers::StepFailed;
-	}
-
-	/** 调一个不等待的接口（widget.close / widget.call 用）：结果或失败原因。 */
-	EGameTestStepStatus CallSimple(FGameTestStepContext& InContext, const TCHAR* InApi, const TArray<FGameTestValue>& InArgs, const FString& InDone)
-	{
-		FGameTestFlowContext& Flow = *InContext.Flow;
-		Flow.World = InContext.World ? InContext.World : Flow.World;
-		const FGameTestValue Result = GameTestApis::CallNow(InApi, InArgs, Flow);
-		if (Result.IsUnresolved())
-		{
-			InContext.Message = Result.GetString();
-			InContext.Payload->SetStringField(TEXT("code"), Result.GetCode().ToString());
-			return GameTestHandlers::StepFailed;
-		}
-		InContext.Message = InDone;
-		return GameTestHandlers::StepSucceeded;
 	}
 
 	/** api 步骤的参数：cond 类型的参数原样交给接口（接口自己判断），其余求值（`$var`、`=表达式`、`@来源`）。 */
@@ -233,51 +217,6 @@ namespace GameTestHandlers
 		return StepPending;
 	}
 
-	EGameTestStepStatus HandleWidgetClose(FGameTestStepContext& InContext)
-	{
-		using namespace GameTestScriptLeafLocal;
-		if (InContext.Flow == nullptr)
-		{
-			return NoFlow(InContext, TEXT("widget.close"));
-		}
-		// 先解析一遍：高亮框出要关的界面，找不到时给候选清单
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString Error;
-		if (!TryResolveStepTarget(InContext, Node, Error))
-		{
-			InContext.Message = Error;
-			return StepFailed;
-		}
-		return CallSimple(InContext, TEXT("Widget.Close"), { FGameTestValue::FromString(InContext.Step->Target) },
-			FString::Printf(TEXT("已关掉 %s"), *Node->Path));
-	}
-
-	EGameTestStepStatus HandleWidgetCall(FGameTestStepContext& InContext)
-	{
-		using namespace GameTestScriptLeafLocal;
-		if (InContext.Flow == nullptr)
-		{
-			return NoFlow(InContext, TEXT("widget.call"));
-		}
-		FString Function;
-		InContext.Step->Params->TryGetStringField(TEXT("function"), Function);
-		if (Function.IsEmpty())
-		{
-			InContext.Message = TEXT("widget.call 要写 function（界面上的无参函数名，蓝图函数或绑的 Lua 函数）");
-			return StepFailed;
-		}
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString Error;
-		if (!TryResolveStepTarget(InContext, Node, Error))
-		{
-			InContext.Message = Error;
-			return StepFailed;
-		}
-		return CallSimple(InContext, TEXT("Widget.CallFn"),
-			{ FGameTestValue::FromString(InContext.Step->Target), FGameTestValue::FromString(Function), FGameTestValue::Null() },
-			FString::Printf(TEXT("已调 %s 的 %s"), *Node->Path, *Function));
-	}
-
 	bool HasScriptCond(const FJsonObject& InParams)
 	{
 		return InParams.HasField(TEXT("cond")) || InParams.HasField(TEXT("expr"));
@@ -351,6 +290,16 @@ namespace GameTestHandlers
 			InContext.Message = TEXT("wait until=cond 要写 cond（统一条件，见 docs/game-test-script.md 第 4 节）");
 			return StepFailed;
 		}
+		return StartWaitFor(InContext, Cond.ToSharedRef());
+	}
+
+	EGameTestStepStatus StartWaitFor(FGameTestStepContext& InContext, const TSharedRef<FJsonObject>& InCond)
+	{
+		if (InContext.Flow == nullptr)
+		{
+			return GameTestScriptLeafLocal::NoFlow(InContext, TEXT("wait"));
+		}
+		const TSharedPtr<FJsonObject> Cond = InCond;
 		FGameTestFlowContext* Flow = InContext.Flow;
 		Flow->World = InContext.World ? InContext.World : Flow->World;
 		// 只关心成立（稳住 settleMs），不成立不用稳住：等到超时为止

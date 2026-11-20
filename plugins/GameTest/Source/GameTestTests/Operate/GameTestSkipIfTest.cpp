@@ -46,15 +46,14 @@ namespace GameTestSkipIfTestDetail
 TEST_CLASS_WITH_FLAGS(GameTestSkipIfTest, "GameTest.SkipIf",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 {
-	/** 步骤里的 skipIf：条件和配置字段都认，写错的报出来。 */
+	/** 步骤里的 skipIf（v4：{cond, also, settleMs, verify, verifyTimeoutMs}）：条件和配置字段都认，写错的报出来。 */
 	TEST_METHOD(ValidateStep_AcceptsConditionsAndConfig)
 	{
 		using namespace GameTestSkipIfTestDetail;
 		FString Errors;
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"checked":true}})"), Errors), Errors));
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"target":"WBP_A:Root/Img","visible":false,"also":2,"settleMs":500,"verify":false,"by":"auto"}})"), Errors), Errors));
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"field":"@self.bClaimed","equals":true}})"), Errors), Errors));
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"any":[{"textLike":"已领取"},{"enabled":false}]}})"), Errors), Errors));
+		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":"@ChkAuto:checked","op":"is","value":true}}})"), Errors), Errors));
+		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":":onScreen","op":"is","value":false},"also":2,"settleMs":500,"verify":false}})"), Errors), Errors));
+		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":"1 == 1"}})"), Errors), Errors));
 	}
 
 	TEST_METHOD(ValidateStep_RejectsMistakes)
@@ -62,17 +61,14 @@ TEST_CLASS_WITH_FLAGS(GameTestSkipIfTest, "GameTest.SkipIf",
 		using namespace GameTestSkipIfTestDetail;
 		FString Errors;
 		// 没有条件
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"also":1}})"), Errors)));
-		// 不认识的字段
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"checkd":true}})"), Errors)));
-		// field 没有 equals
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"field":"@self.bClaimed"}})"), Errors)));
+		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"also":1}})"), Errors)));
+		// v3 的写法（判断字段直接写在 skipIf 上）：cond_removed
+		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"checked":true}})"), Errors)));
+		ASSERT_THAT(IsTrue(Errors.Contains(TEXT("cond_removed")), Errors));
 		// 不是对象
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":true})"), Errors)));
+		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":true})"), Errors)));
 		// also 超范围
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":"WBP_A:Root/Btn","skipIf":{"checked":true,"also":99}})"), Errors)));
-		// 没有 target 可看
-		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"mark","text":"x","skipIf":{"checked":true}})"), Errors)));
+		ASSERT_THAT(IsFalse(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":"1 == 1","also":99}})"), Errors)));
 	}
 
 	/** 运行配置 / 场景的 skipIf 段：false 关掉，对象逐项改。 */
@@ -96,12 +92,12 @@ TEST_CLASS_WITH_FLAGS(GameTestSkipIfTest, "GameTest.SkipIf",
 	TEST_METHOD(StepFieldsOverrideOptions)
 	{
 		FGameTestSkipOptions Options;
-		const TSharedPtr<FJsonObject> SkipIf = GameTestSkipIfTestDetail::Parse(TEXT(R"({"checked":true,"verify":false,"also":3})"));
+		const TSharedPtr<FJsonObject> SkipIf = GameTestSkipIfTestDetail::Parse(TEXT(R"({"cond":"$a","verify":false,"also":3})"));
 		ASSERT_THAT(IsFalse(GameTestSkipIf::ShouldVerify(*SkipIf, Options)));
 		ASSERT_THAT(AreEqual(3, GameTestSkipIf::Also(*SkipIf)));
 		ASSERT_THAT(AreEqual(GameTestSkipIf::DefaultVerifyTimeoutMs, GameTestSkipIf::VerifyTimeoutMs(*SkipIf, Options)));
 		Options.bVerify = false;
-		const TSharedPtr<FJsonObject> Plain = GameTestSkipIfTestDetail::Parse(TEXT(R"({"checked":true})"));
+		const TSharedPtr<FJsonObject> Plain = GameTestSkipIfTestDetail::Parse(TEXT(R"({"cond":"$a"})"));
 		ASSERT_THAT(IsFalse(GameTestSkipIf::ShouldVerify(*Plain, Options)));
 	}
 

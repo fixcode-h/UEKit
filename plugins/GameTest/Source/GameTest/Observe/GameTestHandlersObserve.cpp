@@ -96,39 +96,6 @@ namespace GameTestHandlers
 		return StepSucceeded;
 	}
 
-	EGameTestStepStatus HandleFind(FGameTestStepContext& InContext)
-	{
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString Error;
-		if (!TryResolveStepTarget(InContext, Node, Error))
-		{
-			InContext.Message = Error;
-			return StepFailed;
-		}
-
-		FString HandleName;
-		if (!GameTestJson::TryGetString(*InContext.Step->Params, TEXT("into"), HandleName) || HandleName.IsEmpty())
-		{
-			// 缺省用路径末段当句柄名：调用顺序读起来最自然，而且名字一定写在报告里。
-			HandleName = Node->Name;
-		}
-
-		if (InContext.Handles == nullptr)
-		{
-			InContext.Message = TEXT("句柄表不可用");
-			return StepFailed;
-		}
-
-		(*InContext.Handles).Add(HandleName, Node->Widget);
-
-		InContext.Payload->SetStringField(TEXT("handle"), HandleName);
-		InContext.Payload->SetStringField(TEXT("path"), Node->Path);
-		InContext.Payload->SetStringField(TEXT("class"), Node->ClassName);
-		InContext.Payload->SetStringField(TEXT("visibility"), Node->Visibility);
-		InContext.Message = FString::Printf(TEXT("已捕获句柄 @%s → %s（%s）"), *HandleName, *Node->Path, *Node->ClassName);
-		return StepSucceeded;
-	}
-
 	EGameTestStepStatus HandleSnapshot(FGameTestStepContext& InContext)
 	{
 		bool bGeometry = true;

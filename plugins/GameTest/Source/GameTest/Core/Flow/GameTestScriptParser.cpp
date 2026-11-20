@@ -6,6 +6,8 @@
 #include "Core/Flow/GameTestGuards.h"
 #include "Core/GameTestAction.h"
 #include "Core/GameTestScenario.h"
+#include "Observe/Ref/GameTestRef.h"
+#include "Operate/Obj/GameTestObjActions.h"
 #include "Core/Script/GameTestDiag.h"
 #include "Core/Script/GameTestRefs.h"
 #include "Dom/JsonObject.h"
@@ -35,6 +37,8 @@ namespace
 		static const TArray<FString> Fields = {
 			TEXT("action"), TEXT("id"), TEXT("note"), TEXT("hint"), TEXT("skipIf"), TEXT("guards"), TEXT("cond"), TEXT("expr"),
 			TEXT("expect"), TEXT("until"), TEXT("onFail"),
+			// 写引用、部件、判断项、关闭方式的字段由 GameTestRefCheck 检查（$var 是对象，不是填值）
+			TEXT("target"), TEXT("toTarget"), TEXT("obj"), TEXT("prop"), TEXT("op"), TEXT("how"),
 		};
 		return Fields;
 	}
@@ -55,9 +59,15 @@ namespace
 		return true;
 	}
 
-	/** ParseStep 给的是中文句子，按内容归到错误码（面板按码给修复建议）。 */
+	/** ParseStep 给的是中文句子，按内容归到错误码（面板按码给修复建议）。2.0.0 起新加的码写在句首（`selector_removed：…`）。 */
 	FName CodeOfLeafError(const FString& InError)
 	{
+		FString Head;
+		if (InError.Split(TEXT("："), &Head, nullptr) && !Head.IsEmpty() && Head.Len() <= 24
+			&& !Head.Contains(TEXT(" ")) && Head.ToLower() == Head && FChar::IsAlpha(Head[0]))
+		{
+			return FName(*Head);
+		}
 		if (InError.Contains(TEXT("未知动作")) || InError.Contains(TEXT("没有加载")))
 		{
 			return TEXT("unknown_action");
@@ -152,12 +162,17 @@ TSharedRef<FGameTestScript> FGameTestScriptParser::ParseSteps(const TArray<TShar
 void FGameTestScriptParser::ParseHeader(const TSharedPtr<FJsonObject>& InJson, FGameTestScript& OutScript)
 {
 	OutScript.Name = GameTestScenario::GetName(InJson, FPaths::GetBaseFilename(OutScript.Path));
-	int32 Version = 1;
+	int32 Version = GameTestScenario::SupportedSchemaVersion;
 	InJson->TryGetNumberField(TEXT("schemaVersion"), Version);
 	OutScript.SchemaVersion = Version;
-	if (Version > 3)
+	if (Version > GameTestScenario::SupportedSchemaVersion)
 	{
-		DiagSink.Error(TEXT("schema_too_new"), FString::Printf(TEXT("场景是 schemaVersion %d，这个 GameTest 只认到 3：升级 UE 里的 GameTest 插件"), Version));
+		DiagSink.Error(TEXT("schema_too_new"), FString::Printf(TEXT("场景是 schemaVersion %d，这个 GameTest 只认到 %d：升级 UE 里的 GameTest 插件"), Version, GameTestScenario::SupportedSchemaVersion));
+	}
+	else if (Version < GameTestScenario::SupportedSchemaVersion)
+	{
+		// 2.0.0 起只认 v4（对象引用）：旧脚本由面板迁移，C++ 不再兼容选择器写法
+		DiagSink.Error(TEXT("schema_old"), FString::Printf(TEXT("这是旧格式脚本（schemaVersion %d），请在面板里用「升级脚本」转成 v%d（会先备份）"), Version, GameTestScenario::SupportedSchemaVersion));
 	}
 	const TSharedPtr<FJsonObject>* Params = nullptr;
 	if (InJson->TryGetObjectField(TEXT("params"), Params) && Params && Params->IsValid())
@@ -191,9 +206,20 @@ void FGameTestScriptParser::ParseHeader(const TSharedPtr<FJsonObject>& InJson, F
 		}
 	}
 	const TSharedPtr<FJsonObject>* Objects = nullptr;
+	State().bHasObjects = true;
 	if (InJson->TryGetObjectField(TEXT("objects"), Objects) && Objects && Objects->IsValid())
 	{
 		OutScript.Objects = *Objects;
+		for (const auto& Pair : (*Objects)->Values)
+		{
+			State().Objects.Add(GAMETEST_JSON_KEY(Pair.Key));
+		}
+		GameTestRefCheck::Objects(**Objects, MakeExprScope(), DiagSink);
+	}
+	else if (InJson->HasField(TEXT("objects")))
+	{
+		FGameTestDiagSink::FScope Scope(DiagSink, TEXT("objects"));
+		DiagSink.Error(TEXT("bad_type"), TEXT("objects 要写成对象 {名字: 引用}"));
 	}
 	if (InJson->HasField(TEXT("guards")))
 	{
@@ -363,11 +389,32 @@ void FGameTestScriptParser::ParseLeaf(const TSharedPtr<FJsonObject>& InJson, FGa
 		CheckCond(InJson->TryGetField(TEXT("expect")), TEXT("expect"));
 	}
 	CheckLeafRefs(*InJson);
+	CheckLeafObjects(*InJson, OutNode.Step.Action);
 	FString SaveAs;
 	if (InJson->TryGetStringField(TEXT("saveAs"), SaveAs) && !SaveAs.IsEmpty())
 	{
 		DeclareVar(SaveAs);
 	}
+}
+
+void FGameTestScriptParser::CheckLeafObjects(const FJsonObject& InJson, FName InAction)
+{
+	const FGameTestExprScope Scope = MakeExprScope();
+	for (const TCHAR* Field : { TEXT("target"), TEXT("toTarget") })
+	{
+		if (const TSharedPtr<FJsonValue> Target = InJson.TryGetField(Field))
+		{
+			FString Text;
+			// 字符串选择器 ParseStep 已经报过 selector_removed，这里只查对象写法和名字
+			if (Target->TryGetString(Text) && !GameTestRefForm::IsName(Text) && !Text.StartsWith(TEXT("$")))
+			{
+				continue;
+			}
+			FGameTestDiagSink::FScope PathScope(DiagSink, Field);
+			GameTestRefCheck::Target(Target, Scope, DiagSink);
+		}
+	}
+	GameTestObjActions::Validate(InJson, InAction, Scope, DiagSink);
 }
 
 void FGameTestScriptParser::CheckLeafRefs(const FJsonObject& InJson)
@@ -449,6 +496,8 @@ FGameTestExprScope FGameTestScriptParser::MakeExprScope() const
 	// 变量表只在解析一份脚本期间有效；表达式检查拿的是指针，所以只在这期间用（解析器的生命周期内）。
 	Scope.KnownVars = States.Num() > 0 && States.Last().Vars.Num() > 0 ? &States.Last().Vars.Last() : nullptr;
 	Scope.bAllowLuaInCond = Options.bAllowLuaInCond;
+	// 只有在一份有头的脚本里才查 objects 的名字（全局守护、临时步骤没有 objects，不查）
+	Scope.KnownObjects = States.Num() > 0 && States.Last().bHasObjects ? &States.Last().Objects : nullptr;
 	return Scope;
 }
 

@@ -69,7 +69,7 @@ namespace
 			});
 		GameTestExprFunctions::Add(TEXT("str"), 1, 1, TEXT("类型"), TEXT("str(x)"), TEXT("转文字"),
 			[](const FArgs& A, FGameTestFlowContext&) { return FGameTestValue::FromString(ArgText(A[0])); });
-		GameTestExprFunctions::Add(TEXT("num"), 1, 1, TEXT("类型"), TEXT("num(x)"), TEXT("转数字（整段是数字才行，从文字里取数用 number(sel)）"),
+		GameTestExprFunctions::Add(TEXT("num"), 1, 1, TEXT("类型"), TEXT("num(x)"), TEXT("转数字（整段是数字才行）"),
 			[](const FArgs& A, FGameTestFlowContext&)
 			{
 				double N = 0.0;

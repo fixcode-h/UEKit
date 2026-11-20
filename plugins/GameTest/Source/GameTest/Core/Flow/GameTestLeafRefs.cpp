@@ -17,14 +17,16 @@ namespace
 			TEXT("action"), TEXT("id"), TEXT("note"), TEXT("hint"), TEXT("onFail"), TEXT("retries"), TEXT("timeoutMs"), TEXT("disabled"),
 			TEXT("expectNoErrors"), TEXT("guards"), TEXT("skipIf"), TEXT("cond"), TEXT("expr"), TEXT("expect"), TEXT("until"),
 			TEXT("args"), TEXT("object"), TEXT("with"), TEXT("saveAs"),
+			// v4 的对象引用和部件写法（docs/game-test-ref.md）：`$var`、名字在解析时才认（GameTestRefResolve），不在这里按值替换
+			TEXT("target"), TEXT("toTarget"), TEXT("widget"), TEXT("each"), TEXT("obj"), TEXT("part"), TEXT("how"), TEXT("prop"), TEXT("op"),
 		};
 		return Fields;
 	}
 
-	/** 写选择器的字段：控件变量要换成句柄，不能按文字替换。 */
+	/** 写选择器的字段：控件变量要换成句柄，不能按文字替换（v4 只剩 container 还是字符串）。 */
 	bool IsSelectorField(const FString& InKey)
 	{
-		return InKey == TEXT("target") || InKey == TEXT("toTarget") || InKey == TEXT("container") || InKey == TEXT("each");
+		return InKey == TEXT("container");
 	}
 }
 
@@ -72,8 +74,8 @@ namespace GameTestLeafRefs
 		}
 		if (Copy.IsValid())
 		{
+			// target 不求值（见 KeptFields），Step.Target 在 ParseStep 里已经转好
 			InOutStep.Params = Copy;
-			Copy->TryGetStringField(TEXT("target"), InOutStep.Target);
 		}
 		return true;
 	}

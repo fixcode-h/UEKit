@@ -66,6 +66,54 @@ namespace
 		}
 		OutParams.Append(Parsed);
 	}
+
+	/** v4 删掉的动作 → 改用什么（docs/game-test-ref.md 5.2、5.3）。 */
+	const TMap<FString, FString>& GetRemovedActions()
+	{
+		static const TMap<FString, FString> Removed = {
+			{ TEXT("invoke"), TEXT("obj.call（object 字段改名 obj）") },
+			{ TEXT("find"), TEXT("obj.find（obj + saveAs，之后写 \"$变量\"）") },
+			{ TEXT("widget.close"), TEXT("obj.close（how: [{\"by\": \"remove\"}]，或省略 how 按类推荐）") },
+			{ TEXT("widget.call"), TEXT("obj.close 的 how: [{\"by\": \"call\", \"function\": …}]，或 obj.call") },
+		};
+		return Removed;
+	}
+
+	/** assert / wait 上 v3 按控件写的判断字段（v4 改成 cond 里的 {obj, prop, op, value}）。 */
+	bool IsRemovedCondField(const FString& InKey)
+	{
+		static const TSet<FString> Fields = {
+			TEXT("exists"), TEXT("visible"), TEXT("enabled"), TEXT("text"), TEXT("textContains"), TEXT("textLike"), TEXT("textMatches"),
+			TEXT("checked"), TEXT("count"), TEXT("selected"), TEXT("selectedProperty"), TEXT("stateKey"), TEXT("field"), TEXT("image"),
+			TEXT("any"), TEXT("equals"), TEXT("number"), TEXT("onScreen"),
+		};
+		return Fields.Contains(InKey);
+	}
+
+	/** assert / wait 写了 v3 的判断字段、until=widget / widgetGone：报 cond_removed，说改成什么。 */
+	void CheckRemovedConds(const FJsonObject& InJson, const FString& InAction, TArray<FString>& OutErrors)
+	{
+		TArray<FString> Found;
+		for (const auto& Pair : InJson.Values)
+		{
+			const FString Key = GAMETEST_JSON_KEY(Pair.Key);
+			if (IsRemovedCondField(Key))
+			{
+				Found.Add(Key);
+			}
+		}
+		if (Found.Num() > 0)
+		{
+			OutErrors.Add(FString::Printf(TEXT("cond_removed：%s 的 %s 在 v4 删掉了，改成 cond: {\"obj\": 引用, \"prop\": \":shown\" / \":text\" / \"@self.X\" …, \"op\": 比较, \"value\": 值}（docs/game-test-ref.md 第 4 节）"),
+				*InAction, *FString::Join(Found, TEXT(" / "))));
+		}
+		FString Until;
+		if (InJson.TryGetStringField(TEXT("until"), Until) && (Until == TEXT("widget") || Until == TEXT("widgetGone")))
+		{
+			OutErrors.Add(FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 until=cond + {\"obj\": 引用, \"prop\": \":exists\", \"value\": %s}，或 obj.wait"),
+				*Until, Until == TEXT("widget") ? TEXT("true") : TEXT("false")));
+		}
+	}
 }
 
 namespace
@@ -98,14 +146,11 @@ namespace
 			{ TEXT("widget.remove"), TEXT(""), true, false,
 				TEXT("把目标控件从视口移除并丢弃"),
 				&GameTestHandlers::HandleWidgetRemove },
-			{ TEXT("find"), TEXT("into"), true, false,
-				TEXT("把选择器解析成句柄（捕获此刻的控件），之后用 @句柄 引用它；into 缺省用路径末段当句柄名"),
-				&GameTestHandlers::HandleFind },
 			{ TEXT("snapshot"), TEXT("geometry,props"), false, false,
 				TEXT("控件树快照：AI 的主要观察手段；给 target 就只取那棵子树，props=true 带出类自己的属性"),
 				&GameTestHandlers::HandleSnapshot },
-			{ TEXT("wait"), TEXT("until,seconds,target,actor,tag,point,radius,cond"), false, false,
-				TEXT("跨帧等待谓词成立：pieReady/pieStopped/widget/widgetGone/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（cond 是统一条件，成立并稳住 settleMs 才算）"),
+			{ TEXT("wait"), TEXT("until,seconds,actor,tag,point,radius,cond"), false, false,
+				TEXT("跨帧等待谓词成立：pieReady/pieStopped/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（cond 是统一条件，成立并稳住 settleMs 才算；等界面出现、消失写 {obj, prop: \":exists\", value}，或用 obj.wait）"),
 				&GameTestHandlers::HandleWait },
 			{ TEXT("click"), TEXT("via,at,button"), true, false,
 				TEXT("点击控件：先等控件出现、可见、可用、位置稳定。via=code（默认，可在场景或运行配置的 clickVia 改）不动鼠标：找目标往上（不出所在 WBP）最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮 OnPressed → OnClicked → OnReleased）；目标是 WBP 时点它里面唯一可见的按钮；都没有时在控件位置发虚拟鼠标事件，不移系统光标。via=pointer 是真实鼠标：还要求点击点没被挡住，移光标按下松开，核对接住按下的是不是目标。at=[x,y] 控件内位置（默认中心），button 只对 pointer 有效"),
@@ -149,24 +194,30 @@ namespace
 			{ TEXT("net.compare"), TEXT("class,tag,from,to,tolerance"), false, false,
 				TEXT("跨端一致性断言：同一玩家对应的 actor 在两端世界的位姿偏差不超过 tolerance（厘米）；from/to 各可给 client 与 locallyControlled（缺省 from=server、to=client0）；给 timeoutMs 则跨帧等到一致"),
 				&GameTestHandlers::HandleNetCompare },
-			{ TEXT("assert"), TEXT("exists,visible,enabled,text,textContains,textLike,checked,count,selected,selectedProperty,stateKey,field,image,any,equals,cond,expr"), true, false,
-				TEXT("断言：cond（统一条件）或 expr（表达式）只看这一刻，写了它们时 target 可省；原有写法断言目标状态（stateKey+equals 可断言快照 state 里的任意字段；textLike 忽略数字和标点比文字；checked 勾选；field=@self/@lua/@item/@itemLua.路径 + equals 读 WBP 或 Lua 字段；image 贴图名；any 任一成立）；失败信息里带实际值，不做静默通过"),
+			{ TEXT("assert"), TEXT("cond,expr"), false, false,
+				TEXT("断言：cond（统一条件；对象判断写 {obj, prop, op, value}，见 docs/game-test-ref.md 第 4 节）或 expr（表达式，可用 prop(引用, 路径)），只看这一刻；失败信息里带实际值，不做静默通过"),
 				&GameTestHandlers::HandleAssert },
 			{ TEXT("probe"), TEXT("pointX,pointY,expect"), true, false,
 				TEXT("只读命中测试：这个点上最终会命中谁（返回命中路径与最顶层控件；被遮挡时失败并给出遮挡者）"),
 				&GameTestHandlers::HandleProbe },
-			{ TEXT("invoke"), TEXT("object,function,args,saveAs,expect"), false, false,
-				TEXT("调函数：object 是 @来源 / {\"$obj\"} / $变量 / {\"target\": 选择器} / @luaMod.模块 / @lua（配 target），省略时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件"),
-				&GameTestHandlers::HandleInvoke },
+			{ TEXT("obj.find"), TEXT("obj,saveAs"), false, false,
+				TEXT("按对象引用找到对象（找不到等到超时），存进变量 saveAs（这次运行里的弱引用），之后写 \"$变量\" 引用它"),
+				&GameTestHandlers::HandleObjFind },
+			{ TEXT("obj.wait"), TEXT("obj,prop,op,value,tol,ignoreCase,cmp,settleMs"), false, false,
+				TEXT("wait until=cond 的简写：等到对象的这个判断成立（prop 省略 = :exists is true；等它消失写 prop \":exists\" value false）"),
+				&GameTestHandlers::HandleObjWait },
+			{ TEXT("obj.set"), TEXT("obj,part,prop,value"), false, false,
+				TEXT("设对象（或 part）的属性：控件状态走控件自己的 setter 让委托照常触发（Visibility、IsChecked、Text、Value、IsEnabled），其余反射写入或 Lua 字段赋值；只读的报 prop_readonly"),
+				&GameTestHandlers::HandleObjSet },
+			{ TEXT("obj.call"), TEXT("obj,part,function,args,saveAs,expect"), false, false,
+				TEXT("调函数：obj 是引用 / @来源 / @luaMod.模块，part 选对象里的控件或组件；省略 obj 时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件"),
+				&GameTestHandlers::HandleObjCall },
+			{ TEXT("obj.close"), TEXT("obj,how,verify,verifyMs"), false, false,
+				TEXT("关掉对象：how 是关闭方式列表（call / lua / click / visibility / remove / pop / key / destroy），按顺序试，每种做完按 verify（gone / hidden / none）核对；省略 how 用运行配置 closeRules 或按类推荐"),
+				&GameTestHandlers::HandleObjClose },
 			{ TEXT("api"), TEXT("api,args,saveAs,expect,client"), false, false,
 				TEXT("调接口库里的接口（gt.api 列出全部）：args 按参数名给，cond 类型的参数原样传；要等待的接口（Wait.*）在这一步里跨帧等到完成；返回值存 saveAs，expect 是对返回值的统一条件"),
 				&GameTestHandlers::HandleApi },
-			{ TEXT("widget.close"), TEXT(""), true, false,
-				TEXT("把目标界面（WBP_X:.）从父级移除：原阻挡界面的 close，守护的 do 里常用"),
-				&GameTestHandlers::HandleWidgetClose },
-			{ TEXT("widget.call"), TEXT("function"), true, false,
-				TEXT("调目标界面上的无参函数（蓝图函数或绑的 Lua 函数）：原阻挡界面的 call，守护的 do 里常用"),
-				&GameTestHandlers::HandleWidgetCall },
 		};
 	}
 
@@ -233,6 +284,8 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("guards"),
 		TEXT("expectNoErrors"),
 		TEXT("disabled"),
+		// 2.0.0：录制 / 迁移改写不准的地方（docs/game-test-ref.md 第 9 节），面板标「待定」，校验报 warning migrate_todo，运行时照跑
+		TEXT("todo"),
 	};
 	return Common;
 }
@@ -284,6 +337,13 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 
 	OutStep.Action = FName(*ActionText);
 
+	// v4 删掉的动作（docs/game-test-ref.md 5.3）：说清楚改成什么
+	if (const FString* Replacement = GetRemovedActions().Find(ActionText))
+	{
+		OutErrors.Add(FString::Printf(TEXT("action_removed：动作 %s 在 v4 删掉了，改用 %s"), *ActionText, **Replacement));
+		return false;
+	}
+
 	// 动作名写错是最常见的写法错误：这里直接列出候选，别让它退化成一个"未知动作"。
 	const FGameTestActionInfo* Info = Find(OutStep.Action);
 	if (Info == nullptr)
@@ -314,7 +374,25 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 		return false;
 	}
 
-	GameTestJson::TryGetString(*InJson, TEXT("target"), OutStep.Target);
+	// target 是部件写法（v4）：对象、名字、$var 转成内部字符串；字符串选择器报 selector_removed
+	FString TargetError;
+	if (!GameTestHandlers::TargetText(*InJson, TEXT("target"), OutStep.Target, TargetError))
+	{
+		OutErrors.Add(TargetError);
+	}
+	for (const TCHAR* Field : { TEXT("toTarget"), TEXT("widget") })
+	{
+		FString Ignored;
+		if (Info->Params != nullptr && FString(Info->Params).Contains(Field) && !GameTestHandlers::TargetText(*InJson, Field, Ignored, TargetError))
+		{
+			OutErrors.Add(TargetError);
+		}
+	}
+	const bool bCondAction = Info->Name == FName(TEXT("assert")) || Info->Name == FName(TEXT("wait"));
+	if (bCondAction)
+	{
+		CheckRemovedConds(*InJson, ActionText, OutErrors);
+	}
 	GameTestJson::TryGetString(*InJson, TEXT("note"), OutStep.Note);
 	GameTestJson::TryGetString(*InJson, TEXT("id"), OutStep.Id);
 	if (GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs) && OutStep.TimeoutMs <= 0)
@@ -354,11 +432,9 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 		}
 	}
 
-	// assert 写 cond / expr 时判断里自己带 target（或根本不看控件），不要求步骤上的 target
-	const bool bTargetOptional = Info->Name == FName(TEXT("assert")) && GameTestHandlers::HasScriptCond(*InJson);
-	if (Info->bNeedsTarget && !bTargetOptional && OutStep.Target.IsEmpty())
+	if (Info->bNeedsTarget && OutStep.Target.IsEmpty() && TargetError.IsEmpty())
 	{
-		OutErrors.Add(FString::Printf(TEXT("动作 %s 需要 target（选择器或 @句柄）"), *ActionText));
+		OutErrors.Add(FString::Printf(TEXT("动作 %s 需要 target（{\"obj\": 引用, \"part\": \"部件名\"} 或一个引用）"), *ActionText));
 	}
 
 	// 字段白名单：拼错的键在这里被抓住，而不是在动作里被静默忽略。
@@ -369,7 +445,7 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 	for (const auto& Pair : InJson->Values)
 	{
 		const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
-		if (!AllowedParams.Contains(PairKey))
+		if (!AllowedParams.Contains(PairKey) && !(bCondAction && IsRemovedCondField(PairKey)))
 		{
 			OutErrors.Add(FString::Printf(TEXT("%s 不认识字段 '%s'（可用：%s）"),
 				*ActionText, *PairKey, *FString::Join(AllowedParams, TEXT(", "))));
@@ -383,11 +459,11 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 {
 	const TSharedPtr<FJsonObject> Root = MakeShared<FJsonObject>();
 	Root->SetStringField(TEXT("note"),
-		TEXT("target 写法：'屏名:路径' 或 '路径'（全局搜索）或 '@句柄'；屏名可写 WBP 类名或资源路径；路径段可以是 名字 / #类名 / #类名#序号 / text=子串 / * / .. / .（屏本身）/ 列表[序号] / 列表[属性=值]；'A>B' 进入嵌套的 WBP 实例，'A>>类型[text=子串]' 找纯 Slate 控件（下拉项），'>>…' 在游戏窗口里找"));
+		TEXT("target 写法（schemaVersion 4，docs/game-test-ref.md 第 2 节）：{\"obj\": 引用, \"part\": \"部件名\", \"slate\": \"类型[text=子串]\"}，或直接写一个引用；引用是 objects 里的名字 / \"$变量\" / {class, in?, ident?, many?, near?}。字符串选择器不再认（selector_removed）"));
 
 	const TSharedPtr<FJsonObject> Common = MakeShared<FJsonObject>();
 	Common->SetStringField(TEXT("action"), TEXT("必填：动作名"));
-	Common->SetStringField(TEXT("target"), TEXT("选择器或 @句柄"));
+	Common->SetStringField(TEXT("target"), TEXT("部件写法 {obj, part?, slate?} 或一个引用"));
 	Common->SetStringField(TEXT("note"), TEXT("写进报告的一句说明"));
 	Common->SetStringField(TEXT("timeoutMs"), TEXT("本步超时；缺省用设置里的 DefaultStepTimeoutMs"));
 	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）、continue 或 retry（配 retries）"));
@@ -396,7 +472,7 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 	Common->SetStringField(TEXT("guards"), TEXT("只在这一步 / 这一块里生效的守护（docs/game-test-script.md 第 5 节）"));
 	Common->SetStringField(TEXT("expectNoErrors"), TEXT("执行期间日志里出现 Error / Ensure / Lua 报错就算失败"));
 	Common->SetStringField(TEXT("disabled"), TEXT("true 时跳过（报告记 disabled）"));
-	Common->SetStringField(TEXT("skipIf"), TEXT("已达成就跳过：{条件, target?, also?, settleMs?, verify?, verifyTimeoutMs?}，条件同 assert；回放时成立就不做这一步（记 already，算通过），also 连带跳过后面几步，verify 真做了以后核对条件成立"));
+	Common->SetStringField(TEXT("skipIf"), TEXT("已达成就跳过：{cond, also?, settleMs?, verify?, verifyTimeoutMs?}，cond 同 assert；回放时成立就不做这一步（记 already，算通过），also 连带跳过后面几步，verify 真做了以后核对条件成立"));
 	Root->SetObjectField(TEXT("common"), Common);
 
 	TArray<TSharedPtr<FJsonValue>> ActionValues;

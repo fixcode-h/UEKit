@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/Flow/GameTestFlow.h"
+#include "Core/GameTestHandlerShared.h"
 
 #include "Core/Flow/GameTestLeafRefs.h"
 #include "Core/Flow/GameTestStepVars.h"
@@ -28,17 +29,25 @@ namespace
 		}
 	}
 
-	/** 守护 unlessStepTargets 要比对的：这一步的 target 和 toTarget。 */
+	/** 守护 unlessStepTargets 要比对的：这一步的 target、toTarget 和 obj.* 的 obj（都换成内部的 @@ref: 写法）。 */
 	void StepTargets(const FGameTestStep& InStep, TArray<FString>& OutTargets)
 	{
 		if (!InStep.Target.IsEmpty())
 		{
 			OutTargets.Add(InStep.Target);
 		}
-		FString To;
-		if (InStep.Params.IsValid() && InStep.Params->TryGetStringField(TEXT("toTarget"), To) && !To.IsEmpty())
+		if (!InStep.Params.IsValid())
 		{
-			OutTargets.Add(To);
+			return;
+		}
+		for (const TCHAR* Field : { TEXT("toTarget"), TEXT("obj") })
+		{
+			FString Text;
+			FString Error;
+			if (InStep.Params->HasField(Field) && GameTestHandlers::TargetText(*InStep.Params, Field, Text, Error) && !Text.IsEmpty())
+			{
+				OutTargets.Add(Text);
+			}
 		}
 	}
 

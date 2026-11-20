@@ -195,8 +195,14 @@ namespace GameTestHandlers
 		}
 
 		UWidget* TargetWidget = nullptr;
+		// widget（滚到哪个子控件）和 target 一样是部件写法（v4）
 		FString WidgetSelector;
-		if (GameTestJson::TryGetString(Params, TEXT("widget"), WidgetSelector))
+		if (!TargetText(Params, TEXT("widget"), WidgetSelector, Error))
+		{
+			InContext.Message = Error;
+			return StepFailed;
+		}
+		if (!WidgetSelector.IsEmpty())
 		{
 			TSharedPtr<FGameTestWidgetNode> Inner;
 			FString InnerError;

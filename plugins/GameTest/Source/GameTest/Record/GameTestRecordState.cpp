@@ -9,6 +9,7 @@
 #include "Observe/GameTestCondition.h"
 #include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSelectorWriter.h"
+#include "Record/V4/GameTestRecordV4.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestTextMatch.h"
@@ -605,11 +606,20 @@ bool FGameTestRecordState::VerifyAuto(const TSharedPtr<FJsonObject>& InStep, con
 		SkipIf->SetStringField(TEXT("target"), InCandidate.Target);
 	}
 	SkipIf->SetStringField(TEXT("by"), TEXT("auto"));
-	const TSharedPtr<FJsonObject> Copy = MakeShared<FJsonObject>();
-	Copy->Values = InStep->Values;
-	Copy->SetObjectField(TEXT("skipIf"), SkipIf);
+	// 2.0.0：回放只认 v4 写法，核对时把这一步和跳过条件临时改写成 v4（引用内联）再判断；写进步骤的仍是录制内部的写法，存盘时统一改写
+	const TSharedPtr<FJsonObject> StepHint = GameTestJson::TryGetObject(*InStep, TEXT("hint"));
+	const TSharedPtr<FJsonObject> KeyHint = StepHint.IsValid() ? GameTestJson::TryGetObject(*StepHint, TEXT("key")) : nullptr;
+	const TSharedPtr<FJsonObject> CheckSkipIf = GameTestRecordV4::SkipIfForCheck(*SkipIf, KeyHint);
+	if (!CheckSkipIf.IsValid())
+	{
+		return false;
+	}
+	const TSharedRef<FJsonObject> Copy = MakeShared<FJsonObject>();
+	Copy->SetStringField(TEXT("action"), TEXT("wait"));
+	Copy->SetNumberField(TEXT("seconds"), 0);
+	Copy->SetObjectField(TEXT("skipIf"), CheckSkipIf);
 
-	// 用回放同一套解析和判断核对一遍：此刻（刚点完）条件应当成立，不成立说明选择器或读法回放时用不上，不自动写
+	// 用回放同一套解析和判断核对一遍：此刻（刚点完）条件应当成立，不成立说明读法回放时用不上，不自动写
 	FGameTestStep Step;
 	TArray<FString> Errors;
 	if (!GameTestActions::ParseStep(Copy, 0, Step, Errors))
@@ -617,7 +627,7 @@ bool FGameTestRecordState::VerifyAuto(const TSharedPtr<FJsonObject>& InStep, con
 		return false;
 	}
 	FString Actual;
-	if (!GameTestSkipIf::Holds(*SkipIf, Step, nullptr, Actual))
+	if (!GameTestSkipIf::Holds(*CheckSkipIf, Step, nullptr, Actual))
 	{
 		return false;
 	}

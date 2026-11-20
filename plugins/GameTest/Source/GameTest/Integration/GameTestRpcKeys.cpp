@@ -5,9 +5,8 @@
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestKeyPreview.h"
-#include "Observe/GameTestSelector.h"
+#include "Core/GameTestHandlerShared.h"
 #include "Observe/GameTestSelectorWriter.h"
-#include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
 #include "Record/GameTestRecorder.h"
 
@@ -35,7 +34,7 @@ namespace GameTestRpcKeysDetail
 
 	/**
 	 * 要看哪个条目：录制中给 `step`（从 0 数，用按下那一刻记下的站点），否则给 `target`（现在的游戏界面里解析，
-	 * 再按写选择器的同一套规则找它所在的容器）。
+	 * 再按录制的同一套规则找它所在的容器）。
 	 */
 	bool SiteFromArgs(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FGameTestKeySite>& OutSite, FString& OutError)
 	{
@@ -62,22 +61,28 @@ namespace GameTestRpcKeysDetail
 			return true;
 		}
 
-		const FString Target = Str(Args, TEXT("target"));
-		if (Target.IsEmpty())
+		// 2.0.0：target 是部件写法 / 引用（docs/game-test-ref.md 第 2 节），和动作走同一个解析
+		FString Target;
+		if (!Args.IsValid() || !GameTestHandlers::TargetText(*Args, TEXT("target"), Target, OutError))
 		{
-			OutError = TEXT("要 step（录制中，从 0 数）或 target（选择器）");
+			if (OutError.IsEmpty())
+			{
+				OutError = TEXT("要 step（录制中，从 0 数）或 target（部件写法 {obj, part}）");
+			}
 			return false;
 		}
-		UWorld* World = GameTestWorld::FindGameWorld();
-		if (World == nullptr)
+		if (Target.IsEmpty())
+		{
+			OutError = TEXT("要 step（录制中，从 0 数）或 target（部件写法 {obj, part}）");
+			return false;
+		}
+		if (GameTestWorld::FindGameWorld() == nullptr)
 		{
 			OutError = TEXT("游戏没在跑：先起 PIE 或游戏，打开那个界面再看");
 			return false;
 		}
-		TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
-		GameTestSnapshot::CaptureScreens(World, Screens, /*bInLight=*/true);
 		TSharedPtr<FGameTestWidgetNode> Node;
-		if (!GameTestSelector::ResolveText(Screens, Target, Node, OutError) || !Node.IsValid())
+		if (!GameTestHandlers::TryResolveTarget(Target, nullptr, Node, OutError) || !Node.IsValid())
 		{
 			return false;
 		}

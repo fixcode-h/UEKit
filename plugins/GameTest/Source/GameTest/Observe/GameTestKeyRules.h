@@ -4,10 +4,17 @@
 
 #include "CoreMinimal.h"
 
-struct FGameTestKeyRule;
+/** 一条「条目怎么认」规则（录制挑条目标识用；字段写法是录制内部的 by：默认来源不带 @）。 */
+struct GAMETEST_API FGameTestKeyRule
+{
+	FString Entry;
+	FString Container;
+	TArray<FString> By;
+};
 
 /**
- * 运行设置里的「条目怎么认」规则（`_settings.json` 的 itemKeys，1.4.0）。
+ * 运行设置里的「这类对象按什么认」规则：2.0.0 起存在 `_settings.json` 的 identRules（docs/game-test-ref.md 第 6 节），
+ * 这里把它换成录制内部的 by 写法（`@item.X` ↔ `X`）。
  *
  * 录制时每点一次都要查，所以缓存一份，文件改了（面板运行设置保存、录制时勾「以后都按这个认」）才重读。
  * 只在游戏线程上用。

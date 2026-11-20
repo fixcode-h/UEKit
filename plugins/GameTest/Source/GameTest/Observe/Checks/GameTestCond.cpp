@@ -24,12 +24,40 @@ namespace
 	}
 
 	/**
-	 * 1.6 的旧条件对象里 `any: [条件对象…]` 是「控件条件的任一成立」，和新的 `any` 同义，
-	 * 但旧对象可能同时写了 `target` + `any`（any 里的项共用外层的 target）。这种按一条控件判断交给 widget 处理。
+	 * 2.0.0 删掉的按控件写的判断（docs/game-test-ref.md 第 4 节）：`target` + 这些字段 → 对象判断里对应的属性路径。
+	 * 认出来报 cond_removed 并给出改法；运行时不会走到（加载时已经拒掉）。
 	 */
-	bool IsLegacyWidgetAny(const FJsonObject& InCond)
+	const TMap<FString, FString>& RemovedCondKeys()
 	{
-		return InCond.HasField(TEXT("any")) && InCond.HasField(TEXT("target"));
+		static const TMap<FString, FString> Map = {
+			{ TEXT("exists"), TEXT(":exists") }, { TEXT("visible"), TEXT(":shown") }, { TEXT("onScreen"), TEXT(":onScreen") },
+			{ TEXT("enabled"), TEXT(":enabled") }, { TEXT("checked"), TEXT(":checked") }, { TEXT("selected"), TEXT(":selected") },
+			{ TEXT("text"), TEXT(":text") }, { TEXT("textContains"), TEXT(":text（op: contains）") }, { TEXT("textLike"), TEXT(":text（op: contains）") },
+			{ TEXT("textMatches"), TEXT(":text（op: matches）") }, { TEXT("image"), TEXT(":image") }, { TEXT("count"), TEXT(":count") },
+			{ TEXT("number"), TEXT("expr: num(prop(引用, ':text')) > N") }, { TEXT("field"), TEXT("@self.X") },
+		};
+		return Map;
+	}
+
+	/** 旧的控件判断：写了 target，或者写了上面的字段又没写 obj。 */
+	bool IsRemovedCond(const FJsonObject& InCond, FString& OutHint)
+	{
+		if (InCond.HasField(TEXT("obj")))
+		{
+			return false;
+		}
+		bool bRemoved = InCond.HasField(TEXT("target"));
+		TArray<FString> Hints;
+		for (const TPair<FString, FString>& Pair : RemovedCondKeys())
+		{
+			if (InCond.HasField(Pair.Key))
+			{
+				bRemoved = true;
+				Hints.Add(FString::Printf(TEXT("%s → prop %s"), *Pair.Key, *Pair.Value));
+			}
+		}
+		OutHint = FString::Join(Hints, TEXT("，"));
+		return bRemoved;
 	}
 
 	EGameTestCondState Combine(const TArray<EGameTestCondState>& InStates, bool bAll)
@@ -76,7 +104,7 @@ namespace
 		if (!Check)
 		{
 			Part.State = EGameTestCondState::NotHolds;
-			Part.Unresolved = TEXT("认不出这条判断（要有 target / value / api / expr / actorNear / alias 之一）");
+			Part.Unresolved = TEXT("认不出这条判断（要有 obj / value / api / expr / actorNear / alias 之一）");
 			return Part.State;
 		}
 		FGameTestCheckResult Result;
@@ -92,7 +120,7 @@ namespace
 
 	EGameTestCondState EvalNode(const FJsonObject& InCond, FGameTestFlowContext& InContext, const FString& InPath, FGameTestCondResult& OutResult)
 	{
-		if (!IsTreeNode(InCond) || IsLegacyWidgetAny(InCond))
+		if (!IsTreeNode(InCond))
 		{
 			return EvalCheck(InCond, InContext, InPath, OutResult);
 		}
@@ -129,7 +157,7 @@ namespace
 			InSink.Error(TEXT("bad_type"), TEXT("条件要写成对象（或表达式字符串）"));
 			return;
 		}
-		if (IsTreeNode(*Cond) && !IsLegacyWidgetAny(*Cond))
+		if (IsTreeNode(*Cond))
 		{
 			for (const auto& Pair : Cond->Values)
 			{
@@ -164,36 +192,47 @@ namespace
 			}
 			return;
 		}
+		FString RemovedHint;
+		if (IsRemovedCond(*Cond, RemovedHint))
+		{
+			InSink.Error(TEXT("cond_removed"), FString::Printf(TEXT("按控件写的判断（target + 状态字段）2.0.0 起删掉了：改成 {\"obj\": 引用, \"prop\": \"@部件:状态\", \"op\": …, \"value\": …}%s（见 docs/game-test-ref.md 第 4 节）"),
+				RemovedHint.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("；%s"), *RemovedHint)));
+			return;
+		}
 		const IGameTestCheck* Check = GameTestChecks::FindFor(*Cond);
 		if (!Check)
 		{
-			InSink.Error(TEXT("bad_type"), TEXT("认不出这条判断：要有 target / value / api / expr / actorNear / alias 之一"));
+			InSink.Error(TEXT("bad_type"), TEXT("认不出这条判断：要有 obj / value / api / expr / actorNear / alias 之一"));
 			return;
 		}
 		for (const auto& Pair : Cond->Values)
 		{
 			const FString Key = GAMETEST_JSON_KEY(Pair.Key);
-			if (!Check->GetFields().Contains(Key) && !GameTestCompare::Keys().Contains(Key) && !GameTestCond::TreeKeys().Contains(Key)
+			const bool bCompareKey = Check->UsesCompareKeys() && GameTestCompare::Keys().Contains(Key);
+			if (!Check->GetFields().Contains(Key) && !bCompareKey && !GameTestCond::TreeKeys().Contains(Key)
 				&& !InExtraAllowed.Contains(Key))
 			{
 				InSink.Error(TEXT("unknown_field"), FString::Printf(TEXT("判断（%s）不认识字段 %s，可用：%s"), *Check->GetKey().ToString(), *Key,
 					*FString::Join(Check->GetFields(), TEXT(", "))));
 			}
 		}
-		GameTestCompare::Validate(*Cond, InSink);
-		for (const FString& Key : GameTestCompare::Keys())
+		if (Check->UsesCompareKeys())
 		{
-			if (const TSharedPtr<FJsonValue> Expected = Cond->TryGetField(Key))
+			GameTestCompare::Validate(*Cond, InSink);
+			for (const FString& Key : GameTestCompare::Keys())
 			{
-				GameTestRefs::Validate(Expected, InScope, InSink);
+				if (const TSharedPtr<FJsonValue> Expected = Cond->TryGetField(Key))
+				{
+					GameTestRefs::Validate(Expected, InScope, InSink);
+				}
 			}
 		}
-		Check->Validate(*Cond, InSink);
+		Check->ValidateIn(*Cond, InScope, InSink);
 	}
 
 	FString DescribeNode(const FJsonObject& InCond)
 	{
-		if (!IsTreeNode(InCond) || IsLegacyWidgetAny(InCond))
+		if (!IsTreeNode(InCond))
 		{
 			const IGameTestCheck* Check = GameTestChecks::FindFor(InCond);
 			return Check ? Check->Describe(InCond) : TEXT("（写错的判断）");
@@ -213,7 +252,7 @@ namespace
 				const TSharedPtr<FJsonObject> Child = GameTestCond::AsObject(Item);
 				if (Child.IsValid())
 				{
-					const bool bNested = IsTreeNode(*Child) && !IsLegacyWidgetAny(*Child);
+					const bool bNested = IsTreeNode(*Child);
 					Parts.Add(bNested ? TEXT("（") + DescribeNode(*Child) + TEXT("）") : DescribeNode(*Child));
 				}
 			}

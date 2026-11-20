@@ -39,6 +39,10 @@ bool GameTestScenario::Validate(const TSharedPtr<FJsonObject>& InJson, TArray<FS
 	{
 		OutErrors.Add(FString::Printf(TEXT("schemaVersion 应为正数，收到 %d"), SchemaVersion));
 	}
+	else if (SchemaVersion < SupportedSchemaVersion)
+	{
+		OutErrors.Add(FString::Printf(TEXT("schema_old：这是旧格式脚本（schemaVersion %d），请在面板里用「升级脚本」转成 v%d（会先备份）"), SchemaVersion, SupportedSchemaVersion));
+	}
 	else if (SchemaVersion > SupportedSchemaVersion)
 	{
 		// 明确拒绝"未来版本"：宁可现在停下，也不要按旧语义跑一份新配置。

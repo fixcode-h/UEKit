@@ -222,26 +222,10 @@ namespace GameTestHandlers
 
 		if (Until == TEXT("widget") || Until == TEXT("widgetGone"))
 		{
-			if (InContext.Step->Target.IsEmpty())
-			{
-				InContext.Message = FString::Printf(TEXT("wait until=%s 需要 target"), *Until);
-				return StepFailed;
-			}
-
-			const FString Target = InContext.Step->Target;
-			TMap<FString, TWeakObjectPtr<UWidget>>* Handles = InContext.Handles;
-			const bool bExpectPresent = (Until == TEXT("widget"));
-			// 等界面出现 / 消失和点击的自动等待同一个上限（默认不限）。
-			InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
-
-			InContext.PendingPredicate = [Target, Handles, bExpectPresent](double)
-			{
-				TSharedPtr<FGameTestWidgetNode> Node;
-				FString Ignored;
-				return TryResolveTarget(Target, Handles, Node, Ignored) == bExpectPresent;
-			};
-			InContext.Message = FString::Printf(TEXT("等待 %s %s"), *Target, bExpectPresent ? TEXT("出现") : TEXT("消失"));
-			return StepPending;
+			// v4 删掉了按选择器等界面（docs/game-test-ref.md 5.1）：加载时就报，这里防 gt.step 单步直接传进来
+			InContext.Message = FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 wait until=cond，cond 写 {\"obj\": 引用, \"prop\": \":exists\", \"value\": %s}（或 obj.wait）"),
+				*Until, Until == TEXT("widget") ? TEXT("true") : TEXT("false"));
+			return StepFailed;
 		}
 
 		if (Until == TEXT("actorNear"))
@@ -315,71 +299,20 @@ namespace GameTestHandlers
 		}
 
 		InContext.Message = FString::Printf(
-			TEXT("wait 不认识 until='%s'（可用：pieReady / pieStopped / widget / widgetGone / seconds / actorNear / cond）"), *Until);
+			TEXT("wait 不认识 until='%s'（可用：pieReady / pieStopped / seconds / actorNear / cond）"), *Until);
 		return StepFailed;
 	}
 
 	EGameTestStepStatus HandleAssert(FGameTestStepContext& InContext)
 	{
-		const FJsonObject& Params = *InContext.Step->Params;
-
-		// 1.9 的 cond / expr：先判它们；没有原有的条件字段时就是全部结论
-		bool bScriptHolds = true;
-		const bool bHasScript = CheckScriptAssert(InContext, bScriptHolds);
-		if (bHasScript && !bScriptHolds)
+		// v4 的 assert 只认 cond / expr（docs/game-test-ref.md 第 4 节）：对象判断写进 cond 的 {obj, prop, op, value}
+		bool bHolds = false;
+		if (!CheckScriptAssert(InContext, bHolds))
 		{
+			InContext.Message = TEXT("assert 要写 cond（统一条件，对象判断写 {\"obj\": 引用, \"prop\": 路径, \"op\": 比较, \"value\": 值}）或 expr");
 			return StepFailed;
 		}
-		if (bHasScript && InContext.Step->Target.IsEmpty())
-		{
-			return StepSucceeded;
-		}
-		const FString ScriptMessage = bHasScript ? InContext.Message : FString();
-
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString ResolveError;
-		const bool bResolved = TryResolveTarget(InContext.Step->Target, InContext.Handles, Node, ResolveError);
-		if (bResolved)
-		{
-			// 断言不拿"解析失败"当步骤失败（exists=false 就是靠它判的），但碰过谁照样要记。
-			InContext.TouchedWidget = Node->Widget;
-			InContext.bTouchedHasRect = Node->bHasGeometry && Node->Size.X >= 1.0 && Node->Size.Y >= 1.0;
-			InContext.TouchedMin = Node->Position;
-			InContext.TouchedMax = Node->Position + Node->Size;
-		}
-
-		// 条件判断和「已达成就跳过」共用一份（GameTestCondition），断言只管把结果写成通过 / 失败。
-		FGameTestConditionCheck Check;
-		GameTestCondition::Check(Params, bResolved ? Node.Get() : nullptr, ResolveError, Check);
-
-		if (Check.Count == 0 && bHasScript)
-		{
-			// 写了 target 只是让判断里省掉 target：结论就是 cond / expr 的
-			InContext.Message = ScriptMessage;
-			return StepSucceeded;
-		}
-		if (Check.Count == 0)
-		{
-			InContext.Message = TEXT("assert 至少要给一个条件（exists / visible / enabled / text / textContains / textLike / checked / count / selected / selectedProperty+equals / stateKey+equals / field+equals / image / any）");
-			return StepFailed;
-		}
-
-		if (!Check.Holds())
-		{
-			InContext.Message = FString::Printf(TEXT("断言失败：%s；实际：%s"),
-				*FString::Join(Check.Mismatches, TEXT("；")),
-				Check.Actuals.Num() > 0 ? *FString::Join(Check.Actuals, TEXT("、")) : TEXT("（无）"));
-			return StepFailed;
-		}
-
-		if (!bResolved)
-		{
-			InContext.Message = TEXT("断言通过：目标确实不存在");
-			return StepSucceeded;
-		}
-		InContext.Message = FString::Printf(TEXT("断言通过：%s（%s）"),
-			*Node->Path, Check.Actuals.Num() > 0 ? *FString::Join(Check.Actuals, TEXT("、")) : TEXT("存在"));
-		return StepSucceeded;
+		return bHolds ? StepSucceeded : StepFailed;
 	}
 
 	EGameTestStepStatus HandleNetCompare(FGameTestStepContext& InContext)

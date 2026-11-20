@@ -7,6 +7,7 @@
 #include "Core/Script/GameTestValue.h"
 
 class FGameTestDiagSink;
+struct FGameTestExprScope;
 class FGameTestFlowContext;
 class FJsonObject;
 
@@ -28,7 +29,7 @@ struct GAMETEST_API FGameTestCheckResult
 };
 
 /**
- * 一种判断（协议第 4.1 节）：界面在不在屏上、控件状态、代码变量、接口、表达式、附近的 Actor、常用名……
+ * 一种判断（协议第 4.1 节，2.0.0 起对象判断见 docs/game-test-ref.md 第 4 节）：对象的属性和状态、代码变量、接口、表达式、附近的 Actor、常用名……
  * 一种一个实现，一个文件（`Observe/Checks/GameTestCheck<名字>.cpp`），登记进 `GameTestChecks`。
  *
  * 条件树（all / any / not、稳住）是公共逻辑（GameTestCond），判断只回答「这一条此刻成不成立」。
@@ -39,7 +40,7 @@ class GAMETEST_API IGameTestCheck
 public:
 	virtual ~IGameTestCheck() = default;
 
-	/** `onScreen`、`widget`、`value`、`api`、`expr`、`actorNear`、`alias`。 */
+	/** `obj`、`value`、`api`、`expr`、`actorNear`、`alias`。 */
 	virtual FName GetKey() const = 0;
 
 	virtual FString GetSummary() const = 0;
@@ -54,6 +55,15 @@ public:
 	virtual void Validate(const FJsonObject& InJson, FGameTestDiagSink& InSink) const
 	{
 	}
+
+	/** 要知道作用域（变量、objects 名字）的写法检查；默认转给 Validate。 */
+	virtual void ValidateIn(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink) const
+	{
+		Validate(InJson, InSink);
+	}
+
+	/** 认不认旧的比较字段（equals / gt …）：对象判断用 op / value，不认。 */
+	virtual bool UsesCompareKeys() const { return true; }
 
 	/** 判断此刻成不成立。在只读状态下调用（框架打开 FReadOnlyScope）。不等待、不稳住。 */
 	virtual void Evaluate(const FJsonObject& InJson, FGameTestFlowContext& InContext, FGameTestCheckResult& OutResult) const = 0;

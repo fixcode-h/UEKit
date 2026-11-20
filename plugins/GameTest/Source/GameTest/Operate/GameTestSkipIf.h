@@ -17,16 +17,17 @@ class UWidget;
  * 回放时界面已经是那个样子了，再点一次反而会把勾取消、或卡在一个点不动的按钮上。
  *
  * ```json
- * { "action": "click", "target": "WBP_Settings:Root/RowResetPoint>BtnToggle",
- *   "skipIf": { "target": "WBP_Settings:Root/RowResetPoint>ChkBox", "checked": true, "also": 0, "verify": true } }
+ * { "action": "click", "target": { "obj": "settings", "part": "RowResetPoint.BtnToggle" },
+ *   "skipIf": { "cond": { "obj": "settings", "prop": "@RowResetPoint.ChkBox:checked", "value": true }, "also": 0, "verify": true } }
  * ```
  *
- * - 条件和 `assert` 共用（GameTestCondition）；`target` 省略 = 这一步自己的 target。
+ * - 条件是统一条件（2.0.0 起只写在 `cond` 里，和 assert / wait 同一份：GameTestCond）。
  * - 回放时先判断再动手（FGameTestSkipGate）：条件成立并稳住 `settleMs` 就跳过，记 `already`（算通过）；
  *   不成立并稳住 `settleMs`、目标也出来了才照常做。多等这一小会儿是怕界面数据还没刷上来（按钮先显示「领取」，回包后才变「已领取」）。
- * - 反面条件（`exists: false` / `visible: false`）只在条件看的屏已经在屏上时才算数：找不到既可能是领过了，也可能是界面还没打开。
+ * - 反面判断（`:exists` / `:shown` 为 false）只在对象本身已经出来时才算数（条件给 Unknown 时一直等）。
  * - `also`：跳过时连带跳过后面几步（领取跳过了，奖励弹窗不会出来，点弹窗「确定」那一步也不该等）。
  * - `verify`：真做了以后条件要在 `verifyTimeoutMs` 里成立，不然这一步失败（点了没反应）。
+ * - 1.7.1 的「看的控件找不到就自动滚列表」在 2.0.0 暂时没有接上对象引用（条目引用的 in 是 ListView 时解析会顺手滚出来）。
  *
  * 只在游戏线程上用。
  */
@@ -56,6 +57,9 @@ namespace GameTestSkipIf
 
 	/** 连带跳过后面几步（0–MaxAlso）。 */
 	GAMETEST_API int32 Also(const FJsonObject& InSkipIf);
+
+	/** 给人看的一句（条件的 Describe；没写 cond 时说明）。 */
+	GAMETEST_API FString Describe(const FJsonObject& InSkipIf);
 
 	/**
 	 * 此刻条件成立吗（做完核对每帧调）。`OutActual` 写实际值，失败消息用。

@@ -44,6 +44,12 @@ namespace GameTestItemKeyDetail
 		return Lower;
 	}
 
+	/** 有对应属性路径（`@来源.路径`）的来源。 */
+	bool IsFieldSource(const FString& InSource)
+	{
+		return InSource == TEXT("item") || InSource == TEXT("self") || InSource == TEXT("lua") || InSource == TEXT("itemLua");
+	}
+
 	bool IsKnownSource(const FString& InSource)
 	{
 		return InSource == TEXT("item") || InSource == TEXT("self") || InSource == TEXT("lua") || InSource == TEXT("itemLua")
@@ -1048,6 +1054,15 @@ TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const 
 			const TSharedPtr<FJsonObject> Field = MakeShared<FJsonObject>();
 			Field->SetStringField(TEXT("by"), By);
 			Field->SetStringField(TEXT("src"), Source);
+			// 2.0.0：能直接写进对象引用 ident 的属性路径（docs/game-test-ref.md 3.1）；行列号没有对应的属性，不给
+			if (IsFieldSource(Source))
+			{
+				Field->SetStringField(TEXT("prop"), FString::Printf(TEXT("@%s.%s"), *Source, *Leaf.Key));
+			}
+			else if (Source == TEXT("text"))
+			{
+				Field->SetStringField(TEXT("prop"), TEXT(":text"));
+			}
 			Field->SetField(TEXT("v"), Leaf.Value);
 			const int32 Hits = CountHits(InEntries, bList, Source, Leaf.Key, *Leaf.Value, Cache);
 			Field->SetNumberField(TEXT("hits"), Hits);

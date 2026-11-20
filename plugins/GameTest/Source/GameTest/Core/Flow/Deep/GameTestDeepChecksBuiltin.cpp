@@ -12,6 +12,7 @@
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Observe/Ref/GameTestRef.h"
 #include "Observe/Sources/GameTestObjectLocator.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestPathText.h"
@@ -92,20 +93,25 @@ namespace GameTestDeepBuiltin
 		}
 	};
 
-	/** invoke：函数在不在、能不能从脚本调、参数名对不对。对象要开着游戏才知道是谁时只查静态函数和 @sub。 */
+	/** obj.call（2.0.0 前叫 invoke）：函数在不在、能不能从脚本调、参数名对不对。对象要开着游戏才知道是谁时只查静态函数、@sub 和引用的类。 */
 	class FInvokeCheck final : public IGameTestDeepCheck
 	{
 	public:
-		virtual FName GetKey() const override { return TEXT("invoke"); }
+		virtual FName GetKey() const override { return TEXT("obj.call"); }
 
 		virtual void CheckObject(const FJsonObject& InJson, FGameTestDeepEnv& InEnv) const override
 		{
-			if (StringField(InJson, TEXT("action")) != TEXT("invoke"))
+			if (StringField(InJson, TEXT("action")) != TEXT("obj.call"))
 			{
 				return;
 			}
 			const FString Function = StringField(InJson, TEXT("function"));
-			const TSharedPtr<FJsonValue> Object = InJson.TryGetField(TEXT("object"));
+			const TSharedPtr<FJsonValue> Object = InJson.TryGetField(TEXT("obj"));
+			if (InJson.HasField(TEXT("part")))
+			{
+				// 调的是部件上的函数：部件的类要读控件树才知道，运行时再查
+				return;
+			}
 			if (Function.IsEmpty() || Function.StartsWith(TEXT("$")) || Function.StartsWith(TEXT("=")))
 			{
 				return;
@@ -149,6 +155,25 @@ namespace GameTestDeepBuiltin
 		/** 对象参数在不开游戏时能确定的类：`@sub.类名`；开着游戏时按来源取一次。 */
 		static const UClass* ClassOfObject(const TSharedPtr<FJsonValue>& InObject, FGameTestDeepEnv& InEnv, FString& OutError)
 		{
+			// 对象引用（命名 / 内联）：按 class 找已加载的类
+			FString RefText;
+			TSharedPtr<FJsonObject> Inline;
+			const EGameTestRefForm Form = GameTestRefForm::Classify(InObject, RefText, Inline);
+			if (Form == EGameTestRefForm::Named && InEnv.Script.Objects.IsValid())
+			{
+				const TSharedPtr<FJsonObject>* Def = nullptr;
+				if (InEnv.Script.Objects->TryGetObjectField(RefText, Def) && Def != nullptr)
+				{
+					Inline = *Def;
+				}
+			}
+			if ((Form == EGameTestRefForm::Named || Form == EGameTestRefForm::Inline) && Inline.IsValid())
+			{
+				FString ClassName;
+				Inline->TryGetStringField(TEXT("class"), ClassName);
+				// 蓝图类没加载时找不到：不报，运行时再查
+				return ClassName.IsEmpty() ? nullptr : GameTestObjectRoots::FindClass(ClassName);
+			}
 			FString Text;
 			if (!InObject->TryGetString(Text) || !Text.StartsWith(TEXT("@")) || Text.StartsWith(TEXT("@lua")))
 			{
@@ -208,8 +233,8 @@ namespace GameTestDeepBuiltin
 			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InJson.Values)
 			{
 				FString Text;
-				// target 里的 @ 是控件句柄（@btnOk），不是来源
-				if (Pair.Key == TEXT("target") || !Pair.Value.IsValid() || !Pair.Value->TryGetString(Text) || !Text.StartsWith(TEXT("@")))
+				// target 里的 @ 是控件句柄（@btnOk），prop 是属性路径（@self.X、@部件.X），都不是来源
+				if (Pair.Key == TEXT("target") || Pair.Key == TEXT("prop") || !Pair.Value.IsValid() || !Pair.Value->TryGetString(Text) || !Text.StartsWith(TEXT("@")))
 				{
 					continue;
 				}
@@ -232,7 +257,7 @@ namespace GameTestDeepBuiltin
 		}
 	};
 
-	/** objects：定位器写法、类名在不在（蓝图类没加载时找不到，只给警告）。 */
+	/** objects：引用写法、类名在不在（蓝图类没加载时找不到，只给警告）。 */
 	class FObjectsCheck final : public IGameTestDeepCheck
 	{
 	public:
@@ -255,12 +280,12 @@ namespace GameTestDeepBuiltin
 				TArray<FString> Errors;
 				if (!Json.IsValid() || !FGameTestObjectLocator::Parse(*Json, Locator, Errors))
 				{
-					InEnv.Sink.Error(TEXT("bad_type"), Errors.Num() > 0 ? FString::Join(Errors, TEXT("；")) : FString(TEXT("定位器要写成对象 {class, …}")));
+					InEnv.Sink.Error(TEXT("bad_type"), Errors.Num() > 0 ? FString::Join(Errors, TEXT("；")) : FString(TEXT("引用要写成对象 {class, ident, …}")));
 					continue;
 				}
 				if (GameTestObjectRoots::FindClass(Locator.Class) == nullptr)
 				{
-					InEnv.Sink.Warning(TEXT("object_not_found"),
+					InEnv.Sink.Warning(TEXT("ref_bad_class"),
 						FString::Printf(TEXT("没找到类 %s（写错了，或蓝图类还没加载过）"), *Locator.Class));
 				}
 			}

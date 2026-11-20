@@ -1,7 +1,7 @@
 {
   "displayName": "GameTest",
   "kind": "extension",
-  "description": "用 JSON 场景跑游戏测试：按选择器点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
+  "description": "用 JSON 场景跑游戏测试：按对象引用（类 + 唯一标识）找界面和对象、点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
   "versionHeader": { "file": "Source/GameTest/GameTestVersion.h", "macro": "GAMETEST_VERSION" },
   "engineMin": "5.4",
   "engineTested": [],

@@ -5,6 +5,16 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 平铺步骤、选择器、动作、录制这些 1.x 的内容仍以 [game-test.md](game-test.md) 为准，这里只写新增和变化。
 设计取舍见项目设计稿「GameTest 脚本化与流程图 · 定稿」。
 
+> **2.0.0（schemaVersion 4）改了这份协议里定位、判断、操作对象的部分，以 [game-test-ref.md](game-test-ref.md) 为准**：
+> - 场景只认 `schemaVersion: 4`，1–3 报 `schema_old`（面板「升级脚本」迁移）。
+> - 选择器字符串（`WBP_X:Root/Btn`、`$item>BtnClaim`）全部换成部件写法 `{"obj": 引用, "part": "部件名"}`（`selector_removed`）。
+> - 第 4.1 节按控件写的判断（`target` + `visible` / `text` / `field`…）换成 `{obj, prop, op, value}`（`cond_removed`），第 3 节的 `text(sel)` 这类函数换成 `prop(引用, "@部件:状态")`（`expr_removed`）。
+> - 第 6 节 `invoke` → `obj.call`（`object` 改名 `obj`），`widget.close` / `widget.call` → `obj.close`，`find` → `obj.find`（`action_removed`）。
+> - 第 7 节对象定位器换成对象引用（`class` + `ident`），`objectKeys` → `identRules`，`object_not_found` / `object_ambiguous` 改名 `ref_not_found` / `ref_ambiguous`。
+> - `skipIf` 写 `{cond, also?, settleMs?, verify?, verifyTimeoutMs?}`；`set from` 的 `target` 是部件写法。
+>
+> 下面各节在对应的地方标了「2.0.0」，没标的照旧。
+
 ## 1. 场景文件
 
 ```json
@@ -25,10 +35,10 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 | 字段 | 说明 |
 | --- | --- |
-| `schemaVersion` | `3`。1 / 2 照读（平铺步骤就是只有主流程、没有块的 v3）；比支持的高就拒绝并提示升级 |
+| `schemaVersion` | `4`（2.0.0 起；1.9–1.11 是 `3`）。1–3 报 `schema_old`，面板「升级脚本」迁移；比支持的高就拒绝并提示升级 |
 | `params` | 参数：`{名字: {default, type?, note?}}`。`type`：`string` / `int` / `float` / `bool` / `vector` / `object` / `any`（默认按 `default` 推断）。`gt.run params` 和 `call with` 传入 |
 | `vars` | 脚本变量初值：`{名字: 值}` |
-| `objects` | 对象定位器（第 7 节）：`{名字: 定位器}` |
+| `objects` | 对象引用：`{名字: 引用}`（2.0.0 起，game-test-ref.md 第 1、6 节；1.x 是第 7 节的定位器） |
 | `guards` | 本脚本的守护（第 5 节） |
 | `setup`、`steps` | 步骤数组；`steps` 是主流程 |
 
@@ -41,8 +51,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | --- | --- |
 | `$名字` | 参数或变量（先找变量，再找参数）。整个值就是 `$名字` 时保持原类型；嵌在字符串里时按文字替换（`"第 $i 页"`） |
 | `$名字.字段`、`$名字[0]` | 结构体、Map、数组、返回值的成员 |
-| `$item` | `loop each` 当前条目：选择器里 `$item>BtnClaim`；值里 `$item.字段`（条目数据对象，同 `@item`） |
-| `{"$obj": "名字"}` | `objects` 里的对象（运行时按定位器找） |
+| `$item` | `loop each` 当前条目（2.0.0 起是条目控件这个对象）：部件写法里 `{"obj": "$item", "part": "BtnClaim"}`；值里 `$item.字段` |
+| `{"$obj": "名字"}` | `objects` 里的对象（运行时按引用找）；2.0.0 起写引用的地方直接写名字 |
 | `"=表达式"` | 以 `=` 开头的字符串是表达式（第 3 节）。要写真正以 `=` 开头的文字，写 `"\\=..."` |
 
 ## 2. 块和新动作
@@ -53,18 +63,18 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | --- | --- | --- |
 | `group` | `name`, `do`, `recorded?`（录制产生的段，面板默认折叠） | 步骤段 |
 | `if` | `cond`, `then`, `elif: [{cond, then}]`, `else` | 从上往下第一条成立的走；都不成立走 `else`（可省）。`branch: "state"` 只是面板画成「按状态分支」的提示，执行一样 |
-| `loop` | 四选一：`until`（每轮做完看，成立就出）/ `while`（每轮开始前看）/ `times`（整数或 `$var`）/ `each`（容器选择器）+ `as`（默认 `item`）或 `in`（数组或 `$var`，配 `as`）；`max`（最多几轮，0 或不写 = 不限（1.11.3 起；以前除 `times` 外必填），写正数时上限 1000000；不限时靠整块的 `timeoutMs` 或「停止」收住）、`gapMs`、`onMax`（`fail` 默认 / `continue`）、`do` | 循环变量 `$index`（从 0）。`each` 遍历容器条目，自动滚动沿用 1.7 |
+| `loop` | 四选一：`until`（每轮做完看，成立就出）/ `while`（每轮开始前看）/ `times`（整数或 `$var`）/ `each`（容器，2.0.0 起写部件写法 `{obj, part}`）+ `as`（默认 `item`）或 `in`（数组或 `$var`，配 `as`）；`max`（最多几轮，0 或不写 = 不限（1.11.3 起；以前除 `times` 外必填），写正数时上限 1000000；不限时靠整块的 `timeoutMs` 或「停止」收住）、`gapMs`、`onMax`（`fail` 默认 / `continue`）、`do` | 循环变量 `$index`（从 0）。`each` 遍历容器条目，自动滚动沿用 1.7 |
 | `call` | `script`（相对场景根，`.json` 可省）、`with`（参数） | 子脚本自己的 `guards` 在调用期间生效、和外层叠加；自己的 `vars` 独立；最多嵌套 8 层；加载时查环。返回值：子脚本 `return` 带的 `value` 存进 `saveAs` |
-| `set` | `var`、`value`（值、`$ref`、表达式）；或 `from: {target, read: "text"/"number"/"visible"/"enabled"}` | 没在 `vars` 里声明的变量第一次 `set` 时创建 |
-| `invoke` | `object`, `function`, `args`, `saveAs`, `expect`, `client` | 调函数（第 6 节） |
+| `set` | `var`、`value`（值、`$ref`、表达式）；或 `from: {target, read: "text"/"number"/"visible"/"enabled"/"exists"/"checked"/"count"/"onScreen"}`（2.0.0 起 `target` 是部件写法，按 `prop(引用, "@部件:状态")` 读） | 没在 `vars` 里声明的变量第一次 `set` 时创建 |
+| `obj.call`（2.0.0 前是 `invoke`） | `obj`, `part`, `function`, `args`, `saveAs`, `expect` | 调函数（第 6 节） |
 | `api` | `api`, `args`, `saveAs`, `expect`, `client` | 调接口库里的接口（第 8 节） |
 | `break` / `continue` | `cond?` | 出最内层循环 / 进下一轮 |
 | `return` | `cond?`, `value?` | 结束当前脚本（被 `call` 时回到调用处） |
 | `fail` | `message`（可用表达式） | 主动失败 |
-| `widget.close` | `target`（界面） | 把界面从父级移除（原阻挡界面 `close`） |
-| `widget.call` | `target`（界面）, `function`（无参） | 调界面上的无参函数（原阻挡界面 `call`） |
-| `assert` | 原有字段 + `expr` / `cond` | `cond` 是统一条件；`expr` 是表达式 |
-| `wait` | 原有字段 + `until: "cond"` + `cond` | 等到统一条件成立 |
+| `obj.close`（2.0.0 起，取代 `widget.close` / `widget.call`） | `obj`, `how`, `verify`, `verifyMs` | 关界面 / 对象，见 game-test-ref.md 5.2 |
+| `obj.find` / `obj.wait` / `obj.set`（2.0.0 起） | 见 game-test-ref.md 5.3 | |
+| `assert` | `expr` / `cond` | `cond` 是统一条件；`expr` 是表达式（2.0.0 起按控件写的判断字段删掉） |
+| `wait` | 原有字段 + `until: "cond"` + `cond` | 等到统一条件成立（2.0.0 起 `until: widget / widgetGone` 删掉） |
 
 - 块里的超时：`timeoutMs` 写在块上是整块的总时限；块里的每步各自的等待时限不变。
 - `timeoutMs` 写 0 = 不限时（1.11.3 起）：叶子步骤一直等到成立或被「停止」，块不设总时限；不写才用默认（`DefaultStepTimeoutMs` / 动作自己的默认）。
@@ -82,7 +92,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 | 函数 | 说明 |
 | --- | --- |
-| `text(sel)` `number(sel)` `visible(sel)` `enabled(sel)` `exists(sel)` `onScreen(sel)` `checked(sel)` `count(sel)` | 控件状态（同第 4.2 节的判断，`number` 按 1.x 规则从文字里取数） |
+| `prop(引用, "属性路径")` | 2.0.0 起：对象的属性或算出状态（`prop("shop", "@TxtGold:text")`、`prop($item, ":selected")`）。1.x 的 `text(sel)` `number(sel)` `visible(sel)` `enabled(sel)` `exists(sel)` `onScreen(sel)` `checked(sel)` `count(sel)` 报 `expr_removed`，按提示改成 `prop` |
 | `len(x)` `str(x)` `num(x)` `int(x)` `bool(x)` | 长度、类型转换 |
 | `round(x, n?)` `floor(x)` `ceil(x)` `abs(x)` `min(…)` `max(…)` `clamp(x, a, b)` | 数值 |
 | `contains(a, b)` `startsWith(a, b)` `endsWith(a, b)` `lower(s)` `upper(s)` `trim(s)` `replace(s, a, b)` `split(s, sep)` `join(arr, sep)` `format(fmt, …)`（`{0}` `{1}`） | 文字 |
@@ -104,16 +114,16 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 ```
 
 `all` / `any` / `not` 任意嵌套；只有一条判断时不用包。`if`、`loop until/while`、`wait until:"cond"`、守护 `when`、`skipIf`、`assert cond`、`invoke expect` 都用它。
-旧的条件对象（1.6 起的 `exists` / `visible` / `field` / `any` …）就是一条判断，不用迁移。
+旧的条件对象（1.6 起的 `exists` / `visible` / `field` / `any` …）2.0.0 起报 `cond_removed`，由面板「升级脚本」迁移成对象判断。
 
 ### 4.1 判断
 
 | 看什么 | 写法 |
 | --- | --- |
-| 界面在不在屏上 | `target`（界面选择器 `WBP_X:.`）+ `onScreen: true/false`：在视口里、整条父链可见、有尺寸。界面只按继承 `UUserWidget` 认，不按名字 |
-| 控件 | `target` + `exists` / `visible` / `enabled` / `checked` / `selected` / `text` / `textContains` / `textLike` / `textMatches`（正则）/ `image` / `count` + 比较 |
-| 文字里的数字 | `target` + `number: {eq/ne/gt/gte/lt/lte/between:[a,b]}` |
-| 控件 / 界面的字段 | `target` + `field: "@self.X" / "@lua.X" / "@item.X" / "@itemLua.X"` + 比较 |
+| 对象的属性或状态（2.0.0 起取代下面三行） | `{obj: 引用, prop: "@部件:状态" / ":onScreen" / "@self.X", op, value}`，见 game-test-ref.md 第 3、4 节 |
+| ~~界面在不在屏上~~（1.x） | `target`（界面选择器 `WBP_X:.`）+ `onScreen: true/false` → 2.0.0：`{obj, prop: ":onScreen", op: "is", value}` |
+| ~~控件~~（1.x） | `target` + `exists` / `visible` / `enabled` / `checked` / `selected` / `text` / `textContains` / `textLike` / `textMatches` / `image` / `count` → 2.0.0：`prop` 写 `@部件:exists` / `:shown` / `:text`… |
+| ~~文字里的数字、控件的字段~~（1.x） | `target` + `number` / `field` → 2.0.0：`prop` 写 `@部件:text`（数字用 `expr: "num(prop(…)) > 3"`）/ `@self.X` |
 | 代码变量 | `value: "@来源.路径"` + 比较 |
 | 脚本变量 | `value: "$var"` + 比较 |
 | 接口 | `api` + `args` + 比较（只读接口） |
@@ -127,7 +137,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 - `settleMs`（默认 300）：连续成立这么久才算成立。写在条件根上，对整棵树算。
 - `elseSettleMs`（默认 1000）：`if` 走 `else`、`loop while` 出循环、`until` 判「还不成立」时，要连续不成立这么久。
-- 反面判断（`exists:false`、`visible:false`、`onScreen:false`）只在它所在的屏已经在屏上时才算数（同 skipIf 规则）；目标所在的屏都不在时，`onScreen:false` 照常成立。
+- 反面判断（`:exists` / `:shown` / `:onScreen` 为 false）只在它所在的对象已经找到时才算数（同 skipIf 规则）；对象层的 `:exists false` 在对象找不到时就是成立（2.0.0）。
 - 读不到（对象不在、字段不存在）：这条判断不成立，报告里 `unresolved: 原因`。
 
 ### 4.3 取值来源
@@ -137,7 +147,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `@gi` / `@gs` / `@gm` / `@ps` / `@pc` / `@pawn` / `@hud` | GameInstance、GameState、GameMode（只有服务器 / 单机）、本地 PlayerState、PlayerController、Pawn、HUD |
 | `@sub.<类名>` | 子系统（GameInstance / World / LocalPlayer / Engine，按类名找，`U` 前缀可省） |
 | `@actor[tag=X]` / `@actor[class=BP_X]` / `@actor[name=大纲名]` | 世界里唯一命中的 Actor（多个时报错并列出） |
-| `@obj.<名字>` | `objects` 里的对象 |
+| `@obj.<名字>` | `objects` 里的对象（2.0.0 起按引用找） |
 | `@luaMod.<require 路径>` | Lua 模块表（`require` 过的；没加载不主动 require，读不到） |
 | `@luaG.<名字>` | Lua 全局变量 |
 | `@cvar.<名字>` | 控制台变量 |
@@ -150,7 +160,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ```json
 { "id": "g1", "name": "新手引导出现",
-  "when": { "target": "WBP_Guide:.", "onScreen": true, "settleMs": 300 },
+  "when": { "obj": { "class": "WBP_Guide" }, "prop": ":onScreen", "op": "is", "value": true, "settleMs": 300 },
   "do": [ { "action": "call", "script": "common/翻完引导" } ],
   "check": "both", "after": "retry", "max": 10, "cooldownMs": 1000,
   "unlessStepTargets": true, "onFail": "stop", "disabled": false }
@@ -159,12 +169,12 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | 字段 | 说明 |
 | --- | --- |
 | `when` | 统一条件 |
-| `do` | 步骤数组（任意步骤和块，常见 `call`、`widget.close`、`widget.call`、`console`、`invoke`） |
+| `do` | 步骤数组（任意步骤和块，常见 `call`、`obj.close`、`console`、`obj.call`） |
 | `check` | `beforeStep`（每步开始前）/ `whileWaiting`（等待中每 0.2 秒）/ `both`（默认） |
 | `after` | 处理完：`retry`（回到被打断的那一步重新开始等，默认）/ `skip`（那一步算跳过）/ `fail` |
 | `max` | 一次 run 里最多触发几次（默认 20），超过算失败；写 0 = 不限（1.11.3 起） |
 | `cooldownMs` | 两次触发的最短间隔（默认 1000） |
-| `unlessStepTargets` | 正在执行的那一步的 `target` / `toTarget` 落在这个界面里时不触发（默认 true） |
+| `unlessStepTargets` | 正在执行的那一步的 `target` / `toTarget` / `obj` 落在这个界面里时不触发（默认 true）。2.0.0 起按引用比：`when` 里对象判断的引用和步骤的引用一样时（内联的按类、命名的按名字）不触发；一边内联一边写名字时对不上 |
 | `onFail` | `do` 失败时：`stop`（整个 run 失败，默认）/ `ignore`（记一条警告继续） |
 
 - 生效范围：`_settings.json` 的 `guards`（全局）+ 场景顶层 + 每层块的 `guards` + 正在被 `call` 的子脚本的，全部叠加。顺序：块内层 → 脚本 → 全局，同层按数组顺序。
@@ -182,17 +192,19 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 | `blockers[]` | `guards[]` |
 | --- | --- |
-| `widget: "WBP_X"` | `when: {"target": "WBP_X:.", "onScreen": true}` |
+| `widget: "WBP_X"` | `when: {"obj": {"class": "WBP_X"}, "prop": ":onScreen", "op": "is", "value": true}`（2.0.0 起） |
 | `delayMs` | `when.settleMs` |
-| `action: "close"` | `do: [{"action": "widget.close", "target": "WBP_X:."}]` |
-| `action: "call"` + `function` | `do: [{"action": "widget.call", "target": "WBP_X:.", "function": "…"}]` |
+| `action: "close"` | `do: [{"action": "obj.close", "obj": {"class": "WBP_X"}, "how": [{"by": "remove"}]}]` |
+| `action: "call"` + `function` | `do: [{"action": "obj.close", "obj": {"class": "WBP_X"}, "how": [{"by": "call", "function": "…"}]}]` |
 | `action: "command"` + `command` | `do: [{"action": "console", "command": "…"}]` |
 | `name` | `name`；`id` 按 `b1`、`b2` 补 |
 | 处理同一实例只一次 | `cooldownMs` + 处理完核对 |
 
 `payload.blockers` 不再写，改成 `payload.guards`。
 
-## 6. 调函数（`invoke`）
+## 6. 调函数（`invoke`，2.0.0 起是 `obj.call`）
+
+> 2.0.0：动作名 `obj.call`，`object` 改名 `obj`（写引用，或下面的来源字符串 `@sub.X` / `@luaMod.X`）；`part` 调部件上的函数；`{"target": …}`、`{"$obj": …}` 写法去掉（直接写引用）。参数类型、返回、`expect` 照旧，UObject 参数的 `{"target": "…"}` 改成部件写法。报告仍是 `payload.invoke`。
 
 ```json
 { "action": "invoke", "object": "@sub.UQuestSubsystem", "function": "AcceptQuest",
@@ -218,7 +230,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 报告：`payload.invoke: {object, function, args, returned, ms}`（值超长截到 500 字）。
 - 实现：参数打包和 `ProcessEvent` 复用 UELink 调函数（`ue.call`）同一份代码。
 
-## 7. 对象定位器
+## 7. 对象定位器（2.0.0 起换成对象引用）
+
+> 2.0.0：`objects` 的值、`gt.vars scope=object` 的参数都是对象引用（game-test-ref.md 第 1 节：`class` + `in` + `ident` + `many` + `near`）。`key` → `ident: [{prop: "@self.路径", op: "eq", value}]`，`component` → 另起一个 `in: {obj: Actor 引用}` 的组件引用，`in: "world" / "widgets"` → 按类自动（UUserWidget 在屏上找，Actor 在世界里找）。下面是 1.x 的写法，留作迁移参考。
 
 ```json
 { "class": "BP_ShopNpc_C", "in": "world", "key": { "NpcId": 1001 }, "component": null, "near": null, "client": 0 }
@@ -327,7 +341,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | --- | --- | --- |
 | `guards` | `[]` | 全局守护 |
 | `api` | `{"cpp": ["Source/**/GameTestApi"], "lua": ["GameTestApi"]}` | 项目接口文件夹 |
-| `objectKeys` | `[]` | 对象定位的默认标识 |
+| `objectKeys` | — | 1.x：对象定位的默认标识。2.0.0 起读到报 `settings_old`，换成 `identRules` |
+| `identRules` / `closeRules` / `refDefaults` / `allowDestroy` | — | 2.0.0 起，见 game-test-ref.md 第 6 节 |
 | `allowLuaInvoke` | `true` | 步骤能调 Lua 函数 |
 | `allowLuaInCond` | `false` | 条件、表达式能调 Lua 函数 |
 | `maxCallDepth` | `8` | `call` 最多嵌套 |
@@ -343,8 +358,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `gt.debug` | `action`：`pause` / `resume` / `step`（单步：执行下一个节点后暂停；块算一个节点时用 `into: true` 进块）/ `breakpoints`（替换为 `ids`） | `state`（`running` / `paused` / `idle`）、`at`（暂停所在步骤 id 和路径）、`vars`（此刻变量，截到 4000 字） |
 | `gt.step`（变化） | `step` 可以是块（`if` / `loop` / `group` / `call`…）、可带 `vars` / `params` | 单步同原来；块：后台跑成临时 run，回 `runId` |
 | `gt.resolve`（变化） | 原有 + `conds: [{id?, cond}]`、`exprs: [{id?, expr}]`、`vars` | `conds: [{id, holds, parts: [{path, holds, actual, unresolved?}]}]`、`exprs: [{id, value?, type?, unresolved?, error?}]`。不等待、不稳住，只看这一刻 |
-| `gt.validate` | `scenario`（路径）或 `script`（整份 JSON）、`deep`（默认 true：查函数、选择器、路径，需要编辑器或游戏进程） | `ok`、`errors` / `warnings`：`[{id?, path, code, message}]`、`checked: {steps, calls, functions, selectors, exprs}`。不开游戏也能跑（选择器查 WBP 资产，运行时生成的条目只查到容器） |
-| `gt.vars` | `scope`：`widget`（`target` 或 `class`）/ `class`（`name`）/ `subsystem`（`name`，省略列全部子系统）/ `player`（`which`：`gi gs gm ps pc pawn hud`）/ `object`（定位器）/ `lua`（`module`）；`values`（游戏开着时带此刻的值）、`functions`（默认 true）、`filter`、`offset` / `limit`（默认 60，最多 200） | `owner: {class, asset?, luaModule?}`、`groups: [{src: "cpp" / "bp" / "lua", title, class?, asset?, file?, items: [{name, path, type, kind: "prop" / "fn", readOnly, sig?, args?: [{name, type, constructible, why?}], callable?, why?, note?, line?, value?, dim?}]}]`、`total`、`hasMore`、`nextOffset`、`truncated?`。组顺序固定 C++ → 蓝图 → Lua；C++ 组按声明类分小节（离它最近的在前，引擎基类 `UUserWidget` / `AActor` / `UObject` 标 `collapsed`）；`dim`：像动画、计时（Anim / Time / Tick / Hover）的。Lua 组只有游戏开着时由实例表给出（文件扫描由面板做、按同样结构合并）。`subsystem` 不写 `name` 时返回 `subsystems: [{name, path, type, kind: "obj"}]`（游戏开着时）。最多 12000 字 |
+| `gt.validate` | `scenario`（路径）或 `script`（整份 JSON）、`deep`（默认 true：查函数、引用、路径，需要编辑器或游戏进程） | `ok`、`errors` / `warnings`：`[{id?, path, code, message}]`、`checked: {steps, calls, functions, refs, paths, apis, objects}`（2.0.0 前 `refs` 叫 `selectors`）。不开游戏也能跑（引用的部件查 WBP 资产的控件树，`@self.X` 查类的反射，op 查属性类型：`part_missing` / `prop_missing` / `op_type`） |
+| `gt.vars` | `scope`：`widget`（`target` 或 `class`）/ `class`（`name`）/ `subsystem`（`name`，省略列全部子系统）/ `player`（`which`：`gi gs gm ps pc pawn hud`）/ `object`（2.0.0 起 `ref`：对象引用；写 `locator` 报错）/ `lua`（`module`）；`values`（游戏开着时带此刻的值）、`functions`（默认 true）、`filter`、`offset` / `limit`（默认 60，最多 200） | `owner: {class, asset?, luaModule?}`、`groups: [{src: "cpp" / "bp" / "lua", title, class?, asset?, file?, items: [{name, path, type, kind: "prop" / "fn", readOnly, sig?, args?: [{name, type, constructible, why?}], callable?, why?, note?, line?, value?, dim?}]}]`、`total`、`hasMore`、`nextOffset`、`truncated?`。组顺序固定 C++ → 蓝图 → Lua；C++ 组按声明类分小节（离它最近的在前，引擎基类 `UUserWidget` / `AActor` / `UObject` 标 `collapsed`）；`dim`：像动画、计时（Anim / Time / Tick / Hover）的。Lua 组只有游戏开着时由实例表给出（文件扫描由面板做、按同样结构合并）。`subsystem` 不写 `name` 时返回 `subsystems: [{name, path, type, kind: "obj"}]`（游戏开着时）。最多 12000 字 |
 | `gt.widgets` | `asset`（WBP 路径）或 `class`；`filter`、`offset` / `limit`（默认 200） | `asset`、`class`、`parent`（原生父类）、`selector`（整个屏 `WBP_X:.`）、`treeFrom?`（控件树继承自父 WBP 时是父 WBP 的路径）、`luaModule?`、`nodes: [{name, class, selector, depth, isVariable, text?, visibility?, container?: {entryClass?}, userWidget?}]`（`userWidget: true` 是嵌套的 WBP，里面的控件用 `>` 进去，再按它的类调一次）、`total`、`hasMore?`、`nextOffset?`、`truncated?`。只在编辑器进程（GameTestEditor 模块）。读资产的 WidgetTree，不用开游戏。最多 12000 字 |
 | `gt.api` | `query`、`category`、`src`（`builtin` / `cpp` / `lua`）、`readOnly`、`offset` / `limit`（默认 60） | `items: [{name, category, src, display?, sig, args, returns, readOnly, waits?, note?, file?, line?}]`、`rejected`（`src` 不是 builtin 时；不写 `src` 时有就带）、`total`、`hasMore`、`nextOffset?`、`truncated?`、`loadError?`（`_api.json` 读不了，自带接口照常列）。`_api.json` 改了（面板写 Lua 段）按修改时间自动重读 |
 | `gt.api.scan` | `dryRun` | 编辑器进程：重扫 C++ 项目接口，写 `_api.json` 的 `cpp` 段。`counts: {items, rejected}`、`path`、`changed`（内容变没变，没变不写文件）、`folders`、`rejected`（前 30 条，含原因） |
@@ -376,12 +391,14 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 `unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
 `expr_syntax`、`expr_type`、`expr_not_readonly`、`path_missing`、`unresolved`、`fn_missing`、`fn_not_callable`、`arg_missing`、`arg_type`、`arg_object`（对象参数来源不可重找）、
 `api_missing`、`api_renamed`、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
+2.0.0 新增和改名的见 game-test-ref.md 第 10 节（`selector_missing` 换成 `part_missing`，`object_not_found` / `object_ambiguous` 改名 `ref_not_found` / `ref_ambiguous`）。
 
 ## 13. 版本
 
 - GameTest 1.9.0：本文全部（GameTestEditor 模块里的 `_api.json` 扫描、`gt.widgets` 读资产也在 1.9.0）。
 - 需要 UELink ≥ 2.12.0（调函数复用 `ue.call` 的参数打包，读 Lua 模块、调 Lua 函数、看 Lua 报错用 UELink 的操作）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
+- GameTest 2.0.0：对象引用（schemaVersion 4），见 [game-test-ref.md](game-test-ref.md)。
 - GameTest 1.10.0：`gt.pick`、`gt.watch`（从游戏里抓控件、此刻的结果实时推送）；`gt.inspect` 多 `widgetClass`、`kind`、`rect`、`screen`、`screenClass`。低于 1.10.0 时面板的「从游戏里抓」提示升级，条件的此刻结果退回「现在核对」问一次。
 
 ## 14. 代码结构（扩展点）

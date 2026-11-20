@@ -12,6 +12,7 @@
 #include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSelector.h"
 #include "Observe/GameTestSelectorWriter.h"
+#include "Record/V4/GameTestRecordV4.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
@@ -391,12 +392,19 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 	}
 	if (bInSave && Steps.Num() > 0 && !bInserted)
 	{
-		// 文件里的步骤：录成段时外面包一层；返回的预览仍按录到的一步步给
-		TArray<TSharedPtr<FJsonValue>> FileSteps = StepValues;
+		// 文件里的步骤：改写成 v4（引用去重进 objects），录成段时外面包一层；返回的预览仍按录到的一步步给
+		const TSharedRef<FJsonObject> Objects = MakeShared<FJsonObject>();
+		TArray<TSharedPtr<FJsonValue>> V4Steps = StepValues;
+		const int32 TodoSteps = GameTestRecordV4::Convert(V4Steps, *Objects);
+		if (TodoSteps > 0)
+		{
+			OutResult->SetNumberField(TEXT("todo"), TodoSteps);
+		}
+		TArray<TSharedPtr<FJsonValue>> FileSteps = V4Steps;
 		if (bGroup)
 		{
 			// 录完是一个步骤段（定稿 10）：开头的 pie.start 留在段外，它是把游戏拉起来的准备，不是录到的操作
-			TArray<TSharedPtr<FJsonValue>> Inner = StepValues;
+			TArray<TSharedPtr<FJsonValue>> Inner = V4Steps;
 			TArray<TSharedPtr<FJsonValue>> Outer;
 			while (Inner.Num() > 0)
 			{
@@ -427,6 +435,10 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 		Scenario->SetArrayField(TEXT("tags"), Tags);
 		// 录下来的节奏靠 wait 步骤和 UI 动作的自动等待还原，步间不再额外停顿。
 		Scenario->SetNumberField(TEXT("stepDelayMs"), 0);
+		if (Objects->Values.Num() > 0)
+		{
+			Scenario->SetObjectField(TEXT("objects"), Objects);
+		}
 		Scenario->SetArrayField(TEXT("steps"), FileSteps);
 
 		const FString RootDir = UGameTestSettings::ResolveScenarioRootDir();

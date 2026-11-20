@@ -18,7 +18,8 @@
 #include "Integration/Live/GameTestLive.h"
 #include "Core/GameTestAction.h"
 #include "Operate/GameTestSkipIf.h"
-#include "Observe/GameTestCondition.h"
+#include "Observe/Checks/GameTestCond.h"
+#include "Integration/Ref/GameTestRpcRef.h"
 #include "Record/GameTestRecorder.h"
 #include "Shot/GameTestShot.h"
 #include "GameTestSettings.h"
@@ -662,7 +663,7 @@ namespace
 				{
 					FString Actual;
 					Item->SetBoolField(TEXT("holds"), GameTestSkipIf::Holds(*SkipIf, Step, Subsystem->GetHandles(), Actual));
-					Item->SetStringField(TEXT("say"), GameTestCondition::Describe(*SkipIf));
+					Item->SetStringField(TEXT("say"), GameTestSkipIf::Describe(*SkipIf));
 					if (!Actual.IsEmpty())
 					{
 						Item->SetStringField(TEXT("actual"), Actual);
@@ -677,13 +678,24 @@ namespace
 		return true;
 	}
 
-	/** `gt.resolve`：核对选择器（targets 列表，或 scenario 里每一步的 target / toTarget），只解析不执行。 */
+	/** `gt.resolve`：核对对象引用（refs）、目标（targets 列表，或 scenario 里每一步的 target / toTarget / widget），只解析不执行。 */
 	bool Resolve(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		UGameTestSubsystem* Subsystem = RequireSubsystem(Error);
 		if (Subsystem == nullptr)
 		{
 			return false;
+		}
+
+		// 2.0：对象引用此刻解析到谁（引用编辑器的「试一下」，协议 7.6）
+		if (GameTestRpcRef::HasRefs(Args))
+		{
+			if (!GameTestRpcRef::ResolveRefs(Args, Out, Error))
+			{
+				return false;
+			}
+			Out = Capped(Out, TEXT("resolve"), StructureMaxChars);
+			return true;
 		}
 
 		// 1.9：条件和表达式此刻的值（调试面板、条件编辑器的「试一下」）
@@ -705,6 +717,7 @@ namespace
 		}
 
 		TArray<GameTestResolve::FTarget> Targets;
+		TSharedPtr<FJsonObject> Objects;
 		const FString ScenarioPath = Str(Args, TEXT("scenario"));
 		if (!ScenarioPath.IsEmpty())
 		{
@@ -714,23 +727,35 @@ namespace
 				return false;
 			}
 			Targets = GameTestResolve::CollectTargets(Run.Steps);
+			const TSharedPtr<FJsonObject>* RunObjects = nullptr;
+			if (Run.Json.IsValid() && Run.Json->TryGetObjectField(TEXT("objects"), RunObjects) && RunObjects != nullptr)
+			{
+				Objects = *RunObjects;
+			}
 		}
-		for (const FString& Text : Strings(Args, TEXT("targets")))
+		const TArray<TSharedPtr<FJsonValue>>* TargetValues = nullptr;
+		if (Args.IsValid() && Args->TryGetArrayField(TEXT("targets"), TargetValues) && TargetValues != nullptr)
 		{
-			GameTestResolve::FTarget Target;
-			Target.Target = Text;
-			Targets.Add(MoveTemp(Target));
+			for (const TSharedPtr<FJsonValue>& Value : *TargetValues)
+			{
+				Targets.Add(GameTestResolve::FromValue(Value));
+			}
+		}
+		const TSharedPtr<FJsonObject>* ArgObjects = nullptr;
+		if (!Objects.IsValid() && Args.IsValid() && Args->TryGetObjectField(TEXT("objects"), ArgObjects) && ArgObjects != nullptr)
+		{
+			Objects = *ArgObjects;
 		}
 		if (Targets.Num() == 0)
 		{
 			Error = ScenarioPath.IsEmpty()
-				? TEXT("gt.resolve 要 targets（选择器数组）或 scenario（核对场景里每一步的 target）")
-				: TEXT("这个场景里没有写选择器的步骤（target / toTarget）");
+				? TEXT("gt.resolve 要 refs（对象引用）、targets（部件写法数组）、checks、cond / expr 或 scenario（核对场景里每一步的目标）")
+				: TEXT("这个场景里没有写目标的步骤（target / toTarget / widget）");
 			return false;
 		}
 
 		TSharedPtr<FJsonObject> Result;
-		if (!GameTestResolve::Resolve(Targets, Subsystem->GetHandles(), Result, Error))
+		if (!GameTestResolve::Resolve(Targets, Subsystem->GetHandles(), Objects.Get(), Result, Error))
 		{
 			return false;
 		}
@@ -751,10 +776,11 @@ namespace
 		if (!Scenario.IsEmpty())
 		{
 			Out->SetStringField(TEXT("scenario"), Scenario);
-			const TSharedPtr<FJsonObject> Scenarios = All->GetObjectField(TEXT("scenarios"));
+			const TSharedPtr<FJsonObject>* Scenarios = nullptr;
 			const TArray<TSharedPtr<FJsonValue>>* Runs = nullptr;
-			Out->SetArrayField(TEXT("runs"),
-				Scenarios->TryGetArrayField(Scenario, Runs) && Runs != nullptr ? *Runs : TArray<TSharedPtr<FJsonValue>>());
+			const bool bHas = All.IsValid() && All->TryGetObjectField(TEXT("scenarios"), Scenarios) && Scenarios != nullptr && Scenarios->IsValid()
+				&& (*Scenarios)->TryGetArrayField(Scenario, Runs) && Runs != nullptr;
+			Out->SetArrayField(TEXT("runs"), bHas ? *Runs : TArray<TSharedPtr<FJsonValue>>());
 			Out = Capped(Out, TEXT("history"), DefaultMaxChars);
 			return true;
 		}
@@ -879,6 +905,11 @@ void Register()
 	// 1.10.0：连着游戏编辑（抓控件、此刻的结果实时推送）
 	Add(TEXT("gt.pick"), &GameTestLive::Pick);
 	Add(TEXT("gt.watch"), &GameTestLive::Watch);
+	// 2.0.0：对象引用（控件树、高亮、属性树、给控件生成引用）
+	Add(TEXT("gt.tree"), &GameTestRpcRef::Tree);
+	Add(TEXT("gt.highlight"), &GameTestRpcRef::Highlight);
+	Add(TEXT("gt.props"), &GameTestRpcRef::Props);
+	Add(TEXT("gt.refFor"), &GameTestRpcRef::RefFor);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)
@@ -894,6 +925,7 @@ void Register()
 void Unregister()
 {
 	GameTestLive::Shutdown();
+	GameTestRpcRef::Shutdown();
 	GameTestHooks::OnJobChanged().Remove(JobHandle);
 	GameTestHooks::OnRecordChanged().Remove(RecordHandle);
 	GameTestHooks::OnFlowEvent().Remove(FlowHandle);

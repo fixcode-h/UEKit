@@ -17,13 +17,51 @@ namespace GameTestBuiltin
 	void RegisterBlockSetVar();
 	void RegisterBlockSignals();
 	//~ 判断（Observe/Checks）
+	void RegisterCheckObj();
 	void RegisterCheckExpr();
 	void RegisterCheckApi();
 	void RegisterCheckAlias();
 	void RegisterCheckActorNear();
-	void RegisterCheckOnScreen();
-	void RegisterCheckWidget();
 	void RegisterCheckValue();
+	//~ 算出状态（Observe/Ref/States）
+	void RegisterStateExists();
+	void RegisterStateOnScreen();
+	void RegisterStateShown();
+	void RegisterStateEnabled();
+	void RegisterStateText();
+	void RegisterStateTextKey();
+	void RegisterStateCount();
+	void RegisterStateIndex();
+	void RegisterStateSelected();
+	void RegisterStateChecked();
+	void RegisterStateImage();
+	void RegisterStateHovered();
+	void RegisterStateFocused();
+	void RegisterStatePos();
+	void RegisterStateSize();
+	void RegisterStateLocation();
+	void RegisterStateDistance();
+	void RegisterStateHiddenInGame();
+	void RegisterStateClass();
+	void RegisterStateControl();
+	//~ 比较（Observe/Compare）
+	void RegisterCompareEquality();
+	void RegisterCompareOrder();
+	void RegisterCompareMembership();
+	void RegisterCompareText();
+	void RegisterCompareVisibility();
+	void RegisterCompareObject();
+	void RegisterCompareNear();
+	void RegisterCompareArray();
+
+	// 关闭方式（obj.close 的 by，Operate/Close/）；pop 在 GameTestCommonUI
+	void RegisterCloseCall();
+	void RegisterCloseLua();
+	void RegisterCloseClick();
+	void RegisterCloseVisibility();
+	void RegisterCloseRemove();
+	void RegisterCloseKey();
+	void RegisterCloseDestroy();
 	//~ 取值来源与成员访问（Observe/Sources）
 	void RegisterSourcePlayer();
 	void RegisterSourceSubsystem();
@@ -35,7 +73,7 @@ namespace GameTestBuiltin
 	void RegisterMemberLua();
 	//~ 表达式函数（Core/Expr/Functions）
 	void RegisterExprBasic();
-	void RegisterExprWidget();
+	void RegisterExprProp();
 	//~ 深度检查（Core/Flow/Deep）
 	void RegisterDeepChecks();
 	//~ 接口（Api/Builtin）
@@ -70,13 +108,51 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterBlockSignals();
 
 	//~ 判断（更具体的先登记：FindFor 按登记顺序取第一个认的；value 认「只写了比较」，放最后兜底）
+	GameTestBuiltin::RegisterCheckObj();
 	GameTestBuiltin::RegisterCheckExpr();
 	GameTestBuiltin::RegisterCheckApi();
 	GameTestBuiltin::RegisterCheckAlias();
 	GameTestBuiltin::RegisterCheckActorNear();
-	GameTestBuiltin::RegisterCheckOnScreen();
-	GameTestBuiltin::RegisterCheckWidget();
 	GameTestBuiltin::RegisterCheckValue();
+
+	//~ 算出状态（顺序即 gt.props 状态组的顺序）
+	GameTestBuiltin::RegisterStateExists();
+	GameTestBuiltin::RegisterStateOnScreen();
+	GameTestBuiltin::RegisterStateShown();
+	GameTestBuiltin::RegisterStateEnabled();
+	GameTestBuiltin::RegisterStateText();
+	GameTestBuiltin::RegisterStateTextKey();
+	GameTestBuiltin::RegisterStateCount();
+	GameTestBuiltin::RegisterStateIndex();
+	GameTestBuiltin::RegisterStateSelected();
+	GameTestBuiltin::RegisterStateChecked();
+	GameTestBuiltin::RegisterStateImage();
+	GameTestBuiltin::RegisterStateHovered();
+	GameTestBuiltin::RegisterStateFocused();
+	GameTestBuiltin::RegisterStatePos();
+	GameTestBuiltin::RegisterStateSize();
+	GameTestBuiltin::RegisterStateLocation();
+	GameTestBuiltin::RegisterStateDistance();
+	GameTestBuiltin::RegisterStateHiddenInGame();
+	GameTestBuiltin::RegisterStateClass();
+	GameTestBuiltin::RegisterStateControl();
+
+	//~ 比较（顺序即协议 3.4 表格的顺序，gt.props 的 ops 按它排）
+	GameTestBuiltin::RegisterCompareEquality();
+	GameTestBuiltin::RegisterCompareOrder();
+	GameTestBuiltin::RegisterCompareMembership();
+	GameTestBuiltin::RegisterCompareText();
+	GameTestBuiltin::RegisterCompareVisibility();
+	GameTestBuiltin::RegisterCompareObject();
+	GameTestBuiltin::RegisterCompareNear();
+	GameTestBuiltin::RegisterCompareArray();
+	GameTestBuiltin::RegisterCloseCall();
+	GameTestBuiltin::RegisterCloseLua();
+	GameTestBuiltin::RegisterCloseClick();
+	GameTestBuiltin::RegisterCloseVisibility();
+	GameTestBuiltin::RegisterCloseRemove();
+	GameTestBuiltin::RegisterCloseKey();
+	GameTestBuiltin::RegisterCloseDestroy();
 
 	//~ 取值来源与成员访问
 	GameTestBuiltin::RegisterSourcePlayer();
@@ -90,7 +166,7 @@ void GameTestBuiltins::EnsureRegistered()
 
 	//~ 表达式函数
 	GameTestBuiltin::RegisterExprBasic();
-	GameTestBuiltin::RegisterExprWidget();
+	GameTestBuiltin::RegisterExprProp();
 
 	//~ 接口
 	GameTestBuiltin::RegisterApiObject();

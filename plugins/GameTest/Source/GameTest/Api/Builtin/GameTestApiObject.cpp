@@ -32,7 +32,7 @@ namespace
 		const EGameTestLocate State = GameTestObjectLocate::Locate(InLocator, InContext, OutResult);
 		if (State == EGameTestLocate::Found && InContext.StepPayload.IsValid())
 		{
-			InContext.StepPayload->SetObjectField(TEXT("object"), OutResult.ToJson(FString(), InLocator));
+			InContext.StepPayload->SetObjectField(TEXT("ref"), OutResult.ToJson(FString(), InLocator));
 		}
 		return State;
 	}
@@ -44,9 +44,9 @@ namespace
 		case EGameTestLocate::Found:
 			return InOutCall.Done(FGameTestValue::FromObject(InResult.Picked));
 		case EGameTestLocate::Ambiguous:
-			return InOutCall.Fail(TEXT("object_ambiguous"), InResult.Message);
+			return InOutCall.Fail(TEXT("ref_ambiguous"), InResult.Message);
 		case EGameTestLocate::NotFound:
-			return InOutCall.Fail(TEXT("object_not_found"), InResult.Message);
+			return InOutCall.Fail(TEXT("ref_not_found"), InResult.Message);
 		default:
 			return InOutCall.Fail(TEXT("arg_type"), InResult.Message);
 		}
@@ -91,7 +91,7 @@ namespace
 		TArray<UObject*> Objects;
 		if (!GameTestObjectLocate::FindAll(Locator, X, Objects, Error))
 		{
-			return C.Fail(TEXT("object_not_found"), Error);
+			return C.Fail(TEXT("ref_not_found"), Error);
 		}
 		if (bCountOnly)
 		{

@@ -363,7 +363,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
-		InContext.Message = FString::Printf(TEXT("点击 %s"), *Target);
+		InContext.Message = FString::Printf(TEXT("点击 %s"), *GameTestHandlers::DescribeTarget(Target));
 		// 按下后超时或被取消：执行器不再调谓词，这里把键松开，后面的步骤不会在「按住」下跑。
 		InContext.PendingCleanup = [State, Button]()
 		{
@@ -489,7 +489,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
-		InContext.Message = FString::Printf(TEXT("点击 %s"), *Target);
+		InContext.Message = FString::Printf(TEXT("点击 %s"), *GameTestHandlers::DescribeTarget(Target));
 		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, At](double)
 		{
 			if (!CheckActionable(Target, Handles, GameTestHintPick::GetHint(StepParams), At, /*bInNeedHit=*/false, State->Wait, State->Target, *Progress))
@@ -526,8 +526,14 @@ namespace GameTestPointerDetail
 			return GameTestHandlers::StepFailed;
 		}
 
+		// toTarget 和 target 一样是部件写法（v4），转成内部 target 字符串
 		FString ToTarget;
-		GameTestJson::TryGetString(Params, TEXT("toTarget"), ToTarget);
+		FString ToTargetError;
+		if (!GameTestHandlers::TargetText(Params, TEXT("toTarget"), ToTarget, ToTargetError))
+		{
+			InContext.Message = ToTargetError;
+			return GameTestHandlers::StepFailed;
+		}
 		FVector2D ToAt(0.5, 0.5);
 		if (!ReadPoint(Params, TEXT("toAt"), ToAt, InContext.Message))
 		{
@@ -584,8 +590,8 @@ namespace GameTestPointerDetail
 
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
 		InContext.Message = ToTarget.IsEmpty()
-			? FString::Printf(TEXT("从 %s 拖动 (%.2f, %.2f)"), *Target, By.X, By.Y)
-			: FString::Printf(TEXT("把 %s 拖到 %s"), *Target, *ToTarget);
+			? FString::Printf(TEXT("从 %s 拖动 (%.2f, %.2f)"), *GameTestHandlers::DescribeTarget(Target), By.X, By.Y)
+			: FString::Printf(TEXT("把 %s 拖到 %s"), *GameTestHandlers::DescribeTarget(Target), *GameTestHandlers::DescribeTarget(ToTarget));
 		// 按下后超时或被取消：执行器不再调谓词，这里把键松开，后面的步骤不会在「按住」下跑。
 		InContext.PendingCleanup = [State, Button]()
 		{
@@ -626,7 +632,7 @@ namespace GameTestPointerDetail
 					const TSharedPtr<SWidget> EndSlate = GameTestHandlers::TryResolveTarget(ToTarget, Handles, EndNode, EndError) ? SlateOf(*EndNode) : nullptr;
 					if (!EndSlate.IsValid())
 					{
-						*Progress = FString::Printf(TEXT("终点 %s 还没出现：%s"), *ToTarget, *EndError);
+						*Progress = FString::Printf(TEXT("终点 %s 还没出现：%s"), *GameTestHandlers::DescribeTarget(ToTarget), *EndError);
 						return false;
 					}
 					const FGeometry& EndGeometry = EndSlate->GetCachedGeometry();
@@ -730,7 +736,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Progress = InContext.PendingProgress;
 
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
-		InContext.Message = FString::Printf(TEXT("在 %s 上滚动 %.1f"), *Target, Delta);
+		InContext.Message = FString::Printf(TEXT("在 %s 上滚动 %.1f"), *GameTestHandlers::DescribeTarget(Target), Delta);
 		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, At, Delta](double)
 		{
 			FString Message;
@@ -791,7 +797,7 @@ namespace GameTestPointerDetail
 		const TSharedPtr<FString> Failure = InContext.PendingFailure;
 
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();
-		InContext.Message = FString::Printf(TEXT("在 %s 输入「%s」%s"), *Target, *Text, bCommit ? TEXT("并回车") : TEXT(""));
+		InContext.Message = FString::Printf(TEXT("在 %s 输入「%s」%s"), *GameTestHandlers::DescribeTarget(Target), *Text, bCommit ? TEXT("并回车") : TEXT(""));
 		InContext.PendingPredicate = [State, Target, StepParams, Handles, Payload, Progress, Failure, Text, bCommit, bAppend](double)
 		{
 			// 打字不要求点击点没被挡住：焦点直接给控件，不经过鼠标。

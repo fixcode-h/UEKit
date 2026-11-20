@@ -1,6 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/Flow/Blocks/GameTestBlockUtil.h"
+#include "Core/GameTestHandlerShared.h"
+#include "Core/Script/GameTestDiag.h"
+#include "Core/Expr/GameTestExpr.h"
+#include "Observe/Ref/GameTestRef.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Core/Script/GameTestRefs.h"
 #include "Components/ListView.h"
@@ -14,7 +18,7 @@
  * - `max` 除 `times` 外必填（防死循环），上限 1000；到了按 `onMax`（fail 默认 / continue）。
  * - 循环变量 `$index`（从 0）；`each` / `in` 的当前条目叫 `as`（默认 `item`）。名字放块局部，出了循环看不到。
  * - `each`：每轮重新收一遍容器的条目（领奖后条目可能消失、顺序会变），第 N 轮取第 N 个；条目没生成（虚拟化列表没滚到）先滚过去等它生成。
- *   `$item` 是条目的数据对象（ListView 的 Item，其他容器是条目控件），条目控件另存在 `__w_item`，选择器里 `$item>BtnClaim` 用控件。
+ *   `$item` 是条目控件（2.0.0 起，引用写法 `{"obj": "$item", "part": "BtnClaim"}`；数据对象用 `prop("$item", "@item.X")` 读）。
  */
 namespace
 {
@@ -38,7 +42,8 @@ namespace
 		TSharedPtr<FJsonObject> Cond;
 		TSharedPtr<FJsonValue> Times;
 		TSharedPtr<FJsonValue> In;
-		FString Each;
+		/** each 的容器（部件写法 {obj, part}，v4）。 */
+		TSharedPtr<FJsonValue> Each;
 		FString As = TEXT("item");
 		int32 Max = 0;
 		int32 GapMs = 0;
@@ -136,11 +141,25 @@ namespace
 			else if (Mode == TEXT("each"))
 			{
 				Data->Mode = ELoopMode::Each;
-				if (!Json.TryGetStringField(TEXT("each"), Data->Each) || Data->Each.IsEmpty())
+				Data->Each = Json.TryGetField(TEXT("each"));
+				if (!Data->Each.IsValid() || Data->Each->IsNull())
 				{
-					Sink.Error(TEXT("bad_type"), TEXT("each 要写容器的选择器（列表、滚动框、面板）"));
+					Sink.Error(TEXT("bad_type"), TEXT("each 要写容器：{\"obj\": 引用, \"part\": \"列表部件名\"}（列表、滚动框、面板）"));
 				}
-				InParser.CheckValue(Json.TryGetField(TEXT("each")), TEXT("each"));
+				else
+				{
+					FString Unused;
+					FString Error;
+					if (!GameTestHandlers::TargetText(Json, TEXT("each"), Unused, Error))
+					{
+						Sink.Error(TEXT("selector_removed"), Error);
+					}
+					else
+					{
+						FGameTestDiagSink::FScope EachScope(Sink, TEXT("each"));
+						GameTestRefCheck::Target(Data->Each, InParser.MakeExprScope(), Sink);
+					}
+				}
 			}
 			else
 			{
@@ -428,10 +447,13 @@ namespace
 			}
 			else if (InData.Mode == ELoopMode::Each)
 			{
+				// 部件写法转成内部 target 字符串：容器解析和 target 走同一条路（GameTestRefResolve）
 				FString Error;
-				if (!GameTestRefs::EvalSelector(InData.Each, InContext, InState.Container, Error))
+				const TSharedRef<FJsonObject> Holder = MakeShared<FJsonObject>();
+				Holder->SetField(TEXT("each"), InData.Each);
+				if (!GameTestHandlers::TargetText(*Holder, TEXT("each"), InState.Container, Error))
 				{
-					OutError = FString::Printf(TEXT("each 的选择器求值失败：%s"), *Error);
+					OutError = Error;
 					return false;
 				}
 			}
@@ -466,14 +488,14 @@ namespace
 					OutWait = true;
 					return true;
 				}
-				OutError = FString::Printf(TEXT("each 的容器 %s 找不到：%s"), *InState.Container, *Look.Error);
+				OutError = FString::Printf(TEXT("each 的容器 %s 找不到：%s"), **GameTestHandlers::DescribeTarget(InState.Container), *Look.Error);
 				return false;
 			}
 			InState.ContainerWaitSince = -1.0;
 			TArray<FGameTestKeyEntry> Entries;
 			if (!GameTestItemKey::CollectEntries(Container, Entries))
 			{
-				OutError = FString::Printf(TEXT("each 的 %s 不是容器（列表、滚动框、面板）"), *InState.Container);
+				OutError = FString::Printf(TEXT("each 的 %s 不是容器（列表、滚动框、面板）"), *GameTestHandlers::DescribeTarget(InState.Container));
 				return false;
 			}
 			if (InState.Iter >= Entries.Num())
@@ -499,13 +521,12 @@ namespace
 						return true;
 					}
 				}
-				OutError = FString::Printf(TEXT("%s 的第 %d 个条目滚过去 %.0f 秒还没生成控件"), *InState.Container, InState.Iter + 1, EntryWaitSeconds);
+				OutError = FString::Printf(TEXT("%s 的第 %d 个条目滚过去 %.0f 秒还没生成控件"), *GameTestHandlers::DescribeTarget(InState.Container), InState.Iter + 1, EntryWaitSeconds);
 				return false;
 			}
 			InState.EntryWaitSince = -1.0;
-			UObject* Item = Entry.Item.Get();
-			InContext.SetLocal(InData.As, FGameTestValue::FromObject(Item ? Item : EntryWidget));
-			InContext.SetLocal(TEXT("__w_") + InData.As, FGameTestValue::FromObject(EntryWidget));
+			// v4：$item 是条目控件（引用，`{"obj": "$item", "part": "BtnClaim"}`），数据对象用 prop("$item", "@item.X") 读
+			InContext.SetLocal(InData.As, FGameTestValue::FromObject(EntryWidget));
 			return true;
 		}
 	};

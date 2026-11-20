@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "GameTestEditorOps.h"
-#include "Deep/GameTestDeepSelectorCheck.h"
+#include "Deep/GameTestDeepRefCheck.h"
 #include "Api/GameTestCppApiScanner.h"
 #include "EditorAct/GameTestEditorActions.h"
 #include "EditorRec/GameTestEditorRecorder.h"
@@ -23,7 +23,7 @@ public:
 	virtual void StartupModule() override
 	{
 		GameTestEditorOps::Register();
-		GameTestDeepSelectorCheck::Register();
+		GameTestDeepRefCheck::Register();
 		GameTestEditorActions::Register();
 		// 模块在 PostEngineInit 加载，这时项目模块的类都注册完了；放到下一帧做，不拖慢编辑器启动
 		StartupTick = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
@@ -44,7 +44,7 @@ public:
 		FCoreUObjectDelegates::ReloadCompleteDelegate.Remove(ReloadHandle);
 		FGameTestEditorRecorder::Get().Shutdown();
 		GameTestEditorActions::Unregister();
-		GameTestDeepSelectorCheck::Unregister();
+		GameTestDeepRefCheck::Unregister();
 		GameTestEditorOps::Unregister();
 	}
 

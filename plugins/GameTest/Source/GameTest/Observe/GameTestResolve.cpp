@@ -3,10 +3,11 @@
 #include "Observe/GameTestResolve.h"
 
 #include "Core/GameTestHandlerShared.h"
+#include "GameTestCompat.h"
 #include "Core/GameTestJson.h"
 #include "Core/GameTestWorld.h"
-#include "Observe/GameTestSelector.h"
-#include "Observe/GameTestSnapshot.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Ref/GameTestRefAmbient.h"
 #include "Observe/GameTestWidgetNode.h"
 
 #include "Dom/JsonObject.h"
@@ -16,7 +17,7 @@
 
 namespace
 {
-	/** 找不到时候选清单的长度：够看出该怎么改，几十个选择器的结果放在一起也不超长。 */
+	/** 找不到时候选清单的长度：够看出该怎么改，几十个目标的结果放在一起也不超长。 */
 	constexpr int32 ResolveMaxErrorChars = 600;
 }
 
@@ -29,13 +30,15 @@ TArray<GameTestResolve::FTarget> GameTestResolve::CollectTargets(const TArray<TS
 		{
 			continue;
 		}
-		for (const TCHAR* Field : { TEXT("target"), TEXT("toTarget") })
+		for (const TCHAR* Field : { TEXT("target"), TEXT("toTarget"), TEXT("widget") })
 		{
-			FString Value;
-			if (GameTestJson::TryGetString(*InSteps[Index], Field, Value) && !Value.TrimStartAndEnd().IsEmpty())
+			if (!InSteps[Index]->HasField(Field))
 			{
-				FTarget Target;
-				Target.Target = Value.TrimStartAndEnd();
+				continue;
+			}
+			FTarget Target;
+			if (!GameTestHandlers::TargetText(*InSteps[Index], Field, Target.Target, Target.Error) || !Target.Target.IsEmpty())
+			{
 				Target.Step = Index;
 				Target.Field = Field;
 				Out.Add(MoveTemp(Target));
@@ -45,20 +48,46 @@ TArray<GameTestResolve::FTarget> GameTestResolve::CollectTargets(const TArray<TS
 	return Out;
 }
 
-bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FJsonObject>& OutResult, FString& OutError)
+GameTestResolve::FTarget GameTestResolve::FromValue(const TSharedPtr<FJsonValue>& InValue)
+{
+	FTarget Target;
+	const TSharedRef<FJsonObject> Holder = MakeShared<FJsonObject>();
+	Holder->SetField(TEXT("target"), InValue.IsValid() ? InValue : MakeShared<FJsonValueNull>());
+	if (GameTestHandlers::TargetText(*Holder, TEXT("target"), Target.Target, Target.Error) && Target.Target.IsEmpty())
+	{
+		Target.Error = TEXT("targets 里有空项");
+	}
+	return Target;
+}
+
+bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, const FJsonObject* InObjects, TSharedPtr<FJsonObject>& OutResult, FString& OutError)
 {
 	UWorld* World = GameTestWorld::FindGameWorld();
 	if (World == nullptr)
 	{
-		OutError = TEXT("没有正在跑的游戏世界：选择器要对着游戏里的界面核对，先开 PIE 并走到界面出现的地方再核对");
+		OutError = TEXT("没有正在跑的游戏世界：目标要对着游戏里的界面核对，先开 PIE 并走到界面出现的地方再核对");
 		return false;
 	}
 
-	// 屏只采一次（只要结构）：几十个选择器各采一遍控件树太慢，而且这一刻的界面对所有选择器都一样
-	TArray<TSharedPtr<FGameTestWidgetNode>> Screens;
-	GameTestSnapshot::CaptureScreens(World, Screens, /*bInLight=*/true);
+	// 解析用的上下文：场景的 objects 放进去，命名引用才认得；只读
+	FGameTestFlowContext Flow;
+	Flow.World = World;
+	Flow.Handles = InHandles;
+	if (InObjects != nullptr)
+	{
+		for (const auto& Pair : InObjects->Values)
+		{
+			const TSharedPtr<FJsonObject>* Def = nullptr;
+			if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Def) && Def != nullptr && Def->IsValid())
+			{
+				Flow.GetScope().ObjectDefs.Add(GAMETEST_JSON_KEY(Pair.Key), *Def);
+			}
+		}
+	}
+	FGameTestFlowContext::FReadOnlyScope ReadOnly(Flow);
+	GameTestRefAmbient::FScope Ambient(&Flow);
 
-	// 同一个选择器在场景里常出现好几次（点了又点）：只解析一次
+	// 同一个目标在场景里常出现好几次（点了又点）：只解析一次
 	TMap<FString, TSharedPtr<FJsonObject>> Cache;
 	TArray<TSharedPtr<FJsonValue>> Results;
 	int32 Found = 0;
@@ -66,16 +95,20 @@ bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TW
 	for (int32 Index = 0; Index < Count; ++Index)
 	{
 		const FTarget& Target = InTargets[Index];
-		TSharedPtr<FJsonObject> Resolved = Cache.FindRef(Target.Target);
-		if (!Resolved.IsValid())
+		TSharedPtr<FJsonObject> Resolved = Target.Error.IsEmpty() ? Cache.FindRef(Target.Target) : nullptr;
+		if (!Target.Error.IsEmpty())
+		{
+			Resolved = MakeShared<FJsonObject>();
+			Resolved->SetBoolField(TEXT("found"), false);
+			Resolved->SetStringField(TEXT("error"), Target.Error.Left(ResolveMaxErrorChars));
+		}
+		else if (!Resolved.IsValid())
 		{
 			Resolved = MakeShared<FJsonObject>();
 			TSharedPtr<FGameTestWidgetNode> Node;
 			FString Error;
-			// @句柄 走共用的解析（句柄表在子系统里）；其余对着这次采的屏解析
-			const bool bOk = Target.Target.StartsWith(TEXT("@"))
-				? GameTestHandlers::TryResolveTarget(Target.Target, InHandles, Node, Error)
-				: GameTestSelector::ResolveText(Screens, Target.Target, Node, Error);
+			// 引用和 @句柄 都走动作用的同一个解析（GameTestHandlers::TryResolveTarget）
+			const bool bOk = GameTestHandlers::TryResolveTarget(Target.Target, InHandles, Node, Error);
 			Resolved->SetBoolField(TEXT("found"), bOk && Node.IsValid());
 			if (bOk && Node.IsValid())
 			{
@@ -96,7 +129,7 @@ bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TW
 		}
 
 		const TSharedPtr<FJsonObject> Item = MakeShared<FJsonObject>(*Resolved);
-		Item->SetStringField(TEXT("target"), Target.Target);
+		Item->SetStringField(TEXT("target"), Target.Target.IsEmpty() ? FString() : GameTestHandlers::DescribeTarget(Target.Target));
 		if (Target.Step >= 0)
 		{
 			Item->SetNumberField(TEXT("step"), Target.Step);
@@ -110,7 +143,6 @@ bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TW
 
 	OutResult = MakeShared<FJsonObject>();
 	OutResult->SetStringField(TEXT("map"), World->GetOutermost()->GetName());
-	OutResult->SetNumberField(TEXT("screens"), Screens.Num());
 	OutResult->SetNumberField(TEXT("checked"), Count);
 	OutResult->SetNumberField(TEXT("found"), Found);
 	OutResult->SetNumberField(TEXT("missing"), Count - Found);
