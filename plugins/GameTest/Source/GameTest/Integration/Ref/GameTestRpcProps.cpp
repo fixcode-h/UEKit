@@ -12,6 +12,7 @@
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Ref/GameTestIdentSuggest.h"
 #include "Observe/Ref/GameTestPropKind.h"
+#include "Observe/Ref/GameTestPropList.h"
 #include "Observe/Ref/GameTestPropPath.h"
 #include "Observe/Ref/GameTestRefFor.h"
 #include "Observe/Ref/GameTestRefResolve.h"
@@ -50,6 +51,8 @@ namespace GameTestRpcPropsImpl
 		FString Class;
 		FString Part;
 		bool bUser = false;
+		/** 部件组先只给标题，面板展开时再用 part 调一次读它的属性（控件多的界面一次全列会超预算）。 */
+		bool bCollapsed = false;
 	};
 
 	int32 JsonChars(const TSharedPtr<FJsonObject>& InJson)
@@ -159,8 +162,11 @@ namespace GameTestRpcPropsImpl
 		return Result.IsString() ? Result.GetString() : FString();
 	}
 
-	/** 类自己树里的部件（不进嵌套 WBP）：嵌套的 UUserWidget 当折叠的组，面板展开时再用 part 调一次。 */
-	void AddPartGroups(UWidgetTree* InTree, const UObject* InOwner, TArray<FGroup>& OutGroups)
+	/**
+	 * 类自己树里的每个部件（不进嵌套 WBP 里面）都是折叠的组，面板展开时再用 part 调一次读它的属性和状态；
+	 * 嵌套的 UUserWidget 另标 user。InPrefix 是按部件读时外层部件的路径（`Header.`），给出的 part 从最外层对象写。
+	 */
+	void AddPartGroups(UWidgetTree* InTree, const UObject* InOwner, const FString& InPrefix, TArray<FGroup>& OutGroups)
 	{
 		if (InTree == nullptr)
 		{
@@ -170,7 +176,7 @@ namespace GameTestRpcPropsImpl
 		InTree->GetAllWidgets(Widgets);
 		for (UWidget* Widget : Widgets)
 		{
-			if (Widget == nullptr || Widget->IsA<UUserWidget>() == false)
+			if (Widget == nullptr)
 			{
 				continue;
 			}
@@ -179,12 +185,19 @@ namespace GameTestRpcPropsImpl
 			{
 				GameTestPropRead::PartPathOf(Widget, InOwner, Part);
 			}
+			Part = InPrefix + Part;
+			const FString Id = TEXT("part:") + Part;
+			if (OutGroups.ContainsByPredicate([&Id](const FGroup& G) { return G.Id == Id; }))
+			{
+				continue;
+			}
 			FGroup Group;
-			Group.Id = TEXT("part:") + Part;
+			Group.Id = Id;
 			Group.Title = Part;
 			Group.Class = Widget->GetClass()->GetName();
 			Group.Part = Part;
-			Group.bUser = true;
+			Group.bUser = Widget->IsA<UUserWidget>();
+			Group.bCollapsed = true;
 			OutGroups.Add(Group);
 		}
 	}
@@ -246,9 +259,15 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 	Offset = FMath::Max(0, Offset);
 	Limit = FMath::Clamp(Limit, 1, MaxLimit);
 
-	UObject* Item = bClassOnly ? nullptr : GameTestPropRead::ListItemOf(Object);
+	// 按部件读时路径都从外层对象写（`@部件.X`），条目数据对象只属于外层对象
+	const FString PartPrefix = bClassOnly ? FString() : Part;
+	UObject* Item = bClassOnly || !PartPrefix.IsEmpty() ? nullptr : GameTestPropRead::ListItemOf(Object);
 	TArray<FGameTestIdentProp> Props;
 	GameTestIdentSuggest::Collect(Object, Item, Flow, Props);
+	// 文字部件的 :text / :textKey 在展开那个部件时列（部件组都折叠），这里不重复
+	Props.RemoveAll([](const FGameTestIdentProp& Prop) { return Prop.Group.StartsWith(TEXT("part:")); });
+	// 控件自带的可见性、文字、颜色、勾选这些也要列出来（Collect 只要项目自己的字段，挑标识用）
+	GameTestPropList::AddReflected(Object, Flow, Props);
 
 	// 同类：引用（不带 ident）收到的候选，算每项有几种值
 	FGameTestRefForResult RefFor;
@@ -273,7 +292,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		{
 			continue;
 		}
-		const TSharedPtr<FJsonObject> Json = ItemJson(Prop.Prop, Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), !bClassOnly);
+		const TSharedPtr<FJsonObject> Json = ItemJson(GameTestPropList::Rebase(Prop.Prop, PartPrefix), Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), !bClassOnly);
 		if (Siblings.Num() > 1)
 		{
 			TSet<FString> Values;
@@ -307,13 +326,13 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 			Read.Src = TEXT("state");
 			Read.bReadOnly = true;
 		}
-		const TSharedPtr<FJsonObject> Json = ItemJson(Prop, State->GetSummary(), Read, State->IsStable() ? 3 : 0, !bClassOnly);
+		const TSharedPtr<FJsonObject> Json = ItemJson(GameTestPropList::Rebase(Prop, PartPrefix), State->GetSummary(), Read, State->IsStable() ? 3 : 0, !bClassOnly);
 		Items.Add({ TEXT("states"), Json });
 	}
 
 	// 组：self、item、各部件（WidgetTree 顺序）、嵌套界面（折叠）、states
 	TArray<FGroup> Groups;
-	Groups.Add({ TEXT("self"), TEXT("自己"), Object->GetClass()->GetName(), FString(), false });
+	Groups.Add({ TEXT("self"), PartPrefix.IsEmpty() ? FString(TEXT("自己")) : FString(TEXT("属性")), Object->GetClass()->GetName(), FString(), false });
 	if (Item != nullptr)
 	{
 		Groups.Add({ TEXT("item"), TEXT("条目的数据对象"), Item->GetClass()->GetName(), FString(), false });
@@ -323,7 +342,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		if (One.Group.StartsWith(TEXT("part:")) && !Groups.ContainsByPredicate([&One](const FGroup& G) { return G.Id == One.Group; }))
 		{
 			const FString PartName = One.Group.Mid(5);
-			Groups.Add({ One.Group, PartName, FString(), PartName, false });
+			Groups.Add({ One.Group, PartName, FString(), PartName, false, false });
 		}
 	}
 	UWidgetTree* Tree = nullptr;
@@ -339,7 +358,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 			Tree = WidgetClass->GetWidgetTreeArchetype();
 		}
 	}
-	AddPartGroups(Tree, bClassOnly ? nullptr : Object, Groups);
+	AddPartGroups(Tree, bClassOnly ? nullptr : Object, PartPrefix.IsEmpty() ? FString() : PartPrefix + TEXT("."), Groups);
 	Groups.Add({ TEXT("states"), TEXT("算出状态"), FString(), FString(), false });
 
 	// 分页 + 字数预算：按组的顺序数项
@@ -387,6 +406,9 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		if (Group.bUser)
 		{
 			One->SetBoolField(TEXT("user"), true);
+		}
+		if (Group.bCollapsed)
+		{
 			One->SetBoolField(TEXT("collapsed"), true);
 		}
 		const TArray<TSharedPtr<FJsonValue>>* Page = PageByGroup.Find(Group.Id);
@@ -416,7 +438,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		TArray<TSharedPtr<FJsonValue>> Suggest;
 		for (const FGameTestIdentItem& Ident : RefFor.Ident)
 		{
-			Suggest.Add(MakeShared<FJsonValueString>(Ident.Prop));
+			Suggest.Add(MakeShared<FJsonValueString>(GameTestPropList::Rebase(Ident.Prop, PartPrefix)));
 		}
 		OutResult->SetArrayField(TEXT("suggest"), Suggest);
 		OutResult->SetNumberField(TEXT("matches"), RefFor.Matches);
