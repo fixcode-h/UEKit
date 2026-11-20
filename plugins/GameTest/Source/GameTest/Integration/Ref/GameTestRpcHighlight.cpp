@@ -28,7 +28,7 @@ namespace GameTestRpcHighlightImpl
 	/** 比执行器的高亮层（1000）再高一层：两者同时在时描边在上面。 */
 	constexpr int32 OverlayZOrder = 1001;
 
-	struct FBox
+	struct FHighlightBox
 	{
 		TWeakObjectPtr<UWidget> Widget;
 		FString Label;
@@ -36,7 +36,7 @@ namespace GameTestRpcHighlightImpl
 
 	struct FPaint
 	{
-		TArray<FBox> Boxes;
+		TArray<FHighlightBox> Boxes;
 		FLinearColor Color = FLinearColor(FColor(0xd9, 0x77, 0x57));
 	};
 
@@ -64,7 +64,7 @@ namespace GameTestRpcHighlightImpl
 				return InLayerId;
 			}
 			const FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 9);
-			for (const FBox& Box : Paint->Boxes)
+			for (const FHighlightBox& Box : Paint->Boxes)
 			{
 				const UWidget* Widget = Box.Widget.Get();
 				if (Widget == nullptr || !Widget->GetCachedWidget().IsValid())
@@ -178,7 +178,7 @@ bool GameTestRpcRef::Highlight(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr
 		OutResult->SetBoolField(TEXT("cleared"), true);
 		return true;
 	}
-	TArray<FBox> Boxes;
+	TArray<FHighlightBox> Boxes;
 	FString NodeId;
 	if (InArgs->TryGetStringField(TEXT("node"), NodeId) && !NodeId.IsEmpty())
 	{

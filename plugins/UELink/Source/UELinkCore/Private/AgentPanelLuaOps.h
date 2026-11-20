@@ -9,6 +9,9 @@ class FAgentPanelBridge;
 /** 登记 lua.status、lua.objects、lua.get、lua.set、lua.exec；末尾顺带调下面各组的登记 */
 void AgentPanelRegisterLuaOps(FAgentPanelBridge& Bridge);
 
+/** 2.19：绑定对象列表 lua.objects（带状态、类链、归属）、lua.gc（AgentPanelLuaObjects.cpp） */
+void AgentPanelRegisterLuaObjectOps(FAgentPanelBridge& Bridge);
+
 /** 2.4：lua.check、lua.reload、lua.modules、lua.errors、lua.inspect、lua.call（AgentPanelLuaDevOps.cpp） */
 void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& Bridge);
 

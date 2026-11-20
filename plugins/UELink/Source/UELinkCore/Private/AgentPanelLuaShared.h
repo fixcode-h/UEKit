@@ -12,6 +12,8 @@
 #include "lua.hpp"
 
 class UObject;
+class UObjectBase;
+class UWorld;
 
 namespace AgentPanelLuaImpl
 {
@@ -36,6 +38,13 @@ namespace AgentPanelLuaImpl
 	UObject* LiveObject(const void* P);
 	/** 按对象（或目标世界的 GameInstance）选 Lua 环境：项目的 SetStateProvider 优先，再按 UnLua 的接口自动选 */
 	lua_State* StateFor(UObject* Context, FString& Error);
+	/** 世界还在引擎的世界列表里、没在拆（AgentPanelLuaObjects.cpp） */
+	bool IsLiveWorld(const UWorld* W);
+	/**
+	 * 现在活着的全部 UObject 的地址（AgentPanelLuaObjects.cpp）。对象表里的键可能是已经释放的地址：
+	 * 先在这张表里查到了才当成对象去读，不能直接调 GUObjectArray.IsValid（它会先读对象自己的内存）
+	 */
+	TSet<const UObjectBase*> CollectLiveObjects();
 	/** 请求里 world 指的世界的 GameInstance */
 	UObject* WorldContext(const TSharedPtr<FJsonObject>& A);
 	/** 找到的对象表在注册表里的键，按 lua_State 记住 */
@@ -77,6 +86,35 @@ namespace AgentPanelLuaImpl
 				Map = lua_gettop(L);
 			}
 			return true;
+		}
+
+		bool bRegNames = false;
+		TMap<const void*, FString> RegNames;
+
+		/**
+		 * 注册表里「字符串键 → 表」的反查（2.19）：UnLua 给 UE 类建的元表按类名放在注册表里（luaL_newmetatable），
+		 * 元表链上不是模块的那几层靠它认出是哪个 UE 类。只读注册表，不碰 UnLua 的内部结构
+		 */
+		FString RegistryNameOf(const void* P)
+		{
+			if (!bRegNames)
+			{
+				bRegNames = true;
+				FTop Guard(L);
+				lua_pushnil(L);
+				while (lua_next(L, LUA_REGISTRYINDEX))
+				{
+					if (lua_type(L, -2) == LUA_TSTRING && lua_istable(L, -1))
+					{
+						size_t N = 0;
+						const char* S = lua_tolstring(L, -2, &N);
+						RegNames.Add(lua_topointer(L, -1), FromUtf8(S, N));
+					}
+					lua_pop(L, 1);
+				}
+			}
+			const FString* Name = RegNames.Find(P);
+			return Name ? *Name : FString();
 		}
 
 		/** 表 / userdata 是哪个 UObject 的（对象表里反查） */

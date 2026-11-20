@@ -35,7 +35,7 @@ namespace ForgeKindSchema
 namespace
 {
 	/** 节点或文档上的一个扩展字段（管道不认识、由各 kind 自己解释的那些）。 */
-	struct FField
+	struct FSchemaField
 	{
 		const TCHAR* Name;
 		/** JSON Schema 的 type：string / number / boolean / array / object。 */
@@ -62,14 +62,14 @@ namespace
 		const TCHAR* ParentHint = nullptr;
 		bool bParentRequired = false;
 		/** 文档顶层的小字段（写在头段里，如 skeleton、blackboard）。 */
-		TArray<FField> DocFields;
+		TArray<FSchemaField> DocFields;
 		/**
 		 * 文档顶层的大段，按写回顺序排在 root 后面（UMG 的 animations……）。
 		 * 段的顺序就是配置写回时顶层字段的顺序，面板的段导航和 Agent 的按段读写也按它来。
 		 */
-		TArray<FField> Sections;
+		TArray<FSchemaField> Sections;
 		/** 节点（根和子节点）上的扩展字段。 */
-		TArray<FField> NodeFields;
+		TArray<FSchemaField> NodeFields;
 		/** 写配置时最容易踩的坑，一两句。 */
 		const TCHAR* Notes = nullptr;
 	};
@@ -467,7 +467,7 @@ namespace
 
 		if (InShape != nullptr)
 		{
-			for (const FField& F : InShape->NodeFields)
+			for (const FSchemaField& F : InShape->NodeFields)
 			{
 				Props->SetObjectField(F.Name, Prop(F.Type, F.Description));
 			}
@@ -497,7 +497,7 @@ TArray<FString> GetBodySections(const FString& InKind)
 	TArray<FString> Out = {TEXT("styles"), TEXT("root")};
 	if (const FShape* Shape = FindShape(InKind))
 	{
-		for (const FField& F : Shape->Sections)
+		for (const FSchemaField& F : Shape->Sections)
 		{
 			Out.Add(F.Name);
 		}
@@ -553,11 +553,11 @@ TSharedPtr<FJsonObject> Build(const FString& InKind)
 	Sections.Add(MakeShared<FJsonValueObject>(SectionInfo(TEXT("root"), TEXT("主体：根节点和整棵子树"))));
 	if (Shape != nullptr)
 	{
-		for (const FField& F : Shape->DocFields)
+		for (const FSchemaField& F : Shape->DocFields)
 		{
 			Props->SetObjectField(F.Name, Prop(F.Type, F.Description));
 		}
-		for (const FField& F : Shape->Sections)
+		for (const FSchemaField& F : Shape->Sections)
 		{
 			const bool bUmgAnimations = InKind == UmgForge::Kind && FCString::Strcmp(F.Name, TEXT("animations")) == 0;
 			const TSharedRef<FJsonObject> Body = bUmgAnimations ? UmgAnimationsSchema(F.Description) : Prop(F.Type, F.Description);
