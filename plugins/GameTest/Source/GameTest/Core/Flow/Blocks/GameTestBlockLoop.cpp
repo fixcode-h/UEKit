@@ -488,7 +488,7 @@ namespace
 					OutWait = true;
 					return true;
 				}
-				OutError = FString::Printf(TEXT("each 的容器 %s 找不到：%s"), **GameTestHandlers::DescribeTarget(InState.Container), *Look.Error);
+				OutError = FString::Printf(TEXT("each 的容器 %s 找不到：%s"), *GameTestHandlers::DescribeTarget(InState.Container), *Look.Error);
 				return false;
 			}
 			InState.ContainerWaitSince = -1.0;
