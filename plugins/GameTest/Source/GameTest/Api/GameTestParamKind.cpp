@@ -13,7 +13,7 @@
 namespace
 {
 	/** 结构体嵌套多深还往下查：项目结构体互相包含时不至于无限递归。 */
-	constexpr int32 MaxStructDepth = 6;
+	constexpr int32 ParamMaxStructDepth = 6;
 
 	EGameTestParamKind ClassifyAt(const FProperty* InProp, int32 InDepth, FString& OutWhy)
 	{
@@ -77,7 +77,7 @@ namespace
 				OutWhy = FString::Printf(TEXT("%s 的结构体类型丢了"), *InProp->GetName());
 				return EGameTestParamKind::Unsupported;
 			}
-			if (InDepth >= MaxStructDepth)
+			if (InDepth >= ParamMaxStructDepth)
 			{
 				OutWhy = FString::Printf(TEXT("%s 嵌套太深"), *Struct->Struct->GetName());
 				return EGameTestParamKind::Unsupported;

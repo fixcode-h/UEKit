@@ -17,7 +17,7 @@ namespace
 	/** 返回预算（协议：默认约 4000 字，列表类最多 12000）：接口说明长，超了截断给 nextOffset。 */
 	constexpr int32 ApiMaxChars = 12000;
 
-	bool Matches(const FGameTestApiDesc& InDesc, const FString& InQuery, const FString& InCategory, const FString& InSrc, int32 InReadOnly)
+	bool ApiMatches(const FGameTestApiDesc& InDesc, const FString& InQuery, const FString& InCategory, const FString& InSrc, int32 InReadOnly)
 	{
 		if (!InSrc.IsEmpty() && InDesc.Src != InSrc)
 		{
@@ -58,7 +58,7 @@ namespace GameTestRpcScript
 		TArray<const FGameTestApiDesc*> Found;
 		for (const TSharedRef<IGameTestApi>& Api : GameTestApis::Get().GetAll())
 		{
-			if (Matches(Api->GetDesc(), Query, Category, Src, ReadOnly))
+			if (ApiMatches(Api->GetDesc(), Query, Category, Src, ReadOnly))
 			{
 				Found.Add(&Api->GetDesc());
 			}

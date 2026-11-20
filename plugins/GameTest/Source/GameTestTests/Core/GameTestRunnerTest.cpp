@@ -67,7 +67,7 @@ namespace
 	}
 
 	/** 报告里每一步的"序号=状态"，断言失败时能一眼看出实际跑成了什么。 */
-	FString DescribeReport(const FGameTestReport& InReport)
+	FString RunnerDescribeReport(const FGameTestReport& InReport)
 	{
 		TArray<FString> Parts;
 		for (const FGameTestStepRecord& Record : InReport.Steps)
@@ -177,8 +177,8 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Tick(0.0);
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, DescribeReport(Report)));
-		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Succeeded) == 3, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, RunnerDescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Succeeded) == 3, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(Report.bSucceeded, TEXT("三步全成功时报告应为成功")));
 		ASSERT_THAT(IsTrue(FinishCount == 1, TEXT("收尾回调应恰好触发一次")));
 		ASSERT_THAT(IsFalse(Runner.IsBusy(), TEXT("同帧就该收尾，不留忙碌状态")));
@@ -212,8 +212,8 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 
 		Runner.Tick(2.0);
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, DescribeReport(Report)));
-		ASSERT_THAT(IsTrue(Report.bSucceeded, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, RunnerDescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.bSucceeded, RunnerDescribeReport(Report)));
 	}
 
 	/**
@@ -233,14 +233,14 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Tick(0.0);
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, RunnerDescribeReport(Report)));
 
 		bool bFound = false;
-		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Succeeded, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Succeeded, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(bFound, TEXT("第 1 步要在报告里")));
-		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Failed, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Failed, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(StatusOf(Report, 2, bFound) == EGameTestStepStatus::Skipped,
-			FString::Printf(TEXT("未执行的步骤要标 skipped；%s"), *DescribeReport(Report))));
+			FString::Printf(TEXT("未执行的步骤要标 skipped；%s"), *RunnerDescribeReport(Report))));
 
 		ASSERT_THAT(IsFalse(Report.bSucceeded, TEXT("有失败步骤时报告不该算成功")));
 		ASSERT_THAT(IsFalse(Runner.IsBusy(), TEXT("失败即停应同帧收尾")));
@@ -260,12 +260,12 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Tick(0.0);
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, DescribeReport(Report)));
-		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Succeeded) == 2, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3, RunnerDescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Succeeded) == 2, RunnerDescribeReport(Report)));
 
 		bool bFound = false;
 		ASSERT_THAT(IsTrue(StatusOf(Report, 2, bFound) == EGameTestStepStatus::Succeeded,
-			FString::Printf(TEXT("continue 时最后一步该跑完；%s"), *DescribeReport(Report))));
+			FString::Printf(TEXT("continue 时最后一步该跑完；%s"), *RunnerDescribeReport(Report))));
 		ASSERT_THAT(IsFalse(Report.bSucceeded, TEXT("整次 run 有失败就不算成功")));
 	}
 
@@ -289,10 +289,10 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Tick(1.0);
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 1, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 1, RunnerDescribeReport(Report)));
 
 		bool bFound = false;
-		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Failed, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Failed, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(MessageOf(Report, 0).Contains(TEXT("超时")),
 			FString::Printf(TEXT("超时消息要说清是超时；实际：%s"), *MessageOf(Report, 0))));
 		ASSERT_THAT(IsFalse(Runner.IsBusy(), TEXT("超时后应收尾")));
@@ -317,7 +317,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Tick(0.0);
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Calls == 1, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Calls == 1, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(Report.Steps[1].Payload.IsValid() && Report.Steps[1].Payload->HasField(TEXT("evidence")),
 			TEXT("回调写进 Payload 的证据路径要进报告")));
 	}
@@ -337,13 +337,13 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 		Runner.Cancel(TEXT("测试取消"));
 
 		const FGameTestReport& Report = Runner.GetReport();
-		ASSERT_THAT(IsTrue(Report.Steps.Num() == 2, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.Steps.Num() == 2, RunnerDescribeReport(Report)));
 
 		bool bFound = false;
-		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Failed, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Failed, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(MessageOf(Report, 0).Contains(TEXT("取消")),
 			FString::Printf(TEXT("被取消的那步要说明原因；实际：%s"), *MessageOf(Report, 0))));
-		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Skipped, DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Skipped, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsFalse(Runner.IsBusy(), TEXT("取消后应立刻收尾")));
 	}
 
@@ -372,17 +372,17 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 
 		const FGameTestReport& Report = Runner.GetReport();
 		ASSERT_THAT(IsTrue(Report.Steps.Num() == 3,
-			FString::Printf(TEXT("报告步数要等于场景步数；%s"), *DescribeReport(Report))));
+			FString::Printf(TEXT("报告步数要等于场景步数；%s"), *RunnerDescribeReport(Report))));
 		ASSERT_THAT(IsTrue(CountByIndex(Report, 0) == 1,
-			FString::Printf(TEXT("第 1 步不该被记录两次；%s"), *DescribeReport(Report))));
+			FString::Printf(TEXT("第 1 步不该被记录两次；%s"), *RunnerDescribeReport(Report))));
 		ASSERT_THAT(IsTrue(CountByIndex(Report, 1) == 1,
-			FString::Printf(TEXT("第 2 步不该消失；%s"), *DescribeReport(Report))));
+			FString::Printf(TEXT("第 2 步不该消失；%s"), *RunnerDescribeReport(Report))));
 
 		bool bFound = false;
 		ASSERT_THAT(IsTrue(StatusOf(Report, 0, bFound) == EGameTestStepStatus::Succeeded,
-			FString::Printf(TEXT("已完成的那步不该被取消改写；%s"), *DescribeReport(Report))));
-		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Skipped, DescribeReport(Report)));
-		ASSERT_THAT(IsTrue(StatusOf(Report, 2, bFound) == EGameTestStepStatus::Skipped, DescribeReport(Report)));
+			FString::Printf(TEXT("已完成的那步不该被取消改写；%s"), *RunnerDescribeReport(Report))));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 1, bFound) == EGameTestStepStatus::Skipped, RunnerDescribeReport(Report)));
+		ASSERT_THAT(IsTrue(StatusOf(Report, 2, bFound) == EGameTestStepStatus::Skipped, RunnerDescribeReport(Report)));
 	}
 
 	/** 还没 Tick 就取消：全部步骤如实标 skipped（不能凭空多出一条空步骤记录）。 */
@@ -399,8 +399,8 @@ TEST_CLASS_WITH_FLAGS(GameTestRunnerTest, "GameTest.Runner",
 
 		const FGameTestReport& Report = Runner.GetReport();
 		ASSERT_THAT(IsTrue(Report.Steps.Num() == 2,
-			FString::Printf(TEXT("两条都该如实记 skipped；%s"), *DescribeReport(Report))));
-		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Skipped) == 2, DescribeReport(Report)));
+			FString::Printf(TEXT("两条都该如实记 skipped；%s"), *RunnerDescribeReport(Report))));
+		ASSERT_THAT(IsTrue(Report.CountByStatus(EGameTestStepStatus::Skipped) == 2, RunnerDescribeReport(Report)));
 		ASSERT_THAT(IsTrue(MessageOf(Report, 0).IsEmpty() == false, TEXT("跳过原因要写出来")));
 	}
 

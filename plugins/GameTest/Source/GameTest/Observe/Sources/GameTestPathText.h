@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Observe/Sources/GameTestValueSource.h"
 
+class FGameTestFlowContext;
+
 /**
  * 纯路径文字 → 段：`Data.Items[0]["key"].GetCount()`。
  *
@@ -23,7 +25,7 @@ namespace GameTestPathText
 	GAMETEST_API bool ParseSource(const FString& InText, FName& OutSource, FString& OutSelector, TArray<FGameTestPathSegment>& OutSegments, FString& OutError);
 
 	/** 整条 `@来源…` 文字直接取值（解析 + GameTestPath::ResolveSource）。解析不了时 Unresolved（expr_syntax）。 */
-	GAMETEST_API FGameTestValue ResolveSourceText(const FString& InText, class FGameTestFlowContext& InContext);
+	GAMETEST_API FGameTestValue ResolveSourceText(const FString& InText, FGameTestFlowContext& InContext);
 
 	/** 段 → 文字（Parse 的反过程，报告和 gt.vars 的 path 用）。 */
 	GAMETEST_API FString Join(TArrayView<const FGameTestPathSegment> InSegments);

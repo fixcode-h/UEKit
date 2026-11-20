@@ -138,7 +138,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		const TSharedPtr<FJsonObject> First = (*Ident)[0].IsValid() ? (*Ident)[0]->AsObject() : nullptr;
 		ASSERT_THAT(IsTrue(First.IsValid()));
 		ASSERT_THAT(AreEqual(FString(TEXT("@item.Data.ItemId")), First->GetStringField(TEXT("prop"))));
-		ASSERT_THAT(AreEqual(1001.0, First->GetNumberField(TEXT("value"))));
+		ASSERT_THAT(IsTrue(FMath::IsNearlyEqual(First->GetNumberField(TEXT("value")), 1001.0)));
 
 		// 按第几个认的：many first + todo
 		FString IndexTodo;
@@ -155,10 +155,10 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		Steps.Add(MakeShared<FJsonValueObject>(Parse(TEXT(R"({"action":"click","target":"WBP_Shop:Root/BtnBuy","skipIf":{"target":"WBP_Shop:Root/ChkAuto","checked":true,"also":1}})"))));
 		FJsonObject Objects;
 		ASSERT_THAT(AreEqual(0, GameTestRecordV4::Convert(Steps, Objects)));
-		const TSharedPtr<FJsonObject> Assert = Steps[0]->AsObject();
-		ASSERT_THAT(IsTrue(Assert.IsValid()));
-		ASSERT_THAT(IsFalse(Assert->HasField(TEXT("visible"))));
-		const TSharedPtr<FJsonObject> Cond = GameTestJson::TryGetObject(*Assert, TEXT("cond"));
+		const TSharedPtr<FJsonObject> AssertStep = Steps[0]->AsObject();
+		ASSERT_THAT(IsTrue(AssertStep.IsValid()));
+		ASSERT_THAT(IsFalse(AssertStep->HasField(TEXT("visible"))));
+		const TSharedPtr<FJsonObject> Cond = GameTestJson::TryGetObject(*AssertStep, TEXT("cond"));
 		ASSERT_THAT(IsTrue(Cond.IsValid()));
 		// 部件并进属性路径（判断里没有 part）
 		ASSERT_THAT(AreEqual(FString(TEXT("@TxtTitle:text")), Cond->GetStringField(TEXT("prop"))));
