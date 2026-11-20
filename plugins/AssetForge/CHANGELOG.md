@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.6.2
+
+> 这一版只改了示例场景（JSON），不涉及 C++。示例场景要配 GameTest 2.0.0 运行。
+
+### 改进
+- **示例场景升到 GameTest 新写法** — 示例界面的五份 GameTest 场景改成 `schemaVersion: 4`：列表条目按「条目类 + 所在列表 + 唯一标识」定位，判断写成对象属性 / 算出状态
+
 ## v1.6.1
 
 > 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版只改了配置根的默认位置（`AssetForgeSettings.cpp`），编译有问题请反馈。
