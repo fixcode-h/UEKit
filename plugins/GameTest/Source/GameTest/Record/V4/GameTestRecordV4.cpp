@@ -256,6 +256,22 @@ namespace GameTestRecordV4Impl
 		Out->RemoveField(TEXT("slate"));
 		FString ItemTodo;
 		ItemOfLeaf(InLeaf, *Out, ItemTodo);
+		// 判断里没有 part 字段（第 4 节）：部件并进属性路径，`:text` → `@部件:text`，`@self.X` → `@部件.X`
+		FString Part;
+		FString Prop;
+		if (Out->TryGetStringField(TEXT("part"), Part) && !Part.IsEmpty() && Out->TryGetStringField(TEXT("prop"), Prop))
+		{
+			if (Prop.StartsWith(TEXT(":")))
+			{
+				Prop = TEXT("@") + Part + Prop;
+			}
+			else if (Prop.StartsWith(TEXT("@self.")))
+			{
+				Prop = TEXT("@") + Part + Prop.Mid(5);
+			}
+			Out->SetStringField(TEXT("prop"), Prop);
+		}
+		Out->RemoveField(TEXT("part"));
 		if (!Todo.IsEmpty())
 		{
 			InOut.Todos.Add(Todo);

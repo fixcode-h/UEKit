@@ -28,7 +28,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsTrue(GameTestScenario::CollectSteps(
-			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"smoke","steps":[{"action":"ping"}]})")),
+			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"smoke","steps":[{"action":"ping"}]})")),
 			Steps, Errors), FString::Join(Errors, TEXT("；"))));
 		ASSERT_THAT(IsTrue(Steps.Num() == 1, TEXT("应收到一条步骤")));
 	}
@@ -38,7 +38,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsFalse(GameTestScenario::CollectSteps(
-			ParseScenario(TEXT(R"({"kind":"something-else","schemaVersion":1,"name":"x","steps":[{"action":"ping"}]})")),
+			ParseScenario(TEXT(R"({"kind":"something-else","schemaVersion":4,"name":"x","steps":[{"action":"ping"}]})")),
 			Steps, Errors)));
 		ASSERT_THAT(IsTrue(FString::Join(Errors, TEXT("；")).Contains(TEXT("gametest-scenario")), *FString::Join(Errors, TEXT("；"))));
 	}
@@ -69,7 +69,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsFalse(GameTestScenario::CollectSteps(
-			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"steps":[{"action":"ping"}]})")),
+			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"steps":[{"action":"ping"}]})")),
 			Steps, Errors)));
 	}
 
@@ -78,7 +78,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsFalse(GameTestScenario::CollectSteps(
-			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"x","steps":[]})")),
+			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"x","steps":[]})")),
 			Steps, Errors)));
 	}
 
@@ -87,7 +87,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsFalse(GameTestScenario::CollectSteps(
-			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"x","steps":[123]})")),
+			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"x","steps":[123]})")),
 			Steps, Errors)));
 	}
 
@@ -137,12 +137,12 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		};
 
 		WriteScenario(TEXT("pie/b-second.json"),
-			TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"b","revision":2,"tags":["slow"],"steps":[{"action":"ping"}]})"));
+			TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"b","revision":2,"tags":["slow"],"steps":[{"action":"ping"}]})"));
 		WriteScenario(TEXT("a-first.json"),
-			TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"a","steps":[{"action":"ping"},{"action":"ping"}]})"));
+			TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"a","steps":[{"action":"ping"},{"action":"ping"}]})"));
 		// 坏场景：缺 steps。它必须仍然出现在清单里，并带上原因。
 		WriteScenario(TEXT("broken.json"),
-			TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"broken"})"));
+			TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"broken"})"));
 
 		const TArray<FGameTestScenarioInfo> Found = GameTestScenario::ScanDirectory(RootDir);
 
@@ -162,27 +162,25 @@ TEST_CLASS_WITH_FLAGS(GameTestScenarioTest, "GameTest.Scenario",
 		IFileManager::Get().DeleteDirectory(*RootDir, /*RequireExists=*/false, /*Tree=*/true);
 	}
 
-	TEST_METHOD(LegacyDefaults_OldClickAndTypeUseCode)
+	TEST_METHOD(Validate_RejectsOldSchemaWithUpgradeHint)
 	{
-		const TSharedPtr<FJsonObject> Json = ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":1,"name":"x","steps":[{"action":"click","target":"A:B"},{"action":"type","target":"A:C","text":"1"},{"action":"click","target":"A:D","via":"pointer"},{"action":"ping"}]})"));
+		// v1–v3 的脚本（选择器写法）不再直接跑：报 schema_old，让面板「升级脚本」
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
-		ASSERT_THAT(IsTrue(GameTestScenario::CollectSteps(Json, Steps, Errors), FString::Join(Errors, TEXT("；"))));
-		GameTestScenario::ApplyLegacyDefaults(Json, Steps);
-		ASSERT_THAT(IsTrue(Steps[0]->GetStringField(TEXT("via")) == TEXT("code"), TEXT("旧场景的 click 走旧行为")));
-		ASSERT_THAT(IsTrue(Steps[1]->GetStringField(TEXT("via")) == TEXT("code"), TEXT("旧场景的 type 走旧行为")));
-		ASSERT_THAT(IsTrue(Steps[2]->GetStringField(TEXT("via")) == TEXT("pointer"), TEXT("写了 via 的不动")));
-		ASSERT_THAT(IsFalse(Steps[3]->HasField(TEXT("via")), TEXT("别的动作不加 via")));
+		ASSERT_THAT(IsFalse(GameTestScenario::CollectSteps(
+			ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":3,"name":"x","steps":[{"action":"click","target":"A:B"}]})")),
+			Steps, Errors)));
+		ASSERT_THAT(IsTrue(FString::Join(Errors, TEXT("；")).Contains(TEXT("schema_old")), *FString::Join(Errors, TEXT("；"))));
 	}
 
 	TEST_METHOD(LegacyDefaults_NewSchemaUntouched)
 	{
-		const TSharedPtr<FJsonObject> Json = ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":2,"name":"x","steps":[{"action":"click","target":"A:B"}]})"));
+		const TSharedPtr<FJsonObject> Json = ParseScenario(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"x","steps":[{"action":"click","target":{"obj":{"class":"A"},"part":"B"}}]})"));
 		TArray<TSharedPtr<FJsonObject>> Steps;
 		TArray<FString> Errors;
 		ASSERT_THAT(IsTrue(GameTestScenario::CollectSteps(Json, Steps, Errors), FString::Join(Errors, TEXT("；"))));
 		GameTestScenario::ApplyLegacyDefaults(Json, Steps);
-		ASSERT_THAT(IsFalse(Steps[0]->HasField(TEXT("via")), TEXT("格式 2 的 click 默认真实点击")));
+		ASSERT_THAT(IsFalse(Steps[0]->HasField(TEXT("via")), TEXT("新格式的 click 默认真实点击")));
 	}
 };
 

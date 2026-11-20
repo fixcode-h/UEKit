@@ -134,7 +134,7 @@ bool GameTestSkipIf::ValidateStep(const FJsonObject& InStepJson, FString& OutErr
 	const TSharedPtr<FJsonObject> SkipIf = GameTestJson::TryGetObject(InStepJson, TEXT("skipIf"));
 	if (!SkipIf.IsValid())
 	{
-		OutError = TEXT("要写成对象，例如 {\"checked\": true}、{\"textLike\": \"已领取\"}");
+		OutError = TEXT("要写成对象 {\"cond\": 条件, \"also\"?, \"verify\"?}");
 		return false;
 	}
 	if (!SkipIf->HasField(TEXT("cond")))

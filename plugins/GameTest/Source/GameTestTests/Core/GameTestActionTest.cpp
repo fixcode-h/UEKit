@@ -49,15 +49,56 @@ TEST_CLASS_WITH_FLAGS(GameTestActionTest, "GameTest.Action",
 		FGameTestStep Step;
 		TArray<FString> Errors;
 		const bool bParsed = GameTestActions::ParseStep(
-			ParseStepText(TEXT(R"({"action":"click","target":"WBP_MainMenu:Root/BtnStart","note":"点开始"})")),
+			ParseStepText(TEXT(R"({"action":"click","target":{"obj":{"class":"WBP_MainMenu"},"part":"BtnStart"},"note":"点开始"})")),
 			3, Step, Errors);
 		ASSERT_THAT(IsTrue(bParsed, FString::Join(Errors, TEXT("；"))));
 
 		ASSERT_THAT(IsTrue(Step.Action == TEXT("click"), *Step.Action.ToString()));
-		ASSERT_THAT(IsTrue(Step.Target == TEXT("WBP_MainMenu:Root/BtnStart"), *Step.Target));
+		// 部件写法在步骤里存成内部的 @@ref: + 紧凑 JSON（GameTestHandlers::TargetText），解析时按对象引用走
+		ASSERT_THAT(IsTrue(Step.Target.StartsWith(TEXT("@@ref:")) && Step.Target.Contains(TEXT("BtnStart")), *Step.Target));
 		ASSERT_THAT(IsTrue(Step.Note == TEXT("点开始"), *Step.Note));
 		ASSERT_THAT(IsTrue(Step.Index == 3, TEXT("步骤序号要带进记录")));
 		ASSERT_THAT(IsTrue(Step.FailMode == EGameTestFailMode::Stop, TEXT("默认失败即停")));
+	}
+
+	TEST_METHOD(ParseStep_RejectsSelectorString)
+	{
+		// v4 起字符串选择器不认（docs/game-test-ref.md 5.1）：报 selector_removed，说清楚改成什么
+		FGameTestStep Step;
+		TArray<FString> Errors;
+		ASSERT_THAT(IsFalse(GameTestActions::ParseStep(ParseStepText(TEXT(R"({"action":"click","target":"WBP_MainMenu:Root/BtnStart"})")), 0, Step, Errors)));
+		ASSERT_THAT(IsTrue(FString::Join(Errors, TEXT("；")).Contains(TEXT("selector_removed")), *FString::Join(Errors, TEXT("；"))));
+	}
+
+	TEST_METHOD(ParseStep_AcceptsNamedRefAndHandle)
+	{
+		// objects 里的名字、@句柄 都能当 target
+		FGameTestStep Step;
+		TArray<FString> Errors;
+		ASSERT_THAT(IsTrue(GameTestActions::ParseStep(ParseStepText(TEXT(R"({"action":"click","target":{"obj":"shop","part":"BtnBuy"}})")), 0, Step, Errors), FString::Join(Errors, TEXT("；"))));
+		ASSERT_THAT(IsTrue(GameTestActions::ParseStep(ParseStepText(TEXT(R"({"action":"click","target":"@btn"})")), 0, Step, Errors), FString::Join(Errors, TEXT("；"))));
+		ASSERT_THAT(IsTrue(Step.Target == TEXT("@btn"), *Step.Target));
+	}
+
+	TEST_METHOD(ParseStep_RemovedActionsSayWhatToUse)
+	{
+		// invoke / find / widget.close / widget.call 删掉：报 action_removed 并说改用哪个
+		for (const TCHAR* Old : { TEXT("invoke"), TEXT("find"), TEXT("widget.close"), TEXT("widget.call") })
+		{
+			FGameTestStep Step;
+			TArray<FString> Errors;
+			ASSERT_THAT(IsFalse(GameTestActions::ParseStep(ParseStepText(FString::Printf(TEXT("{\"action\":\"%s\"}"), Old)), 0, Step, Errors)));
+			const FString Joined = FString::Join(Errors, TEXT("；"));
+			ASSERT_THAT(IsTrue(Joined.Contains(TEXT("action_removed")) && Joined.Contains(TEXT("obj.")), *Joined));
+		}
+	}
+
+	TEST_METHOD(ParseStep_OldAssertFieldsReportCondRemoved)
+	{
+		FGameTestStep Step;
+		TArray<FString> Errors;
+		ASSERT_THAT(IsFalse(GameTestActions::ParseStep(ParseStepText(TEXT(R"({"action":"assert","target":{"obj":"shop"},"visible":true})")), 0, Step, Errors)));
+		ASSERT_THAT(IsTrue(FString::Join(Errors, TEXT("；")).Contains(TEXT("cond_removed")), *FString::Join(Errors, TEXT("；"))));
 	}
 
 	TEST_METHOD(ParseStep_RejectsMissingAction)
@@ -134,7 +175,7 @@ TEST_CLASS_WITH_FLAGS(GameTestActionTest, "GameTest.Action",
 		TArray<FString> Errors;
 		// poinX 是 pointX 的典型笔误：静默忽略它会让探测点悄悄回到默认中心，结论跟着变样。
 		ASSERT_THAT(IsFalse(GameTestActions::ParseStep(
-			ParseStepText(TEXT(R"({"action":"probe","target":"*:Root/Btn","poinX":0.8})")), 0, Step, Errors)));
+			ParseStepText(TEXT(R"({"action":"probe","target":{"obj":{"class":"WBP_A"},"part":"Btn"},"poinX":0.8})")), 0, Step, Errors)));
 		const FString Joined = FString::Join(Errors, TEXT("；"));
 		ASSERT_THAT(IsTrue(Joined.Contains(TEXT("poinX")), *Joined));
 		ASSERT_THAT(IsTrue(Joined.Contains(TEXT("pointX")), *Joined));
@@ -145,7 +186,7 @@ TEST_CLASS_WITH_FLAGS(GameTestActionTest, "GameTest.Action",
 		FGameTestStep Step;
 		TArray<FString> Errors;
 		const bool bParsed = GameTestActions::ParseStep(
-			ParseStepText(TEXT(R"({"action":"probe","target":"*:Root/TargetButton","pointX":0.8,"expect":"*:Root/Mask"})")),
+			ParseStepText(TEXT(R"({"action":"probe","target":{"obj":{"class":"WBP_A"},"part":"TargetButton"},"pointX":0.8,"expect":"*:Root/Mask"})")),
 			0, Step, Errors);
 		ASSERT_THAT(IsTrue(bParsed, FString::Join(Errors, TEXT("；"))));
 	}

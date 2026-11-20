@@ -64,21 +64,43 @@ TEST_CLASS_WITH_FLAGS(GameTestRunConfigTest, "GameTest.RunConfig",
 		ASSERT_THAT(AreEqual(4, Config.ScriptOptions.MaxCallDepth));
 	}
 
-	/** 面板、别的线程加的字段（api、objectKeys）写回时原样留着。 */
+	/** 面板、别的线程加的字段（api、panelNote）写回时原样留着。 */
 	TEST_METHOD(ToJson_KeepsUnknownFields)
 	{
 		FGameTestRunConfig Config;
 		FString Error;
-		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"api":["Scripts/GameTestApi"],"objectKeys":{"a":1}})"), Config, Error), Error));
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"api":["Scripts/GameTestApi"],"panelNote":{"a":1}})"), Config, Error), Error));
 		const TSharedPtr<FJsonObject> Json = GameTestRunConfig::ToJson(Config);
 		ASSERT_THAT(IsTrue(Json->HasField(TEXT("api"))));
-		ASSERT_THAT(IsTrue(Json->HasField(TEXT("objectKeys"))));
+		ASSERT_THAT(IsTrue(Json->HasField(TEXT("panelNote"))));
 
 		TSharedRef<FJsonObject> Incoming = MakeShared<FJsonObject>();
 		Incoming->SetNumberField(TEXT("uiWaitTimeoutMs"), 1000);
 		GameTestRunConfig::PreserveUnknown(*Incoming, *Json);
 		ASSERT_THAT(IsTrue(Incoming->HasField(TEXT("api")), TEXT("gt.config 写回不丢 api")));
 		ASSERT_THAT(AreEqual(1000, static_cast<int32>(Incoming->GetNumberField(TEXT("uiWaitTimeoutMs")))));
+	}
+
+	/** 2.0.0：identRules / closeRules / refDefaults / allowDestroy 读得进、写得回；1.x 的 itemKeys / objectKeys 报 settings_old。 */
+	TEST_METHOD(Parse_RefSettings)
+	{
+		FGameTestRunConfig Config;
+		FString Error;
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"identRules":[{"class":"WBP_BagSlot","ident":["@item.ItemId"]}],"closeRules":[{"class":"WBP_Shop","how":[{"by":"call","function":"CloseShop"}]}],"refDefaults":{"many":"first","closeVerifyMs":3000,"tol":{"float":0.01}},"allowDestroy":true})"), Config, Error), Error));
+		const TSharedPtr<FJsonObject> Json = GameTestRunConfig::ToJson(Config);
+		for (const TCHAR* Field : { TEXT("identRules"), TEXT("closeRules"), TEXT("refDefaults"), TEXT("allowDestroy") })
+		{
+			ASSERT_THAT(IsTrue(Json->HasField(Field), Field));
+		}
+		FGameTestRunConfig Again;
+		ASSERT_THAT(IsTrue(GameTestRunConfig::FromJson(*Json, Again, Error), Error));
+		ASSERT_THAT(AreEqual(FString(TEXT("first")), Again.ScriptOptions.RefMany));
+		ASSERT_THAT(AreEqual(3000, Again.ScriptOptions.CloseVerifyMs));
+		ASSERT_THAT(IsTrue(Again.ScriptOptions.bAllowDestroy));
+
+		ASSERT_THAT(IsFalse(ParseRunConfig(TEXT(R"({"itemKeys":[]})"), Config, Error)));
+		ASSERT_THAT(IsTrue(Error.Contains(TEXT("settings_old")), Error));
+		ASSERT_THAT(IsFalse(ParseRunConfig(TEXT(R"({"refDefaults":{"many":"random"}})"), Config, Error)));
 	}
 
 	TEST_METHOD(Parse_MissingWaitMeansUseSettings)
@@ -116,7 +138,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRunConfigTest, "GameTest.RunConfig",
 	{
 		FGameTestRunConfig Config;
 		FString Error;
-		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"guards":[{"id":"guide","name":"新手引导","when":{"target":"WBP_Guide:.","onScreen":true},"do":[{"action":"widget.call","target":"WBP_Guide:.","function":"Skip"}]}]})"), Config, Error), Error));
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"guards":[{"id":"guide","name":"新手引导","when":{"obj":{"class":"WBP_Guide"},"prop":":onScreen","op":"is","value":true},"do":[{"action":"obj.close","obj":{"class":"WBP_Guide"},"how":[{"by":"call","function":"Skip"}]}]}]})"), Config, Error), Error));
 		FGameTestRunConfig Again;
 		ASSERT_THAT(IsTrue(GameTestRunConfig::FromJson(*GameTestRunConfig::ToJson(Config), Again, Error), Error));
 		ASSERT_THAT(AreEqual(15000, Again.UiWaitTimeoutMs));
