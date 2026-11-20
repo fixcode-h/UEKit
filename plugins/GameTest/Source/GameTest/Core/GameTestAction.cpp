@@ -284,6 +284,8 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("guards"),
 		TEXT("expectNoErrors"),
 		TEXT("disabled"),
+		// 2.0.0：录制 / 迁移改写不准的地方（docs/game-test-ref.md 第 9 节），面板标「待定」，校验报 warning migrate_todo，运行时照跑
+		TEXT("todo"),
 	};
 	return Common;
 }

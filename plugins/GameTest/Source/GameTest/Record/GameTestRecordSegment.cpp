@@ -9,6 +9,7 @@
 
 #include "Core/GameTestJson.h"
 #include "Observe/GameTestSelectorWriter.h"
+#include "Record/V4/GameTestRecordV4.h"
 #include "GameTest.h"
 #include "GameTestSettings.h"
 #include "GameTestCompat.h"
@@ -319,7 +320,21 @@ bool FGameTestRecorder::SaveIntoScenario(const TArray<TSharedPtr<FJsonValue>>& I
 		return false;
 	}
 
-	const TSharedPtr<FJsonValue> Segment = MakeShared<FJsonValueObject>(MakeSegment(InSteps));
+	// 改写成 v4：引用并进这个场景已有的 objects（同类同名的直接复用）
+	TSharedPtr<FJsonObject> Objects;
+	const TSharedPtr<FJsonObject>* ExistingObjects = nullptr;
+	Objects = Json->TryGetObjectField(TEXT("objects"), ExistingObjects) && ExistingObjects != nullptr && ExistingObjects->IsValid() ? *ExistingObjects : MakeShared<FJsonObject>();
+	TArray<TSharedPtr<FJsonValue>> V4Steps = InSteps;
+	const int32 TodoSteps = GameTestRecordV4::Convert(V4Steps, *Objects);
+	if (TodoSteps > 0)
+	{
+		OutResult.SetNumberField(TEXT("todo"), TodoSteps);
+	}
+	if (Objects->Values.Num() > 0)
+	{
+		Json->SetObjectField(TEXT("objects"), Objects);
+	}
+	const TSharedPtr<FJsonValue> Segment = MakeShared<FJsonValueObject>(MakeSegment(V4Steps));
 	bool bPlaced = false;
 	if (!InsertAfter.IsEmpty())
 	{
