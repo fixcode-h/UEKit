@@ -4,14 +4,21 @@
 #include "Core/Flow/Blocks/GameTestBlockUtil.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Core/Script/GameTestRefs.h"
+#include "Core/Script/GameTestDiag.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Observe/Ref/GameTestRef.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 
 /**
- * `set` 变量块：`{var, value}` 或 `{var, from: {target, read}}`。
+ * `set` 变量块：`{var, value}` 或 `{var, from: {target, read}}`。2.0.0 起 `target` 是部件写法 `{obj, part}` 或引用，
+ * 读法换成算出状态，经表达式的 `prop(引用, "@部件:状态")` 读（和条件同一套）。
  * 没有 `var` 的 `set` 是 1.x 的控件赋值动作（叶子），由 Claims 区分，两种写法并存。
  */
 namespace
 {
-	/** from.read 能写的值：都是表达式里的控件函数，读法和条件里完全一样。 */
+	/** from.read 能写的值（读法 → 算出状态，number 读 :text 再取数）。 */
 	const TArray<FString>& ReadKinds()
 	{
 		static const TArray<FString> Kinds = { TEXT("text"), TEXT("number"), TEXT("visible"), TEXT("enabled"), TEXT("exists"), TEXT("checked"),
@@ -19,11 +26,22 @@ namespace
 		return Kinds;
 	}
 
+	FString StateOfRead(const FString& InRead)
+	{
+		if (InRead == TEXT("number"))
+		{
+			return TEXT("text");
+		}
+		return InRead == TEXT("visible") ? FString(TEXT("shown")) : InRead;
+	}
+
 	struct FSetData : FGameTestNodeData
 	{
 		FString Var;
 		TSharedPtr<FJsonValue> Value;
-		FString FromTarget;
+		/** 部件写法里的引用（名字 / `$变量` / 内联对象）和部件。 */
+		TSharedPtr<FJsonValue> FromObj;
+		FString FromPart;
 		FString FromRead = TEXT("text");
 		bool bFrom = false;
 	};
@@ -78,16 +96,27 @@ namespace
 				}
 				else
 				{
-					if (!(*From)->TryGetStringField(TEXT("target"), Data->FromTarget) || Data->FromTarget.IsEmpty())
+					FGameTestTarget Target;
+					const TSharedPtr<FJsonValue> TargetValue = (*From)->TryGetField(TEXT("target"));
+					FString Text;
+					if (TargetValue.IsValid() && TargetValue->TryGetString(Text) && !Text.StartsWith(TEXT("$")) && !GameTestRefForm::IsName(Text))
 					{
-						Sink.Error(TEXT("bad_type"), TEXT("from 缺少 target（控件选择器）"));
+						Sink.Error(TEXT("selector_removed"), FString::Printf(TEXT("from.target「%s」是旧的选择器写法：写 {\"obj\": 引用, \"part\": \"部件名\"}"), *Text.Left(80)));
+					}
+					else if (!FGameTestTarget::FromJson(TargetValue, Target))
+					{
+						Sink.Error(TEXT("bad_type"), TEXT("from 缺少 target（部件写法 {obj, part} 或引用）"));
+					}
+					else
+					{
+						Data->FromObj = Target.Obj;
+						Data->FromPart = Target.Part;
 					}
 					(*From)->TryGetStringField(TEXT("read"), Data->FromRead);
 					if (!ReadKinds().Contains(Data->FromRead))
 					{
 						Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("read 只能是 %s，写的是 %s"), *FString::Join(ReadKinds(), TEXT("、")), *Data->FromRead));
 					}
-					InParser.CheckValue((*From)->TryGetField(TEXT("target")), TEXT("target"));
 				}
 			}
 			// 先登记再说：同一个 set 里 value 引用自己（`"=$n + 1"`）要求之前已经有它，上面已经按旧的变量表检查过了。
@@ -106,14 +135,55 @@ namespace
 			FGameTestValue Value;
 			if (Data->bFrom)
 			{
-				const FGameTestExprFunction* Fn = GameTestExprFunctions::Get().Find(FName(*Data->FromRead));
-				if (!Fn || !Fn->Call)
+				const FGameTestExprFunction* Fn = GameTestExprFunctions::Get().Find(TEXT("prop"));
+				if (!Fn || !Fn->Call || !Data->FromObj.IsValid())
 				{
-					Out.Message = FString::Printf(TEXT("读法 %s 没有登记"), *Data->FromRead);
+					Out.Message = TEXT("set from 没解析好（场景有错，先 gt.validate）");
 					return EGameTestBlockStep::Failed;
 				}
+				// prop() 的引用参数：名字 / $变量 原样给，内联引用给 JSON 文字
+				FString RefText;
+				if (!Data->FromObj->TryGetString(RefText))
+				{
+					const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&RefText);
+					TArray<TSharedPtr<FJsonValue>> Wrap;
+					Wrap.Add(Data->FromObj);
+					FJsonSerializer::Serialize(Wrap, Writer);
+					RefText = RefText.Mid(1, RefText.Len() - 2);
+				}
+				FGameTestValue RefArg = FGameTestValue::FromString(RefText);
+				if (RefText.StartsWith(TEXT("$")))
+				{
+					RefArg = GameTestRefs::EvalJson(Data->FromObj, InContext);
+				}
+				const FString State = TEXT(":") + StateOfRead(Data->FromRead);
+				const FString Path = Data->FromPart.IsEmpty() ? State : TEXT("@") + Data->FromPart + State;
 				FGameTestFlowContext::FReadOnlyScope ReadOnly(InContext);
-				Value = Fn->Call({ FGameTestValue::FromString(Data->FromTarget) }, InContext);
+				Value = Fn->Call({ RefArg, FGameTestValue::FromString(Path) }, InContext);
+				if (Data->FromRead == TEXT("number") && !Value.IsUnresolved())
+				{
+					// 按 1.x 的 number 规则：从文字里取第一个数
+					const FString Shown = Value.ToDisplay(200);
+					FString Digits;
+					bool bStarted = false;
+					for (const TCHAR C : Shown)
+					{
+						if (FChar::IsDigit(C) || (C == TEXT('.') && bStarted) || (C == TEXT('-') && !bStarted))
+						{
+							Digits.AppendChar(C);
+							bStarted = bStarted || FChar::IsDigit(C);
+						}
+						else if (bStarted)
+						{
+							break;
+						}
+						else
+						{
+							Digits.Reset();
+						}
+					}
+					Value = bStarted ? FGameTestValue::FromNumber(FCString::Atod(*Digits)) : FGameTestValue::Unresolved(FString::Printf(TEXT("「%s」里没有数字"), *Shown));
+				}
 			}
 			else
 			{
