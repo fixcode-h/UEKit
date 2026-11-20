@@ -197,8 +197,59 @@ namespace AgentPanelLuaImpl
 			if (Name.IsEmpty() && lua_getmetatable(L, MT))
 			{
 				Name = ModuleOfTable(lua_topointer(L, -1));
+				lua_pop(L, 1);
+			}
+			// UnLua 2.x 绑定时给类建的元表不一定就是 package.loaded 里那张（实测官方 2.x 的 TPS 示例就对不上）：按里面 Lua 函数的文件推模块名
+			if (Name.IsEmpty())
+			{
+				Name = ModuleFromSource(MT);
 			}
 			return Name;
+		}
+
+		/**
+		 * 表里第一个 Lua 函数定义在哪个文件，按文件推模块名：.../Script/AI/BP_X_C.lua → AI.BP_X_C（UnLua 默认的脚本根是 Content/Script）。
+		 * 没有 Lua 函数（UE 类的元表全是 C 函数）或者路径里没有 Script 目录时返回空
+		 */
+		FString ModuleFromSource(int T)
+		{
+			FTop Guard(L);
+			const int Abs = lua_absindex(L, T);
+			FString Src;
+			lua_pushnil(L);
+			while (Src.IsEmpty() && lua_next(L, Abs))
+			{
+				if (lua_isfunction(L, -1) && !lua_iscfunction(L, -1))
+				{
+					lua_Debug Ar;
+					lua_pushvalue(L, -1);
+					if (lua_getinfo(L, ">S", &Ar) && Ar.source)
+					{
+						Src = UTF8_TO_TCHAR(Ar.source);
+					}
+				}
+				lua_pop(L, 1);
+			}
+			if (Src.IsEmpty())
+			{
+				return FString();
+			}
+			Src.RemoveFromStart(TEXT("@"));
+			Src.ReplaceInline(TEXT("\\"), TEXT("/"));
+			int32 At = Src.Find(TEXT("/Script/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			int32 Skip = 8;
+			if (At == INDEX_NONE)
+			{
+				At = Src.Find(TEXT("/Scripts/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+				Skip = 9;
+			}
+			if (At == INDEX_NONE || !Src.EndsWith(TEXT(".lua"), ESearchCase::IgnoreCase))
+			{
+				return FString();
+			}
+			FString Mod = Src.Mid(At + Skip, Src.Len() - At - Skip - 4);
+			Mod.ReplaceInline(TEXT("/"), TEXT("."));
+			return Mod;
 		}
 	};
 
