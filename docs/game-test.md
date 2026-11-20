@@ -20,7 +20,7 @@
 
 ## 场景文件
 
-放在场景根目录（默认跟着项目的文档根：项目外层同级有 `ProjectDoc/docs` 就是 `ProjectDoc/docs/GameTest`，否则是项目里的 `docs/GameTest`；项目设置 → 插件 → Game Test 里可以指定），子目录随意，录制生成的在 `recorded/`。
+放在场景根目录（默认跟着项目的文档根：用 Agent 面板算好的项目文档根（`Saved/AgentPanel/docs-root.txt`，P4 / SVN 项目是各分支共用的 `ProjectDoc/docs`）下的 `GameTest`，没有面板时项目外层同级有 `ProjectDoc/docs` 就是 `ProjectDoc/docs/GameTest`，否则是项目里的 `docs/GameTest`；项目设置 → 插件 → Game Test 里可以指定），子目录随意，录制生成的在 `recorded/`。
 
 ```json
 {

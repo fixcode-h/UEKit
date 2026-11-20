@@ -26,7 +26,8 @@ public:
 
 	/**
 	 * 场景 JSON 的根目录（相对项目根，也接受绝对路径）；录制生成的场景也存这里。
-	 * 留空自动：项目外层同级有 ProjectDoc/docs 时用 ProjectDoc/docs/GameTest（P4 / SVN 项目的文档在项目外），否则用项目里的 docs/GameTest。
+	 * 留空自动：用 Agent 面板的项目文档根下的 GameTest（面板写在 Saved/AgentPanel/docs-root.txt，P4 / SVN 项目是各分支共用的 ProjectDoc/docs）；
+	 * 没有面板时项目外层同级有 ProjectDoc/docs 就用 ProjectDoc/docs/GameTest，否则用项目里的 docs/GameTest。
 	 */
 	UPROPERTY(EditAnywhere, config, Category = "GameTest", meta = (DisplayName = "场景根目录"))
 	FString ScenarioRootDir;

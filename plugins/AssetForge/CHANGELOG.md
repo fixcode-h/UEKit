@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.6.1
+
+> 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版只改了配置根的默认位置（`AssetForgeSettings.cpp`），编译有问题请反馈。
+
+### 改进
+- **配置根跟 Agent 面板的项目文档根走** — 配置根目录留空时，用 Agent 面板算好的项目文档根下的 `AssetForge`（面板写在 `Saved/AgentPanel/docs-root.txt`）：P4 / SVN 项目各分支共用一份 `ProjectDoc/docs`，配置写一次各分支都能用；没有面板时还按原来的规则找。面板会把旧位置的配置复制过去，复制之前旧位置的配置照样能用
+
 ## v1.6.0
 
 > 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版的 C++（include、样式、关键帧简写、按段写回、schema 文件）和新加的自动化测试都没在本地编译和跑过，编译有问题请反馈。
