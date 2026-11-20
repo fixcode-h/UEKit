@@ -8,14 +8,61 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "GameTestCompat.h"
-#include "Observe/Checks/GameTestWidgetProbe.h"
+#include "Core/GameTestHandlerShared.h"
+#include "Observe/Ref/GameTestRef.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 namespace
 {
 	/** 处理完 when 还成立连续几次算处理不掉（协议第 5 节）。 */
 	constexpr int32 StuckLimit = 3;
 
-	/** when 里所有 target 的屏名（递归 all / any / not）：unlessStepTargets 拿它和这一步的目标比。 */
+	/**
+	 * 引用 → 比较用的键（2.0.0）：内联写的按类（去掉 _C、忽略大小写），`objects` 里的名字按名字，`$变量` 不比。
+	 * 守护（全局的只能内联）和步骤写法不一样时（一个内联一个写名字）对不上，守护照常触发。
+	 */
+	FString RefKey(const TSharedPtr<FJsonValue>& InRef)
+	{
+		FString Text;
+		TSharedPtr<FJsonObject> Inline;
+		switch (GameTestRefForm::Classify(InRef, Text, Inline))
+		{
+		case EGameTestRefForm::Named:
+			return TEXT("name:") + Text;
+		case EGameTestRefForm::Inline:
+		{
+			FString Class;
+			if (Inline.IsValid() && Inline->TryGetStringField(TEXT("class"), Class) && !Class.IsEmpty())
+			{
+				Class.RemoveFromEnd(TEXT("_C"));
+				return TEXT("class:") + Class.ToLower();
+			}
+			return FString();
+		}
+		default:
+			return FString();
+		}
+	}
+
+	/** 步骤的目标（内部写法 `@@ref:` + JSON）→ 引用的键；`@句柄` 没有。 */
+	FString StepTargetKey(const FString& InTarget)
+	{
+		if (!InTarget.StartsWith(GameTestHandlers::RefTargetPrefix))
+		{
+			return FString();
+		}
+		TArray<TSharedPtr<FJsonValue>> Parsed;
+		const TSharedRef<TJsonReader<TCHAR>> Reader = TJsonReaderFactory<TCHAR>::Create(TEXT("[") + InTarget.Mid(FCString::Strlen(GameTestHandlers::RefTargetPrefix)) + TEXT("]"));
+		FGameTestTarget Target;
+		if (!FJsonSerializer::Deserialize(Reader, Parsed) || Parsed.Num() != 1 || !FGameTestTarget::FromJson(Parsed[0], Target))
+		{
+			return FString();
+		}
+		return RefKey(Target.Obj);
+	}
+
+	/** when 里所有对象判断的引用键（递归 all / any / not）：unlessStepTargets 拿它和这一步的目标比。 */
 	void CollectScreens(const TSharedPtr<FJsonValue>& InValue, TArray<FString>& OutScreens)
 	{
 		if (!InValue.IsValid())
@@ -36,13 +83,12 @@ namespace
 		{
 			return;
 		}
-		FString Target;
-		if ((*Object)->TryGetStringField(TEXT("target"), Target))
+		if ((*Object)->HasField(TEXT("obj")))
 		{
-			const FString Screen = GameTestWidgetProbe::ScreenOf(Target);
-			if (!Screen.IsEmpty())
+			const FString Key = RefKey((*Object)->TryGetField(TEXT("obj")));
+			if (!Key.IsEmpty())
 			{
-				OutScreens.AddUnique(Screen);
+				OutScreens.AddUnique(Key);
 			}
 		}
 		for (const TCHAR* Key : { TEXT("all"), TEXT("any"), TEXT("not") })
@@ -51,7 +97,7 @@ namespace
 		}
 	}
 
-	/** 阻挡界面的 widget（类名或资产路径）→ 选择器的屏名。 */
+	/** 阻挡界面的 widget（类名或资产路径）→ 类名。 */
 	FString ScreenNameOfBlocker(const FString& InWidget)
 	{
 		FString Name = InWidget.TrimStartAndEnd();
@@ -213,7 +259,9 @@ namespace GameTestGuards
 				OutNotes.Add(TEXT("跳过一条没写 widget 的 blockers 项"));
 				continue;
 			}
-			const FString Target = Screen + TEXT(":.");
+			// 2.0.0：界面写成内联引用 {class}（_settings.json 里没有 objects）
+			const TSharedRef<FJsonObject> Ref = MakeShared<FJsonObject>();
+			Ref->SetStringField(TEXT("class"), Screen);
 			TSharedRef<FJsonObject> Guard = MakeShared<FJsonObject>();
 			// id 按 b1、b2 补；和已有的守护 id 撞了就往后挪。
 			FString Id;
@@ -239,8 +287,10 @@ namespace GameTestGuards
 			}
 
 			TSharedRef<FJsonObject> When = MakeShared<FJsonObject>();
-			When->SetStringField(TEXT("target"), Target);
-			When->SetBoolField(TEXT("onScreen"), true);
+			When->SetObjectField(TEXT("obj"), Ref);
+			When->SetStringField(TEXT("prop"), TEXT(":onScreen"));
+			When->SetStringField(TEXT("op"), TEXT("is"));
+			When->SetBoolField(TEXT("value"), true);
 			int32 DelayMs = 0;
 			if (Blocker.TryGetNumberField(TEXT("delayMs"), DelayMs) && DelayMs > 0)
 			{
@@ -250,20 +300,30 @@ namespace GameTestGuards
 
 			FString Action = TEXT("close");
 			Blocker.TryGetStringField(TEXT("action"), Action);
-			TSharedRef<FJsonObject> Step = MakeStep(TEXT("widget.close"), Target);
-			if (Action == TEXT("call"))
-			{
-				Step = MakeStep(TEXT("widget.call"), Target);
-				FString Function;
-				Blocker.TryGetStringField(TEXT("function"), Function);
-				Step->SetStringField(TEXT("function"), Function);
-			}
-			else if (Action == TEXT("command"))
+			// 关闭走 obj.close：close → remove（旧 widget.close 就是从父控件移除），call → 调这个函数；command 照旧是控制台命令
+			TSharedRef<FJsonObject> Step = MakeStep(TEXT("obj.close"), FString());
+			if (Action == TEXT("command"))
 			{
 				Step = MakeStep(TEXT("console"), FString());
 				FString Command;
 				Blocker.TryGetStringField(TEXT("command"), Command);
 				Step->SetStringField(TEXT("command"), Command);
+			}
+			else
+			{
+				Step->SetObjectField(TEXT("obj"), Ref);
+				const TSharedRef<FJsonObject> How = MakeShared<FJsonObject>();
+				How->SetStringField(TEXT("by"), TEXT("remove"));
+				if (Action == TEXT("call"))
+				{
+					FString Function;
+					Blocker.TryGetStringField(TEXT("function"), Function);
+					How->SetStringField(TEXT("by"), TEXT("call"));
+					How->SetStringField(TEXT("function"), Function);
+				}
+				TArray<TSharedPtr<FJsonValue>> Hows;
+				Hows.Add(MakeShared<FJsonValueObject>(How));
+				Step->SetArrayField(TEXT("how"), Hows);
 			}
 			TArray<TSharedPtr<FJsonValue>> Do;
 			Do.Add(MakeShared<FJsonValueObject>(Step));
@@ -295,7 +355,7 @@ const FGameTestGuardDef* FGameTestGuardMonitor::Poll(const TArray<TSharedRef<FGa
 	TArray<FString> StepScreens;
 	for (const FString& Target : InStepTargets)
 	{
-		const FString Screen = GameTestWidgetProbe::ScreenOf(Target);
+		const FString Screen = StepTargetKey(Target);
 		if (!Screen.IsEmpty())
 		{
 			StepScreens.AddUnique(Screen);
