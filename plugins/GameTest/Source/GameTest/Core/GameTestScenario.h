@@ -74,9 +74,10 @@ public:
 	/**
 	 * 当前支持的场景格式版本；场景里写更高的版本会被明确拒绝。
 	 * 2：click / type 默认走真实输入（指针、按键），旧的按控件类的代码级操作要写 `via: "code"`。
-	 * 3：脚本（块、变量、表达式、守护、call），见 docs/game-test-script.md；平铺步骤的 1 / 2 版照读。
+	 * 3：脚本（块、变量、表达式、守护、call），见 docs/game-test-script.md。
+	 * 4（2.0.0）：对象引用（类 + 唯一标识组），见 docs/game-test-ref.md。只认 4：1–3 报 schema_old，面板「升级脚本」迁移。
 	 */
-	static constexpr int32 SupportedSchemaVersion = 3;
+	static constexpr int32 SupportedSchemaVersion = 4;
 
 	/**
 	 * 旧版本场景的兼容：schemaVersion 1 的 click / type 当时是代码级操作，没写 via 的补上 `via: "code"`，

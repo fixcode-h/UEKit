@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Api/Builtin/GameTestApiArgs.h"
+#include "Core/GameTestHandlerShared.h"
 
 #include "Api/GameTestApi.h"
 #include "Components/ActorComponent.h"
@@ -22,14 +23,36 @@ namespace
 	const TCHAR* ObjectForms = TEXT("对象参数写 @来源（@pawn、@sub.类名）、{\"$obj\": 名字}、$变量 或 {\"target\": 选择器}");
 
 	/** `{"target": sel}` 里的选择器；不是这种写法返回 false。 */
+	/**
+	 * 控件参数（2.0.0 起）：部件写法 `{obj, part?, slate?}`、`{"target": 部件写法}`、objects 里的名字 → 内部 target 字符串（`@@ref:…`）。
+	 * 旧的选择器字符串不认（selector_removed）。不是这几种写法返回 false。
+	 */
 	bool TryTarget(const FGameTestValue& InArg, FString& OutSelector)
 	{
-		FGameTestValue Target;
-		if (InArg.Type != EGameTestValueType::Map || !InArg.TryGetField(TEXT("target"), Target))
+		FGameTestValue Target = InArg;
+		if (InArg.Type == EGameTestValueType::Map)
+		{
+			FGameTestValue Inner;
+			if (InArg.TryGetField(TEXT("target"), Inner))
+			{
+				Target = Inner;
+			}
+			else if (!InArg.TryGetField(TEXT("obj"), Inner) && !InArg.TryGetField(TEXT("class"), Inner))
+			{
+				return false;
+			}
+		}
+		else if (!InArg.IsString())
 		{
 			return false;
 		}
-		OutSelector = GameTestApiArgs::Text(Target);
+		const TSharedRef<FJsonObject> Holder = MakeShared<FJsonObject>();
+		Holder->SetField(TEXT("target"), Target.ToJson());
+		FString Error;
+		if (!GameTestHandlers::TargetText(*Holder, TEXT("target"), OutSelector, Error))
+		{
+			OutSelector = TEXT("!") + Error;
+		}
 		return true;
 	}
 
@@ -49,8 +72,13 @@ namespace GameTestApiArgs
 	UObject* Object(const FGameTestValue& InArg, FGameTestFlowContext& InContext, FString& OutError)
 	{
 		FString Selector;
-		if (TryTarget(InArg, Selector))
+		if (InArg.Type == EGameTestValueType::Map && TryTarget(InArg, Selector))
 		{
+			if (Selector.StartsWith(TEXT("!")))
+			{
+				OutError = Selector.Mid(1);
+				return nullptr;
+			}
 			const FGameTestWidgetLook Look = GameTestWidgetProbe::Look(Selector, InContext);
 			UWidget* Widget = Look.bResolved && Look.Node.IsValid() ? Look.Node->Widget.Get() : nullptr;
 			if (Widget == nullptr)
@@ -148,6 +176,7 @@ namespace GameTestApiArgs
 		if (InArg.IsString())
 		{
 			OutLocator.Class = InArg.GetString();
+			OutLocator.Ref.Class = OutLocator.Class;
 			if (OutLocator.Class.IsEmpty())
 			{
 				OutError = TEXT("定位器的类名是空的");
@@ -157,7 +186,7 @@ namespace GameTestApiArgs
 		}
 		if (InArg.Type != EGameTestValueType::Map)
 		{
-			OutError = FString::Printf(TEXT("定位器写类名或 {class, in?, key?, component?, near?}，收到 %s"), *InArg.TypeName());
+			OutError = FString::Printf(TEXT("对象引用写类名或 {class, in?, ident?, many?, near?}，收到 %s"), *InArg.TypeName());
 			return false;
 		}
 		const TSharedPtr<FJsonValue> Json = InArg.ToJson();
@@ -222,14 +251,21 @@ namespace GameTestApiArgs
 	FGameTestWidgetLook Widget(const FGameTestValue& InArg, FGameTestFlowContext& InContext)
 	{
 		FString Selector;
-		if (!TryTarget(InArg, Selector))
+		if (InArg.Type == EGameTestValueType::Object)
 		{
-			Selector = Text(InArg);
+			// `$var` 里存的控件（obj.find、loop 的 $item）：借句柄交给控件解析
+			UWidget* Widget = Cast<UWidget>(InArg.GetObject());
+			if (Widget != nullptr && InContext.Handles != nullptr)
+			{
+				InContext.Handles->Add(TEXT("__api"), Widget);
+				return GameTestWidgetProbe::Look(TEXT("@__api"), InContext);
+			}
 		}
-		if (Selector.IsEmpty())
+		if (!TryTarget(InArg, Selector) || Selector.IsEmpty() || Selector.StartsWith(TEXT("!")))
 		{
 			FGameTestWidgetLook Empty;
-			Empty.Error = TEXT("控件参数要写选择器（WBP_Shop:Root/BtnBuy）或 {\"target\": 选择器}");
+			Empty.Error = Selector.StartsWith(TEXT("!")) ? Selector.Mid(1)
+				: FString(TEXT("控件参数要写部件写法 {\"obj\": 引用, \"part\": \"部件名\"}、objects 里的名字或 \"$变量\"（2.0.0 起不认选择器字符串）"));
 			return Empty;
 		}
 		return GameTestWidgetProbe::Look(Selector, InContext);

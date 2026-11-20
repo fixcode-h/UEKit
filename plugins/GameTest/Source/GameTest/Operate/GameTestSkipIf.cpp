@@ -5,10 +5,13 @@
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestJson.h"
 #include "GameTestCompat.h"
-#include "Observe/GameTestCondition.h"
-#include "Observe/GameTestHintPick.h"
+#include "Core/Expr/GameTestExpr.h"
+#include "Core/GameTestWorld.h"
+#include "Core/Script/GameTestDiag.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Checks/GameTestCond.h"
 #include "Observe/GameTestWidgetNode.h"
-#include "Operate/GameTestAutoScroll.h"
+#include "Observe/Ref/GameTestRefAmbient.h"
 
 #include "Components/Widget.h"
 #include "Dom/JsonObject.h"
@@ -17,131 +20,73 @@
 
 namespace GameTestSkipIfDetail
 {
-	/** skipIf 里条件之外的字段。 */
+	/** skipIf 里 cond 之外的字段（v4：条件只写在 cond 里）。 */
 	const TArray<FString>& ConfigKeys()
 	{
-		static const TArray<FString> Keys = { TEXT("target"), TEXT("also"), TEXT("settleMs"), TEXT("verify"), TEXT("verifyTimeoutMs"), TEXT("by") };
+		static const TArray<FString> Keys = { TEXT("cond"), TEXT("also"), TEXT("settleMs"), TEXT("verify"), TEXT("verifyTimeoutMs") };
 		return Keys;
 	}
 
-	/** 两次判断之间至少隔多久：每次判断要解析选择器（采控件树），不必每帧做。 */
+	/** 两次判断之间至少隔多久：每次判断要解析引用（采界面树），不必每帧做。 */
 	constexpr double EvalIntervalSeconds = 0.1;
-
-	/** 真在屏上：有 Slate 控件、整条父链可见、有尺寸。对象池里藏着的实例往往也解析得到。 */
-	bool IsOnScreen(const FGameTestWidgetNode& InNode)
-	{
-		TSharedPtr<SWidget> Slate = InNode.Slate.Pin();
-		if (!Slate.IsValid() && InNode.Widget.IsValid())
-		{
-			Slate = InNode.Widget->GetCachedWidget();
-		}
-		if (!Slate.IsValid())
-		{
-			return false;
-		}
-		for (TSharedPtr<SWidget> Current = Slate; Current.IsValid(); Current = Current->GetParentWidget())
-		{
-			if (!Current->GetVisibility().IsVisible())
-			{
-				return false;
-			}
-		}
-		const FVector2D Size = FVector2D(Slate->GetCachedGeometry().GetLocalSize());
-		return Size.X >= 1.0 && Size.Y >= 1.0;
-	}
 
 	enum class EEval : uint8
 	{
 		Holds,
 		NotHolds,
-		/** 判断不了：反面条件所在的屏还没在屏上（找不到可能只是界面没打开）。 */
+		/** 判断不了：反面判断的对象本身还没出来（找不到可能只是界面没打开，game-test-script 4.2）。 */
 		Unknown,
 	};
 
 	struct FEval
 	{
 		EEval Result = EEval::Unknown;
-		/** 不成立是确定的：条件看的控件（反面条件是它所在的屏）就在屏上。不确定的不成立不拿来放行。 */
+		/** 不成立是确定的：每条判断都读到了值（对象都在）。不确定的不成立不拿来放行。 */
 		bool bDefinitive = false;
 		FString Actual;
 	};
 
-	FString TargetOf(const FJsonObject& InSkipIf, const FGameTestStep& InStep)
-	{
-		FString Target;
-		if (!GameTestJson::TryGetString(InSkipIf, TEXT("target"), Target) || Target.IsEmpty())
-		{
-			Target = InStep.Target;
-		}
-		return Target;
-	}
-
-	/**
-	 * `InScroll` 给了（回放的跳过判断）时，看的控件找不到就替用户滚列表找（GameTestAutoScroll，1.7.1）：
-	 * 认得出是第几个条目的直接滚过去，认不出的把界面上的列表从头翻到底，翻完还没有就原地等。
-	 * 反面条件（不存在 / 不可见）找不到正是要的结果，不翻。
-	 */
-	FEval Evaluate(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, GameTestAutoScroll::FState* InScroll = nullptr)
+	/** 此刻的脚本上下文（执行器 Tick 里设的）；没有时用临时的（gt.resolve checks、录制核对）。 */
+	FEval Evaluate(const FJsonObject& InSkipIf, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles)
 	{
 		FEval Out;
-		const FString Target = TargetOf(InSkipIf, InStep);
-		// 看的就是这一步的目标时，带上录制线索一起认（同一个 WBP 的几个实例、顺序变了的列表），和点击认的是同一个
-		const FJsonObject* Hint = Target == InStep.Target ? GameTestHintPick::GetHint(InStep.Params) : nullptr;
-		TSharedPtr<FGameTestWidgetNode> Node;
-		FString ResolveError;
-		const bool bResolved = GameTestHandlers::TryResolveTarget(Target, InHandles, Node, ResolveError, Hint);
-		const bool bOnScreen = bResolved && Node.IsValid() && IsOnScreen(*Node);
-		if (InScroll != nullptr)
+		const TSharedPtr<FJsonObject> Cond = GameTestCond::AsObject(InSkipIf.TryGetField(TEXT("cond")));
+		if (!Cond.IsValid())
 		{
-			if (bResolved)
-			{
-				GameTestAutoScroll::MarkFound(*InScroll);
-			}
-			else if (!GameTestCondition::HasNegative(InSkipIf))
-			{
-				// 紧接着解析失败就取：后面再解析别的（屏）会把「哪个条目没生成」清掉
-				if (GameTestAutoScroll::ScrollToUngeneratedEntry(*InScroll))
-				{
-					ResolveError += TEXT("（已自动把列表滚到这个条目，等它生成）");
-				}
-				else
-				{
-					GameTestAutoScroll::ScanForMissing(Target, InHandles, *InScroll, &ResolveError);
-				}
-			}
-		}
-
-		if (GameTestCondition::HasNegative(InSkipIf))
-		{
-			const FString Screen = GameTestAutoScroll::ScreenOf(Target);
-			TSharedPtr<FGameTestWidgetNode> ScreenNode;
-			FString ScreenError;
-			if (Screen.IsEmpty() || !GameTestHandlers::TryResolveTarget(Screen + TEXT(":."), InHandles, ScreenNode, ScreenError)
-				|| !ScreenNode.IsValid() || !IsOnScreen(*ScreenNode))
-			{
-				Out.Result = EEval::Unknown;
-				Out.Actual = Screen.IsEmpty()
-					? FString(TEXT("条件里有「不存在 / 不可见」，但 target 没写屏名，判断不了界面有没有打开"))
-					: FString::Printf(TEXT("%s 还没在屏上"), *Screen);
-				return Out;
-			}
-			Out.bDefinitive = true;
-		}
-		else if (!bOnScreen)
-		{
-			Out.Result = EEval::NotHolds;
-			Out.Actual = bResolved ? FString::Printf(TEXT("%s 还不在屏上"), *Target) : FString::Printf(TEXT("没找到 %s：%s"), *Target, *ResolveError);
+			Out.Actual = TEXT("skipIf 没写 cond");
 			return Out;
 		}
-		else
+		FGameTestFlowContext Temp;
+		FGameTestFlowContext* Flow = GameTestRefAmbient::Get();
+		if (Flow == nullptr)
 		{
-			Out.bDefinitive = true;
+			Temp.Handles = InHandles;
+			Flow = &Temp;
 		}
-
-		FGameTestConditionCheck Check;
-		GameTestCondition::Check(InSkipIf, bResolved ? Node.Get() : nullptr, ResolveError, Check);
-		Out.Result = Check.Holds() ? EEval::Holds : EEval::NotHolds;
-		Out.Actual = Check.Actuals.Num() > 0 ? FString::Join(Check.Actuals, TEXT("、")) : FString::Join(Check.Mismatches, TEXT("；"));
+		if (Flow->World == nullptr)
+		{
+			Flow->World = GameTestWorld::FindGameWorld();
+		}
+		FGameTestCondResult Result;
+		{
+			FGameTestFlowContext::FReadOnlyScope ReadOnly(*Flow);
+			Result = GameTestCond::Evaluate(*Cond, *Flow);
+		}
+		Out.Actual = Result.Summary();
+		if (Result.State == EGameTestCondState::Unknown)
+		{
+			Out.Result = EEval::Unknown;
+			return Out;
+		}
+		Out.Result = Result.Holds() ? EEval::Holds : EEval::NotHolds;
+		Out.bDefinitive = true;
+		for (const FGameTestCondPart& Part : Result.Parts)
+		{
+			if (!Part.Unresolved.IsEmpty())
+			{
+				Out.bDefinitive = false;
+			}
+		}
 		return Out;
 	}
 
@@ -154,8 +99,7 @@ namespace GameTestSkipIfDetail
 		}
 		TSharedPtr<FGameTestWidgetNode> Node;
 		FString Error;
-		return GameTestHandlers::TryResolveTarget(InStep.Target, InHandles, Node, Error, GameTestHintPick::GetHint(InStep.Params))
-			&& Node.IsValid() && IsOnScreen(*Node);
+		return GameTestHandlers::TryResolveTarget(InStep.Target, InHandles, Node, Error) && Node.IsValid();
 	}
 
 	bool ReadMs(const FJsonObject& InObject, const TCHAR* InField, int32 InMax, int32& OutValue, FString& OutError)
@@ -193,22 +137,31 @@ bool GameTestSkipIf::ValidateStep(const FJsonObject& InStepJson, FString& OutErr
 		OutError = TEXT("要写成对象，例如 {\"checked\": true}、{\"textLike\": \"已领取\"}");
 		return false;
 	}
-	if (!GameTestCondition::Validate(*SkipIf, GameTestSkipIfDetail::ConfigKeys(), OutError))
+	if (!SkipIf->HasField(TEXT("cond")))
 	{
+		OutError = TEXT("cond_removed：v4 的 skipIf 写 {\"cond\": 条件, \"also\"?, \"verify\"?}，条件写进 cond（对象判断 {obj, prop, op, value}）；按控件写的 checked / textLike 这类字段删掉了");
 		return false;
 	}
-	FString StepTarget;
-	GameTestJson::TryGetString(InStepJson, TEXT("target"), StepTarget);
-	FString CondTarget;
-	if (SkipIf->HasField(TEXT("target")) && (!GameTestJson::TryGetString(*SkipIf, TEXT("target"), CondTarget) || CondTarget.IsEmpty()))
+	for (const auto& Pair : SkipIf->Values)
 	{
-		OutError = TEXT("target 要写选择器（省略 = 这一步自己的 target）");
-		return false;
+		const FString Key = GAMETEST_JSON_KEY(Pair.Key);
+		if (!GameTestSkipIfDetail::ConfigKeys().Contains(Key))
+		{
+			OutError = FString::Printf(TEXT("skipIf 不认识字段 %s（可用：%s）"), *Key, *FString::Join(GameTestSkipIfDetail::ConfigKeys(), TEXT(", ")));
+			return false;
+		}
 	}
-	if (CondTarget.IsEmpty() && StepTarget.IsEmpty())
 	{
-		OutError = TEXT("这一步没有 target，跳过条件要写 target 说明看哪个控件");
-		return false;
+		FGameTestDiagSink Sink;
+		FGameTestExprScope Scope;
+		GameTestCond::Validate(SkipIf->TryGetField(TEXT("cond")), Scope, Sink);
+		if (Sink.HasErrors())
+		{
+			TArray<FString> Lines;
+			Sink.AppendErrorLines(Lines);
+			OutError = FString::Printf(TEXT("cond：%s"), *FString::Join(Lines, TEXT("；")));
+			return false;
+		}
 	}
 	if (SkipIf->HasField(TEXT("also")))
 	{
@@ -297,7 +250,8 @@ int32 GameTestSkipIf::Also(const FJsonObject& InSkipIf)
 
 bool GameTestSkipIf::Holds(const FJsonObject& InSkipIf, const FGameTestStep& InStep, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, FString& OutActual)
 {
-	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(InSkipIf, InStep, InHandles);
+	(void)InStep;
+	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(InSkipIf, InHandles);
 	OutActual = Eval.Actual;
 	return Eval.Result == GameTestSkipIfDetail::EEval::Holds;
 }
@@ -312,15 +266,13 @@ FGameTestSkipGate::FGameTestSkipGate(const FGameTestStep& InStep, const TSharedP
 	if (SkipIf.IsValid())
 	{
 		GameTestJson::TryGetInt(*SkipIf, TEXT("settleMs"), SettleMs);
-		CondTarget = GameTestSkipIfDetail::TargetOf(*SkipIf, Step);
+		if (const TSharedPtr<FJsonObject> Cond = GameTestCond::AsObject(SkipIf->TryGetField(TEXT("cond"))))
+		{
+			CondTarget = GameTestCond::Describe(*Cond);
+		}
 	}
 	SettleSeconds = FMath::Clamp(SettleMs, 0, GameTestSkipIf::MaxSettleMs) / 1000.0;
-	// 反面条件（不存在 / 不可见）多等一倍：界面打开的那一下按钮可能还没建出来
-	if (SkipIf.IsValid() && GameTestCondition::HasNegative(*SkipIf))
-	{
-		SettleSeconds *= 2.0;
-	}
-	Message = FString::Printf(TEXT("判断 %s 是否已达成"), *CondTarget);
+	Message = FString::Printf(TEXT("判断「%s」是否已达成"), *CondTarget);
 }
 
 EGameTestSkipGate FGameTestSkipGate::Tick(double InNow)
@@ -335,9 +287,16 @@ EGameTestSkipGate FGameTestSkipGate::Tick(double InNow)
 	}
 	LastEvalAt = InNow;
 
-	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(*SkipIf, Step, Handles, &Scroll);
+	const GameTestSkipIfDetail::FEval Eval = GameTestSkipIfDetail::Evaluate(*SkipIf, Handles);
 	Actual = Eval.Actual;
 
+	if (Eval.Result == GameTestSkipIfDetail::EEval::Unknown)
+	{
+		HoldSince = -1.0;
+		NotSince = -1.0;
+		Message = FString::Printf(TEXT("等界面出来再判断是否已达成：%s"), *Actual);
+		return EGameTestSkipGate::Wait;
+	}
 	if (Eval.Result == GameTestSkipIfDetail::EEval::Holds)
 	{
 		NotSince = -1.0;
@@ -347,7 +306,7 @@ EGameTestSkipGate FGameTestSkipGate::Tick(double InNow)
 		}
 		if (InNow - HoldSince >= SettleSeconds)
 		{
-			Message = FString::Printf(TEXT("已达成，跳过：%s（此刻 %s）"), *GameTestCondition::Describe(*SkipIf), *Actual);
+			Message = FString::Printf(TEXT("已达成，跳过：%s（此刻 %s）"), *CondTarget, *Actual);
 			return EGameTestSkipGate::Skip;
 		}
 		Message = FString::Printf(TEXT("条件刚成立，再看一会儿：%s"), *Actual);
@@ -381,29 +340,24 @@ TSharedPtr<FJsonObject> FGameTestSkipGate::MakeSkipPayload(double InNow) const
 	const TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
 	if (SkipIf.IsValid())
 	{
-		const TSharedPtr<FJsonObject> Cond = MakeShared<FJsonObject>();
-		for (const auto& Pair : SkipIf->Values)
+		if (const TSharedPtr<FJsonObject> Cond = GameTestCond::AsObject(SkipIf->TryGetField(TEXT("cond"))))
 		{
-			const FString Key = GAMETEST_JSON_KEY(Pair.Key);
-			if (GameTestCondition::IsKey(Key))
-			{
-				Cond->SetField(Key, Pair.Value);
-			}
+			Out->SetObjectField(TEXT("cond"), Cond);
 		}
-		Out->SetObjectField(TEXT("cond"), Cond);
-		Out->SetStringField(TEXT("say"), GameTestCondition::Describe(*SkipIf));
+		Out->SetStringField(TEXT("say"), CondTarget);
 		const int32 Also = GameTestSkipIf::Also(*SkipIf);
 		if (Also > 0)
 		{
 			Out->SetNumberField(TEXT("also"), Also);
 		}
 	}
-	Out->SetStringField(TEXT("target"), CondTarget);
 	Out->SetStringField(TEXT("actual"), Actual);
-	if (!Scroll.Note.IsEmpty())
-	{
-		Out->SetStringField(TEXT("scrolled"), Scroll.Note);
-	}
 	Out->SetNumberField(TEXT("waitedMs"), FMath::RoundToInt((InNow - StartedAt) * 1000.0));
 	return Out;
+}
+
+FString GameTestSkipIf::Describe(const FJsonObject& InSkipIf)
+{
+	const TSharedPtr<FJsonObject> Cond = GameTestCond::AsObject(InSkipIf.TryGetField(TEXT("cond")));
+	return Cond.IsValid() ? GameTestCond::Describe(*Cond) : FString(TEXT("（skipIf 没写 cond）"));
 }

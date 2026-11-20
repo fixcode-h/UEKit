@@ -45,6 +45,23 @@ namespace GameTestHandlers
 	inline constexpr int32 MaxSnapshotNodes = 1000;
 
 	/**
+	 * v4 部件写法（docs/game-test-ref.md 第 2 节）在步骤里的内部表示：`@@ref:` + 紧凑 JSON。
+	 * 控件解析的老入口只认字符串（句柄、Slate 段都走那一套），所以 ParseStep 把对象写法、名字、`$var` 转成这个前缀的字符串，
+	 * TryResolveTarget 认出它后按对象引用解析（GameTestRefResolve），不再走选择器。只在内存里，不落盘、不出现在报告的 target 里以外的地方。
+	 */
+	inline const TCHAR* RefTargetPrefix = TEXT("@@ref:");
+
+	/**
+	 * 步骤字段（target、toTarget、each、widget）→ 内部 target 字符串。
+	 * 对象、名字、`$var` → `@@ref:{…}`；`@句柄` 原样（gt.step 单步、旧的捕获句柄）；其余字符串是旧选择器，返回 false（selector_removed）。
+	 * 字段不存在时返回 true、OutText 为空。
+	 */
+	GAMETEST_API bool TargetText(const FJsonObject& InParams, const TCHAR* InField, FString& OutText, FString& OutError);
+
+	/** 内部 target 字符串给人看（报告、消息）：`@@ref:` 的转成部件写法的描述。 */
+	GAMETEST_API FString DescribeTarget(const FString& InTarget);
+
+	/**
 	 * 选择器 / `@句柄` → 控件节点。失败时 OutMessage 里是候选清单。
 	 *
 	 * 跨文件共享是必须的：观察（find/snapshot/probe）与交互（click/select/set/stack…）都要用它，
@@ -88,7 +105,6 @@ namespace GameTestHandlers
 	// 观察（Observe/GameTestHandlersObserve.cpp）
 	EGameTestStepStatus HandlePing(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleMark(FGameTestStepContext& InContext);
-	EGameTestStepStatus HandleFind(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleSnapshot(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleScreenshot(FGameTestStepContext& InContext);
 	EGameTestStepStatus HandleConsole(FGameTestStepContext& InContext);
@@ -123,19 +139,23 @@ namespace GameTestHandlers
 	// 角色走到一个点（Operate/GameTestMove.cpp）：导航网格 / 录制轨迹 / 探路 / 瞬移
 	EGameTestStepStatus HandleMove(FGameTestStepContext& InContext);
 
-	// 调函数（Operate/GameTestHandlerInvoke.cpp，1.9 脚本化）
-	EGameTestStepStatus HandleInvoke(FGameTestStepContext& InContext);
+	// 对象动作（docs/game-test-ref.md 5.2、5.3）：一个动作一个文件，在 Operate/Obj/ 和 Operate/Close/
+	EGameTestStepStatus HandleObjCall(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleObjFind(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleObjWait(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleObjSet(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleObjClose(FGameTestStepContext& InContext);
 
-	// 脚本化的叶子（Operate/GameTestHandlersScript.cpp）：调接口库、关界面、调界面函数
+	// 脚本化的叶子（Operate/GameTestHandlersScript.cpp）：调接口库
 	EGameTestStepStatus HandleApi(FGameTestStepContext& InContext);
-	EGameTestStepStatus HandleWidgetClose(FGameTestStepContext& InContext);
-	EGameTestStepStatus HandleWidgetCall(FGameTestStepContext& InContext);
 	/** 步骤写了 cond 或 expr（assert 的统一条件写法）。 */
 	bool HasScriptCond(const FJsonObject& InParams);
 	/** assert 的 cond / expr：没写返回 false；写了返回 true，结论在 bOutHolds，消息写进 InContext。 */
 	bool CheckScriptAssert(FGameTestStepContext& InContext, bool& bOutHolds);
 	/** wait until=cond：等统一条件成立。 */
 	EGameTestStepStatus StartWaitCond(FGameTestStepContext& InContext);
+	/** 等一个统一条件成立（稳住 settleMs）：wait until=cond 和 obj.wait 共用。 */
+	EGameTestStepStatus StartWaitFor(FGameTestStepContext& InContext, const TSharedRef<FJsonObject>& InCond);
 
 	// 编辑器专属（Editor/GameTestHandlersEditor.cpp）
 	EGameTestStepStatus HandleEditorEnsure(FGameTestStepContext& InContext);

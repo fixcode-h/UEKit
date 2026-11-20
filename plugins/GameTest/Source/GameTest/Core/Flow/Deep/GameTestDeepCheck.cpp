@@ -111,7 +111,7 @@ TSharedRef<FJsonObject> GameTestDeepChecks::StatsToJson(const FGameTestDeepStats
 {
 	const TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 	Out->SetNumberField(TEXT("functions"), InStats.Functions);
-	Out->SetNumberField(TEXT("selectors"), InStats.Selectors);
+	Out->SetNumberField(TEXT("refs"), InStats.Refs);
 	Out->SetNumberField(TEXT("paths"), InStats.Paths);
 	Out->SetNumberField(TEXT("apis"), InStats.Apis);
 	Out->SetNumberField(TEXT("objects"), InStats.Objects);

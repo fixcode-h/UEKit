@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/Live/GameTestLive.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Ref/GameTestRefFor.h"
 
 #include "Core/GameTestWorld.h"
 #include "Input/GameTestInput.h"
@@ -118,6 +120,23 @@ namespace GameTestLivePickDetail
 			}
 		}
 		OutResult.SetObjectField(TEXT("actor"), Info);
+		// 2.0.0：Actor 也出引用（world 里按类，ident 按 identRules / 打分），chain 只有这一层
+		FGameTestFlowContext Flow;
+		Flow.World = World;
+		FGameTestRefForResult Ref;
+		if (GameTestRefFor::ForObject(const_cast<AActor*>(Actor), Flow, Ref) && Ref.Ref.IsValid())
+		{
+			const TSharedRef<FJsonObject> Link = MakeShared<FJsonObject>();
+			Link->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
+			Link->SetStringField(TEXT("kind"), TEXT("actor"));
+			Link->SetStringField(TEXT("note"), TEXT("场景里的 Actor"));
+			TArray<TSharedPtr<FJsonValue>> Chain;
+			Chain.Add(MakeShared<FJsonValueObject>(Link));
+			OutResult.SetArrayField(TEXT("chain"), Chain);
+			OutResult.SetObjectField(TEXT("ref"), Ref.Ref);
+			OutResult.SetNumberField(TEXT("matches"), Ref.Matches);
+			OutResult.SetBoolField(TEXT("ask"), Ref.bAsk);
+		}
 	}
 
 	/** 点一下抓到的东西：控件（和 gt.inspect 一样，偏向按钮 / 勾选框）；没有控件时补上射线打到的 Actor。 */
@@ -127,7 +146,7 @@ namespace GameTestLivePickDetail
 		{
 			return false;
 		}
-		if (!OutResult->HasField(TEXT("target")))
+		if (!OutResult->HasField(TEXT("ref")))
 		{
 			AddActorUnder(InNormalized, *OutResult);
 		}

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestRunner.h"
+#include "Observe/Ref/GameTestRefAmbient.h"
 
 #include "Api/GameTestProjectApis.h"
 #include "GameTest.h"
@@ -120,6 +121,8 @@ void FGameTestRunner::Tick(double InNowSeconds)
 	{
 		return;
 	}
+	// v4 的部件写法在控件解析的老入口里要用场景的 objects 和变量：这一帧里设成这次 run 的上下文
+	GameTestRefAmbient::FScope Ambient(Flow.IsValid() ? &Flow->GetContext() : nullptr);
 
 	// 一帧内把"能立刻做完的步骤"连着跑完：编辑器被节流时一帧可能隔很久才来
 	// （窗口不在前台时引擎默认节流），一步一帧会让整场景停摆。
@@ -654,7 +657,7 @@ void FGameTestRunner::TickVerify(double InNowSeconds)
 		bVerifying = false;
 		CompleteCurrentStep(EGameTestStepStatus::Failed,
 			FString::Printf(TEXT("%s；但做完 %.1f 秒内没达成：期望 %s，此刻 %s（点了没反应？条件刷新慢就调大 verifyTimeoutMs，或关掉做完核对）"),
-				*VerifyMessage, VerifyTimeoutMs / 1000.0, *GameTestCondition::Describe(*VerifySkipIf), *Actual),
+				*VerifyMessage, VerifyTimeoutMs / 1000.0, *GameTestSkipIf::Describe(*VerifySkipIf), *Actual),
 			InNowSeconds);
 	}
 }

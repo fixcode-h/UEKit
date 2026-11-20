@@ -55,7 +55,7 @@ namespace GameTestWidgetProbe
 	GAMETEST_API void ListScreens(UWorld* InWorld, TArray<UUserWidget*>& OutScreens);
 
 	/**
-	 * 从文字里取第一个数（`number(sel)`、判断的 `number`）：认千分位逗号（「1,234」）、负号、小数，
+	 * 从文字里取第一个数：认千分位逗号（「1,234」）、负号、小数，
 	 * 和游戏里常见的单位（「1.2万」「3亿」「15K」「2.5M」「8w」）。「12/30」取 12。没有数返回 false。
 	 */
 	GAMETEST_API bool NumberInText(const FString& InText, double& OutNumber);

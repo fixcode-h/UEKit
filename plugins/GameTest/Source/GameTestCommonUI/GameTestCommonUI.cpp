@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+#include "GameTestClosePop.h"
 #include "GameTestCommonUIActions.h"
 
 #include "Observe/GameTestSnapshot.h"
@@ -12,7 +13,7 @@
 #include "Widgets/CommonActivatableWidgetContainer.h"
 
 /**
- * GameTest 的 CommonUI 部分：层级容器的推入 / 弹出动作，以及快照里容器和可激活控件的状态。
+ * GameTest 的 CommonUI 部分：层级容器的推入 / 弹出动作、obj.close 的 pop，以及快照里容器和可激活控件的状态。
  *
  * 单独成模块是因为 CommonUI 不是每个项目都开：主模块不 include 它的头，
  * 这块挂在动作登记表和快照的状态读取器上，没有它时只是少了这几个动作。
@@ -23,12 +24,14 @@ public:
 	virtual void StartupModule() override
 	{
 		GameTestCommonUIActions::Register();
+		GameTestClosePop::Register();
 		StateReader = GameTestSnapshot::AddStateReader(&ReadState);
 	}
 
 	virtual void ShutdownModule() override
 	{
 		GameTestSnapshot::RemoveStateReader(StateReader);
+		GameTestClosePop::Unregister();
 		GameTestCommonUIActions::Unregister();
 	}
 

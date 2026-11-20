@@ -19,6 +19,8 @@
 #include "Observe/GameTestWidgetNode.h"
 #include "Observe/Lua/GameTestLuaBridge.h"
 #include "Observe/Sources/GameTestObjectLocator.h"
+#include "Observe/Ref/GameTestRef.h"
+#include "Observe/Ref/GameTestRefResolve.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
@@ -141,36 +143,46 @@ namespace
 		return true;
 	}
 
+	/** scope=object：参数是对象引用 `ref`（2.0.0 起，docs/game-test-ref.md 7.6；内联引用对象，或类名字符串）。 */
 	bool ScopeObject(const FJsonObject& InArgs, FGameTestFlowContext& InContext, FOwner& OutOwner, FString& OutError)
 	{
-		FGameTestObjectLocator Locator;
-		TArray<FString> Errors;
-		const TSharedPtr<FJsonObject> Json = GameTestJson::TryGetObject(InArgs, TEXT("locator"));
-		if (Json.IsValid())
+		const TSharedPtr<FJsonValue> RefJson = InArgs.TryGetField(TEXT("ref"));
+		FGameTestRef Ref;
+		const TSharedPtr<FJsonObject>* RefObject = nullptr;
+		FString ClassText;
+		if (RefJson.IsValid() && RefJson->TryGetObject(RefObject) && RefObject != nullptr && RefObject->IsValid())
 		{
-			FGameTestObjectLocator::Parse(*Json, Locator, Errors);
+			FGameTestObjectLocator Locator;
+			TArray<FString> Errors;
+			if (!FGameTestObjectLocator::Parse(**RefObject, Locator, Errors))
+			{
+				OutError = FString::Join(Errors, TEXT("；"));
+				return false;
+			}
+			Ref = Locator.Ref;
+		}
+		else if (RefJson.IsValid() && RefJson->TryGetString(ClassText) && !ClassText.IsEmpty())
+		{
+			Ref.Class = ClassText;
 		}
 		else
 		{
-			FGameTestObjectLocator::Parse(InArgs, Locator, Errors);
-		}
-		if (Errors.Num() > 0)
-		{
-			OutError = FString::Join(Errors, TEXT("；"));
+			OutError = InArgs.HasField(TEXT("locator")) ? TEXT("scope=object 的参数 2.0.0 起改成 ref（对象引用 {class, in?, ident?}），locator 不认了")
+				: TEXT("scope=object 要写 ref（对象引用 {class, in?, ident?}）");
 			return false;
 		}
-		FGameTestLocateResult Result;
-		if (InContext.World != nullptr && GameTestObjectLocate::Locate(Locator, InContext, Result) == EGameTestLocate::Found)
+		const FGameTestRefResult Result = InContext.World != nullptr ? GameTestRefResolve::ResolveRef(Ref, InContext) : FGameTestRefResult();
+		if (Result.IsOk())
 		{
-			OutOwner.Instance = Result.Picked;
-			OutOwner.Class = Result.Picked->GetClass();
+			OutOwner.Instance = Result.Get();
+			OutOwner.Class = Result.Get()->GetClass();
 			return true;
 		}
-		// 没开游戏、或现在找不到：退回按类列（面板写定位器时先看类有什么）
-		OutOwner.Class = GameTestObjectRoots::FindClass(Locator.Class);
+		// 没开游戏、或现在找不到：退回按类列（面板写引用时先看类有什么）
+		OutOwner.Class = GameTestObjectRoots::FindClass(Ref.Class);
 		if (OutOwner.Class == nullptr)
 		{
-			OutError = Result.Message.IsEmpty() ? FString::Printf(TEXT("找不到类 %s"), *Locator.Class) : Result.Message;
+			OutError = Result.Error.IsEmpty() ? FString::Printf(TEXT("找不到类 %s"), *Ref.Class) : Result.Error;
 		}
 		return OutOwner.Class != nullptr;
 	}

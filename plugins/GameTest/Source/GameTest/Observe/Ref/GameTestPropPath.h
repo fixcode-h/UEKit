@@ -59,6 +59,12 @@ struct GAMETEST_API FGameTestPropRead
 	TWeakObjectPtr<UObject> Holder;
 	/** 落在反射属性上时的属性名（`obj.set` 找 setter 用）。 */
 	FString PropName;
+	/**
+	 * 落在反射属性上时的属性和值的地址（`obj.set` 原地写）。只在读的这一刻、同一帧里有效：
+	 * 对象没了或数组改了大小就是野指针，不许存下来。
+	 */
+	const FProperty* RawProp = nullptr;
+	void* RawValue = nullptr;
 
 	bool IsResolved() const { return !Value.IsUnresolved(); }
 };

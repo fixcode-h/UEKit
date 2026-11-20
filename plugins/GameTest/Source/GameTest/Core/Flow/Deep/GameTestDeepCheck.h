@@ -14,7 +14,8 @@ struct FGameTestScript;
 struct GAMETEST_API FGameTestDeepStats
 {
 	int32 Functions = 0;
-	int32 Selectors = 0;
+	/** 查过的对象引用（类 + 部件；2.0.0 前叫 selectors）。 */
+	int32 Refs = 0;
 	int32 Paths = 0;
 	int32 Apis = 0;
 	int32 Objects = 0;
@@ -33,7 +34,7 @@ struct GAMETEST_API FGameTestDeepEnv
 
 /**
  * 深度检查（`gt.validate` 的 `deep: true`，协议第 10 节）：结构对了以后，再查写的东西在项目里有没有——
- * 函数、接口、选择器指的界面和控件、取值来源里的类名、对象定位器的类。
+ * 函数、接口、引用的类和部件、属性和比较、取值来源里的类名。
  *
  * 一种东西一个检查器（接口 + 注册表）：遍历只做一件事——把场景里每个 JSON 对象（不含子步骤列表）交给每个检查器，
  * 检查器自己认字段。编辑器专属的（读 WBP 资产的控件树）由 GameTestEditor 登记，游戏进程里没有它也照常查其余的。

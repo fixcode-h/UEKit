@@ -3,6 +3,10 @@
 #include "Core/GameTestHandlerShared.h"
 
 #include "Core/GameTestJson.h"
+#include "Core/Script/GameTestFlowContext.h"
+#include "Observe/Ref/GameTestRef.h"
+#include "Observe/Ref/GameTestRefAmbient.h"
+#include "Observe/Ref/GameTestRefResolve.h"
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestHintPick.h"
 #include "Observe/GameTestSelector.h"
@@ -11,10 +15,118 @@
 
 #include "Components/Widget.h"
 #include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 #include "Engine/World.h"
+
+namespace GameTestHandlersRefImpl
+{
+	/** 一次解析借用的句柄名：解析完马上递归用掉，不需要每次不同。 */
+	const TCHAR* RefHandle = TEXT("__ref");
+
+	FString CompactJson(const TSharedPtr<FJsonValue>& InValue)
+	{
+		FString Out;
+		const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+		FJsonSerializer::Serialize(InValue, FString(), Writer);
+		return Out;
+	}
+
+	TSharedPtr<FJsonValue> ParseJson(const FString& InText)
+	{
+		TSharedPtr<FJsonValue> Out;
+		const TSharedRef<TJsonReader<TCHAR>> Reader = TJsonReaderFactory<TCHAR>::Create(InText);
+		FJsonSerializer::Deserialize(Reader, Out);
+		return Out;
+	}
+}
 
 namespace GameTestHandlers
 {
+	bool TargetText(const FJsonObject& InParams, const TCHAR* InField, FString& OutText, FString& OutError)
+	{
+		OutText.Reset();
+		const TSharedPtr<FJsonValue> Value = InParams.TryGetField(InField);
+		if (!Value.IsValid() || Value->IsNull())
+		{
+			return true;
+		}
+		FString Text;
+		if (Value->TryGetString(Text))
+		{
+			if (Text.StartsWith(TEXT("@")) && !Text.StartsWith(TEXT("@@")))
+			{
+				// `@句柄`：gt.step 单步、录制时捕获的句柄，句柄表跨调用保留
+				OutText = Text;
+				return true;
+			}
+			if (!Text.StartsWith(TEXT("$")) && !GameTestRefForm::IsName(Text))
+			{
+				OutError = FString::Printf(TEXT("selector_removed：%s 是旧的选择器写法「%s」，v4 不认：写 {\"obj\": 引用, \"part\": \"部件名\"}（面板「升级脚本」会转）"), InField, *Text.Left(80));
+				return false;
+			}
+		}
+		else if (Value->Type != EJson::Object)
+		{
+			OutError = FString::Printf(TEXT("%s 要写 {\"obj\": 引用, \"part\": \"部件名\"} 或一个引用"), InField);
+			return false;
+		}
+		OutText = FString(RefTargetPrefix) + GameTestHandlersRefImpl::CompactJson(Value);
+		return true;
+	}
+
+	FString DescribeTarget(const FString& InTarget)
+	{
+		if (!InTarget.StartsWith(RefTargetPrefix))
+		{
+			return InTarget;
+		}
+		FGameTestTarget Target;
+		return FGameTestTarget::FromJson(GameTestHandlersRefImpl::ParseJson(InTarget.Mid(FCString::Strlen(RefTargetPrefix))), Target) ? Target.Describe() : InTarget;
+	}
+
+	/** `@@ref:` → 按对象引用解析出控件，借一个句柄交回老的句柄路径（Slate 段、子树采样都在那边）。 */
+	bool TryResolveRefTarget(const FString& InTarget, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles, TSharedPtr<FGameTestWidgetNode>& OutNode, FString& OutMessage)
+	{
+		const TSharedPtr<FJsonValue> Json = GameTestHandlersRefImpl::ParseJson(InTarget.Mid(FCString::Strlen(RefTargetPrefix)));
+		FGameTestFlowContext Temp;
+		FGameTestFlowContext* Flow = GameTestRefAmbient::Get();
+		if (Flow == nullptr)
+		{
+			// 没在跑场景（gt.resolve、证据采集）：只有内联引用能解析，名字和 $var 报找不到
+			Temp.World = GameTestWorld::FindGameWorld();
+			Temp.Handles = InHandles;
+			Flow = &Temp;
+		}
+		else if (Flow->World == nullptr)
+		{
+			Flow->World = GameTestWorld::FindGameWorld();
+		}
+		const FGameTestTargetResult Result = GameTestRefResolve::ResolveTarget(Json, *Flow);
+		GameTestRefResolve::WritePayload(Result.Ref, *Flow);
+		if (!Result.IsOk())
+		{
+			OutMessage = FString::Printf(TEXT("%s：%s"), *Result.Code.ToString(), *Result.Error);
+			return false;
+		}
+		UWidget* Widget = Result.GetWidget();
+		if (Widget == nullptr)
+		{
+			OutMessage = FString::Printf(TEXT("%s 解析到的是 %s，不是界面控件：这个动作只能落在控件上"), *Result.Target.Describe(), *GameTestRefResolve::DisplayName(Result.Get()));
+			return false;
+		}
+		if (InHandles == nullptr)
+		{
+			OutMessage = TEXT("句柄表不可用");
+			return false;
+		}
+		InHandles->Add(GameTestHandlersRefImpl::RefHandle, Widget);
+		const FString Inner = FString(TEXT("@")) + GameTestHandlersRefImpl::RefHandle + (Result.Target.Slate.IsEmpty() ? FString() : TEXT(">>") + Result.Target.Slate);
+		return TryResolveTarget(Inner, InHandles, OutNode, OutMessage);
+	}
+
 	/**
 	 * 选择器 / `@句柄` → 控件节点。
 	 *
@@ -27,6 +139,10 @@ namespace GameTestHandlers
 		{
 			OutMessage = TEXT("没有给 target");
 			return false;
+		}
+		if (InTarget.StartsWith(RefTargetPrefix))
+		{
+			return TryResolveRefTarget(InTarget, InHandles, OutNode, OutMessage);
 		}
 
 		if (InTarget.StartsWith(TEXT("@")))

@@ -25,7 +25,12 @@ namespace GameTestWidgetProbe
 	FGameTestWidgetLook Look(const FString& InTarget, FGameTestFlowContext& InContext)
 	{
 		FGameTestWidgetLook Look;
-		if (!GameTestRefs::EvalSelector(InTarget, InContext, Look.Target, Look.Error))
+		if (InTarget.StartsWith(GameTestHandlers::RefTargetPrefix))
+		{
+			// v4 的部件写法：名字、$var 在解析时按引用认，不按文字替换
+			Look.Target = InTarget;
+		}
+		else if (!GameTestRefs::EvalSelector(InTarget, InContext, Look.Target, Look.Error))
 		{
 			Look.Error = FString::Printf(TEXT("选择器里的变量取不到：%s"), *Look.Error);
 			return Look;

@@ -31,10 +31,15 @@ namespace
 	using FCtx = FGameTestFlowContext;
 	using EState = EGameTestCallState;
 
-	/** 选择器带屏名和路径（`WBP_X:Root/Btn`、`@句柄`、`$item>Btn`）；只写类名时按界面类认。 */
-	bool LooksLikeSelector(const FString& InText)
+	/** 是部件写法 / 引用（objects 里的名字、`$var`、`@句柄`）；不是时字符串按界面类名认。 */
+	bool LooksLikeTarget(const FGameTestValue& InArg, FCtx& X)
 	{
-		return InText.Contains(TEXT(":")) || InText.Contains(TEXT(">")) || InText.StartsWith(TEXT("@")) || InText.StartsWith(TEXT("$"));
+		if (InArg.Type == EGameTestValueType::Map || InArg.Type == EGameTestValueType::Object)
+		{
+			return true;
+		}
+		const FString Text = GA::Text(InArg);
+		return Text.StartsWith(TEXT("@")) || Text.StartsWith(TEXT("$")) || X.GetScope().ObjectDefs.Contains(Text);
 	}
 
 	/** 解析控件参数；解析不到时写错误（selector_missing）并返回空。 */
@@ -65,7 +70,7 @@ namespace
 	EState IsShown(FCall& C, FCtx& X)
 	{
 		const FString Target = GA::Text(C.Arg(0));
-		if (LooksLikeSelector(Target) || C.Arg(0).Type == EGameTestValueType::Map)
+		if (LooksLikeTarget(C.Arg(0), X))
 		{
 			const FGameTestWidgetLook Look = GA::Widget(C.Arg(0), X);
 			return C.Done(FGameTestValue::FromBool(Look.bResolved && Look.Node.IsValid() && GameTestWidgetProbe::IsOnScreen(*Look.Node)));
@@ -110,7 +115,7 @@ namespace
 				return C.Done(FGameTestValue::FromObject(Screen));
 			}
 		}
-		return C.Fail(TEXT("object_not_found"), Matched == 0
+		return C.Fail(TEXT("ref_not_found"), Matched == 0
 			? FString::Printf(TEXT("屏上没有 %s 界面（按继承认，子类也算）"), *ClassName)
 			: FString::Printf(TEXT("屏上有 %d 个 %s，但 key 都对不上"), Matched, *ClassName));
 	}
@@ -303,8 +308,8 @@ namespace GameTestBuiltin
 	void RegisterApiWidget()
 	{
 		const TCHAR* Cat = TEXT("界面");
-		GameTestApis::Add(TEXT("Widget.IsShown"), Cat, TEXT("界面或控件在不在屏上：写类名按继承 UUserWidget 认（子类也算），写选择器看那个控件"),
-			{ Req(TEXT("target"), TEXT("sel"), TEXT("WBP_Shop、UMyBaseWidget 或 WBP_Shop:Root/BtnBuy")) }, TEXT("bool"), true, &IsShown);
+		GameTestApis::Add(TEXT("Widget.IsShown"), Cat, TEXT("界面或控件在不在屏上：写类名按继承 UUserWidget 认（子类也算），写部件写法 / objects 里的名字看那个控件"),
+			{ Req(TEXT("target"), TEXT("sel"), TEXT("WBP_Shop、UMyBaseWidget、shop 或 {obj: shop, part: BtnBuy}")) }, TEXT("bool"), true, &IsShown);
 		GameTestApis::Add(TEXT("Widget.Find"), Cat, TEXT("屏上的某个界面（同类开了几个取最上面的；key 按属性过滤）"),
 			{ Req(TEXT("cls"), TEXT("cls")), Opt(TEXT("key"), TEXT("any"), TEXT("{属性路径: 值}")) }, TEXT("obj"), true, &FindScreen);
 		GameTestApis::Add(TEXT("Widget.List"), Cat, TEXT("屏上所有界面，从上到下（z = 0 是最上面）"),
@@ -338,9 +343,9 @@ namespace GameTestBuiltin
 			{ Req(TEXT("target"), TEXT("sel")) }, TEXT("[obj]"), true, [](FCall& C, FCtx& X) { return ReadItems(C, X, false); });
 		GameTestApis::Add(TEXT("Widget.ItemCount"), Cat, TEXT("列表的条目数（含没滚到的）"),
 			{ Req(TEXT("target"), TEXT("sel")) }, TEXT("int"), true, [](FCall& C, FCtx& X) { return ReadItems(C, X, true); });
-		GameTestApis::Add(TEXT("Widget.Close"), Cat, TEXT("把控件所在的界面从屏上移除（同 widget.close）"),
+		GameTestApis::Add(TEXT("Widget.Close"), Cat, TEXT("把控件所在的界面从屏上移除（同 obj.close 的 by=remove）"),
 			{ Req(TEXT("target"), TEXT("sel")) }, TEXT(""), false, &Close);
-		GameTestApis::Add(TEXT("Widget.CallFn"), Cat, TEXT("调控件所在界面上的函数（蓝图函数或绑的 Lua 函数，同 widget.call）"),
+		GameTestApis::Add(TEXT("Widget.CallFn"), Cat, TEXT("调控件所在界面上的函数（蓝图函数或绑的 Lua 函数，同 obj.call）"),
 			{ Req(TEXT("target"), TEXT("sel")), Req(TEXT("fn"), TEXT("string")), Opt(TEXT("args"), TEXT("any"), TEXT("按顺序的参数数组")) },
 			TEXT("any"), false, &CallScreenFn);
 		GameTestApis::Add(TEXT("Widget.InputMode"), Cat, TEXT("键盘鼠标现在给谁：game / ui / gameAndUi（按视口是否忽略输入、光标是否显示推断）"),

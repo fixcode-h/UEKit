@@ -73,6 +73,8 @@ private:
 	void ParseBlock(const FJsonObject& InJson, FGameTestNode& OutNode);
 	void ParseLeaf(const TSharedPtr<FJsonObject>& InJson, FGameTestNode& OutNode);
 	void CheckLeafRefs(const FJsonObject& InJson);
+	/** target / toTarget / obj / prop / how（docs/game-test-ref.md）：引用写法、objects 名字、判断项、关闭方式。 */
+	void CheckLeafObjects(const FJsonObject& InJson, FName InAction);
 
 	/** 一份脚本的解析状态（解析 call 的子脚本时压栈）。 */
 	struct FScriptState
@@ -81,6 +83,9 @@ private:
 		TSet<FString> Ids;
 		TArray<TSet<FString>> Vars;
 		int32 TopLevelLeaf = 0;
+		/** `objects` 段的名字（对象引用写名字时查在不在）；bHasObjects 是这份脚本有头（读过 objects 段）。 */
+		TSet<FString> Objects;
+		bool bHasObjects = false;
 	};
 
 	FScriptState& State() { return States.Last(); }

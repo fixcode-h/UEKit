@@ -1,6 +1,9 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "GameTestSubsystem.h"
+#include "Observe/Compare/GameTestCompareRegistry.h"
+#include "Observe/Ref/GameTestState.h"
+#include "Operate/Close/GameTestCloser.h"
 
 #include "Core/Flow/GameTestFlow.h"
 #include "Core/Flow/GameTestScriptParser.h"
@@ -865,6 +868,44 @@ TSharedPtr<FJsonObject> UGameTestSubsystem::BuildActionsJson() const
 {
 	const TSharedPtr<FJsonObject> Json = GameTestActions::DescribeAll();
 	Json->SetBoolField(TEXT("editorAvailable"), GameTestEditor::IsAvailable());
+	// 2.0.0：对象引用的比较、算出状态、关闭方式（docs/game-test-ref.md 3.2 / 3.4 / 5.2），面板按它核对自己的表
+	const TSharedRef<FJsonObject> Compares = FGameTestCompareRegistry::Describe();
+	const TArray<TSharedPtr<FJsonValue>>* CompareItems = nullptr;
+	if (Compares->TryGetArrayField(TEXT("compares"), CompareItems) && CompareItems != nullptr)
+	{
+		Json->SetArrayField(TEXT("compares"), *CompareItems);
+	}
+	TArray<TSharedPtr<FJsonValue>> States;
+	for (const TSharedRef<IGameTestState>& State : FGameTestStateRegistry::Get().GetAll())
+	{
+		const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
+		Item->SetStringField(TEXT("prop"), TEXT(":") + State->GetKey().ToString());
+		Item->SetStringField(TEXT("kind"), FGameTestPropKind::Name(State->GetKind()));
+		const EGameTestStateScope Scope = State->GetScope();
+		Item->SetStringField(TEXT("on"), Scope == EGameTestStateScope::Widget ? TEXT("widget") : Scope == EGameTestStateScope::Actor ? TEXT("actor") : TEXT("any"));
+		Item->SetStringField(TEXT("summary"), State->GetSummary());
+		if (!State->IsStable())
+		{
+			Item->SetBoolField(TEXT("changing"), true);
+		}
+		States.Add(MakeShared<FJsonValueObject>(Item));
+	}
+	Json->SetArrayField(TEXT("states"), States);
+	TArray<TSharedPtr<FJsonValue>> Closers;
+	for (const TSharedRef<IGameTestCloser>& Closer : GameTestClosers::Get().GetAll())
+	{
+		const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
+		Item->SetStringField(TEXT("by"), Closer->GetKey().ToString());
+		Item->SetStringField(TEXT("summary"), Closer->GetSummary());
+		TArray<TSharedPtr<FJsonValue>> Fields;
+		for (const FString& Field : Closer->GetFields())
+		{
+			Fields.Add(MakeShared<FJsonValueString>(Field));
+		}
+		Item->SetArrayField(TEXT("fields"), Fields);
+		Closers.Add(MakeShared<FJsonValueObject>(Item));
+	}
+	Json->SetArrayField(TEXT("closers"), Closers);
 	return Json;
 }
 

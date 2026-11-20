@@ -285,6 +285,17 @@ namespace
 
 	void ValidateNode(const FNode& InNode, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink);
 
+	/** 2.0.0 删掉的按选择器读控件的函数 → prop() 里对应的属性路径（报 expr_removed 时给出改法）。 */
+	const TMap<FString, FString>& ExprRemovedFunctions()
+	{
+		static const TMap<FString, FString> Map = {
+			{ TEXT("text"), TEXT("@部件:text") }, { TEXT("number"), TEXT("@部件:text") /* 再套 num() 或改用数字属性 */ },
+			{ TEXT("visible"), TEXT("@部件:onScreen") }, { TEXT("enabled"), TEXT("@部件:enabled") }, { TEXT("exists"), TEXT(":exists") },
+			{ TEXT("checked"), TEXT("@部件:checked") }, { TEXT("count"), TEXT("@部件:count") }, { TEXT("onScreen"), TEXT(":onScreen") },
+		};
+		return Map;
+	}
+
 	void ValidateCall(const FNode& InNode, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink)
 	{
 		const FString At = FString::Printf(TEXT("第 %d 个字附近："), InNode.Pos + 1);
@@ -298,6 +309,12 @@ namespace
 			return;
 		}
 		const IGameTestApi* Api = GameTestApis::Get().Find(FName(*InNode.Function));
+		if (!Api && ExprRemovedFunctions().Contains(InNode.Function))
+		{
+			InSink.Error(TEXT("expr_removed"), At + FString::Printf(TEXT("%s(sel) 按选择器读控件，2.0.0 起删掉了：改成 prop(引用, \"%s\")，引用写 objects 里的名字或 $变量（见 docs/game-test-ref.md 第 4 节）"),
+				*InNode.Function, *ExprRemovedFunctions()[InNode.Function]));
+			return;
+		}
 		if (!Api)
 		{
 			if (const FString* NewName = GameTestApis::GetRenamed().Find(InNode.Function))

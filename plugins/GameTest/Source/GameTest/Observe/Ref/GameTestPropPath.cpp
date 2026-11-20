@@ -248,6 +248,8 @@ namespace GameTestPropPathImpl
 		Read.bReadOnly = Read.Kind == EGameTestKind::None || Cursor.Prop->HasAnyPropertyFlags(CPF_BlueprintReadOnly | CPF_EditConst);
 		Read.Holder = Cursor.Object;
 		Read.PropName = Cursor.Prop->GetName();
+		Read.RawProp = Cursor.Prop;
+		Read.RawValue = Cursor.ValuePtr;
 		if (const FTextProperty* TextProp = CastField<FTextProperty>(Cursor.Prop))
 		{
 			FString Namespace;
