@@ -219,6 +219,13 @@
 - `lua.gc {"action": "collect" | "count"}` → `{"beforeKB", "afterKB", "ms"?}`：`collect` 跑一次完整的 Lua 垃圾回收（`collectgarbage("collect")`），`count` 只看内存。
 - `lua.inspect` 的 `chain` 每层加 `kind`：`lua`（`package.loaded` 里的模块）、`ue`（不是模块，但在注册表里有字符串键，即 UnLua 给 UE 类建的元表，`name` 是这个键）；都认不出时没有 `kind`、`name` 为空。2.19 起最多走 16 层（以前 6 层）。
 
+2.19.1 起：
+
+- `lua.objects` 每项是类（UClass）时带 `"isClass": true`。没开始玩时 UnLua 只给类建了表，对象表里全是类；类不能当实例传给 UE 函数。类的 `module` 问它的默认对象。
+- `module`（`lua.objects`）和 `chain[].name`（`lua.inspect`）在 `package.loaded` 里对不上时，按表里第一个 Lua 函数所在的文件推：路径里 `/Script/`（或 `/Scripts/`）之后、去掉 `.lua`、`/` 换成 `.`。
+- `lua.inspect` 的 `chain` 走过的表不再走（UnLua 给 UE 类建的元表常是自己的元表，2.19.0 会把同一层重复到 16 次）。`kind: "ue"` 的层能按反射找到类时，`name` 换成短类名（C++ 类带前缀，如 `AActor`；蓝图类是生成类名），完整注册表键放 `path`；最后一层 UE 类之后按反射补上父类直到 `UObject`，这些层带 `"reflected": true`、没有函数。
+- 实例表自己身上的 C 函数（UnLua 第一次调 UE 函数时缓存的包装）`from` 记成第一层 UE 类，不算「自己的」。
+
 2.4.0 起的 Lua 深度调试（「装了 UnLua 时」才有，代码在 `AgentPanelLuaDebugOps.cpp`）。三者都靠 Lua 的调试钩子或只读遍历，不改游戏状态；不做断点（桥接在游戏线程上处理请求，游戏线程一停桥接也停了）：
 
 - 钩子：快照点用行钩子、采样用调用 / 返回钩子，共用一个钩子函数。挂上前记下原来的钩子（IDE 的 Lua 调试器），事件按它原来的掩码转过去，都撤了再放回去。**挂上之后 IDE 的 Lua 调试器又换了钩子时不抢回来**（2.5.3 起；以前每帧抢回，会让 IDE 断点失灵）：这期间快照点和采样收不到事件，`lua.snap list`、`lua.profile start` 带 `warning`；调试器断开把钩子清掉后自动接上。`lua.exec` / `lua.call` / `lua.reload` 执行期间临时换成超时钩子，那段代码里的快照点和采样看不到；执行完只在钩子还是超时钩子时才放回原来的（期间调试器换过就不动）。钩子按协程各一份，挂之前就在跑的协程看不到（回包 `note` 说明）。

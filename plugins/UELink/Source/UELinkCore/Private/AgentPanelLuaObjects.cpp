@@ -95,7 +95,14 @@ namespace AgentPanelLuaObj
 	TSharedPtr<FJsonObject> ObjectRow(FLuaCtx& C, UObject* Obj, const TSet<const UObjectBase*>& Live)
 	{
 		TSharedPtr<FJsonObject> O = Brief(Obj);
-		FString Mod = InterfaceModule(Obj);
+		// 没开始玩时 UnLua 只给类（UClass）建了表：这时模块名要问类的默认对象，问类对象本身问的是 BlueprintGeneratedClass
+		UClass* AsClass = Cast<UClass>(Obj);
+		if (AsClass)
+		{
+			O->SetBoolField(TEXT("isClass"), true);
+		}
+		UObject* Cdo = AsClass ? AsClass->GetDefaultObject(false) : nullptr;
+		FString Mod = InterfaceModule(Cdo ? Cdo : Obj);
 		if (Mod.IsEmpty())
 		{
 			lua_rawgetp(C.L, C.Map, Obj);
