@@ -1165,10 +1165,10 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& B)
 			CollectFunctions(L, V, 0, Seen, Fns);
 			CollectUpvalues(C, V, UpSeen, Ups);
 		}
-		// 元表链：每层取 __index（是表时）或元表本身，最多 6 层
+		// 元表链：每层取 __index（是表时）或元表本身，最多 16 层（UE 类一路到 UObject 常有十层上下，2.18 及以前只走 6 层）
 		TArray<TSharedPtr<FJsonValue>> Chain;
 		lua_pushvalue(L, V);
-		for (int32 Depth = 1; Depth <= 6 && lua_getmetatable(L, -1); ++Depth)
+		for (int32 Depth = 1; Depth <= 16 && lua_getmetatable(L, -1); ++Depth)
 		{
 			const int MT = lua_gettop(L);
 			lua_pushstring(L, "__index");
@@ -1180,7 +1180,22 @@ void AgentPanelRegisterLuaDevOps(FAgentPanelBridge& B)
 			{
 				Name = C.ModuleOfTable(lua_topointer(L, MT));
 			}
+			// 是模块就是 Lua 写的那一层；不是模块时去注册表按名字反查，查到的是 UnLua 给 UE 类建的元表
+			FString Kind = Name.IsEmpty() ? FString() : TEXT("lua");
+			if (Name.IsEmpty())
+			{
+				Name = C.RegistryNameOf(lua_topointer(L, MT));
+				if (Name.IsEmpty() && Src != MT)
+				{
+					Name = C.RegistryNameOf(lua_topointer(L, Src));
+				}
+				Kind = Name.IsEmpty() ? FString() : TEXT("ue");
+			}
 			Layer->SetStringField(TEXT("name"), Name);
+			if (!Kind.IsEmpty())
+			{
+				Layer->SetStringField(TEXT("kind"), Kind);
+			}
 			const int32 Before = Fns.Num();
 			CollectFunctions(L, Src, Depth, Seen, Fns);
 			if (Fns.Num() > Before)

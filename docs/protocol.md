@@ -64,7 +64,7 @@
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop`；`job.batch`（2.14，见「批量」） |
-| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
+| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.gc`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
 
 `asset.snapshot {"out", "package", "file"?}`（2.14）：资源的结构化快照，给面板资源页的「版本差异」逐项比较。`file` 是某一版资源的临时文件（和 `asset.textify` 一样挂到临时挂载点加载、用完卸载）；不给 `file` 就读编辑器里已加载的那份（含没保存的改动）。快照写进 `out`（面板给的绝对路径，UTF-8 紧凑 JSON），回包只有 `{out, bytes, class}`。快照里的临时包名都换回 `package`。形状：
 
@@ -206,6 +206,18 @@
   - `upvalues` 是自己的函数用到的 upvalue（模块顶部的 `local`），同名只列一次，最多 100 个，只给简单值。
 - `lua.call {"path"?, "keys": [函数路径], "self"?: false, "args"?: [JSON], "timeoutMs"?: 10000}` → `{"results", "output", "ms", "changes"?: [{"k", "before", "after"}]}`：沿 `keys` 找到函数，`self: true` 时把上一级的表当第一个参数（`obj:fn(...)`）。参数是 JSON，对象和数组转成 Lua 表。在 `lua_pcall` 里执行，超时中止，`print` 收进 `output`。`self: true` 时回包带上 self 表顶层简单字段调用前后的变化。
 - `lua.set` 2.4.0 起 `value` 也可以是 JSON 对象或数组（转成 Lua 表）；原值是表时也能整个换掉，回包 `"undoable": false`、没有 `prev`（客户端不要提供撤回）。
+
+2.19.0 起 Lua 对象列表带状态、类链和归属（代码在 `AgentPanelLuaObjects.cpp`）：
+
+- `lua.objects {"class"?, "prefix"?, "module"?, "limit"?: 200, "world"?}` → `{"items": [{"path", "name", "class", "module", "state"?, "world"?, "map"?, "classChain": [父类名...], "owner"?, "ownerName"?}], "more", "bound", "stale", "memoryKB"}`：
+  - `class` 按 `IsA` 过滤（含子类），蓝图类可省 `_C`；`prefix` 是对象名前缀；`module` 是模块名包含的字。
+  - `state` 只在不是正常活着时有：`garbage`（已标记销毁，下次 UE 垃圾回收收掉）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）。2.18 及以前已标记销毁的对象不列。
+  - `world` 是所在世界的 id（同 `outliner` 的世界 id，世界已关时没有），`map` 是世界对象名。
+  - `classChain` 是父类名，从直接父类一直到 `Object`；面板据此做「按类名搜（含子类）」和 UE 类继承树。
+  - `owner` / `ownerName`：外层链上第一个 Actor 或 UMG 控件（组件 → Actor，子控件 → 父界面）；Actor 没有这样的外层时是它的 Owner。
+  - 对象表里的地址先在活对象集合里查（一次遍历全部 UObject），查不到的不读、只计进 `stale`：UnLua 分支在对象销毁时漏删对象表项时，这些是残留的已释放地址。
+- `lua.gc {"action": "collect" | "count"}` → `{"beforeKB", "afterKB", "ms"?}`：`collect` 跑一次完整的 Lua 垃圾回收（`collectgarbage("collect")`），`count` 只看内存。
+- `lua.inspect` 的 `chain` 每层加 `kind`：`lua`（`package.loaded` 里的模块）、`ue`（不是模块，但在注册表里有字符串键，即 UnLua 给 UE 类建的元表，`name` 是这个键）；都认不出时没有 `kind`、`name` 为空。2.19 起最多走 16 层（以前 6 层）。
 
 2.4.0 起的 Lua 深度调试（「装了 UnLua 时」才有，代码在 `AgentPanelLuaDebugOps.cpp`）。三者都靠 Lua 的调试钩子或只读遍历，不改游戏状态；不做断点（桥接在游戏线程上处理请求，游戏线程一停桥接也停了）：
 

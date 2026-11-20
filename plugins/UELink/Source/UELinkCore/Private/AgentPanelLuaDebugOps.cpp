@@ -725,37 +725,7 @@ namespace AgentPanelLuaDebug
 
 	// ---------- 持有的已销毁 UObject ----------
 
-	bool IsLiveWorld(const UWorld* W)
-	{
-		if (!W || W->bIsTearingDown || !GEngine)
-		{
-			return false;
-		}
-		for (const FWorldContext& Ctx : GEngine->GetWorldContexts())
-		{
-			if (Ctx.World() == W)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * 现在活着的全部 UObject 的地址。对象表里要找的恰恰是「已经销毁」的项，它们的地址可能已经被释放：
-	 * 不能像 GUObjectArray.IsValid 那样先读对象自己的内存（读已释放的内存可能直接崩），
-	 * 先拿地址在这张表里查，查到了才当成对象去读。只在这个排查操作里建一次，几十万个对象也只是一次遍历。
-	 */
-	TSet<const UObjectBase*> CollectLiveObjects()
-	{
-		TSet<const UObjectBase*> Live;
-		Live.Reserve(GUObjectArray.GetObjectArrayNumMinusAvailable());
-		for (TObjectIterator<UObject> It(RF_NoFlags); It; ++It)
-		{
-			Live.Add(*It);
-		}
-		return Live;
-	}
+	// IsLiveWorld、CollectLiveObjects 2.19 起挪到 AgentPanelLuaObjects.cpp（lua.objects 也要用），声明在 AgentPanelLuaShared.h
 
 	/** 对象表里的一项有没有问题：已经不在了、已标记销毁、所在的世界没了（只看 Actor、组件、UMG 控件） */
 	const TCHAR* MapEntryProblem(const void* P, const TSet<const UObjectBase*>& InLive, FString& OutPath, FString& OutClass)
