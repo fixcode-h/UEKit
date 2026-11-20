@@ -2,6 +2,41 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.0.0
+
+> 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版改动很大（对象引用整套重写），C++ 和自动化测试都没在本地跑过，编译有问题请反馈。需要 UELink 2.12.0 起。场景格式升到 `schemaVersion: 4`，旧场景要先在 Agent 面板里点「升级脚本」。
+
+### 新功能
+- **对象引用 = 类 + 唯一标识** — 定位、判断、操作对象统一写成 `{class, in?, ident?, many?, near?}`：按类收候选，按 `ident`（属性 + 比较）挑出那一个，条目写成「容器里的某个条目」。场景的 `objects` 给引用起名字，步骤里直接写名字。写法见 `docs/game-test-ref.md`
+- **部件写法** — 点按钮、拖动、输入文字等写 `{"obj": 引用, "part": "BtnBuy"}`，部件名就是 WBP 里的控件名，嵌套用 `.` 连
+- **对象判断** — 条件写 `{obj, prop, op, value}`：`prop` 可以是反射属性（`@self.Gold`）、部件属性（`@BtnBuy.IsEnabled`）或算出状态（`:onScreen`、`:shown`、`:text`、`:selected`…），`op` 按属性类型给（数值、文字、布尔、枚举、颜色、向量…）；表达式里用 `prop(引用, "路径")` 读
+- **对象动作** — `obj.call`（调函数，原 `invoke`）、`obj.close`（按关界面规则关：返回键、CommonUI 停用、调函数、移除，关完核对）、`obj.find`、`obj.wait`、`obj.set`
+- **新接口** — `gt.tree`（界面 / 世界里的对象树）、`gt.highlight`（在游戏里框出对象）、`gt.props`（一个对象能拿来当标识和判断的属性，带推荐分、可用的比较、同类里的取值）、`gt.refFor`（给选中的控件生成引用）；`gt.resolve` 能解析引用并在游戏里标出来
+- **设置** — `identRules`（各类默认用哪些属性当标识）、`closeRules`（各类怎么关）、`refDefaults`、`allowDestroy`
+- **深度检查认引用** — `gt.validate` 对照 WBP 控件树查部件名（`part_missing`）、对照类的反射查属性（`prop_missing`）、对照属性类型查比较（`op_type`）
+
+### 改进
+- **录制直接存成新写法** — 录到的点击、等待、断言保存时转成对象引用和部件写法，界面在 `objects` 里起好名字；拿不准标识的步骤标 `todo`，面板上补
+- **守护和 skipIf 用对象判断** — 守护的 `when` 写对象判断，`do` 用 `obj.close`；`skipIf` 写 `{cond, also?, settleMs?, verify?}`
+- **gt.keys / gt.actions 带新字段** — 字段条目带 `prop` 路径；动作清单带 `compares`、`states`、`closers`
+
+### 注意
+- **选择器字符串不再支持** — `WBP_X:Root/Btn`、`$item>BtnClaim` 这类写法报 `selector_removed`；按控件写的判断报 `cond_removed`；`text(sel)` 这类表达式函数报 `expr_removed`；`invoke`、`widget.close`、`widget.call`、`find` 报 `action_removed`。都在提示里写了改成什么，面板「升级脚本」会自动迁移
+- **改名** — `object_not_found` / `object_ambiguous` 改为 `ref_not_found` / `ref_ambiguous`；设置 `objectKeys`、`itemKeys` 换成 `identRules`（读到旧的报 `settings_old`）；`gt.validate` 的 `checked.selectors` 改名 `checked.refs`
+- **需要本地确认的引擎接口** — 下面这些是按印象写的签名，没在 5.4 / 5.8 上编过，编译报错先看这里（拿不准的都包在 `GameTestCompat.h` 里）：
+  - `FTextInspector::GetNamespace` / `GetKey`（`GameTestCompat.h`）：按返回 `TOptional<FString>` 或 `FString` 写了两个重载接住；若是别的类型（如 `FTextKey`）要在 `TextPieceOf` 加一个重载
+  - `UWidgetBlueprintGeneratedClass::GetWidgetTreeArchetype()`（`gt.props` 的类模式、深度检查）：假设返回 `UWidgetTree*`
+  - `UWidgetTree::ForEachWidget` / `GetAllWidgets`、`UPanelWidget::GetChildAt`（对象树、部件查找）
+  - `UCommonActivatableWidget::DeactivateWidget` / `IsActivated`（关界面的 CommonUI 规则，可选模块）
+  - `UUserListEntryLibrary::GetOwningListView`、`UListView::GetSelectedItem` / `GetNumItems` / `ScrollIndexIntoView`、`UDynamicEntryBox::GetNumEntries`（条目引用、`:selected`、`:count`）
+  - `UWidget::GetIsEnabled` / `GetVisibility` / `SetVisibility` / `GetCachedGeometry` / `RemoveFromParent`、`SWidget::IsHovered` / `HasAnyUserFocus`（算出状态、关界面）
+  - `UImage::GetBrush`、`UTextBlock` / `URichTextBlock` / `UEditableText(Box)` 的 `GetText` / `SetText`、`UCheckBox::SetIsChecked` / `SetCheckedState`、`USlider` / `USpinBox` 的 `SetValue`（`obj.set`、`:text`、`:image`）
+  - `FColor::FromHex`、`FRotator::NormalizeAxis`（颜色、旋转比较）
+  - `FField::GetOwnerStruct`、`UStruct::GetPackage`、`UEnum::NumEnums` / `GetNameStringByIndex`、`FByteProperty::Enum`、`FEnumProperty::GetEnum`（`gt.props` 的属性来源和枚举成员）
+  - `UGameViewportClient::GetGameViewportWidget` / `AddViewportWidgetContent`、`FTSTicker`、`FGeometry::ToPaintGeometry(FVector2D, FSlateLayoutTransform)` / `AbsoluteToLocal`、`FSlateDrawElement::MakeText` / `MakeLines`、`FCoreStyle::GetDefaultFontStyle`（`gt.highlight` 的框）
+  - `AActor::Destroy`（`obj.close` 的 `destroy`，要 `allowDestroy`）
+  - UELink 的 `AgentPanel::FromJson`、本插件的 `GameTestInput::SendKey`（关界面的返回键规则）
+
 ## v1.11.4
 
 > 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版只改了场景根的默认位置（`GameTestSettings.cpp`），编译有问题请反馈。需要 UELink 2.12.0 起。
