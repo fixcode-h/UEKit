@@ -391,6 +391,7 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 - **读 Lua 字段**（2.8 起）：扩展要看对象 Lua 实例表上的数据时用 C++ 接口 `FAgentPanelLua::ReadFields(对象, 层数, 字段上限, 错误)`，返回 JSON 对象（标量原样、子表展开，函数和 userdata 跳过，超过上限带 `"__more": true`）。只用 `lua_next` 原样读，不触发元方法、不调 Lua 函数；对象没绑 Lua、没有 UnLua 时返回空并写原因。GameTest 1.4 录制列表条目时用它。
 - **进程内调操作**（2.12 起）：扩展用 `FAgentPanelBridge::Get().CallOp(操作名, 参数, 返回, 错误)` 在游戏线程直接调一个已登记的同步操作，参数和返回和经 `/rpc` 调时一样；`HasOp(名字)` 看这个进程有没有这个操作（`lua.*` 只在编进了 Lua 支持时有）。GameTest 1.9 读 Lua 模块、调 Lua 函数、取 Lua 报错走它（`lua.get` / `lua.call` / `lua.errors`），不另写 Lua 读写。
 - 扩展各自的操作列表见 `docs/asset-forge.md`、`docs/game-test.md`。
+- **项目文档根**（AssetForge 1.6.1、GameTest 1.11.4 起）：AssetForge 配置根、GameTest 场景根没在项目设置里指定时，放在项目文档根下的 `AssetForge/`、`GameTest/`。文档根由 Agent 面板算（和面板「文档」角色同一个，P4 / SVN 项目是各分支共用的 `ProjectDoc/docs`，可能在别的分支目录下），面板 UE 插件写进 `Saved/AgentPanel/docs-root.txt`：一行绝对路径，不进版本管理（每台机器的路径可能不同）。扩展每次取根目录时读它；文件没有、不是绝对路径、目录不在时按旧规则（项目外层同级有 `ProjectDoc/docs` 就用它，否则项目里的 `docs`）。新文档根下还没有对应子目录、旧位置有时先用旧位置，面板会把旧内容复制过去（旧的不删）。
 
 ## 7. 给 EmmyLua 调试器提供 UE 对象属性
 

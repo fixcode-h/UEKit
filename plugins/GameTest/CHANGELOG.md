@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v1.11.4
+
+> 还没在本地用 UE 完整编译验证过：云端编不了 UE，这一版只改了场景根的默认位置（`GameTestSettings.cpp`），编译有问题请反馈。需要 UELink 2.12.0 起。
+
+### 改进
+- **场景根跟 Agent 面板的项目文档根走** — 场景根目录留空时，用 Agent 面板算好的项目文档根下的 `GameTest`（面板写在 `Saved/AgentPanel/docs-root.txt`）：P4 / SVN 项目各分支共用一份 `ProjectDoc/docs`，场景写一次各分支都能跑；没有面板时还按原来的规则找。面板会把旧位置的场景复制过去，复制之前旧位置的场景照样能用
+
 ## v1.11.3
 
 > 还没在本地用 UE 完整编译验证过，编译有问题请反馈。需要 UELink 2.12.0 起。

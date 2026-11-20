@@ -10,7 +10,7 @@
 
 ## 配置
 
-- 配置根默认跟着项目的文档根：项目外层同级有 `ProjectDoc/docs`（P4 / SVN 项目的文档常放在项目外）就是 `ProjectDoc/docs/AssetForge`，否则是项目里的 `docs/AssetForge`。要换就在项目设置 → 插件 → Asset Forge 里指定（相对项目根，`../` 可以指到项目外，也接受绝对路径），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
+- 配置根默认跟着项目的文档根：用 Agent 面板算好的项目文档根（面板写在 `Saved/AgentPanel/docs-root.txt`，P4 / SVN 项目是各分支共用的 `ProjectDoc/docs`，见 [protocol.md](protocol.md) 第 6 节）下的 `AssetForge`；没有面板时项目外层同级有 `ProjectDoc/docs` 就是 `ProjectDoc/docs/AssetForge`，否则是项目里的 `docs/AssetForge`。要换就在项目设置 → 插件 → Asset Forge 里指定（相对项目根，`../` 可以指到项目外，也接受绝对路径），各 kind 在子目录里（`umg/`、`data/`……），路径和资产路径对应：`/Game/UI/WBP_HUD` ↔ `umg/UI/WBP_HUD.json`。
 - 文件格式：`{ "kind", "schemaVersion": 1, "revision", "asset", "parent"?, "root": { "class", "name", "props", "slot"?, "children"? } }`，属性名用 UE 属性名原样。允许 `//` 注释。
 - **子界面（`ref`）**：UMG 配置里某个节点写 `"ref": "相对路径.json"`（不写 `class`）表示这个位置放另一份 UMG 配置生成的子 WBP，类名由被引用配置的 `asset` 推出（`<asset>.<资产名>_C`），一个页面太大时按块拆成几份。路径先按引用它的配置所在目录找，找不到再按项目根、配置根找；引用成环报错。**导入父配置时先导入它引用的子配置**（批量导入按依赖排序，子界面在前，深度优先、去重），父界面生成时子界面的类已经在了；演练时子界面还没导入只给警告（演练看不到子界面里的控件），真导入时子界面导入失败就报错停下。
 - **按段排列**（1.6.0 起）：一个资源一个 JSON，顶层字段就是「段」，按固定顺序：头（`$schema`、`//`、`kind`、`schemaVersion`、`revision`、`asset`、`parent`，以及 `skeleton`、`blackboard` 这类小字段）→ `styles` → `root` → 各 kind 登记的大段（UMG 的 `animations`；状态树的 `parameters`、`evaluators`、`globalTasks`、`bindings`）。手写顺序不对也能读；导出到配置时按这个顺序重排顶层字段（字段内容不动），和磁盘上内容相同的文件不重写（不动修改时间，P4 不用签出）。每种 kind 的段登记在 `Registry/ForgeKindSchema.cpp` 的形状里（`Sections`），`forge.kinds kind=` 的 schema 在 `x-forge.sections` 列出 `[{name, description}]`；`forge.describe section=<段名>` 只读一段（头段叫 `header`）。

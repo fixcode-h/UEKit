@@ -85,7 +85,7 @@ namespace
 		Configured.TrimStartAndEndInline();
 		if (Configured.IsEmpty())
 		{
-			return UAssetForgeSettings::ResolveDocsRootDir() / TEXT("GameTest");
+			return UAssetForgeSettings::ResolveDocsSubDirPath(TEXT("GameTest"));
 		}
 		FString Root = FPaths::IsRelative(Configured) ? FPaths::ProjectDir() / Configured : Configured;
 		Root = FPaths::ConvertRelativePathToFull(Root);
