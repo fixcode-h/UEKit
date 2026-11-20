@@ -50,7 +50,7 @@ namespace
 		TSharedPtr<FJsonObject> Json;
 	};
 
-	struct FGroup
+	struct FVarGroup
 	{
 		TSharedPtr<FJsonObject> Head;
 	};
@@ -260,7 +260,7 @@ namespace
 		bool bValues = false;
 		bool bFunctions = true;
 		FString Filter;
-		TArray<FGroup> Groups;
+		TArray<FVarGroup> Groups;
 		TArray<FEntry> Entries;
 
 		bool Wanted(const FString& InName) const
@@ -270,7 +270,7 @@ namespace
 
 		int32 AddGroup(const TCHAR* InSrc, const FString& InTitle, const UClass* InClass)
 		{
-			FGroup Group;
+			FVarGroup Group;
 			Group.Head = MakeShared<FJsonObject>();
 			Group.Head->SetStringField(TEXT("src"), InSrc);
 			Group.Head->SetStringField(TEXT("title"), InTitle);
@@ -468,7 +468,7 @@ namespace
 	};
 
 	/** UnLua 绑的模块名：对象上有 GetModuleName（UnLuaInterface）就调一次，没有就算了。 */
-	FString LuaModuleOf(UObject* InObject, FGameTestFlowContext& InContext)
+	FString VarsLuaModuleOf(UObject* InObject, FGameTestFlowContext& InContext)
 	{
 		UFunction* Function = InObject ? InObject->FindFunction(TEXT("GetModuleName")) : nullptr;
 		if (Function == nullptr)
@@ -547,7 +547,7 @@ namespace GameTestRpcScript
 				OwnerJson->SetStringField(TEXT("asset"), Asset);
 			}
 		}
-		const FString LuaModule = Owner.LuaModule.IsEmpty() ? LuaModuleOf(Owner.Instance.Get(), Context) : Owner.LuaModule;
+		const FString LuaModule = Owner.LuaModule.IsEmpty() ? VarsLuaModuleOf(Owner.Instance.Get(), Context) : Owner.LuaModule;
 		if (!LuaModule.IsEmpty())
 		{
 			OwnerJson->SetStringField(TEXT("luaModule"), LuaModule);

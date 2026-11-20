@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { listPlugins, pickPlugins, readChangelog, readVersionMacro, semver, walk } from './lib.mjs'
 import { findWrappedSignatures } from './sig-wrap.mjs'
+import { findUnityClashes } from './unity-names.mjs'
 
 const errors = []
 const all = listPlugins()
@@ -105,6 +106,13 @@ for (const p of plugins) {
       const wrapped = findWrappedSignatures(text)
       if (wrapped.length) fail(`${rel} 第 ${wrapped.join('、')} 行的函数签名换行了：参数不超过 8 个时写在一行里`)
     }
+    // 命名空间里写 `class UWidget*` 会就地声明出 命名空间::UWidget，和引擎的 UWidget 不是一个类型（GameTest 2.0.0 的
+    // GameTestState.h 就是这样，5.8 上报「无法从 GameTestStateUtil::UWidget* 转换」）：前置声明写在全局，签名里不带 class
+    if (f.endsWith('.h') && /\(\s*(const\s+)?(class|struct)\s+[A-Z]\w+\s*[*&]|_API\s+(const\s+)?(class|struct)\s+[A-Z]\w+\s*[*&]/.test(text))
+      fail(`${rel} 的签名里用了 class / struct 就地前置声明：在文件开头的全局作用域写 class X;，签名里只写 X*`)
+    // 「最烦解析」：`const FKey Key(FName(*Name));` 声明的是函数不是变量（GameTest 2.0.0 的 GameTestCloseKey.cpp）
+    if (/^\s*(const\s+)?[A-Z]\w+\s+\w+\(\s*[FUT][A-Z]\w*\(\s*\*?\w+\s*\)\s*\);/m.test(text))
+      fail(`${rel} 有 \`T x(U(*y));\` 这种写法，会被解析成函数声明：改成 T x{ U(*y) };`)
     // CQTest 的测试类是 struct 定义，结尾少了分号时本文件报 C1004「意外的文件尾」，合并编译时还会连累下一个文件
     // （UE 5.4 上表现成 UMG 的 PanelSlot.h 语法错误，GameTest 1.3.0 就是这样）
     const testClasses = (text.match(/^TEST_CLASS\w*\s*\(/gm) ?? []).length
@@ -118,6 +126,15 @@ for (const p of plugins) {
     if (/GetHttpRouter\s*\(/.test(text)) fail(`${rel} 自己开了 HTTP 服务：扩展的操作用 FAgentPanelBridge::AddExtensionOp 挂到 UELink 上`)
     // 原项目的前缀 Tk 已经去掉，防止搬代码时漏改
     if (/\b[FUSE]?Tk[A-Z]\w*|TK(ASSETFORGE|GAMETEST)\w*_API/.test(text)) fail(`${rel} 还有原项目前缀 Tk 的名字`)
+  }
+  // 合并编译下的重名（见 unity-names.mjs）：按模块查，关了合并编译的模块不查
+  for (const name of moduleNames) {
+    const dir = path.join(p.dir, 'Source', name)
+    const buildCs = files.find((f) => f === path.join(dir, `${name}.Build.cs`))
+    if (buildCs && /bUseUnity\s*=\s*false/.test(readFileSync(buildCs, 'utf8'))) continue
+    const cpps = files.filter((f) => f.startsWith(dir + path.sep) && f.endsWith('.cpp'))
+    for (const clash of findUnityClashes(cpps, (f) => path.relative(p.dir, f).replace(/\\/g, '/')))
+      fail(`合并编译重名 ${clash}：改个名字（合并编译时会报「不明确的符号」）`)
   }
   if (p.name === 'UELink') checkEditorSharedNamespace(p.dir, fail)
   for (const name of moduleNames) if (!implemented.has(name)) fail(`没有找到 IMPLEMENT_MODULE(..., ${name})`)

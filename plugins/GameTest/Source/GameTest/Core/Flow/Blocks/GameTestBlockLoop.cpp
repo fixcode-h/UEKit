@@ -32,7 +32,7 @@ namespace
 	};
 
 	/** 写了正数时的上限，只防手误；要更多轮写 0（不限） */
-	constexpr int32 MaxLimit = 1000000;
+	constexpr int32 LoopMaxLimit = 1000000;
 	/** 条目没生成时最多等多久（秒）：滚过去后列表下一帧才生成控件，慢的界面要几帧。 */
 	constexpr double EntryWaitSeconds = 3.0;
 
@@ -51,7 +51,7 @@ namespace
 		int32 List = INDEX_NONE;
 	};
 
-	enum class EPhase : uint8
+	enum class ELoopPhase : uint8
 	{
 		Init,
 		BeginIter,
@@ -64,7 +64,7 @@ namespace
 
 	struct FLoopState : FGameTestBlockState
 	{
-		EPhase Phase = EPhase::Init;
+		ELoopPhase Phase = ELoopPhase::Init;
 		int32 Iter = 0;
 		/** times / in 的总轮数；until / while / each 为 -1（each 每轮重新数）。 */
 		int32 Count = -1;
@@ -127,9 +127,9 @@ namespace
 				FString Text;
 				if (Data->Times->TryGetNumber(Number))
 				{
-					if (Number < 0 || Number > MaxLimit)
+					if (Number < 0 || Number > LoopMaxLimit)
 					{
-						Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("times 要在 0–%d 之间"), MaxLimit));
+						Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("times 要在 0–%d 之间"), LoopMaxLimit));
 					}
 				}
 				else if (!Data->Times->TryGetString(Text))
@@ -183,11 +183,11 @@ namespace
 			// max：0 或不写 = 不限轮数（用户 2026-11-19 定）。不限时靠整块的 timeoutMs 或面板的「停止」收住，
 			// 每轮至少让出一帧，不会卡住编辑器。
 			Json.TryGetNumberField(TEXT("max"), Data->Max);
-			if (Data->Max < 0 || Data->Max > MaxLimit)
+			if (Data->Max < 0 || Data->Max > LoopMaxLimit)
 			{
-				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 0–%d 之间（0 = 不限），写的是 %d"), MaxLimit, Data->Max));
+				Sink.Error(TEXT("bad_type"), FString::Printf(TEXT("max 要在 0–%d 之间（0 = 不限），写的是 %d"), LoopMaxLimit, Data->Max));
 			}
-			Data->Max = FMath::Clamp(Data->Max, 0, MaxLimit);
+			Data->Max = FMath::Clamp(Data->Max, 0, LoopMaxLimit);
 			Json.TryGetNumberField(TEXT("gapMs"), Data->GapMs);
 			Data->GapMs = FMath::Clamp(Data->GapMs, 0, 600000);
 			FString OnMax;
@@ -231,7 +231,7 @@ namespace
 			{
 				switch (State.Phase)
 				{
-				case EPhase::Init:
+				case ELoopPhase::Init:
 				{
 					FString Error;
 					if (!Init(*Data, State, InContext, Error))
@@ -241,10 +241,10 @@ namespace
 					}
 					InContext.PushLocals();
 					State.bLocals = true;
-					State.Phase = EPhase::BeginIter;
+					State.Phase = ELoopPhase::BeginIter;
 					break;
 				}
-				case EPhase::BeginIter:
+				case ELoopPhase::BeginIter:
 					if (State.Count >= 0 && State.Iter >= State.Count)
 					{
 						return Finish(State, TEXT("count"), Out);
@@ -262,14 +262,14 @@ namespace
 					if (Data->Mode == ELoopMode::While)
 					{
 						State.Watch.Start(Data->Cond, InContext, true);
-						State.Phase = EPhase::CheckWhile;
+						State.Phase = ELoopPhase::CheckWhile;
 					}
 					else
 					{
-						State.Phase = EPhase::Prepare;
+						State.Phase = ELoopPhase::Prepare;
 					}
 					break;
-				case EPhase::CheckWhile:
+				case ELoopPhase::CheckWhile:
 				{
 					const FGameTestCondWatch::EVerdict Verdict = TickWatch(State, InContext, InNowSeconds);
 					if (Verdict == FGameTestCondWatch::EVerdict::Pending)
@@ -281,10 +281,10 @@ namespace
 					{
 						return Finish(State, TEXT("while"), Out);
 					}
-					State.Phase = EPhase::Prepare;
+					State.Phase = ELoopPhase::Prepare;
 					break;
 				}
-				case EPhase::Prepare:
+				case ELoopPhase::Prepare:
 				{
 					FString Error;
 					bool bWait = false;
@@ -303,12 +303,12 @@ namespace
 						Out.Message = FString::Printf(TEXT("在等第 %d 个条目生成（已滚过去）"), State.Iter + 1);
 						return EGameTestBlockStep::Pending;
 					}
-					State.Phase = EPhase::AfterBody;
+					State.Phase = ELoopPhase::AfterBody;
 					Out.List = Data->List;
 					Out.Iter = State.Iter;
 					return EGameTestBlockStep::RunList;
 				}
-				case EPhase::AfterBody:
+				case ELoopPhase::AfterBody:
 					if (State.bBreak)
 					{
 						State.Iter++;
@@ -317,15 +317,15 @@ namespace
 					if (Data->Mode == ELoopMode::Until)
 					{
 						State.Watch.Start(Data->Cond, InContext, true);
-						State.Phase = EPhase::CheckUntil;
+						State.Phase = ELoopPhase::CheckUntil;
 					}
 					else
 					{
 						State.Iter++;
-						State.Phase = EPhase::Gap;
+						State.Phase = ELoopPhase::Gap;
 					}
 					break;
-				case EPhase::CheckUntil:
+				case ELoopPhase::CheckUntil:
 				{
 					const FGameTestCondWatch::EVerdict Verdict = TickWatch(State, InContext, InNowSeconds);
 					if (Verdict == FGameTestCondWatch::EVerdict::Pending)
@@ -338,10 +338,10 @@ namespace
 					{
 						return Finish(State, TEXT("until"), Out);
 					}
-					State.Phase = EPhase::Gap;
+					State.Phase = ELoopPhase::Gap;
 					break;
 				}
-				case EPhase::Gap:
+				case ELoopPhase::Gap:
 					if (Data->GapMs > 0)
 					{
 						if (State.GapUntil < 0.0)
@@ -355,7 +355,7 @@ namespace
 						}
 						State.GapUntil = -1.0;
 					}
-					State.Phase = EPhase::BeginIter;
+					State.Phase = ELoopPhase::BeginIter;
 					break;
 				}
 			}
@@ -372,7 +372,7 @@ namespace
 			FLoopState& State = static_cast<FLoopState&>(InState);
 			State.bBreak = InSignal == EGameTestFlowSignal::Break;
 			// continue 等于这一轮的循环体做完了：until 照常判断。
-			State.Phase = EPhase::AfterBody;
+			State.Phase = ELoopPhase::AfterBody;
 			return true;
 		}
 
@@ -426,7 +426,7 @@ namespace
 					OutError = FString::Printf(TEXT("times 取不到整数：%s"), Value.IsUnresolved() ? *Value.GetString() : *Value.ToDisplay());
 					return false;
 				}
-				InState.Count = FMath::Clamp(FMath::FloorToInt(Number), 0, MaxLimit);
+				InState.Count = FMath::Clamp(FMath::FloorToInt(Number), 0, LoopMaxLimit);
 			}
 			else if (InData.Mode == ELoopMode::In)
 			{
