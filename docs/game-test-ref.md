@@ -31,7 +31,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `class` | 是 | 类名或资源路径。`U`/`A` 前缀、`_C` 后缀可省（`WBP_Shop`、`WBP_Shop_C`、`/Game/UI/WBP_Shop` 等价）。**按继承认**，子类也算。界面只认直接或间接继承 `UUserWidget` 的 |
 | `in` | 否 | 在哪找。字符串：`screen`（屏上的界面，含游戏窗口弹出的子窗口）/ `world`（关卡里的 Actor）/ `all`（`TObjectIterator`，最后才用）/ `@来源.路径`（容器属性里的对象，来源同 game-test-script 4.3）。对象：`{"obj": 引用, "part": "容器部件"}`（另一个对象里某个容器控件的条目：ListView 族、Panel 子项、DynamicEntryBox、挂在 Slate 上的子界面）；`{"obj": 引用}` 且 `class` 是组件类时 = 那个 Actor 的组件。省略时按类推：UUserWidget 子类 → `screen`；AActor 子类 → `world`；子系统（`USubsystem` 子类）→ 直接取单例，`ident` 必须为空；UActorComponent 子类且没给 `in` → 校验报 `ref_need_owner` |
 | `ident` | 否 | 唯一标识组，数组，**全部满足**。每条是一个判断项（第 3 节）。空 / 省略 = 只按类认 |
-| `many` | 否 | 过滤后还剩多个时：`error`（默认；运行配置 `refDefaults.many` 可改）/ `first`（排序固定：`world` 里关卡放置的在前，再按创建顺序；`screen` 按加入视口的顺序）/ `last`（`screen`：最上层，ZOrder 最大、同 ZOrder 后加的在上；其余：最后一个）/ `nearest`（离 `near` 最近，`near` 省略 = 本地 Pawn） |
+| `many` | 否 | 过滤后还剩多个时：`error`（默认；运行配置 `refDefaults.many` 可改）/ `first`（排序固定：`world` 里关卡放置的在前，再按创建顺序；`screen` 按 ZOrder 从小到大、同 ZOrder 先加入的在前，即最底层）/ `last`（`screen`：最上层，ZOrder 最大、同 ZOrder 后加的在上；其余：最后一个）/ `nearest`（离 `near` 最近，`near` 省略 = 本地 Pawn；只在有世界位置的候选里挑，都没有位置时报 `ref_ambiguous`） |
 | `near` | 否 | `[x,y,z]` / `$var` / `@pawn` / 另一个引用 |
 | `client` | 否 | 多客户端时在哪个世界找（`server` 或序号）。2.0.0 只认字段、不生效：引用一律在步骤的世界里找 |
 

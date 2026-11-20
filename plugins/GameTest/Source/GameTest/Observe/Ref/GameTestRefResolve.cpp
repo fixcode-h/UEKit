@@ -76,9 +76,11 @@ namespace GameTestRefResolveImpl
 	{
 		TArray<UUserWidget*> Screens;
 		GameTestWidgetProbe::ListScreens(InWorld, Screens);
-		for (UUserWidget* Screen : Screens)
+		// ListScreens 按 ZOrder 从大到小、同 ZOrder 新的在前排（最上层在前）；协议第 1 节要 first = 最早加入、last = 最上层，
+		// 所以倒过来收：候选从最底层、最早加入的开始，many 的 first / last 直接取两头
+		for (int32 Index = Screens.Num() - 1; Index >= 0; --Index)
 		{
-			CollectUserWidgets(Screen, InClass, 0, OutCandidates);
+			CollectUserWidgets(Screens[Index], InClass, 0, OutCandidates);
 		}
 	}
 
@@ -377,17 +379,29 @@ namespace GameTestRefResolveImpl
 				Fail(Result, TEXT("ref_ambiguous"), FString::Printf(TEXT("%s 找到 %d 个，要按 nearest 挑但 near 的位置取不到（没有本地 Pawn 或 near 写错）"), *InRef.Describe(), Result.Matches.Num()));
 				return Result;
 			}
+			// 只在有世界位置的候选（Actor、场景组件）里挑；一个都没有（界面、数据对象）时不悄悄退成 first，按歧义报错
 			double Best = TNumericLimits<double>::Max();
+			bool bAnyLocation = false;
 			for (const FGameTestRefCandidate& Candidate : Result.Matches)
 			{
 				bool bHas = false;
 				const FVector Location = LocationOfCandidate(Candidate, bHas);
-				const double Distance = bHas ? FVector::DistSquared(Location, Point) : TNumericLimits<double>::Max();
-				if (!Result.Picked.Object.IsValid() || Distance < Best)
+				if (!bHas)
 				{
+					continue;
+				}
+				const double Distance = FVector::DistSquared(Location, Point);
+				if (!bAnyLocation || Distance < Best)
+				{
+					bAnyLocation = true;
 					Best = Distance;
 					Result.Picked = Candidate;
 				}
+			}
+			if (!bAnyLocation)
+			{
+				Fail(Result, TEXT("ref_ambiguous"), FString::Printf(TEXT("%s 找到 %d 个，但它们都没有世界位置（不是 Actor 或场景组件），不能按 nearest 挑：加标识区分，或改用 first / last"), *InRef.Describe(), Result.Matches.Num()));
+				return Result;
 			}
 			Result.By = TEXT("nearest");
 		}
