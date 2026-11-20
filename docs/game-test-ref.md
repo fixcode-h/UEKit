@@ -33,7 +33,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `ident` | 否 | 唯一标识组，数组，**全部满足**。每条是一个判断项（第 3 节）。空 / 省略 = 只按类认 |
 | `many` | 否 | 过滤后还剩多个时：`error`（默认；运行配置 `refDefaults.many` 可改）/ `first`（排序固定：`world` 里关卡放置的在前，再按创建顺序；`screen` 按加入视口的顺序）/ `last`（`screen`：最上层，ZOrder 最大、同 ZOrder 后加的在上；其余：最后一个）/ `nearest`（离 `near` 最近，`near` 省略 = 本地 Pawn） |
 | `near` | 否 | `[x,y,z]` / `$var` / `@pawn` / 另一个引用 |
-| `client` | 否 | 多客户端时在哪个世界找（`server` 或序号） |
+| `client` | 否 | 多客户端时在哪个世界找（`server` 或序号）。2.0.0 只认字段、不生效：引用一律在步骤的世界里找 |
 
 **引用的三种写法**（凡是写引用的地方都接受）：
 
@@ -162,6 +162,8 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 `click` `drag`（`toTarget` 同）`wheel` `type` `select` `scroll` `set` `key`（给 target 时）`probe` `snapshot` `screenshot`（给 target 时）`stack.push` / `stack.pop`、`loop each`（容器：`each: {obj, part}`，条目在 `$item`，`$item` 是引用，`{"obj": "$item", "part": "BtnClaim"}`）：`target` 一律是第 2 节的写法。字符串选择器报 `selector_removed`。
 
+`skipIf` 改成 `{cond, also?, settleMs?, verify?, verifyTimeoutMs?}`：条件写进 `cond`（第 4 节写法或表达式字符串），旧的直接写在 skipIf 上的 `checked` / `textLike` 等报 `cond_removed`；求值时引用找不到按「还不能判断」再等，不再自动把没生成的列表条目滚出来。
+
 `wait until=widget/widgetGone` 删掉，用 `wait until=cond`。`find` 改名 `obj.find`。`widget.add` 不变（`class`）、`widget.remove` 的 `target` 用第 2 节写法。
 
 ### 5.2 `obj.close`
@@ -177,14 +179,14 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 | --- | --- | --- | --- |
 | `call` | `function`, `args` | 调对象（或 `part`）上的反射函数，参数规则同 game-test-script 第 6 节 | 任何 |
 | `lua` | `function`, `args`（数组） | 调对象绑的 Lua 表上的函数（`allowLuaInvoke`） | 有 UnLua 绑定 |
-| `click` | `part` | 点部件，和 `click` 动作同一套等可操作规则（`via` 可写） | 界面 |
+| `click` | `part` | 用代码点部件（和 `click` 动作 `via: "code"` 同一套：按钮的 OnClicked 等）。2.0.0 只做代码点击，不收 `via` | 界面 |
 | `visibility` | `value`（`Collapsed` 默认 / `Hidden`），`part?` | `SetVisibility` | 控件 |
 | `remove` | — | `RemoveFromParent` | 界面 |
 | `pop` | — | CommonUI：`DeactivateWidget`；在层级容器里时弹出（GameTestCommonUI 模块注册，没装时报 `close_unavailable`） | CommonUI 可激活控件 |
 | `key` | `key`（默认 `Escape`） | 按键发给游戏视口 | 任何 |
 | `destroy` | — | `AActor::Destroy`（运行配置 `allowDestroy: true` 才可用） | Actor |
 
-- `how` 按顺序试：一种做完按 `verify` 核对，没过就试下一种；全没过这一步失败，报告 `payload.close: [{by, ok, ms, message?}]`。
+- `how` 按顺序试：一种做完按 `verify` 核对，没过就试下一种；全没过这一步失败（`close_failed`），报告 `payload.close: [{by, ok, ms, message?}]`，用了推荐 / 规则时带 `payload.closeFrom`（`how` / `rule` / `default`）。每种关闭方式本身是同步的一次调用，跨帧的只有核对。
 - `verify`：`gone`（默认，引用找不到）/ `hidden`（`:onScreen` 为 false）/ `none`。`verifyMs` 默认 2000（`refDefaults.closeVerifyMs`）。
 - `how` 省略：用运行配置 `closeRules` 里这个类（按继承，最近的规则优先）的 `how`；没有规则按默认推荐：类上有名字像 `Close` / `Hide` / `Back` / `Exit` / `Dismiss` 的无参可调函数 → `call`；有名字像 `BtnClose` / `CloseBtn` / `Close` 的按钮部件 → `click`；是 CommonUI 可激活控件 → `pop`；最后 `remove`。
 - 守护 `do` 里常用。旧的 `widget.close` / `widget.call` 删掉（`action_removed`）。
@@ -225,7 +227,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 ### 7.1 `gt.tree`：此刻游戏页面上的 UMG 树（类似控件反射器，只列 UMG）
 
-参数：`client?`、`root?`（节点 id，只要这个子树）、`depth?`（默认 不限）、`filter?`（类名 / 控件名子串）、`onlyVisible?`（默认 false）、`limit?`（默认 1500 个节点，最多 5000）。
+参数：`root?`（节点 id，只要这个子树）、`depth?`（默认 不限）、`filter?`（类名 / 控件名子串）、`onlyVisible?`（默认 false）、`limit?`（默认 1500 个节点，最多 5000）。
 
 返回：
 
@@ -248,7 +250,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 参数：`node`（`gt.tree` 的 id）或 `target`（第 2 节写法，解析到的全部描出来，多个时编号）；`color?`（默认主色橙 `#d97757`）；`ms?`（默认 0 = 一直描到下一次 `gt.highlight` 或 `clear`）；`clear: true` 清掉。
 
-- 在游戏视口上画一层不接输入的 Slate 覆盖层（框 + 左上角类名标签），不改游戏的控件，不进截图（`gt.pick` 的画面里也不画）。
+- 在游戏视口上画一层不接输入的 Slate 覆盖层（框 + 左上角类名标签），不改游戏的控件。2.0.0 的覆盖层加在游戏视口里，截图（`screenshot`、`gt.pick` 的画面）时还没有临时藏起来：截图前先 `clear`。
 - 面板在树里悬停 / 选中节点时调；面板关掉抓取窗口时 `clear`。租约同 `gt.pick`：60 秒没再调就自动清。
 
 ### 7.3 `gt.props`：一个对象的属性树（标识和判断共用）
@@ -274,7 +276,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 ```
 
 - 组顺序：`self`（C++ → 蓝图 → Lua，`src` 标出）、`item`（条目时）、各部件（WidgetTree 顺序；嵌套 UUserWidget 给 `user: true` 和 `collapsed: true`，`items` 空，面板展开时再用 `part` 调一次）、`states`。
-- 每项：`prop`（直接能写进脚本的路径）、`name`、`src`（`cpp` / `bp` / `lua` / `state`）、`type`（引擎类型名）、`kind`（3.4）、`value?`（游戏开着时，超长截 200 字）、`distinct?`（同类 `siblings` 个实例里有几种值；`siblings` 是同 `in` 下同类的实例数）、`changing?`（1 秒内自己变过）、`score`（0–10，当标识的推荐分，同录制条目打分：唯一、像 Id、数据对象上分高；位置、选中、计数、长文字、会变的分低）、`ops`、`comparable`（false 时带 `why`）、`readOnly`。
+- 每项：`prop`（直接能写进脚本的路径）、`name`、`src`（`cpp` / `bp` / `lua` / `state`）、`type`（引擎类型名）、`kind`（3.4）、`value?`（游戏开着时，超长截 200 字）、`distinct?`（同类 `siblings` 个实例里有几种值；`siblings` 是同 `in` 下同类的实例数，最多看 50 个）、`members?`（enum 和 visibility：全部成员名，面板给下拉）、`score`（0–10，当标识的推荐分，同录制条目打分：唯一、像 Id、数据对象上分高；位置、选中、计数、长文字、会变的分低；`changing`「1 秒内自己变过」2.0.0 没做，会变的只按名字和状态的 `IsStable` 压分）、`ops`、`comparable`（false 时带 `why`）、`readOnly`。
 - `suggest`：能把当前对象和同类其他实例区分开的最少属性组合（最多 3 个），按 `identRules` 先、再按分数。
 - `matches`：按 `suggest` 组成的 `ident` 此刻命中几个。
 - Lua 组：游戏开着时由实例表给（`src: "lua"`）；面板再用 `---@field` 声明补全（见 7.5）。
@@ -296,13 +298,15 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 | 操作 | 变化 |
 | --- | --- |
-| `gt.resolve` | `conds` 里接受第 4 节写法；新增 `refs: [{id?, ref}]` → `refs: [{id, count, candidates: [{name, ident: [{prop, actual}]}]}]`（最多 8 个），面板「命中几个」用它（配 `gt.watch` 推送） |
-| `gt.vars` | `scope: "object"` 的参数从定位器改成引用；其余不变 |
-| `gt.validate` | 按本文校验；新错误码见第 10 节 |
-| `gt.record.*` | 录出来就是 v4（第 8 节）。`gt.record.key`（问标识）的回答改成 `ident: [{prop, op, value}]` |
-| `gt.inspect` | 多 `ref` / `target`（同 `gt.refFor`） |
-| `gt.keys` | 返回的字段带 `prop`（能直接写进 `ident` 的路径），其余不变 |
-| `gt.actions` | 按本文列 |
+| `gt.resolve` | `conds` 里接受第 4 节写法；新增 `refs: [{id?, ref, show?: [prop…]}]`（可同时给场景的 `objects`，`ref` 才能写名字）→ `refs: [{id, count, total, candidates: [{name, match, ident: [{prop, actual}]}]}]`（最多 8 个），`show` 里的属性按候选给实际值放进 `ident`，面板「命中几个」用它（配 `gt.watch` 推送）。`targets`（部件写法数组）和 `scenario` 核对改按引用解析，字符串选择器报 `selector_removed` |
+| `gt.vars` | `scope: "object"` 的参数从定位器改成引用：`{scope: "object", ref}`（写 `locator` 报错）；其余不变 |
+| `gt.validate` | 按本文校验；新错误码见第 10 节。`deep: true` 的选择器检查换成引用检查：类在不在、`part` 第一段在不在 WBP 控件树里（`part_missing`）、`@self.X` 在类上有没有（`prop_missing`）、op 和属性类型对不对（`op_type`）；`checked.selectors` 改名 `checked.refs` |
+| `gt.record.*` | 录出来就是 v4（第 8 节）。暂停问标识（`gt.record { phase: "ask" }` 和 `gt.record.status` 的 `ask`）带 `ref`（条目的引用）、`node`（`gt.tree` 的 id，调过 `gt.tree` 才有）、`target`（`{obj, part}`，界面引用写名字时同时给 `objects`）；原来的选择器文本挪到 `selector`。`gt.record.key` 的回答：`{step?, resume?, ident: [{prop, op: "eq", value}], rule?: true（写进 identRules）, all?: true（同一列表后面的条目都按它认）}`，先跳过 `{mode: "skip"}`；空 `ident` = 只按第几个认。录制时挑标识只认 `eq` 和条目上的字段（`@item.` / `@self.` / `@lua.` / `@itemLua.`、`:text`） |
+| `gt.inspect` | 多 `chain` / `ref` / `target` / `matches` / `ask`（同 `gt.refFor`），`hint` 保留 |
+| `gt.keys` | `target` 改成部件写法；返回的字段带 `prop`（能直接写进 `ident` 的路径，行列号没有），其余不变 |
+| `gt.actions` | 按本文列；另给 `compares`（`[{op, kinds, verb, summary, noValue?}]`）、`states`（`[{prop, kind, on, summary, changing?}]`）、`closers`（`[{by, summary, fields}]`），面板核对自己的表 |
+| `gt.config` | 读写都带 `identRules` / `closeRules` / `refDefaults` / `allowDestroy`（写回时只改认得的字段，别的原样留着） |
+| `gt.props` | 7.3；`class` 模式用类的默认对象和 WBP 生成类的设计器树，不开游戏也行（只给结构，不给值） |
 
 ## 8. 录制
 
@@ -310,6 +314,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 - 同一个对象在一次录制里多次出现：引用去重，写进 `objects`（名字按类名去掉前缀：`shop`、`bagSlot`，重名加序号），步骤里写名字。条目对象的标识值不同时各自内联，不去重。
 - Ctrl+Alt 点 / Alt+4：录 `wait until=cond`/`assert`，判断项默认：文字类 `:text eq 此刻`、其余 `:onScreen is true`；面板录完可以改（属性树）。
 - `hint` 不变（截图、OCR、字段缓存只用于显示和换标识）。
+- 2.0.0 的做法：录制期间内部仍按选择器文本记目标（挑标识、问人、改方括号都按它），**存盘时**统一改写成 v4（`Record/V4/GameTestRecordV4`，规则同第 9 节的迁移表）；改写不准的步骤写 `todo`，`gt.record.stop` 返回 `todo: 步数`。所以录制中 `gt.record.status` 给的步骤预览仍是选择器写法。界面对象的 `ident`：同类只有一个时不写（录制时同一界面一般只开一份），容器条目按挑好的标识；「按打分挑最少的能区分的组合」只用在条目上，界面本身不挑。
 
 ## 9. 迁移 v3 → v4（面板做）
 
@@ -345,12 +350,12 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 | --- | --- | --- | --- |
 | 算出状态（`:onScreen` …） | `IGameTestState`：名字、适用（控件 / Actor / 任何）、kind、`Read(UObject*, ctx) → FGameTestValue` | `FGameTestStateRegistry` | `Observe/Ref/States/GameTestState<名字>.cpp` |
 | 比较（`eq` `contains` `visible` …） | `IGameTestCompare`：名字、适用 kind、`Test(actual, item) → {holds, why}` | `FGameTestCompareRegistry` | `Observe/Compare/GameTestCompare<分类>.cpp` |
-| 关闭方式（`call` `click` `pop` …） | `IGameTestCloser`：名字、适用、`Validate`、`Start` / `Tick`（可跨帧） | `FGameTestCloserRegistry` | `Operate/Close/GameTestClose<名字>.cpp`（`pop` 在 GameTestCommonUI） |
+| 关闭方式（`call` `click` `pop` …） | `IGameTestCloser`：名字、字段、`Validate`、`Close`（同步做一次，跨帧核对由 `obj.close` 统一做）、`Recommend` / 推荐顺序 | `GameTestClosers::Get()` | `Operate/Close/GameTestClose<名字>.cpp`（`pop` 在 GameTestCommonUI） |
 | 属性 kind 分类 | `FGameTestPropKind::Of(FProperty*)` | — | `Observe/Ref/GameTestPropKind.cpp` |
 
 面板：`shared/gt-script/ref/`（类型、校验、人话描述、比较表、迁移）、`web/sections/uekit/gt-ref/`（`PropTree`、`RefCard`、`CompareEditor`、`RefDialog`、`WidgetTreePick`、`CloseHowList`）、`gt-cond/checks/prop.tsx`。比较表在面板和 C++ 各一份，名字和适用 kind 必须一致（`shared/gt-script/ref/compare.ts` 的单测核对本文第 3.4 节表格）。
 
 ## 12. 版本
 
-- GameTest 2.0.0：本文全部。需要 UELink ≥ 2.12.0（不变）。
+- GameTest 2.0.0：本文全部（实现和本文不同的地方已在对应小节写明：`obj.close` 的 `click` 只做代码点击、关闭方式同步做一次再跨帧核对、`gt.highlight` 不避开截图、`gt.props` 没有 `changing`、`gt.tree` 和引用的 `client` 没做、skipIf 不再自动把没生成的列表条目滚出来）。需要 UELink ≥ 2.12.0（不变）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 2.0.0 时编辑页只读、提示升级 GameTest；脚本是 v3 时提示「升级脚本」。
