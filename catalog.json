@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.19.0",
-        "versionCode": 45,
+        "version": "2.19.1",
+        "versionCode": 46,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.19.0",
-        "asset": "UELink-2.19.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.19.0/UELink-2.19.0-src.zip",
-        "sha256": "2cdafcb0fd5a5593c3873c39c6c615db9369fe18d595571a61dff0cab40861b9",
-        "size": 350032,
+        "tag": "UELink-v2.19.1",
+        "asset": "UELink-2.19.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.19.1/UELink-2.19.1-src.zip",
+        "sha256": "19fa7d482daa61c5d1ed84cdc26e0982dd8de82062137c38c287ac0eac3714b7",
+        "size": 351930,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **Lua 对象带状态和归属** — 列绑了 Lua 的对象时，每个对象带上状态（待回收、所在世界已关）、所在世界、UE 父类一路到 UObject、外层的 Actor 或控件，面板的 Lua 对象页据此按类名搜（含子类）、按 Lua 类 / UE 类继承 / 归属分组成树\n- **跑一次 Lua 垃圾回收** — 新增 `lua.gc`，回收前后的 Lua 内存一起返回\n\n### 改进\n- **元表链认出 UE 类** — 检视 Lua 对象时，元表链上 UnLua 给 UE 类建的那几层显示类名（以前是「匿名元表」），并且最多走 16 层（以前 6 层，走不到 UObject）\n\n### Bug 修复\n- **列 Lua 对象时可能读到已释放的内存** — 对象表里残留已销毁对象的地址时（UnLua 分支漏删），以前会先读这块内存再判断，可能让编辑器崩溃；现在先在活对象里查到了才读，残留的只计数"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### Bug 修复\n- **Lua 继承链同一个 UE 类重复十几次** — UnLua 给 UE 类建的元表常把自己设成自己的元表，以前顺着走会在同一层打转；现在走过的表不再走，UE 类那层之后按反射补上真实父类（一直到 Object），资源路径只显示类名\n- **按 Lua 类分组全是「没认出模块」** — UnLua 2.x 绑定时用的表不一定是 package.loaded 里那张，现在认不出时按表里 Lua 函数所在的文件推模块名（Content/Script/AI/BP_X_C.lua → AI.BP_X_C）；没开始玩时对象表里只有类，类的模块名改问类的默认对象\n- **调用过一次的 UE 函数跑到「自己的」那组** — UnLua 第一次调 UE 函数时会把包装缓存到表上，现在这些 C 函数仍归到 UE 类那层\n\n### 改进\n- **对象表里的类单独标出** — `lua.objects` 每项是类（UClass）时带 `isClass`，面板把它们和运行中的对象分开，免得把类当实例传给 UE 函数"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-20T15:06:59.950Z"
+  "updatedAt": "2026-11-20T15:33:03.384Z"
 }
