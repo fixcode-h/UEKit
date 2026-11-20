@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.18.0",
-        "versionCode": 42,
+        "version": "2.18.1",
+        "versionCode": 43,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.18.0",
-        "asset": "UELink-2.18.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.18.0/UELink-2.18.0-src.zip",
-        "sha256": "873ac4cd91844e86c805fa855f09d837f9d5d78eb0eb71bd46be8c98750d697d",
-        "size": 346451,
+        "tag": "UELink-v2.18.1",
+        "asset": "UELink-2.18.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.18.1/UELink-2.18.1-src.zip",
+        "sha256": "b728419c521d0af64d5a6e8ed134de1f44300ad7ed8a26146a9579824430b1a2",
+        "size": 346598,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **在网页上预览资源** — 静态网格、骨骼网格、材质（画在球上）、贴图、Actor 蓝图可以在编辑器后台画成一张图给网页看，可以指定图的大小和视角；这一版用的是编辑器缩略图的画法，画控件蓝图请用控件预览\n- **蓝图图表带布局** — 读蓝图图表时可以带上每个节点在图里的位置、注释框的大小和颜色，网页能按 UE 里的样子摆节点\n\n### 改进\n- **蓝图大纲信息更全** — 事件分发器列出参数；函数列出分类、访问级别（受保护 / 私有）和是否 const；父蓝图定义的变量也列出来并标明是继承的"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。\n\n### Bug 修复\n- **修复编译失败** — 控件预览用到的渲染目标接口在部分 UE 5.4 引擎上不存在（`UpdateResourceImmediately` 不是 `UTextureRenderTarget2D` 的成员），改用所有版本都有的写法"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-19T17:56:28.221Z"
+  "updatedAt": "2026-11-20T01:52:22.393Z"
 }
