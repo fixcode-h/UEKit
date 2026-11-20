@@ -67,7 +67,7 @@ namespace
 		return InWidget.IsVisible() && Visibility != ESlateVisibility::HitTestInvisible;
 	}
 
-	EState IsShown(FCall& C, FCtx& X)
+	EState WidgetIsShown(FCall& C, FCtx& X)
 	{
 		const FString Target = GA::Text(C.Arg(0));
 		if (LooksLikeTarget(C.Arg(0), X))
@@ -174,7 +174,7 @@ namespace
 		return C.Done(FGameTestValue::FromObject(Focus.IsValid() ? GameTestSlate::FindOwningWidget(Focus) : nullptr));
 	}
 
-	EState State(FCall& C, FCtx& X)
+	EState WidgetState(FCall& C, FCtx& X)
 	{
 		const FGameTestWidgetLook Look = GA::Widget(C.Arg(0), X);
 		TMap<FString, FGameTestValue> Out;
@@ -309,7 +309,7 @@ namespace GameTestBuiltin
 	{
 		const TCHAR* Cat = TEXT("界面");
 		GameTestApis::Add(TEXT("Widget.IsShown"), Cat, TEXT("界面或控件在不在屏上：写类名按继承 UUserWidget 认（子类也算），写部件写法 / objects 里的名字看那个控件"),
-			{ Req(TEXT("target"), TEXT("sel"), TEXT("WBP_Shop、UMyBaseWidget、shop 或 {obj: shop, part: BtnBuy}")) }, TEXT("bool"), true, &IsShown);
+			{ Req(TEXT("target"), TEXT("sel"), TEXT("WBP_Shop、UMyBaseWidget、shop 或 {obj: shop, part: BtnBuy}")) }, TEXT("bool"), true, &WidgetIsShown);
 		GameTestApis::Add(TEXT("Widget.Find"), Cat, TEXT("屏上的某个界面（同类开了几个取最上面的；key 按属性过滤）"),
 			{ Req(TEXT("cls"), TEXT("cls")), Opt(TEXT("key"), TEXT("any"), TEXT("{属性路径: 值}")) }, TEXT("obj"), true, &FindScreen);
 		GameTestApis::Add(TEXT("Widget.List"), Cat, TEXT("屏上所有界面，从上到下（z = 0 是最上面）"),
@@ -317,7 +317,7 @@ namespace GameTestBuiltin
 		GameTestApis::Add(TEXT("Widget.Top"), Cat, TEXT("最上层可见、能接点击的界面；没有时为空"), {}, TEXT("obj"), true, &Top);
 		GameTestApis::Add(TEXT("Widget.Focused"), Cat, TEXT("当前键盘焦点所在的控件；没有时为空"), {}, TEXT("obj"), true, &Focused);
 		GameTestApis::Add(TEXT("Widget.State"), Cat, TEXT("控件此刻的状态；控件不在时 exists 为 false，不算失败"),
-			{ Req(TEXT("target"), TEXT("sel")) }, TEXT("{exists, visible, enabled, text, checked, selected}"), true, &State);
+			{ Req(TEXT("target"), TEXT("sel")) }, TEXT("{exists, visible, enabled, text, checked, selected}"), true, &WidgetState);
 		GameTestApis::Add(TEXT("Widget.Text"), Cat, TEXT("控件的文字（容器取里面的文字）"),
 			{ Req(TEXT("target"), TEXT("sel")) }, TEXT("string"), true,
 			[](FCall& C, FCtx& X)

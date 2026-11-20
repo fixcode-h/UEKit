@@ -8,7 +8,10 @@
 #include "Observe/Ref/GameTestPropKind.h"
 
 class FGameTestFlowContext;
+class UListView;
 class UObject;
+// 前置声明放在全局：写在命名空间里的 `class UWidget*` 会声明出 GameTestStateUtil::UWidget，和引擎的 UWidget 不是一个类型
+class UWidget;
 
 /** 算出状态适用于什么（`gt.props` 的状态组只列适用的）。 */
 enum class EGameTestStateScope : uint8
@@ -82,7 +85,7 @@ public:
 namespace GameTestStateUtil
 {
 	/** 对象是控件时给控件（UUserWidget 也算），否则空。 */
-	GAMETEST_API class UWidget* WidgetOf(UObject* InObject);
+	GAMETEST_API UWidget* WidgetOf(UObject* InObject);
 
 	/** Actor 或场景组件的世界位置；都不是返回 false。 */
 	GAMETEST_API bool LocationOf(const UObject* InObject, FVector& OutLocation);
@@ -91,13 +94,13 @@ namespace GameTestStateUtil
 	GAMETEST_API FGameTestStateValue NotApplicable(const UObject* InObject, const TCHAR* InState);
 
 	/** 控件的上一层：面板里的父控件；WBP 树的根往外到这个 WBP 实例（它又在外层 WBP 的树里）。 */
-	GAMETEST_API class UWidget* ParentOf(const class UWidget* InWidget);
+	GAMETEST_API UWidget* ParentOf(const UWidget* InWidget);
 
 	/** 显示文字和本地化键（文字类控件直接取 FText；按钮、容器取里面第一个文字控件）。取不到文字控件返回 false。 */
-	GAMETEST_API bool TextWidgetText(class UWidget* InWidget, FText& OutText);
+	GAMETEST_API bool TextWidgetText(UWidget* InWidget, FText& OutText);
 
 	/** 条目控件所在的列表和它的数据对象（不是 ListView 族条目返回空）。 */
-	GAMETEST_API class UListView* OwningList(UObject* InObject, UObject*& OutItem);
+	GAMETEST_API UListView* OwningList(UObject* InObject, UObject*& OutItem);
 
 	/** 取值结果包一层。 */
 	GAMETEST_API FGameTestStateValue Of(const FGameTestValue& InValue);

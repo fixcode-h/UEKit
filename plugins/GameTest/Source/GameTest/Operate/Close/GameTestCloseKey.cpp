@@ -34,7 +34,8 @@ namespace GameTestCloseKeyImpl
 		{
 			FString KeyName = TEXT("Escape");
 			InRun.How.TryGetStringField(TEXT("key"), KeyName);
-			const FKey Key(FName(*KeyName));
+			// 用花括号：`FKey Key(FName(*KeyName))` 会被解析成函数声明（最烦解析）
+			const FKey Key{ FName(*KeyName) };
 			if (!Key.IsValid())
 			{
 				InRun.Message = FString::Printf(TEXT("不认识键名 %s"), *KeyName);

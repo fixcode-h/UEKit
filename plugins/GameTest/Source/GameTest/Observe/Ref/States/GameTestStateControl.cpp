@@ -76,7 +76,7 @@ namespace GameTestBuiltin
 	void RegisterStateControl()
 	{
 		using namespace GameTestStateControlImpl;
-		FGameTestStateRegistry& Registry = FGameTestStateRegistry::Get();
+		auto& Registry = FGameTestStateRegistry::Get();
 		Registry.Register(MakeShared<FState>(TEXT("selectedIndex"), EGameTestKind::Int, TEXT("下拉框选中第几项（从 0 起，没选是 -1）"), true, &Is<UComboBoxString>, &ComboIndex));
 		Registry.Register(MakeShared<FState>(TEXT("selectedCount"), EGameTestKind::Int, TEXT("列表选中了几条"), true, &Is<UListView>, &ListSelected));
 		// 滚动在下一帧布局时才生效：读回要等一帧，所以不稳定、不建议当标识

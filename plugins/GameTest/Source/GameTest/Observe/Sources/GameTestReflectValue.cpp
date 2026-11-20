@@ -10,9 +10,9 @@
 namespace
 {
 	/** 结构体、容器嵌套最多展开几层：防止自引用的结构把一次取值拖成几万个节点。 */
-	constexpr int32 MaxDepth = 8;
+	constexpr int32 ReflectMaxDepth = 8;
 	/** 一个容器最多转多少项：条件里比的是个数和少数几项，大数组全转太慢。 */
-	constexpr int32 MaxItems = 2000;
+	constexpr int32 ReflectMaxItems = 2000;
 
 	FGameTestValue Convert(const FProperty* InProp, const void* InValue, int32 InDepth);
 
@@ -53,7 +53,7 @@ namespace
 		{
 			return FGameTestValue::Null();
 		}
-		if (InDepth > MaxDepth)
+		if (InDepth > ReflectMaxDepth)
 		{
 			return FGameTestValue::Unresolved(TEXT("嵌套太深，按更具体的路径取"));
 		}
@@ -116,7 +116,7 @@ namespace
 		{
 			FScriptArrayHelper Helper(Array, InValue);
 			TArray<FGameTestValue> Items;
-			const int32 Count = FMath::Min(Helper.Num(), MaxItems);
+			const int32 Count = FMath::Min(Helper.Num(), ReflectMaxItems);
 			Items.Reserve(Count);
 			for (int32 Index = 0; Index < Count; ++Index)
 			{
@@ -128,7 +128,7 @@ namespace
 		{
 			FScriptSetHelper Helper(Set, InValue);
 			TArray<FGameTestValue> Items;
-			for (int32 Index = 0; Index < Helper.GetMaxIndex() && Items.Num() < MaxItems; ++Index)
+			for (int32 Index = 0; Index < Helper.GetMaxIndex() && Items.Num() < ReflectMaxItems; ++Index)
 			{
 				if (Helper.IsValidIndex(Index))
 				{
@@ -141,7 +141,7 @@ namespace
 		{
 			FScriptMapHelper Helper(Map, InValue);
 			TMap<FString, FGameTestValue> Fields;
-			for (int32 Index = 0; Index < Helper.GetMaxIndex() && Fields.Num() < MaxItems; ++Index)
+			for (int32 Index = 0; Index < Helper.GetMaxIndex() && Fields.Num() < ReflectMaxItems; ++Index)
 			{
 				if (!Helper.IsValidIndex(Index))
 				{

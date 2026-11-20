@@ -49,7 +49,7 @@ namespace
 	FDelegateHandle RecordHandle;
 	FDelegateHandle FlowHandle;
 
-	FString Str(const TSharedPtr<FJsonObject>& Args, const TCHAR* Name)
+	FString RpcStr(const TSharedPtr<FJsonObject>& Args, const TCHAR* Name)
 	{
 		FString Value;
 		if (Args.IsValid())
@@ -193,7 +193,7 @@ namespace
 		}
 
 		const TSharedPtr<FJsonObject> All = Subsystem->BuildScenariosJson();
-		const FString Query = Str(Args, TEXT("query"));
+		const FString Query = RpcStr(Args, TEXT("query"));
 		const int32 Offset = FMath::Max(0, Int(Args, TEXT("offset"), 0));
 		const int32 Limit = FMath::Clamp(Int(Args, TEXT("limit"), DefaultPageSize), 1, 1000);
 
@@ -254,9 +254,9 @@ namespace
 	/** `gt.run tag=` / `scenarios=[…]`：批量运行，马上返回批量编号，进度在 gt.job 的 batch 里。 */
 	bool RunBatch(UGameTestSubsystem* Subsystem, const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
-		const FString Tag = Str(Args, TEXT("tag"));
+		const FString Tag = RpcStr(Args, TEXT("tag"));
 		TArray<FString> Scenarios = Strings(Args, TEXT("scenarios"));
-		FString Label = Str(Args, TEXT("name"));
+		FString Label = RpcStr(Args, TEXT("name"));
 		if (!Tag.IsEmpty())
 		{
 			Scenarios = GameTestScenario::FindByTag(ScenarioRootDir(), Tag);
@@ -291,7 +291,7 @@ namespace
 			return false;
 		}
 
-		if (!Str(Args, TEXT("tag")).IsEmpty() || (Args.IsValid() && Args->HasField(TEXT("scenarios"))))
+		if (!RpcStr(Args, TEXT("tag")).IsEmpty() || (Args.IsValid() && Args->HasField(TEXT("scenarios"))))
 		{
 			return RunBatch(Subsystem, Args, Out, Error);
 		}
@@ -299,7 +299,7 @@ namespace
 		FGameTestScenarioRun ToRun;
 		TArray<TSharedPtr<FJsonObject>>& Steps = ToRun.Steps;
 
-		const FString ScenarioPath = Str(Args, TEXT("scenario"));
+		const FString ScenarioPath = RpcStr(Args, TEXT("scenario"));
 		if (!ScenarioPath.IsEmpty())
 		{
 			if (!GameTestScenario::LoadForRun(ScenarioRootDir(), ScenarioPath, ToRun, Error))
@@ -323,7 +323,7 @@ namespace
 					Steps.Add(*Step);
 				}
 			}
-			ToRun.Name = Str(Args, TEXT("name"));
+			ToRun.Name = RpcStr(Args, TEXT("name"));
 			ToRun.StepDelayMs = Int(Args, TEXT("stepDelayMs"), -1);
 		}
 
@@ -366,7 +366,7 @@ namespace
 		return true;
 	}
 
-	bool Step(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	bool RpcStep(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		UGameTestSubsystem* Subsystem = RequireSubsystem(Error);
 		if (Subsystem == nullptr)
@@ -464,7 +464,7 @@ namespace
 		{
 			return false;
 		}
-		const FString RunId = Str(Args, TEXT("runId"));
+		const FString RunId = RpcStr(Args, TEXT("runId"));
 		if (RunId.IsEmpty())
 		{
 			Error = TEXT("gt.report 需要 runId（gt.runs 列出最近的 run）");
@@ -496,7 +496,7 @@ namespace
 		return true;
 	}
 
-	bool Stop(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
+	bool RpcStop(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		UGameTestSubsystem* Subsystem = RequireSubsystem(Error);
 		if (Subsystem == nullptr)
@@ -524,9 +524,9 @@ namespace
 		{
 			GameTestJson::TryGetNumber(*Args, TEXT("askTimeoutSec"), AskTimeout);
 		}
-		FGameTestRecorder::Get().SetKeyAskOptions(Str(Args, TEXT("askKey")), AskTimeout);
+		FGameTestRecorder::Get().SetKeyAskOptions(RpcStr(Args, TEXT("askKey")), AskTimeout);
 		// 推断跳过条件（1.6.0）：inferSkip = suggest（默认，1.8.0 起：只列候选，人来加）/ auto（高把握的直接写 skipIf）/ off；stateWindowMs 点完看多久
-		const FString InferSkip = Str(Args, TEXT("inferSkip"));
+		const FString InferSkip = RpcStr(Args, TEXT("inferSkip"));
 		EGameTestInferSkip InferMode = EGameTestInferSkip::Suggest;
 		if (InferSkip == TEXT("auto"))
 		{
@@ -557,7 +557,7 @@ namespace
 			(*Insert)->TryGetStringField(TEXT("after"), InsertAfter);
 		}
 		FGameTestRecorder::Get().SetSegmentOptions(Bool(Args, TEXT("group"), false), InsertScenario, InsertAfter);
-		if (!FGameTestRecorder::Get().Start(Str(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
+		if (!FGameTestRecorder::Get().Start(RpcStr(Args, TEXT("name")), Bool(Args, TEXT("startPie"), true), Bool(Args, TEXT("keepPace"), false), Error))
 		{
 			return false;
 		}
@@ -567,7 +567,7 @@ namespace
 
 	bool RecordMark(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
-		if (!FGameTestRecorder::Get().Mark(Str(Args, TEXT("text")), Bool(Args, TEXT("screenshot"), false), Error))
+		if (!FGameTestRecorder::Get().Mark(RpcStr(Args, TEXT("text")), Bool(Args, TEXT("screenshot"), false), Error))
 		{
 			return false;
 		}
@@ -583,7 +583,7 @@ namespace
 		{
 			GameTestJson::TryGetNumber(*Args, TEXT("radius"), Radius);
 		}
-		const FString Phase = Str(Args, TEXT("phase"));
+		const FString Phase = RpcStr(Args, TEXT("phase"));
 		if (!FGameTestRecorder::Get().Quick(Phase.IsEmpty() ? FString(TEXT("toggle")) : Phase, Radius, Error))
 		{
 			return false;
@@ -718,7 +718,7 @@ namespace
 
 		TArray<GameTestResolve::FTarget> Targets;
 		TSharedPtr<FJsonObject> Objects;
-		const FString ScenarioPath = Str(Args, TEXT("scenario"));
+		const FString ScenarioPath = RpcStr(Args, TEXT("scenario"));
 		if (!ScenarioPath.IsEmpty())
 		{
 			FGameTestScenarioRun Run;
@@ -770,7 +770,7 @@ namespace
 	bool History(const TSharedPtr<FJsonObject>& Args, TSharedPtr<FJsonObject>& Out, FString& Error)
 	{
 		const TSharedPtr<FJsonObject> All = GameTestHistory::Load();
-		const FString Scenario = Str(Args, TEXT("scenario")).Replace(TEXT("\\"), TEXT("/"));
+		const FString Scenario = RpcStr(Args, TEXT("scenario")).Replace(TEXT("\\"), TEXT("/"));
 		Out = MakeShared<FJsonObject>();
 		Out->SetNumberField(TEXT("keep"), GameTestHistory::Keep);
 		if (!Scenario.IsEmpty())
@@ -881,11 +881,11 @@ void Register()
 	Add(TEXT("gt.actions"), &Actions);
 	Add(TEXT("gt.scenarios"), &Scenarios);
 	Add(TEXT("gt.run"), &Run);
-	Add(TEXT("gt.step"), &Step);
+	Add(TEXT("gt.step"), &RpcStep);
 	Add(TEXT("gt.job"), &Job);
 	Add(TEXT("gt.runs"), &Runs);
 	Add(TEXT("gt.report"), &Report);
-	Add(TEXT("gt.stop"), &Stop);
+	Add(TEXT("gt.stop"), &RpcStop);
 	Add(TEXT("gt.record.start"), &RecordStart);
 	Add(TEXT("gt.record.mark"), &RecordMark);
 	Add(TEXT("gt.record.move"), &RecordMove);

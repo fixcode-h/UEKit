@@ -19,7 +19,7 @@ namespace
 	using FCtx = FGameTestFlowContext;
 	using EState = EGameTestCallState;
 
-	EState Finish(FCall& C, bool bOk, const FGameTestLuaValue& InValue, const FString& InError)
+	EState FinishLuaCall(FCall& C, bool bOk, const FGameTestLuaValue& InValue, const FString& InError)
 	{
 		return bOk ? C.Done(InValue.ToValue()) : C.Fail(TEXT("path_missing"), InError);
 	}
@@ -105,7 +105,7 @@ namespace GameTestBuiltin
 				FGameTestLuaValue Value;
 				FString Error;
 				const bool bOk = GameTestLuaBridge::ReadModule(X.World, GA::Text(C.Arg(0)), GameTestLuaBridge::SplitPath(GA::Text(C.Arg(1))), Value, Error);
-				return Finish(C, bOk, Value, Error);
+				return FinishLuaCall(C, bOk, Value, Error);
 			});
 		GameTestApis::Add(TEXT("Lua.Global"), Cat, TEXT("读 Lua 全局变量（可以带路径：G_Config.Debug）"),
 			{ Req(TEXT("name"), TEXT("string")) }, TEXT("any"), true,
@@ -114,7 +114,7 @@ namespace GameTestBuiltin
 				FGameTestLuaValue Value;
 				FString Error;
 				const bool bOk = GameTestLuaBridge::Read(X.World, nullptr, GameTestLuaBridge::SplitPath(GA::Text(C.Arg(0))), Value, Error);
-				return Finish(C, bOk, Value, Error);
+				return FinishLuaCall(C, bOk, Value, Error);
 			});
 		GameTestApis::Add(TEXT("Lua.Loaded"), Cat, TEXT("模块 require 过没有"), { Req(TEXT("module"), TEXT("string")) }, TEXT("bool"), true,
 			[](FCall& C, FCtx& X)
