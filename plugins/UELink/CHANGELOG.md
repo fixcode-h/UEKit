@@ -2,6 +2,13 @@
 
 格式说明见仓库根目录的 `docs/changelog.md`（`scripts/check.mjs` 和发布流程依赖这个格式）。
 
+## v2.18.1
+
+> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过，编译有问题请反馈。
+
+### Bug 修复
+- **修复编译失败** — 控件预览用到的渲染目标接口在部分 UE 5.4 引擎上不存在（`UpdateResourceImmediately` 不是 `UTextureRenderTarget2D` 的成员），改用所有版本都有的写法
+
 ## v2.18.0
 
 > 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。
