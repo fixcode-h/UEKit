@@ -632,6 +632,22 @@ FGameTestTargetResult GameTestRefResolve::ResolveTarget(const TSharedPtr<FJsonVa
 			: FString(TEXT("target 要写 {\"obj\": 引用, \"part\": \"部件名\"} 或直接写一个引用"));
 		return Result;
 	}
+	// part / slate 里可以写 `$变量`（被 call 的子脚本按参数点不同的部件）：按文字替换，规则同协议 1.1 节
+	for (FString* Text : { &Result.Target.Part, &Result.Target.Slate })
+	{
+		if (Text->Contains(TEXT("$")))
+		{
+			FString Expanded;
+			FString EvalError;
+			if (!GameTestRefs::EvalText(*Text, InContext, Expanded, EvalError))
+			{
+				Result.Code = TEXT("unresolved");
+				Result.Error = FString::Printf(TEXT("「%s」取不到值：%s"), **Text, *EvalError);
+				return Result;
+			}
+			*Text = Expanded;
+		}
+	}
 	Result.Ref = Resolve(Result.Target.Obj, InContext);
 	if (!Result.Ref.IsOk())
 	{

@@ -3,6 +3,7 @@
 #include "Core/Expr/GameTestExpr.h"
 #include "Core/Script/GameTestDiag.h"
 #include "Core/Script/GameTestFlowContext.h"
+#include "Core/Script/GameTestRefs.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Observe/Checks/GameTestCheck.h"
@@ -71,11 +72,25 @@ namespace GameTestCheckObjImpl
 
 		virtual void Evaluate(const FJsonObject& InJson, FGameTestFlowContext& InContext, FGameTestCheckResult& OutResult) const override
 		{
-			const FGameTestIdentItem Item = FGameTestIdentItem::FromJson(InJson);
+			FGameTestIdentItem Item = FGameTestIdentItem::FromJson(InJson);
+			FString PropText = PropOf(InJson);
+			// prop 里可以嵌 `$变量`（被 call 的子脚本按参数读不同部件：`@Claim_$what:text`），按文字替换，规则同 part
+			if (PropText.Contains(TEXT("$")))
+			{
+				FString Expanded;
+				FString EvalError;
+				if (!GameTestRefs::EvalText(PropText, InContext, Expanded, EvalError))
+				{
+					OutResult.Unresolved = FString::Printf(TEXT("「%s」取不到值：%s"), *PropText, *EvalError);
+					return;
+				}
+				PropText = Expanded;
+				Item.Prop = Expanded;
+			}
 			const FGameTestRefResult Ref = GameTestRefResolve::Resolve(InJson.TryGetField(TEXT("obj")), InContext);
 			FGameTestPropPath Path;
 			FString PathError;
-			const bool bParsed = FGameTestPropPath::Parse(PropOf(InJson), Path, PathError);
+			const bool bParsed = FGameTestPropPath::Parse(PropText, Path, PathError);
 			const bool bObjectLevelExists = bParsed && Path.Segments.Num() == 0 && Path.State.Equals(TEXT("exists"), ESearchCase::IgnoreCase);
 			if (!Ref.IsOk() && Ref.Code != TEXT("ref_not_found"))
 			{
@@ -98,7 +113,7 @@ namespace GameTestCheckObjImpl
 				OutResult.Unresolved = Judged.Why;
 				return;
 			}
-			OutResult.Say = Judged.bHolds ? FString::Printf(TEXT("%s 的 %s = %s"), *RefText(InJson), *PropOf(InJson), *Judged.Read.Value.ToDisplay(60))
+			OutResult.Say = Judged.bHolds ? FString::Printf(TEXT("%s 的 %s = %s"), *RefText(InJson), *PropText, *Judged.Read.Value.ToDisplay(60))
 										  : FString::Printf(TEXT("%s 的 %s"), *RefText(InJson), *Judged.Why);
 		}
 

@@ -17,6 +17,8 @@
 
 ### 改进
 - **录制直接存成新写法** — 录到的点击、等待、断言保存时转成对象引用和部件写法，界面在 `objects` 里起好名字；拿不准标识的步骤标 `todo`，面板上补
+- **控件状态** — 新增算出状态 `:selectedIndex`（下拉框）、`:selectedCount`（列表）、`:scrollOffset`（滚动框）、`:open`（菜单锚点）、`:selectedKey`（按键选择器）、`:activeIndex`（切换器）、`:expanded`（折叠区），旧场景的 `stateKey` 升级后落在这些名字上
+- **部件名和属性路径里可以写变量** — `part`、`slate`、条件的 `prop` 里嵌 `$变量`（被 call 的子脚本按参数点不同的部件：`"part": "$nav"`）
 - **守护和 skipIf 用对象判断** — 守护的 `when` 写对象判断，`do` 用 `obj.close`；`skipIf` 写 `{cond, also?, settleMs?, verify?}`
 - **gt.keys / gt.actions 带新字段** — 字段条目带 `prop` 路径；动作清单带 `compares`、`states`、`closers`
 

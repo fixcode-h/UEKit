@@ -670,6 +670,11 @@ namespace GameTestRefCheck
 
 	void Prop(const FString& InProp, FGameTestDiagSink& InSink)
 	{
+		if (InProp.Contains(TEXT("$")))
+		{
+			// 嵌了 `$变量` 的路径运行时才替换出来，写的时候查不了
+			return;
+		}
 		FGameTestPropPath Path;
 		FString Error;
 		if (!FGameTestPropPath::Parse(InProp, Path, Error))

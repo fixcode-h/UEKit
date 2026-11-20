@@ -61,6 +61,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `part` | 可选。控件在**这个类自己的** WidgetTree 里的名字；嵌套 WBP 用 `.` 进去（`Header.BtnClose`：`Header` 是嵌在里面的 UUserWidget，`BtnClose` 在 `Header` 的类自己的树里）。Actor 时是组件名。省略 = 对象本身 |
 | `slate` | 可选。纯 Slate 控件（下拉选项、菜单行）：`类型[text=子串][序号]`，多段 `/`，在 `part`（或对象）的 Slate 子树和它弹出的窗口里找。这是唯一保留的文字定位，只用于没有 UObject 的 Slate 控件 |
 
+- `part` / `slate`（以及条件、判断项的 `prop`，如 `@Claim_$what:text`）里可以嵌 `$变量`，运行时按文字替换（规则同 game-test-script 1.1 节；被 `call` 的子脚本按参数点不同的部件：`"part": "$nav"`）；深度检查跳过带 `$` 的段。
 - 运行时生成、没有设计器名字的控件**不能当 part**，它应该是一个引用（`in: {obj, part: 容器}`）。
 - 名字在类的树里找不到：校验报 `part_missing`（读 WBP 资产，不用开游戏）。
 
@@ -102,6 +103,13 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `:location` / `:distance` | Actor、场景组件 | vector / float | 世界位置 / 离本地 Pawn 的距离（厘米） |
 | `:hiddenInGame` | Actor、场景组件 | bool | 是否隐藏 |
 | `:class` | 任何 | class | 实际类名 |
+| `:selectedIndex` | ComboBoxString | int | 选中第几项（从 0 起，没选 -1） |
+| `:selectedCount` | ListView 族 | int | 选中了几条 |
+| `:scrollOffset` | ScrollBox | float | 当前滚动位置（下一帧布局后才变） |
+| `:open` | MenuAnchor | bool | 菜单开着没有 |
+| `:selectedKey` | InputKeySelector | string | 选的键名（如 `SpaceBar`） |
+| `:activeIndex` | WidgetSwitcher | int | 当前显示第几页 |
+| `:expanded` | ExpandableArea | bool | 展开没有 |
 
 ### 3.3 判断项（`{prop, op, value}`）
 
@@ -334,7 +342,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 | `text` / `textContains` / `textLike` / `textMatches` | `:text` + `eq` / `contains` / `contains`+todo / `matches` |
 | `number: {gt: 3}` | `:text` 不能直接比数字 → `expr: "num(prop(引用, ':text')) > 3"` |
 | `count` / `image` / `field: "@self.X"` | `:count` / `:image` / `@self.X` |
-| `widget.close` / `widget.call` | `obj.close how: [{by: "remove"}]` / `[{by: "call", function}]` |
+| `widget.close` / `widget.call` | `obj.close how: [{by: "remove"}]` / `obj.call {obj, function}`（v3 的 widget.call 不一定是关界面，迁成 obj.close 会因为核对「找不到了」失败） |
 | `invoke` / `find` | `obj.call` / `obj.find` |
 | `wait until=widget` / `widgetGone` | `wait until=cond` + `:exists is true/false` |
 | 表达式 `text(sel)` 等 | `prop(引用, ":text")` 等；改不了的 todo |

@@ -202,7 +202,8 @@ namespace GameTestDeepRef
 			}
 			FString First = InPart;
 			InPart.Split(TEXT("."), &First, nullptr);
-			if (!Tree->Contains(First))
+			// 名字里带 $变量的要运行时才知道，不查
+			if (!First.Contains(TEXT("$")) && !Tree->Contains(First))
 			{
 				FGameTestDiagSink::FScope Scope(InEnv.Sink, TEXT("part"));
 				InEnv.Sink.Error(TEXT("part_missing"), FString::Printf(TEXT("%s 的控件树里没有 %s（改名了？用 gt.tree / gt.widgets 看现在的名字）"), *ClassName, *First));
@@ -236,7 +237,8 @@ namespace GameTestDeepRef
 		{
 			FGameTestPropPath Path;
 			FString Error;
-			if (InItem.Prop.IsEmpty() || !FGameTestPropPath::Parse(InItem.Prop, Path, Error))
+			// 嵌了 `$变量` 的路径运行时才替换出来，深度检查跳过
+			if (InItem.Prop.IsEmpty() || InItem.Prop.Contains(TEXT("$")) || !FGameTestPropPath::Parse(InItem.Prop, Path, Error))
 			{
 				return;
 			}
