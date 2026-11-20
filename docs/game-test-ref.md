@@ -283,7 +283,8 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
   "matches": 1, "total": 64, "hasMore": false, "truncated": false }
 ```
 
-- 组顺序：`self`（C++ → 蓝图 → Lua，`src` 标出）、`item`（条目时）、各部件（WidgetTree 顺序；嵌套 UUserWidget 给 `user: true` 和 `collapsed: true`，`items` 空，面板展开时再用 `part` 调一次）、`states`。
+- 组顺序：`self`（项目字段 C++ → 蓝图 → Lua，`src` 标出；后面是其余编辑器或蓝图看得见的属性：蓝图变量、项目 C++、控件 / 引擎类自带的依次排，可见性、文字、勾选、颜色这些常用的在前，最多 80 条，读不到或不能比较的不列）、`item`（条目时）、各部件（WidgetTree 顺序，每个部件都给 `collapsed: true`、`items` 空，面板展开时再用 `part` 调一次；嵌套 UUserWidget 另给 `user: true`）、`states`。
+- 带 `part` 时：返回的 `prop` 都从外层对象写（`@部件.X`、`@部件:状态`、`@部件.lua.X`），能直接写进脚本；`self` 组标题是「属性」，没有 `item` 组；嵌套界面里的部件组 `part` 也是从外层对象写的多段路径（`Header.TxtTitle`）。
 - 每项：`prop`（直接能写进脚本的路径）、`name`、`src`（`cpp` / `bp` / `lua` / `state`）、`type`（引擎类型名）、`kind`（3.4）、`value?`（游戏开着时，超长截 200 字）、`distinct?`（同类 `siblings` 个实例里有几种值；`siblings` 是同 `in` 下同类的实例数，最多看 50 个）、`members?`（enum 和 visibility：全部成员名，面板给下拉）、`score`（0–10，当标识的推荐分，同录制条目打分：唯一、像 Id、数据对象上分高；位置、选中、计数、长文字、会变的分低；`changing`「1 秒内自己变过」2.0.0 没做，会变的只按名字和状态的 `IsStable` 压分）、`ops`、`comparable`（false 时带 `why`）、`readOnly`。
 - `suggest`：能把当前对象和同类其他实例区分开的最少属性组合（最多 3 个），按 `identRules` 先、再按分数。
 - `matches`：按 `suggest` 组成的 `ident` 此刻命中几个。
