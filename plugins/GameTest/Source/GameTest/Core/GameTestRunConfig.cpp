@@ -3,6 +3,7 @@
 #include "Core/GameTestRunConfig.h"
 
 #include "Core/Flow/GameTestGuards.h"
+#include "Core/GameTestRunConfigRef.h"
 #include "Core/Flow/GameTestScriptParser.h"
 #include "Core/GameTestJson.h"
 #include "Core/Script/GameTestDiag.h"
@@ -29,6 +30,10 @@ namespace
 	/** 守护、脚本开关（1.9.0）。 */
 	bool ParseScriptSection(const FJsonObject& InJson, FGameTestRunConfig& OutConfig, FString& OutError)
 	{
+		if (!GameTestRunConfigRef::Parse(InJson, OutConfig.ScriptOptions, OutError))
+		{
+			return false;
+		}
 		bool bFlag = false;
 		if (InJson.HasField(TEXT("allowLuaInvoke")))
 		{
@@ -114,7 +119,7 @@ const TArray<FString>& GameTestRunConfig::KnownFields()
 {
 	static const TArray<FString> Fields = {
 		TEXT("uiWaitTimeoutMs"), TEXT("uiStepGapMs"), TEXT("clickVia"), TEXT("randomSeed"), TEXT("move"), TEXT("skipIf"), TEXT("setup"),
-		TEXT("itemKeys"), TEXT("guards"), TEXT("allowLuaInvoke"), TEXT("allowLuaInCond"), TEXT("maxCallDepth"), TEXT("blockers"),
+		TEXT("identRules"), TEXT("closeRules"), TEXT("refDefaults"), TEXT("allowDestroy"), TEXT("guards"), TEXT("allowLuaInvoke"), TEXT("allowLuaInCond"), TEXT("maxCallDepth"), TEXT("blockers"),
 	};
 	return Fields;
 }
@@ -267,47 +272,12 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		}
 	}
 
-	if (const TArray<TSharedPtr<FJsonValue>>* Keys = GameTestJson::TryGetArray(InJson, TEXT("itemKeys")))
-	{
-		for (int32 Index = 0; Index < Keys->Num(); ++Index)
-		{
-			const TSharedPtr<FJsonObject>* Object = nullptr;
-			if (!(*Keys)[Index].IsValid() || !(*Keys)[Index]->TryGetObject(Object) || Object == nullptr || !Object->IsValid())
-			{
-				OutError = FString::Printf(TEXT("条目规则（itemKeys）第 %d 条不是对象"), Index + 1);
-				return false;
-			}
-			FGameTestKeyRule Rule;
-			GameTestJson::TryGetString(**Object, TEXT("entry"), Rule.Entry);
-			GameTestJson::TryGetString(**Object, TEXT("container"), Rule.Container);
-			Rule.Entry.TrimStartAndEndInline();
-			Rule.Container.TrimStartAndEndInline();
-			if (const TArray<TSharedPtr<FJsonValue>>* By = GameTestJson::TryGetArray(**Object, TEXT("by")))
-			{
-				for (const TSharedPtr<FJsonValue>& Value : *By)
-				{
-					FString Field;
-					if (Value.IsValid() && Value->TryGetString(Field) && !Field.TrimStartAndEnd().IsEmpty())
-					{
-						Rule.By.Add(Field.TrimStartAndEnd());
-					}
-				}
-			}
-			if (Rule.Entry.IsEmpty() || Rule.By.Num() == 0)
-			{
-				OutError = FString::Printf(TEXT("条目规则（itemKeys）第 %d 条要写 entry（条目类名）和 by（字段数组）"), Index + 1);
-				return false;
-			}
-			OutConfig.ItemKeys.Add(MoveTemp(Rule));
-		}
-	}
-
 	return ParseScriptSection(InJson, OutConfig, OutError);
 }
 
 TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InConfig)
 {
-	// 从原文出发：不认识的字段（api、objectKeys…）原样留着；认得的字段先清掉，再按配置写回。
+	// 从原文出发：不认识的字段（api…）原样留着；认得的字段先清掉，再按配置写回。
 	TSharedPtr<FJsonObject> Json = InConfig.Raw.IsValid() ? MakeShared<FJsonObject>(*InConfig.Raw) : MakeShared<FJsonObject>();
 	for (const FString& Key : KnownFields())
 	{
@@ -363,27 +333,7 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	{
 		Json->SetNumberField(TEXT("maxCallDepth"), InConfig.ScriptOptions.MaxCallDepth);
 	}
-	if (InConfig.ItemKeys.Num() > 0)
-	{
-		TArray<TSharedPtr<FJsonValue>> Keys;
-		for (const FGameTestKeyRule& Rule : InConfig.ItemKeys)
-		{
-			const TSharedPtr<FJsonObject> Key = MakeShared<FJsonObject>();
-			Key->SetStringField(TEXT("entry"), Rule.Entry);
-			if (!Rule.Container.IsEmpty())
-			{
-				Key->SetStringField(TEXT("container"), Rule.Container);
-			}
-			TArray<TSharedPtr<FJsonValue>> By;
-			for (const FString& Field : Rule.By)
-			{
-				By.Add(MakeShared<FJsonValueString>(Field));
-			}
-			Key->SetArrayField(TEXT("by"), By);
-			Keys.Add(MakeShared<FJsonValueObject>(Key));
-		}
-		Json->SetArrayField(TEXT("itemKeys"), Keys);
-	}
+	GameTestRunConfigRef::Write(InConfig.ScriptOptions, *Json);
 	return Json;
 }
 

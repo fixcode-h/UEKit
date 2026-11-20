@@ -3,6 +3,10 @@
 #include "Observe/GameTestKeyRules.h"
 
 #include "Core/GameTestRunConfig.h"
+#include "Core/GameTestRunConfigRef.h"
+
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
 #include "GameTest.h"
 
 #include "HAL/FileManager.h"
@@ -18,6 +22,41 @@ namespace GameTestKeyRulesDetail
 	};
 	FCache GCache;
 
+	/** identRules 的 prop（`@item.ItemId`）→ 录制的 by（默认来源 item 不写前缀）。 */
+	TArray<FGameTestKeyRule> FromIdentRules(const TSharedPtr<FJsonValue>& InRules)
+	{
+		TArray<FGameTestKeyRule> Out;
+		const TArray<TSharedPtr<FJsonValue>>* Rules = nullptr;
+		if (!InRules.IsValid() || !InRules->TryGetArray(Rules) || Rules == nullptr)
+		{
+			return Out;
+		}
+		for (const TSharedPtr<FJsonValue>& Value : *Rules)
+		{
+			const TSharedPtr<FJsonObject>* Rule = nullptr;
+			const TArray<TSharedPtr<FJsonValue>>* Ident = nullptr;
+			FGameTestKeyRule Converted;
+			if (!Value.IsValid() || !Value->TryGetObject(Rule) || Rule == nullptr || !Rule->IsValid() || !(*Rule)->TryGetStringField(TEXT("class"), Converted.Entry)
+				|| !(*Rule)->TryGetArrayField(TEXT("ident"), Ident) || Ident == nullptr)
+			{
+				continue;
+			}
+			for (const TSharedPtr<FJsonValue>& Prop : *Ident)
+			{
+				FString Text;
+				if (Prop.IsValid() && Prop->TryGetString(Text) && !Text.IsEmpty())
+				{
+					Converted.By.Add(Text.StartsWith(TEXT("@item.")) ? Text.RightChop(6) : Text);
+				}
+			}
+			if (Converted.By.Num() > 0)
+			{
+				Out.Add(MoveTemp(Converted));
+			}
+		}
+		return Out;
+	}
+
 	const TArray<FGameTestKeyRule>& Rules()
 	{
 		const FString Path = GameTestRunConfig::GetPath();
@@ -32,7 +71,7 @@ namespace GameTestKeyRulesDetail
 			FString Error;
 			if (GameTestRunConfig::Load(Config, Error))
 			{
-				GCache.Rules = MoveTemp(Config.ItemKeys);
+				GCache.Rules = FromIdentRules(Config.ScriptOptions.IdentRules);
 			}
 			else
 			{
@@ -85,17 +124,13 @@ bool GameTestKeyRules::Find(const FString& InEntryClass, const FString& InBase, 
 
 bool GameTestKeyRules::Save(const FGameTestKeyRule& InRule, FString& OutError)
 {
-	FGameTestRunConfig Config;
-	if (!GameTestRunConfig::Load(Config, OutError))
+	// 录制的 by 不带 @ 时是条目数据对象上的字段：写进 identRules 时补成 @item.
+	TArray<FString> Props;
+	for (const FString& By : InRule.By)
 	{
-		return false;
+		Props.Add(By.StartsWith(TEXT("@")) ? By : TEXT("@item.") + By);
 	}
-	Config.ItemKeys.RemoveAll([&InRule](const FGameTestKeyRule& Rule)
-	{
-		return SameClass(Rule.Entry, InRule.Entry) && Rule.Container.Equals(InRule.Container, ESearchCase::IgnoreCase);
-	});
-	Config.ItemKeys.Add(InRule);
-	if (!GameTestRunConfig::Save(Config, OutError))
+	if (!GameTestRunConfigRef::SaveIdentRule(InRule.Entry, Props, OutError))
 	{
 		return false;
 	}

@@ -18,6 +18,8 @@ struct GAMETEST_API FGameTestExprScope
 	bool bReadOnly = true;
 	/** `_settings.json` 的 allowLuaInCond。 */
 	bool bAllowLuaInCond = false;
+	/** 场景 `objects` 段里的名字（对象引用写名字时查在不在）；为空表示不查。 */
+	const TSet<FString>* KnownObjects = nullptr;
 };
 
 /**

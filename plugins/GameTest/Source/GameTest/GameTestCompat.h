@@ -23,3 +23,41 @@
 // UEnhancedInputLocalPlayerSubsystem::HasContinuousInputInjectionForAction：5.4 没有（C2039）。
 // 只在确认编过的 5.8 用引擎的查询，更早的版本由 GameTestInjection 自己记哪些动作在注入。
 #define GAMETEST_HAS_INJECTION_QUERY UE_VERSION_NEWER_THAN(5, 7, 99)
+
+// FText 的本地化键（`:textKey`、比较 `key`，GameTest 2.0.0）：FTextInspector::GetNamespace / GetKey。
+// 各版本的返回类型没在本地核对过（5.4 是 TOptional<FString>，之后的版本可能换成别的），
+// 这里按两种写法都接住：返回 TOptional<FString> 或 FString 都能编过，调用处只用 GameTestCompat::TextKeyOf。
+// 需要在本地 5.4 / 5.8 上确认能编（CHANGELOG 2.0.0「需要本地确认的引擎接口」）。
+#include "Internationalization/Text.h"
+
+namespace GameTestCompat
+{
+	inline bool TextPieceOf(const TOptional<FString>& InPiece, FString& OutText)
+	{
+		if (!InPiece.IsSet())
+		{
+			return false;
+		}
+		OutText = InPiece.GetValue();
+		return true;
+	}
+
+	inline bool TextPieceOf(const FString& InPiece, FString& OutText)
+	{
+		OutText = InPiece;
+		return true;
+	}
+
+	/** FText 的命名空间和键；没有键（运行时拼出来的文字、FText::FromString）返回 false。 */
+	inline bool TextKeyOf(const FText& InText, FString& OutNamespace, FString& OutKey)
+	{
+		OutNamespace.Reset();
+		OutKey.Reset();
+		if (!TextPieceOf(FTextInspector::GetKey(InText), OutKey) || OutKey.IsEmpty())
+		{
+			return false;
+		}
+		TextPieceOf(FTextInspector::GetNamespace(InText), OutNamespace);
+		return true;
+	}
+}
