@@ -134,7 +134,7 @@ for (const p of plugins) {
     if (buildCs && /bUseUnity\s*=\s*false/.test(readFileSync(buildCs, 'utf8'))) continue
     const cpps = files.filter((f) => f.startsWith(dir + path.sep) && f.endsWith('.cpp'))
     for (const clash of findUnityClashes(cpps, (f) => path.relative(p.dir, f).replace(/\\/g, '/')))
-      fail(`合并编译重名 ${clash}：改个名字（合并编译时会报「不明确的符号」）`)
+      fail(`名字冲突 ${clash}：改个名字（合并编译或 using namespace 时会报「不明确的符号」或认成别的类型）`)
   }
   if (p.name === 'UELink') checkEditorSharedNamespace(p.dir, fail)
   for (const name of moduleNames) if (!implemented.has(name)) fail(`没有找到 IMPLEMENT_MODULE(..., ${name})`)

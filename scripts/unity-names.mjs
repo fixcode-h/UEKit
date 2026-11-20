@@ -42,6 +42,23 @@ function topNames(body) {
   return out
 }
 
+// 引擎在全局作用域定义的常见类型名。插件自己在命名空间里起了同名类型、别处再 `using namespace` 进来用，
+// 名字查找会撞上引擎的那个（GameTest 2.0.1 的 GameTestRpcHighlightImpl::FBox 被当成 UE::Math::TBox<double>）。
+// 局部（函数里）的同名类型不算：局部作用域先找到自己的。
+export const ENGINE_NAMES = new Set(
+  (
+    'FBox FBox2D FBoxSphereBounds FSphere FPlane FRay FVector FVector2D FVector3f FVector4 FRotator FQuat FTransform FMatrix ' +
+    'FIntPoint FIntRect FIntVector FColor FLinearColor FName FString FText FGuid FDateTime FTimespan FFrame FField FFieldPath ' +
+    'FProperty FKey FKeyEvent FPointerEvent FInputChord FReply FGeometry FMargin FSlateRect FSlateBrush FSlateColor FSlateFontInfo ' +
+    'FWidgetPath FArrangedWidget FArrangedChildren FHitResult FTimerHandle FDelegateHandle FSoftObjectPath FSoftClassPath ' +
+    'FTopLevelAssetPath FAssetData FJsonObject FJsonValue FArchive FOutputDevice FMemory FCrc FPaths FParse FApp FCommandLine ' +
+    'FPlatformTime FCriticalSection FScopeLock FEvent FRunnable FRunnableThread FTSTicker FTicker FSocket FViewport FCanvas ' +
+    'FSceneView FObjectInitializer FStructOnScope FCoreStyle FAppStyle FTextBlockStyle FButtonStyle FCheckBoxStyle ' +
+    'FEdGraphPinType FPropertyChangedEvent FEditPropertyChain FInstancedStruct FInstancedPropertyBag FLatentActionInfo ' +
+    'FTableRowBase FKeyHandle FRichCurve FFloatRange FInt32Range FColorList FCurveSequence FAnimNotifyEvent FScriptDelegate'
+  ).split(' ')
+)
+
 /** files：同一个模块的 .cpp（绝对路径）；rel：显示用的相对路径。返回冲突说明 */
 export function findUnityClashes(files, rel) {
   const local = new Map() // 名字 → 文件（匿名命名空间、文件级 using 的命名空间）
@@ -67,6 +84,9 @@ export function findUnityClashes(files, rel) {
     }
   }
   const out = []
+  for (const map of [local, used])
+    for (const [name, at] of map)
+      if (ENGINE_NAMES.has(name)) out.push(`${name}：${[...new Set(at)].join('、')} 里的 ${name} 和引擎的全局类型同名`)
   for (const [name, at] of local) {
     const other = used.get(name)?.filter((f) => !at.includes(f))
     if (other?.length) out.push(`${name}：${at.join('、')} 的匿名命名空间 和 ${other.join('、')} 里 using 的命名空间`)
