@@ -6,6 +6,7 @@
 
 class UObject;
 class UWorld;
+struct FGameTestLuaInstance;
 
 /** `lua.objects` 的一项（只留引用解析要的）。 */
 struct GAMETEST_API FGameTestLuaObject
@@ -38,6 +39,12 @@ namespace GameTestLuaObjects
 	 * 模块没 require 过时 bOutLoaded = false（调用方报 lua_class_missing）。
 	 */
 	GAMETEST_API bool ModuleChain(UWorld* InWorld, const FString& InModule, TArray<FString>& OutChain, bool& bOutLoaded, FString& OutError);
+
+	/**
+	 * 纯 Lua 实例（2.2.0，UELink 2.20 的 `lua.instances`）：Lua 框架自己 new 的、不绑 UObject 的表里，元表链上有这个模块
+	 * （或 Lua 设置的类名字段写着它）的。UELink 太旧没有这个操作时返回 true、列表为空（只是找不到纯 Lua 实例）。
+	 */
+	GAMETEST_API bool ListTables(UWorld* InWorld, const FString& InModule, TArray<FGameTestLuaInstance>& OutTables, FString& OutError);
 
 	/** 按路径找活对象（lua.objects 给的是完整对象路径）。找不到返回空。 */
 	GAMETEST_API UObject* FindByPath(const FString& InPath);

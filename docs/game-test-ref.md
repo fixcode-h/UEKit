@@ -29,7 +29,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
 | `class` | 是 | 类名或资源路径。`U`/`A` 前缀、`_C` 后缀可省（`WBP_Shop`、`WBP_Shop_C`、`/Game/UI/WBP_Shop` 等价）。**按继承认**，子类也算。界面只认直接或间接继承 `UUserWidget` 的。2.1.0 起也可以写 `lua:模块名`（`lua:UI.ShopPanel`，require 用的名字）= 绑定的 Lua 模块是它或它的子类（沿元表 `__index` 的 Lua 继承链）的 UObject；模块没加载（`package.loaded` 里没有）报 `lua_class_missing`，项目没有 UnLua 也报它 |
-| `in` | 否 | 在哪找。字符串：`screen`（屏上的界面，含游戏窗口弹出的子窗口）/ `world`（关卡里的 Actor）/ `lua`（2.1.0：绑了 UnLua 的 UObject，经 UELink `lua.objects`，不含类本身和已标记销毁的）/ `all`（`TObjectIterator`，最后才用）/ 前三个的数组（2.1.0：`["screen", "lua"]` = 几处的并集，同一个对象只算一次、按数组顺序排；数组里有 `all` 或是空数组 = `all`；面板「都不选」写 `all`）/ `@来源.路径`（容器属性里的对象，来源同 game-test-script 4.3）。对象：`{"obj": 引用, "part": "容器部件"}`（另一个对象里某个容器控件的条目：ListView 族、Panel 子项、DynamicEntryBox、挂在 Slate 上的子界面）；`{"obj": 引用}` 且 `class` 是组件类时 = 那个 Actor 的组件。省略时按类推：`lua:` 类 → `lua`；UUserWidget 子类 → `screen`；AActor 子类 → `world`；子系统（`USubsystem` 子类）→ 直接取单例，`ident` 必须为空；UActorComponent 子类且没给 `in` → 校验报 `ref_need_owner` |
+| `in` | 否 | 在哪找。字符串：`screen`（屏上的界面，含游戏窗口弹出的子窗口）/ `world`（关卡里的 Actor）/ `lua`（2.1.0：绑了 UnLua 的 UObject，经 UELink `lua.objects`，不含类本身和已标记销毁的；2.2.0 起 `class` 是 `lua:` 类时还有这个类的**纯 Lua 实例**——Lua 框架自己 new 的、不绑 UObject 的表，经 UELink 2.20 的 `lua.instances`，见下）/ `all`（`TObjectIterator`，最后才用）/ 前三个的数组（2.1.0：`["screen", "lua"]` = 几处的并集，同一个对象只算一次、按数组顺序排；数组里有 `all` 或是空数组 = `all`；面板「都不选」写 `all`）/ `@来源.路径`（容器属性里的对象，来源同 game-test-script 4.3）。对象：`{"obj": 引用, "part": "容器部件"}`（另一个对象里某个容器控件的条目：ListView 族、Panel 子项、DynamicEntryBox、挂在 Slate 上的子界面）；`{"obj": 引用}` 且 `class` 是组件类时 = 那个 Actor 的组件。省略时按类推：`lua:` 类 → `lua`；UUserWidget 子类 → `screen`；AActor 子类 → `world`；子系统（`USubsystem` 子类）→ 直接取单例，`ident` 必须为空；UActorComponent 子类且没给 `in` → 校验报 `ref_need_owner` |
 | `ident` | 否 | 唯一标识，数组，**每项都要满足**。每项是一个判断项（第 3 节），或一个条件组（3.5，2.1.6 起）。空 / 省略 = 只按类认 |
 | `many` | 否 | 过滤后还剩多个时：`error`（默认；运行配置 `refDefaults.many` 可改）/ `first`（排序固定：`world` 里关卡放置的在前，再按创建顺序；`screen` 按 ZOrder 从小到大、同 ZOrder 先加入的在前，即最底层）/ `last`（`screen`：最上层，ZOrder 最大、同 ZOrder 后加的在上；其余：最后一个）/ `nearest`（离 `near` 最近，`near` 省略 = 本地 Pawn；只在有世界位置的候选里挑，都没有位置时报 `ref_ambiguous`） |
 | `near` | 否 | `[x,y,z]` / `$var` / `@pawn` / 另一个引用 |
@@ -49,6 +49,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 **解析**：按 `in` + `class` 收候选 → 按 `ident` 逐条过滤 → 0 个：等（受步骤 `timeoutMs`）→ 1 个：用 → 多个：按 `many`。
 `error` 时报 `ref_ambiguous`，`message` 列出每个候选（最多 8 个）的标识值和一个能区分它们的属性建议。
 报告 `payload.ref: {name?, class, picked: 显示名, by: "only"/"ident"/"first"/"last"/"nearest", candidates, ident: [{prop, actual}]}`；`obj.call each` 时 `by: "each"`、`count`（调了几个）。
+纯 Lua 实例（2.2.0）：GameTest 给每张表包一个瞬态替身对象（`UGameTestLuaTable`，对象名 `LuaTable_<编号>`），候选、`ident` 的 `@#字段`、`obj.call` 调 Lua 函数、对象上的 Lua 字段取值都照对象走，读写时换成表的 `luaref`。替身没有反射属性（`@.X` 读不到）、不是控件也不是 Actor（屏上高亮、准星、点击对它没用）。候选的 JSON 多一个 `luaTable: {ref, module, path}`，`name` 是 Lua 设置的显示名字段，没配时是「模块名最后一段#编号」。模块没加载、但 Lua 设置配了类名字段且找到了实例时不报 `lua_class_missing`。表被回收或模块重载后，下一次解析重新找。
+
 `lua:` 类每次解析问一次 UELink（`lua.objects` 一次 + 每个用到的模块 `lua.inspect` 一次），比按 UE 类找慢，能写 UE 类时优先写 UE 类。
 
 ## 2. 部件（target）

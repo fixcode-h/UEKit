@@ -6,6 +6,8 @@
 // 范围（scope）按表分派：加一种范围就是在 Scopes() 里加一行，不改列表逻辑。
 
 #include "Api/GameTestParamKind.h"
+
+#include "Observe/Lua/GameTestLuaTable.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Widget.h"
 #include "Core/GameTestJson.h"
@@ -472,6 +474,11 @@ namespace
 	/** UnLua 绑的模块名：对象上有 GetModuleName（UnLuaInterface）就调一次，没有就算了。 */
 	FString VarsLuaModuleOf(UObject* InObject, FGameTestFlowContext& InContext)
 	{
+		// 纯 Lua 实例的替身：模块是 lua.instances 认出来的
+		if (const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(InObject))
+		{
+			return Table->Info.Module;
+		}
 		UFunction* Function = InObject ? InObject->FindFunction(TEXT("GetModuleName")) : nullptr;
 		if (Function == nullptr)
 		{

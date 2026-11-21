@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Observe/Lua/GameTestLuaTable.h"
 
 class UObject;
 class UWorld;
@@ -21,6 +22,10 @@ struct GAMETEST_API FGameTestClassFilter
 	FString LuaModule;
 	/** Lua 类时：继承链上有这个模块的对象路径。 */
 	TSet<FString> LuaPaths;
+	/** Lua 类时：这个类的纯 Lua 实例（不绑 UObject 的表，2.2.0）。 */
+	TArray<FGameTestLuaInstance> LuaTables;
+	/** LuaTables 的 luaref，Matches 认替身用。 */
+	TSet<FString> LuaRefs;
 
 	bool IsLua() const { return !LuaModule.IsEmpty(); }
 

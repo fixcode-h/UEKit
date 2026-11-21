@@ -3,6 +3,7 @@
 #include "Observe/Lua/GameTestLuaObjects.h"
 
 #include "Observe/Lua/GameTestLuaBridge.h"
+#include "Observe/Lua/GameTestLuaTable.h"
 
 #include "AgentPanelBridge.h"
 #include "Dom/JsonObject.h"
@@ -107,6 +108,46 @@ bool GameTestLuaObjects::ModuleChain(UWorld* InWorld, const FString& InModule, T
 		{
 			OutChain.AddUnique(Name);
 		}
+	}
+	return true;
+}
+
+bool GameTestLuaObjects::ListTables(UWorld* InWorld, const FString& InModule, TArray<FGameTestLuaInstance>& OutTables, FString& OutError)
+{
+	OutTables.Reset();
+	if (!FAgentPanelBridge::Get().HasOp(TEXT("lua.instances")))
+	{
+		return true;
+	}
+	const TSharedRef<FJsonObject> Args = MakeShared<FJsonObject>();
+	Args->SetStringField(TEXT("module"), InModule);
+	Args->SetNumberField(TEXT("limit"), MaxObjects);
+	if (InWorld != nullptr)
+	{
+		Args->SetStringField(TEXT("world"), FAgentPanelBridge::WorldId(InWorld));
+	}
+	TSharedPtr<FJsonObject> Out;
+	if (!FAgentPanelBridge::Get().CallOp(TEXT("lua.instances"), Args, Out, OutError))
+	{
+		return false;
+	}
+	const TArray<TSharedPtr<FJsonValue>>* Items = nullptr;
+	if (!Out.IsValid() || !Out->TryGetArrayField(TEXT("items"), Items) || Items == nullptr)
+	{
+		return true;
+	}
+	for (const TSharedPtr<FJsonValue>& Value : *Items)
+	{
+		const TSharedPtr<FJsonObject> Item = Value.IsValid() ? Value->AsObject() : nullptr;
+		FGameTestLuaInstance Table;
+		if (!Item.IsValid() || !Item->TryGetStringField(TEXT("ref"), Table.Ref) || Table.Ref.IsEmpty())
+		{
+			continue;
+		}
+		Item->TryGetStringField(TEXT("module"), Table.Module);
+		Item->TryGetStringField(TEXT("name"), Table.Name);
+		Item->TryGetStringField(TEXT("path"), Table.Path);
+		OutTables.Add(MoveTemp(Table));
 	}
 	return true;
 }
