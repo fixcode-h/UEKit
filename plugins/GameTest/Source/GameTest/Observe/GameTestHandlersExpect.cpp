@@ -223,7 +223,7 @@ namespace GameTestHandlers
 		if (Until == TEXT("widget") || Until == TEXT("widgetGone"))
 		{
 			// v4 删掉了按选择器等界面（docs/game-test-ref.md 5.1）：加载时就报，这里防 gt.step 单步直接传进来
-			InContext.Message = FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 wait until=cond，cond 写 {\"obj\": 引用, \"prop\": \":exists\", \"value\": %s}（或 obj.wait）"),
+			InContext.Message = FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 wait until=cond，cond 写 {\"obj\": 引用, \"prop\": \"@:exists\", \"value\": %s}（或 obj.wait）"),
 				*Until, Until == TEXT("widget") ? TEXT("true") : TEXT("false"));
 			return StepFailed;
 		}

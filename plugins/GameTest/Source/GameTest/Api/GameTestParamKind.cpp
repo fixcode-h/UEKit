@@ -142,6 +142,20 @@ TArray<FGameTestParamInfo> GameTestParamKind::Describe(const UFunction& InFuncti
 		{
 			Info.Kind = ClassifyAt(Prop, 0, Info.Why);
 		}
+		if (Info.Kind == EGameTestParamKind::Object)
+		{
+			// 对象参数要的类：软引用、类引用也是 FObjectPropertyBase，PropertyClass 是它们指向的类
+			const FObjectPropertyBase* ObjectProp = CastField<FObjectPropertyBase>(Prop);
+			const UClass* ParamClass = nullptr;
+			if (ObjectProp != nullptr)
+			{
+				ParamClass = ObjectProp->PropertyClass;
+			}
+			if (ParamClass != nullptr)
+			{
+				Info.ObjectClass = ParamClass->GetName();
+			}
+		}
 		Out.Add(MoveTemp(Info));
 	}
 	return Out;
@@ -178,6 +192,10 @@ TArray<TSharedPtr<FJsonValue>> GameTestParamKind::ToJson(const TArray<FGameTestP
 		if (Param.Kind == EGameTestParamKind::Object)
 		{
 			O->SetBoolField(TEXT("object"), true);
+			if (!Param.ObjectClass.IsEmpty())
+			{
+				O->SetStringField(TEXT("objectClass"), Param.ObjectClass);
+			}
 		}
 		if (Param.Kind == EGameTestParamKind::WorldContext)
 		{

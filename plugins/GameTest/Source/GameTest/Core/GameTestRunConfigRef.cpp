@@ -63,7 +63,7 @@ bool GameTestRunConfigRef::Parse(const FJsonObject& InJson, FGameTestScriptOptio
 	{
 		if (InJson.HasField(Old))
 		{
-			OutError = FString::Printf(TEXT("settings_old：运行设置里还有 1.x 的 %s，2.0.0 起改成 identRules。请在面板里用「升级脚本」一起迁移（会先备份）"), Old);
+			OutError = FString::Printf(TEXT("settings_old：运行设置里还有 1.x 的 %s，2.0.0 起改成 identRules。不再自动迁移，请在面板运行设置里按新写法重写"), Old);
 			return false;
 		}
 	}

@@ -90,13 +90,13 @@ FGameTestJudgeResult GameTestJudge::TestRead(const FGameTestPropRead& InRead, co
 	TypedInput.Tol = Input.Tol;
 	const FGameTestCompareResult Compared = Compare->Test(TypedInput);
 	Result.bHolds = Compared.bHolds;
-	Result.Why = Compared.bHolds ? FString() : FString::Printf(TEXT("%s：%s"), InItem.Prop.IsEmpty() ? TEXT(":exists") : *InItem.Prop, *Compared.Why);
+	Result.Why = Compared.bHolds ? FString() : FString::Printf(TEXT("%s：%s"), InItem.Prop.IsEmpty() ? TEXT("@:exists") : *InItem.Prop, *Compared.Why);
 	return Result;
 }
 
 FGameTestJudgeResult GameTestJudge::Test(UObject* InObject, const FGameTestIdentItem& InItem, FGameTestFlowContext& InContext, UObject* InListItem)
 {
-	const FString Prop = InItem.Prop.IsEmpty() ? FString(TEXT(":exists")) : InItem.Prop;
+	const FString Prop = InItem.Prop.IsEmpty() ? FString(TEXT("@:exists")) : InItem.Prop;
 	const FGameTestPropRead Read = GameTestPropRead::ReadText(InObject, Prop, InContext, InListItem);
 	return TestRead(Read, InItem, InContext);
 }

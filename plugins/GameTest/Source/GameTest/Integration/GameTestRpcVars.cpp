@@ -37,7 +37,7 @@ namespace
 	{
 		UClass* Class = nullptr;
 		TWeakObjectPtr<UObject> Instance;
-		/** 条目 path 的前缀（`@pc`、`@sub.UQuestSubsystem`）；界面是 `@self`（判断的 field 写法）。为空时 path 就是成员名。 */
+		/** 条目 path 的前缀（`@pc`、`@sub.UQuestSubsystem`）；界面是 `@`（属性路径 v5，拼成 `@.成员`）。为空时 path 就是成员名。 */
 		FString Ref;
 		/** scope=lua 时的模块。 */
 		FString LuaModule;
@@ -78,13 +78,14 @@ namespace
 			// 选到的是界面里的控件时列它自己（按钮的属性）；要看整个界面的变量就选屏（WBP_X:.）
 			OutOwner.Instance = Widget;
 			OutOwner.Class = Widget->GetClass();
-			OutOwner.Ref = TEXT("@self");
+			// 属性路径 v5：对象自己的属性写 @.X
+			OutOwner.Ref = TEXT("@");
 			return true;
 		}
 		FString ClassName;
 		InArgs.TryGetStringField(TEXT("class"), ClassName);
 		OutOwner.Class = GameTestObjectRoots::FindClass(ClassName);
-		OutOwner.Ref = TEXT("@self");
+		OutOwner.Ref = TEXT("@");
 		if (OutOwner.Class == nullptr)
 		{
 			OutError = FString::Printf(TEXT("找不到界面类 %s（写 target 选屏上的界面，或 class 写 WBP_X_C / 路径）"), *ClassName);
@@ -427,8 +428,8 @@ namespace
 			else
 			{
 				bOk = GameTestLuaBridge::Read(InWorld, Owner.Instance.Get(), {}, Table, Error, bFunctions);
-				// 绑在对象上的实例表：判断里写 @lua.字段
-				Prefix = TEXT("@lua");
+				// 绑在对象上的实例表：属性路径 v5 写 @#字段（JoinPath 之后再把 `@#.` 收成 `@#`）
+				Prefix = TEXT("@#");
 			}
 			if (!bOk || Table.Type() != TEXT("table"))
 			{
@@ -448,7 +449,8 @@ namespace
 				const bool bFunction = Type == TEXT("function");
 				const TSharedPtr<FJsonObject> Item = MakeShared<FJsonObject>();
 				Item->SetStringField(TEXT("name"), Key);
-				Item->SetStringField(TEXT("path"), JoinPath(Prefix, bFunction ? Key + TEXT("()") : Key));
+				const FString Joined = JoinPath(Prefix, bFunction ? Key + TEXT("()") : Key);
+				Item->SetStringField(TEXT("path"), Prefix == TEXT("@#") ? TEXT("@#") + Key : Joined);
 				Item->SetStringField(TEXT("type"), Type);
 				Item->SetStringField(TEXT("kind"), bFunction ? TEXT("fn") : TEXT("prop"));
 				Item->SetBoolField(TEXT("readOnly"), false);

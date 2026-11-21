@@ -395,8 +395,18 @@ namespace
 		const TSharedPtr<FJsonObject>* Vars = nullptr;
 		const bool bHasVars = Args.IsValid() && Args->TryGetObjectField(TEXT("vars"), Vars) && Vars != nullptr;
 		const bool bHasParams = Args.IsValid() && Args->HasField(TEXT("params"));
-		if (GameTestRpcScript::IsScriptStep(*StepJson) || bHasVars || bHasParams)
+		// 2.1.0：objects（名字 → 引用或来源字符串）给了时也走这条路，步骤里才能写名字和 {"$obj": 名}
+		const TSharedPtr<FJsonObject>* StepObjects = nullptr;
+		const bool bHasObjects = Args.IsValid() && Args->TryGetObjectField(TEXT("objects"), StepObjects) && StepObjects != nullptr && StepObjects->IsValid();
+		if (GameTestRpcScript::IsScriptStep(*StepJson) || bHasVars || bHasParams || bHasObjects)
 		{
+			if (bHasObjects && StepJson == Args)
+			{
+				// 平铺写法：objects 是 gt.step 的参数，不是步骤字段，别让步骤检查报不认识
+				const TSharedRef<FJsonObject> Copy = MakeShared<FJsonObject>(*StepJson);
+				Copy->RemoveField(TEXT("objects"));
+				StepJson = Copy;
+			}
 			FGameTestScenarioRun ToRun;
 			ToRun.Name = TEXT("step");
 			ToRun.Steps.Add(StepJson);
@@ -407,6 +417,10 @@ namespace
 			if (bHasVars)
 			{
 				ToRun.Json->SetObjectField(TEXT("vars"), *Vars);
+			}
+			if (bHasObjects)
+			{
+				ToRun.Json->SetObjectField(TEXT("objects"), *StepObjects);
 			}
 			TArray<TSharedPtr<FJsonValue>> StepValues;
 			StepValues.Add(MakeShared<FJsonValueObject>(StepJson));
@@ -910,6 +924,7 @@ void Register()
 	Add(TEXT("gt.highlight"), &GameTestRpcRef::Highlight);
 	Add(TEXT("gt.props"), &GameTestRpcRef::Props);
 	Add(TEXT("gt.refFor"), &GameTestRpcRef::RefFor);
+	Add(TEXT("gt.classes"), &GameTestRpcRef::Classes);
 
 	JobHandle = GameTestHooks::OnJobChanged().AddStatic(&PublishJob);
 	RecordHandle = GameTestHooks::OnRecordChanged().AddLambda([](const TSharedRef<FJsonObject>& InEvent)

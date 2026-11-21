@@ -118,7 +118,7 @@ namespace GameTestRpcTreeImpl
 			}
 		}
 		Node->SetBoolField(TEXT("visible"), InWidget->IsVisible());
-		const FGameTestPropRead OnScreen = GameTestPropRead::ReadText(InWidget, TEXT(":onScreen"), InWalk.Flow);
+		const FGameTestPropRead OnScreen = GameTestPropRead::ReadText(InWidget, TEXT("@:onScreen"), InWalk.Flow);
 		Node->SetBoolField(TEXT("onScreen"), OnScreen.IsResolved() && OnScreen.Value.Truthy());
 		const FGeometry& Geometry = InWidget->GetCachedGeometry();
 		const FVector2D Size = FVector2D(Geometry.GetAbsoluteSize());

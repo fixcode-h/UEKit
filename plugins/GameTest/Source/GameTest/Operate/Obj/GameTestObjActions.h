@@ -30,6 +30,15 @@ namespace GameTestObjActions
 	 */
 	GAMETEST_API EGameTestStepStatus RunWhenFound(FGameTestStepContext& InContext, const FString& InWhat, FDo InDo);
 
+	/** 找到的全部对象（each）：至少一个。返回 Succeeded / Failed，不能返回 Pending。 */
+	using FDoAll = TFunction<EGameTestStepStatus(FGameTestStepContext& /*Context*/, const TArray<UObject*>& /*Objects*/)>;
+
+	/**
+	 * 同 RunWhenFound，但引用命中几个就给几个（`obj.call` 的 `each: true`）：不按 many 挑，命中多个也不算歧义；
+	 * 每个都按 part 找到部件，有一个找不到就整步失败。
+	 */
+	GAMETEST_API EGameTestStepStatus RunWhenFoundAll(FGameTestStepContext& InContext, const FString& InWhat, FDoAll InDo);
+
 	/** 没有脚本上下文（gt.step 也会给，这里只防万一）。 */
 	EGameTestStepStatus NoFlow(FGameTestStepContext& InContext, const TCHAR* InAction);
 }

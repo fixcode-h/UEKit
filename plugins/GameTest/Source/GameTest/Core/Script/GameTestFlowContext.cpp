@@ -3,6 +3,26 @@
 #include "Core/Script/GameTestFlowContext.h"
 
 #include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "GameTestCompat.h"
+
+void FGameTestScriptScope::AddObjects(const FJsonObject& InObjects)
+{
+	for (const auto& Pair : InObjects.Values)
+	{
+		const FString Name = GAMETEST_JSON_KEY(Pair.Key);
+		const TSharedPtr<FJsonObject>* Def = nullptr;
+		FString Source;
+		if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Def) && Def != nullptr && Def->IsValid())
+		{
+			ObjectDefs.Add(Name, *Def);
+		}
+		else if (Pair.Value.IsValid() && Pair.Value->Type == EJson::String && Pair.Value->TryGetString(Source) && Source.TrimStartAndEnd().StartsWith(TEXT("@")))
+		{
+			ObjectSources.Add(Name, Source.TrimStartAndEnd());
+		}
+	}
+}
 
 FGameTestFlowContext::FGameTestFlowContext()
 {

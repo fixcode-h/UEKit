@@ -71,6 +71,6 @@ public:
 	 */
 	static FGameTestValue ResolveNamed(const FString& InName, FGameTestFlowContext& InContext);
 
-	/** 读对象上一条属性路径（`@self.X`、`@lua.X`、`:text`；不带 @ 的按 `@self.` 读）。 */
+	/** 读对象上一条属性路径（属性路径 v5：`@.X`、`@#X`、`@:text`；不带 @ 的按 `@.` 读，`#X` 按 `@#X` 读）。 */
 	static FGameTestValue ReadKey(UObject* InObject, const FString& InPath, FGameTestFlowContext& InContext);
 };

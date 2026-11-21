@@ -145,25 +145,17 @@ namespace GameTestObjSetImpl
 		return false;
 	}
 
-	/** 路径是 `@部件.属性`（或 `@self.属性`）且部件是控件：返回控件和属性名，走 setter。 */
+	/** 路径是 `@/子控件.属性`（或 `@.属性`）且落在控件上：返回控件和属性名，走 setter。 */
 	UWidget* WidgetForSetter(UObject* InObject, const FGameTestPropPath& InPath, FString& OutName)
 	{
-		if (InPath.HasState() || InPath.Segments.Num() < 2 || InPath.Segments.Last().Contains(TEXT("[")))
+		const int32 Children = InPath.NumChildren();
+		if (InPath.bItem || InPath.HasState() || InPath.Segs.Num() != Children + 1 || InPath.Segs.Last().Kind != EGameTestPathSeg::Prop)
 		{
 			return nullptr;
 		}
-		TArray<FString> Parts(InPath.Segments);
-		OutName = Parts.Pop();
-		if (Parts.Num() == 1 && Parts[0].Equals(TEXT("self"), ESearchCase::IgnoreCase))
-		{
-			return Cast<UWidget>(InObject);
-		}
-		if (FGameTestPropPath::IsSourceWord(Parts[0]))
-		{
-			return nullptr;
-		}
+		OutName = InPath.Segs.Last().Name;
 		FString Ignored;
-		return Cast<UWidget>(GameTestPropRead::FindPart(InObject, FString::Join(Parts, TEXT(".")), Ignored));
+		return Cast<UWidget>(GameTestPropRead::FindPart(InObject, InPath.ChildPart(), Ignored));
 	}
 
 	EGameTestStepStatus Fail(FGameTestStepContext& InContext, FName InCode, const FString& InMessage)
@@ -185,11 +177,11 @@ namespace GameTestObjSetImpl
 		FString Error;
 		if (!FGameTestPropPath::Parse(InProp, Path, Error))
 		{
-			return Fail(InContext, TEXT("prop_missing"), Error);
+			return Fail(InContext, Path.FailCode.IsNone() ? FName(TEXT("path_syntax")) : Path.FailCode, Error);
 		}
 		if (Path.HasState())
 		{
-			return Fail(InContext, TEXT("prop_readonly"), FString::Printf(TEXT("%s 是算出状态，只能读；要改就写它背后的属性（如 @部件.Visibility）"), *InProp));
+			return Fail(InContext, TEXT("prop_readonly"), FString::Printf(TEXT("%s 是运行状态，只能读；要改就写它背后的属性（如 @/子控件.Visibility）"), *InProp));
 		}
 		const FString Shown = Value.ToDisplay(80);
 

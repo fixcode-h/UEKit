@@ -233,7 +233,7 @@ namespace GameTestDeepBuiltin
 			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : InJson.Values)
 			{
 				FString Text;
-				// target 里的 @ 是控件句柄（@btnOk），prop 是属性路径（@self.X、@部件.X），都不是来源
+				// target 里的 @ 是控件句柄（@btnOk），prop 是属性路径（@.X、@/部件.X），都不是来源
 				if (Pair.Key == TEXT("target") || Pair.Key == TEXT("prop") || !Pair.Value.IsValid() || !Pair.Value->TryGetString(Text) || !Text.StartsWith(TEXT("@")))
 				{
 					continue;

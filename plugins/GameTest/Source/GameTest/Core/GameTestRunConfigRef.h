@@ -9,7 +9,7 @@ struct FGameTestScriptOptions;
 
 /**
  * `_settings.json` 里对象引用相关的段（docs/game-test-ref.md 第 6 节）：identRules、closeRules、refDefaults、allowDestroy。
- * 1.x 的 itemKeys / objectKeys 读到就报 settings_old（面板「升级脚本」一起迁移）。
+ * 1.x 的 itemKeys / objectKeys 读到就报 settings_old（不再迁移，按新写法重写）。
  */
 namespace GameTestRunConfigRef
 {

@@ -112,14 +112,7 @@ FGameTestFlow::FGameTestFlow(const TSharedRef<const FGameTestScript>& InScript, 
 	}
 	if (Script->Objects.IsValid())
 	{
-		for (const auto& Pair : Script->Objects->Values)
-		{
-			const TSharedPtr<FJsonObject>* Def = nullptr;
-			if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Def) && Def && Def->IsValid())
-			{
-				Scope.ObjectDefs.Add(GAMETEST_JSON_KEY(Pair.Key), *Def);
-			}
-		}
+		Scope.AddObjects(*Script->Objects);
 	}
 	if (Script->Vars.IsValid())
 	{

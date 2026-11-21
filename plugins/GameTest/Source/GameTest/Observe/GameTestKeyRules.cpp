@@ -4,6 +4,7 @@
 
 #include "Core/GameTestRunConfig.h"
 #include "Core/GameTestRunConfigRef.h"
+#include "Observe/Ref/GameTestPropPathKey.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -22,7 +23,7 @@ namespace GameTestKeyRulesDetail
 	};
 	FCache GCache;
 
-	/** identRules 的 prop（`@item.ItemId`）→ 录制的 by（默认来源 item 不写前缀）。 */
+	/** identRules 的 prop（`@item.ItemId`，v5 路径）→ 录制的 by（默认来源 item 不写前缀）。录制认不了的（子控件、函数）原样留着，挑的时候读不到就不用。 */
 	TArray<FGameTestKeyRule> FromIdentRules(const TSharedPtr<FJsonValue>& InRules)
 	{
 		TArray<FGameTestKeyRule> Out;
@@ -46,7 +47,8 @@ namespace GameTestKeyRulesDetail
 				FString Text;
 				if (Prop.IsValid() && Prop->TryGetString(Text) && !Text.IsEmpty())
 				{
-					Converted.By.Add(Text.StartsWith(TEXT("@item.")) ? Text.RightChop(6) : Text);
+					FString By;
+					Converted.By.Add(GameTestPropPathKey::ToBy(Text, /*bInList=*/true, By) ? By : Text);
 				}
 			}
 			if (Converted.By.Num() > 0)
@@ -124,11 +126,12 @@ bool GameTestKeyRules::Find(const FString& InEntryClass, const FString& InBase, 
 
 bool GameTestKeyRules::Save(const FGameTestKeyRule& InRule, FString& OutError)
 {
-	// 录制的 by 不带 @ 时是条目数据对象上的字段：写进 identRules 时补成 @item.
+	// 录制的 by 不带 @ 时是条目数据对象上的字段：写进 identRules 时换成 v5 路径（@item.X、@.X、@#X…）
 	TArray<FString> Props;
 	for (const FString& By : InRule.By)
 	{
-		Props.Add(By.StartsWith(TEXT("@")) ? By : TEXT("@item.") + By);
+		const FString Prop = GameTestPropPathKey::FromBy(By, /*bInList=*/true);
+		Props.Add(Prop.IsEmpty() ? By : Prop);
 	}
 	if (!GameTestRunConfigRef::SaveIdentRule(InRule.Entry, Props, OutError))
 	{

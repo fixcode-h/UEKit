@@ -408,7 +408,7 @@ UEKit 里的其他插件（AssetForge、GameTest）是 UELink 的扩展：不自
 - 长任务（批量导入、跑测试场景）马上返回作业号，客户端用 `forge.job` / `gt.job` 查进度和最终结果。
 - **推送事件**（2.2 起，`features` 里有 `extEvents`）：扩展用 `FAgentPanelBridge::Get().PublishEvent("前缀.主题", 事件)` 推实时状态（在游戏线程调用）。客户端在推送通道订阅时把主题写进 `topics`（如 `["log","forge.job","gt.record"]`），收到的事件行是 `{"event":"forge.job", ...事件字段}`。没人订阅时扩展推事件几乎没有开销。事件只是实时提示，客户端中途连上会漏掉之前的，最终结果以 `*.job` 为准。
 - **读 Lua 字段**（2.8 起）：扩展要看对象 Lua 实例表上的数据时用 C++ 接口 `FAgentPanelLua::ReadFields(对象, 层数, 字段上限, 错误)`，返回 JSON 对象（标量原样、子表展开，函数和 userdata 跳过，超过上限带 `"__more": true`）。只用 `lua_next` 原样读，不触发元方法、不调 Lua 函数；对象没绑 Lua、没有 UnLua 时返回空并写原因。GameTest 1.4 录制列表条目时用它。
-- **进程内调操作**（2.12 起）：扩展用 `FAgentPanelBridge::Get().CallOp(操作名, 参数, 返回, 错误)` 在游戏线程直接调一个已登记的同步操作，参数和返回和经 `/rpc` 调时一样；`HasOp(名字)` 看这个进程有没有这个操作（`lua.*` 只在编进了 Lua 支持时有）。GameTest 1.9 读 Lua 模块、调 Lua 函数、取 Lua 报错走它（`lua.get` / `lua.call` / `lua.errors`），不另写 Lua 读写。
+- **进程内调操作**（2.12 起）：扩展用 `FAgentPanelBridge::Get().CallOp(操作名, 参数, 返回, 错误)` 在游戏线程直接调一个已登记的同步操作，参数和返回和经 `/rpc` 调时一样；`HasOp(名字)` 看这个进程有没有这个操作（`lua.*` 只在编进了 Lua 支持时有）。GameTest 1.9 读 Lua 模块、调 Lua 函数、取 Lua 报错走它（`lua.get` / `lua.call` / `lua.errors`），不另写 Lua 读写。GameTest 2.1 的引用 `in: "lua"`、`class: "lua:模块"` 和 `gt.classes lua=true` 也走它（`lua.objects` / `lua.inspect` / `lua.modules`）。
 - 扩展各自的操作列表见 `docs/asset-forge.md`、`docs/game-test.md`。
 - **项目文档根**（AssetForge 1.6.1、GameTest 1.11.4 起）：AssetForge 配置根、GameTest 场景根没在项目设置里指定时，放在项目文档根下的 `AssetForge/`、`GameTest/`。文档根由 Agent 面板算（和面板「文档」角色同一个，P4 / SVN 项目是各分支共用的 `ProjectDoc/docs`，可能在别的分支目录下），面板 UE 插件写进 `Saved/AgentPanel/docs-root.txt`：一行绝对路径，不进版本管理（每台机器的路径可能不同）。扩展每次取根目录时读它；文件没有、不是绝对路径、目录不在时按旧规则（项目外层同级有 `ProjectDoc/docs` 就用它，否则项目里的 `docs`）。新文档根下还没有对应子目录、旧位置有时先用旧位置，面板会把旧内容复制过去（旧的不删）。
 

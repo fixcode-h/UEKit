@@ -10,35 +10,81 @@ class FGameTestFlowContext;
 class UObject;
 class UWidget;
 
+/** 属性路径的一段（docs/game-test-ref.md 3.1）。 */
+enum class EGameTestPathSeg : uint8
+{
+	/** `/名字`：子控件（WBP 设计器名）或 Actor 组件，只能写在属性前面。 */
+	Child,
+	/** `.名字`：反射属性（UPROPERTY、蓝图变量、结构体字段）；跟在 `#` 后面时是 Lua 表字段。 */
+	Prop,
+	/** `.名字()`：无参、有返回值的取值函数（只许 BlueprintPure 或 const）。 */
+	Fn,
+	/** `#名字`：绑的 UnLua 实例表字段。 */
+	Lua,
+	/** `[i]` / `["键"]`：数组下标 / Map 键（已去引号）。 */
+	Index,
+};
+
+struct FGameTestPathSeg
+{
+	EGameTestPathSeg Kind = EGameTestPathSeg::Prop;
+	FString Name;
+};
+
 /**
- * 属性路径（docs/game-test-ref.md 第 3.1 节）：统一 `@` 开头，`.` 是对象上存在的数据，`:` 是算出来的状态。
+ * 属性路径 v5（docs/game-test-ref.md 3.1，2.1.0 起）：从 `@`（对象自己）或 `@item`（列表条目的数据对象）出发，每段一个符号。
  *
- * | 写法 | 读哪里 |
+ * | 写法 | 意思 |
  * | --- | --- |
- * | `@self.X` | 对象自己的反射属性（C++ UPROPERTY、蓝图变量），后面 `.成员` `[下标]` `["键"]` |
- * | `@部件.X` | 部件（`Header.TxtTitle` 多段）的属性；第一段按部件名找不到再按 self 的属性名找 |
- * | `@lua.X` / `@部件.lua.X` | 绑的 UnLua 实例表 |
- * | `@item.X` / `@itemLua.X` | 列表条目的数据对象 / 它的 Lua 表 |
- * | `@部件:状态` / `:状态` | 算出状态（`:状态` = `@self:状态`） |
+ * | `@` / `@item` | 对象自己 / 列表条目的数据对象（开头） |
+ * | `/名字` | 子控件或组件（只在属性前面，可以连续多段） |
+ * | `.名字` | 反射属性 |
+ * | `.名字()` | 无参取值函数（BlueprintPure 或 const） |
+ * | `#名字` | Lua 实例表字段（之后的 `.b` `[i]` 仍是 Lua 表的键） |
+ * | `:名字` | 运行状态（只在最后） |
+ * | `[i]` / `["键"]` | 下标 / Map 键 |
  *
- * 解析只拆段，部件和属性的分界要对着对象（或类树）才知道，读的时候再定。
+ * 规则和面板的 `ue/shared/gt-script/ref/path.ts` 一致（改一边要改另一边）。旧写法（`@self.`、`@lua.`、`@itemLua.`、
+ * `@部件.`、开头的 `:状态`）报 path_old 并说新写法，写法不对报 path_syntax 并指出第几个字符。
  */
 struct GAMETEST_API FGameTestPropPath
 {
-	/** 原文。 */
+	/** 原文（去掉首尾空白）。 */
 	FString Text;
-	/** `:` 之前按 `.` 拆开的段（`[下标]` 留在段里）；`:状态` 简写时为空。 */
-	TArray<FString> Segments;
-	/** 算出状态名（不带 `:`）；没写为空。 */
+	/** 从 `@item` 出发。 */
+	bool bItem = false;
+	/** 状态之前的各段。 */
+	TArray<FGameTestPathSeg> Segs;
+	/** 运行状态名（不带 `:`）；没写为空。 */
 	FString State;
+	/** Parse 失败时的错误码：path_syntax / path_old。 */
+	FName FailCode;
 
-	/** 拆开；写法不对返回 false 并写原因（括号不配对、空段、状态名不是标识符）。 */
+	/** 拆开；写法不对返回 false，OutError 写原因（path_syntax 带第几个字符，path_old 带新写法），FailCode 写错误码。 */
 	static bool Parse(const FString& InText, FGameTestPropPath& OutPath, FString& OutError);
 
 	bool HasState() const { return !State.IsEmpty(); }
 
-	/** 第一段是不是固定来源（self / lua / item / itemLua）。 */
-	static bool IsSourceWord(const FString& InSegment);
+	/** 开头连续的子控件段数。 */
+	int32 NumChildren() const;
+
+	/** 开头的子控件段拼成部件写法（`Header.TxtTitle`，和 target 的 part 一样）；没有为空。 */
+	FString ChildPart() const;
+
+	/** 拼回文字（Parse 的反操作）。 */
+	FString Format() const;
+
+	/** 部件写法（`Header.TxtTitle`）→ 路径里的子控件段（`/Header/TxtTitle`）。空部件返回空串。 */
+	static FString PartToPath(const FString& InPart);
+
+	/** 对象上的属性名 → 路径（`ShopId` → `@.ShopId`）。 */
+	static FString OfProp(const FString& InName);
+
+	/** 运行状态名 → 路径（`text` → `@:text`）。 */
+	static FString OfState(const FString& InState);
+
+	/** 旧写法（v4）→ 建议的新写法（报 path_old 用）；猜不出时返回空。`@部件.X` 有两种可能，返回两种都写的说明。 */
+	static FString SuggestNew(const FString& InOld);
 };
 
 /** 读到的一个属性值（判断、`gt.props`、`obj.set` 共用）。 */
@@ -49,15 +95,15 @@ struct GAMETEST_API FGameTestPropRead
 	EGameTestKind Kind = EGameTestKind::None;
 	/** 引擎类型名（`int32`、`FText`）；Lua、状态写 lua / state 的类型。 */
 	FString Type;
-	/** `cpp` / `bp` / `lua` / `state`。 */
+	/** `cpp` / `bp` / `lua` / `state` / `fn`。 */
 	FString Src;
 	/** FText 的本地化键（`命名空间,键`）：比较 `key` 用；没有键为空。 */
 	FString TextKey;
-	/** 只读（委托、算出状态、BlueprintReadOnly）：`obj.set` 报 prop_readonly。 */
+	/** 只读（委托、算出状态、函数返回值、BlueprintReadOnly）：`obj.set` 报 prop_readonly。 */
 	bool bReadOnly = false;
-	/** 读到最后落在哪个对象上（部件、条目数据对象…）：`obj.set` 往它上面写。 */
+	/** 读到最后落在哪个对象上（子控件、条目数据对象…）：`obj.set` 往它上面写。 */
 	TWeakObjectPtr<UObject> Holder;
-	/** 落在反射属性上时的属性名（`obj.set` 找 setter 用）。 */
+	/** 落在反射属性上时的属性名；Lua 字段是 `lua.` + 字段路径（`obj.set` 按它分开写）。 */
 	FString PropName;
 	/**
 	 * 落在反射属性上时的属性和值的地址（`obj.set` 原地写）。只在读的这一刻、同一帧里有效：
@@ -73,17 +119,17 @@ struct GAMETEST_API FGameTestPropRead
  * 对着活的对象读属性路径。
  *
  * `InItem` 是条目的数据对象（`in` 是 ListView 族容器时由引用解析给；为空时从条目控件上取 IUserObjectListEntry 的数据对象）。
- * 不调函数、不改游戏（回放时每帧读）。只在游戏线程上用。
+ * 不改游戏（回放时每帧读）；`.名字()` 只调只读函数。只在游戏线程上用。
  */
 namespace GameTestPropRead
 {
 	GAMETEST_API FGameTestPropRead Read(UObject* InObject, const FGameTestPropPath& InPath, FGameTestFlowContext& InContext, UObject* InItem = nullptr);
 
-	/** 文字写的路径（解析 + 读）。写法错时 Unresolved（code = prop_missing）。 */
+	/** 文字写的路径（解析 + 读）。写法错时 Unresolved（code = path_syntax / path_old）。 */
 	GAMETEST_API FGameTestPropRead ReadText(UObject* InObject, const FString& InPath, FGameTestFlowContext& InContext, UObject* InItem = nullptr);
 
 	/**
-	 * 只走部件：`Header.BtnClose` → 控件（UUserWidget 时按类自己的 WidgetTree 名字一层层进去；Actor 时第一段是组件名）。
+	 * 只走部件（target 的 `part`）：`Header.BtnClose`（`/` 分开也认）→ 控件（UUserWidget 时按类自己的 WidgetTree 名字一层层进去；Actor 时是组件名）。
 	 * 找不到返回空，`OutError` 写哪一段没找到。空路径返回对象本身。
 	 */
 	GAMETEST_API UObject* FindPart(UObject* InObject, const FString& InPart, FString& OutError);

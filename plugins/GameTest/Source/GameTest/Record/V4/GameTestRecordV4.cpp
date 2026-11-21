@@ -5,6 +5,8 @@
 #include "GameTestCompat.h"
 #include "Observe/GameTestItemKey.h"
 #include "Observe/GameTestSelector.h"
+#include "Observe/Ref/GameTestPropList.h"
+#include "Observe/Ref/GameTestPropPathKey.h"
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -147,20 +149,9 @@ namespace GameTestRecordV4Impl
 		}
 		for (const FGameTestKeyCond& Cond : Conds)
 		{
-			FString Prop;
-			if (Cond.Source.IsEmpty())
-			{
-				Prop = (bInList ? TEXT("@item.") : TEXT("@self.")) + Cond.Path;
-			}
-			else if (Cond.Source == TEXT("self") || Cond.Source == TEXT("lua") || Cond.Source == TEXT("item") || Cond.Source == TEXT("itemLua"))
-			{
-				Prop = FString::Printf(TEXT("@%s.%s"), *Cond.Source, *Cond.Path);
-			}
-			else if (Cond.Source == TEXT("text"))
-			{
-				Prop = TEXT(":text");
-			}
-			else
+			// 录制内部的来源写法 → 属性路径 v5（GameTestPropPathKey）；行列号、序号没有对应的属性
+			const FString Prop = GameTestPropPathKey::FromSource(Cond.Source.IsEmpty() ? (bInList ? TEXT("item") : TEXT("self")) : Cond.Source, Cond.Path);
+			if (Prop.IsEmpty())
 			{
 				return false;
 			}
@@ -191,27 +182,27 @@ namespace GameTestRecordV4Impl
 			const TCHAR* Prop;
 		};
 		static const FBoolMap Bools[] = {
-			{ TEXT("visible"), TEXT(":onScreen") }, { TEXT("onScreen"), TEXT(":onScreen") }, { TEXT("exists"), TEXT(":exists") },
-			{ TEXT("enabled"), TEXT(":enabled") }, { TEXT("checked"), TEXT(":checked") }, { TEXT("selected"), TEXT(":selected") },
+			{ TEXT("visible"), TEXT("@:onScreen") }, { TEXT("onScreen"), TEXT("@:onScreen") }, { TEXT("exists"), TEXT("@:exists") },
+			{ TEXT("enabled"), TEXT("@:enabled") }, { TEXT("checked"), TEXT("@:checked") }, { TEXT("selected"), TEXT("@:selected") },
 		};
 		// 文字优先：文字类控件「看得见 + 文字是 X」只留文字（文字对得上就一定在屏上）
 		if (InLeaf.TryGetStringField(TEXT("text"), Text))
 		{
-			OutItem.SetStringField(TEXT("prop"), TEXT(":text"));
+			OutItem.SetStringField(TEXT("prop"), TEXT("@:text"));
 			OutItem.SetStringField(TEXT("op"), TEXT("eq"));
 			OutItem.SetStringField(TEXT("value"), Text);
 			return true;
 		}
 		if (InLeaf.TryGetStringField(TEXT("textContains"), Text))
 		{
-			OutItem.SetStringField(TEXT("prop"), TEXT(":text"));
+			OutItem.SetStringField(TEXT("prop"), TEXT("@:text"));
 			OutItem.SetStringField(TEXT("op"), TEXT("contains"));
 			OutItem.SetStringField(TEXT("value"), Text);
 			return true;
 		}
 		if (InLeaf.TryGetStringField(TEXT("textMatches"), Text))
 		{
-			OutItem.SetStringField(TEXT("prop"), TEXT(":text"));
+			OutItem.SetStringField(TEXT("prop"), TEXT("@:text"));
 			OutItem.SetStringField(TEXT("op"), TEXT("matches"));
 			OutItem.SetStringField(TEXT("value"), Text);
 			return true;
@@ -228,7 +219,9 @@ namespace GameTestRecordV4Impl
 		}
 		if (InLeaf.TryGetStringField(TEXT("field"), Text) && Text.StartsWith(TEXT("@")))
 		{
-			OutItem.SetStringField(TEXT("prop"), Text);
+			// 录制内部的条件字段是 `@self.X` / `@lua.X` 这类写法：换成 v5 路径
+			const FString Prop = GameTestPropPathKey::FromBy(Text, /*bInList=*/false);
+			OutItem.SetStringField(TEXT("prop"), Prop.IsEmpty() ? Text : Prop);
 			const TSharedPtr<FJsonValue> Equals = InLeaf.TryGetField(TEXT("equals"));
 			OutItem.SetStringField(TEXT("op"), TEXT("eq"));
 			if (Equals.IsValid())
@@ -238,7 +231,7 @@ namespace GameTestRecordV4Impl
 			return true;
 		}
 		OutTodo = TEXT("录制的判断改写不了，请在面板里重新挑属性");
-		OutItem.SetStringField(TEXT("prop"), TEXT(":exists"));
+		OutItem.SetStringField(TEXT("prop"), TEXT("@:exists"));
 		OutItem.SetStringField(TEXT("op"), TEXT("is"));
 		OutItem.SetBoolField(TEXT("value"), true);
 		return false;
@@ -256,20 +249,12 @@ namespace GameTestRecordV4Impl
 		Out->RemoveField(TEXT("slate"));
 		FString ItemTodo;
 		ItemOfLeaf(InLeaf, *Out, ItemTodo);
-		// 判断里没有 part 字段（第 4 节）：部件并进属性路径，`:text` → `@部件:text`，`@self.X` → `@部件.X`
+		// 判断里没有 part 字段（第 4 节）：部件并进属性路径，`@:text` → `@/部件:text`，`@.X` → `@/部件.X`
 		FString Part;
 		FString Prop;
 		if (Out->TryGetStringField(TEXT("part"), Part) && !Part.IsEmpty() && Out->TryGetStringField(TEXT("prop"), Prop))
 		{
-			if (Prop.StartsWith(TEXT(":")))
-			{
-				Prop = TEXT("@") + Part + Prop;
-			}
-			else if (Prop.StartsWith(TEXT("@self.")))
-			{
-				Prop = TEXT("@") + Part + Prop.Mid(5);
-			}
-			Out->SetStringField(TEXT("prop"), Prop);
+			Out->SetStringField(TEXT("prop"), GameTestPropList::Rebase(Prop, Part));
 		}
 		Out->RemoveField(TEXT("part"));
 		if (!Todo.IsEmpty())

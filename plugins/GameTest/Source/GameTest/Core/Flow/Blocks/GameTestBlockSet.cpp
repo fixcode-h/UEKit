@@ -7,13 +7,14 @@
 #include "Core/Script/GameTestDiag.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Observe/Ref/GameTestPropPath.h"
 #include "Observe/Ref/GameTestRef.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
 /**
  * `set` 变量块：`{var, value}` 或 `{var, from: {target, read}}`。2.0.0 起 `target` 是部件写法 `{obj, part}` 或引用，
- * 读法换成算出状态，经表达式的 `prop(引用, "@部件:状态")` 读（和条件同一套）。
+ * 读法换成算出状态，经表达式的 `prop(引用, "@/部件:状态")` 读（和条件同一套）。
  * 没有 `var` 的 `set` 是 1.x 的控件赋值动作（叶子），由 Claims 区分，两种写法并存。
  */
 namespace
@@ -157,7 +158,8 @@ namespace
 					RefArg = GameTestRefs::EvalJson(Data->FromObj, InContext);
 				}
 				const FString State = TEXT(":") + StateOfRead(Data->FromRead);
-				const FString Path = Data->FromPart.IsEmpty() ? State : TEXT("@") + Data->FromPart + State;
+				// 属性路径 v5：`@:状态`、`@/部件/子部件:状态`
+				const FString Path = TEXT("@") + FGameTestPropPath::PartToPath(Data->FromPart) + State;
 				FGameTestFlowContext::FReadOnlyScope ReadOnly(InContext);
 				Value = Fn->Call({ RefArg, FGameTestValue::FromString(Path) }, InContext);
 				if (Data->FromRead == TEXT("number") && !Value.IsUnresolved())

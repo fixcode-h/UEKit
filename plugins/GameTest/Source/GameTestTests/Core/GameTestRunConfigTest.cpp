@@ -138,7 +138,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRunConfigTest, "GameTest.RunConfig",
 	{
 		FGameTestRunConfig Config;
 		FString Error;
-		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"guards":[{"id":"guide","name":"新手引导","when":{"obj":{"class":"WBP_Guide"},"prop":":onScreen","op":"is","value":true},"do":[{"action":"obj.close","obj":{"class":"WBP_Guide"},"how":[{"by":"call","function":"Skip"}]}]}]})"), Config, Error), Error));
+		ASSERT_THAT(IsTrue(ParseRunConfig(TEXT(R"({"uiWaitTimeoutMs":15000,"guards":[{"id":"guide","name":"新手引导","when":{"obj":{"class":"WBP_Guide"},"prop":"@:onScreen","op":"is","value":true},"do":[{"action":"obj.close","obj":{"class":"WBP_Guide"},"how":[{"by":"call","function":"Skip"}]}]}]})"), Config, Error), Error));
 		FGameTestRunConfig Again;
 		ASSERT_THAT(IsTrue(GameTestRunConfig::FromJson(*GameTestRunConfig::ToJson(Config), Again, Error), Error));
 		ASSERT_THAT(AreEqual(15000, Again.UiWaitTimeoutMs));

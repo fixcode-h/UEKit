@@ -116,6 +116,9 @@ FGameTestValue GameTestObjectLocate::ResolveNamed(const FString& InName, FGameTe
 
 FGameTestValue GameTestObjectLocate::ReadKey(UObject* InObject, const FString& InPath, FGameTestFlowContext& InContext)
 {
-	const FString Path = InPath.StartsWith(TEXT("@")) || InPath.StartsWith(TEXT(":")) ? InPath : TEXT("@self.") + InPath;
+	// 不带 @ 的是属性名（Health、Stats.Level）；`#hp`、`/Comp.X`、`.X` 补上 @；`:状态`、`@self.X` 这类旧写法交给解析报 path_old
+	const FString Path = InPath.StartsWith(TEXT("@")) || InPath.StartsWith(TEXT(":")) ? InPath
+		: InPath.StartsWith(TEXT("#")) || InPath.StartsWith(TEXT("/")) || InPath.StartsWith(TEXT(".")) ? TEXT("@") + InPath
+		: TEXT("@.") + InPath;
 	return GameTestPropRead::ReadText(InObject, Path, InContext, GameTestPropRead::ListItemOf(InObject)).Value;
 }

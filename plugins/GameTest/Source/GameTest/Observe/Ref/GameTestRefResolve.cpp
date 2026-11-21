@@ -7,6 +7,8 @@
 #include "Observe/Checks/GameTestWidgetProbe.h"
 #include "Observe/Compare/GameTestJudge.h"
 #include "Observe/GameTestItemKey.h"
+#include "Observe/Lua/GameTestLuaObjects.h"
+#include "Observe/Ref/GameTestClassFilter.h"
 #include "Observe/Ref/GameTestIdentSuggest.h"
 #include "Observe/Ref/GameTestPropPath.h"
 #include "Observe/Sources/GameTestObjectRoots.h"
@@ -42,13 +44,13 @@ namespace GameTestRefResolveImpl
 	}
 
 	/** 屏上的界面：每个视口根界面，以及它们树里嵌套的 UUserWidget（按树的顺序，深的在后）。 */
-	void CollectUserWidgets(UUserWidget* InWidget, const FString& InClass, int32 InDepth, TArray<FGameTestRefCandidate>& OutCandidates)
+	void CollectUserWidgets(UUserWidget* InWidget, const FGameTestClassFilter& InClass, int32 InDepth, TArray<FGameTestRefCandidate>& OutCandidates)
 	{
 		if (InWidget == nullptr || InDepth > MaxDepth || OutCandidates.Num() >= MaxCandidates)
 		{
 			return;
 		}
-		if (GameTestObjectRoots::ClassMatches(InWidget->GetClass(), InClass))
+		if (InClass.Matches(InWidget))
 		{
 			FGameTestRefCandidate Candidate;
 			Candidate.Object = InWidget;
@@ -72,7 +74,7 @@ namespace GameTestRefResolveImpl
 		}
 	}
 
-	void CollectScreen(UWorld* InWorld, const FString& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
+	void CollectScreen(UWorld* InWorld, const FGameTestClassFilter& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
 	{
 		TArray<UUserWidget*> Screens;
 		GameTestWidgetProbe::ListScreens(InWorld, Screens);
@@ -84,11 +86,11 @@ namespace GameTestRefResolveImpl
 		}
 	}
 
-	void CollectWorld(UWorld* InWorld, const FString& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
+	void CollectWorld(UWorld* InWorld, const FGameTestClassFilter& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
 	{
 		for (TActorIterator<AActor> It(InWorld); It && OutCandidates.Num() < MaxCandidates; ++It)
 		{
-			if (IsLive(*It) && GameTestObjectRoots::ClassMatches(It->GetClass(), InClass))
+			if (IsLive(*It) && InClass.Matches(*It))
 			{
 				FGameTestRefCandidate Candidate;
 				Candidate.Object = *It;
@@ -122,9 +124,77 @@ namespace GameTestRefResolveImpl
 		}
 	}
 
-	void AddIfMatches(UObject* InObject, const FString& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
+	/** 绑了 UnLua 的对象（in: lua）：Lua 类时就是继承链对得上的那些，UE 类时问 UELink 再按类过滤。 */
+	bool CollectLua(UWorld* InWorld, const FGameTestClassFilter& InClass, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError)
 	{
-		if (IsLive(InObject) && GameTestObjectRoots::ClassMatches(InObject->GetClass(), InClass))
+		TArray<FString> Paths;
+		if (InClass.IsLua())
+		{
+			Paths = InClass.LuaPaths.Array();
+		}
+		else
+		{
+			TArray<FGameTestLuaObject> Objects;
+			if (!GameTestLuaObjects::List(InWorld, InClass.Class, Objects, OutError))
+			{
+				return false;
+			}
+			for (const FGameTestLuaObject& Object : Objects)
+			{
+				Paths.Add(Object.Path);
+			}
+		}
+		for (const FString& Path : Paths)
+		{
+			if (OutCandidates.Num() >= MaxCandidates)
+			{
+				break;
+			}
+			UObject* Object = GameTestLuaObjects::FindByPath(Path);
+			const UWorld* ObjectWorld = Object != nullptr ? Object->GetWorld() : nullptr;
+			if (IsLive(Object) && (ObjectWorld == nullptr || ObjectWorld == InWorld) && InClass.Matches(Object))
+			{
+				FGameTestRefCandidate Candidate;
+				Candidate.Object = Object;
+				OutCandidates.Add(Candidate);
+			}
+		}
+		return true;
+	}
+
+	/** Lua 类按 all 找：继承链对得上的对象就是全部（不能按 UClass 扫）。 */
+	void CollectAllOf(UWorld* InWorld, const FGameTestClassFilter& InClass, UClass* InUClass, TArray<FGameTestRefCandidate>& OutCandidates)
+	{
+		if (InClass.IsLua())
+		{
+			FString Ignored;
+			CollectLua(InWorld, InClass, OutCandidates, Ignored);
+			return;
+		}
+		CollectAll(InWorld, InUClass, OutCandidates);
+	}
+
+	/** 数组写法的一处。 */
+	bool CollectOne(EGameTestRefIn InWhere, UWorld* InWorld, const FGameTestClassFilter& InClass, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError)
+	{
+		switch (InWhere)
+		{
+		case EGameTestRefIn::Screen:
+			CollectScreen(InWorld, InClass, OutCandidates);
+			return true;
+		case EGameTestRefIn::World:
+			CollectWorld(InWorld, InClass, OutCandidates);
+			return true;
+		case EGameTestRefIn::Lua:
+			return CollectLua(InWorld, InClass, OutCandidates, OutError);
+		default:
+			return true;
+		}
+	}
+
+	void AddIfMatches(UObject* InObject, const FGameTestClassFilter& InClass, TArray<FGameTestRefCandidate>& OutCandidates)
+	{
+		if (IsLive(InObject) && InClass.Matches(InObject))
 		{
 			FGameTestRefCandidate Candidate;
 			Candidate.Object = InObject;
@@ -132,7 +202,7 @@ namespace GameTestRefResolveImpl
 		}
 	}
 
-	bool CollectSource(const FString& InSource, const FString& InClass, FGameTestFlowContext& InContext, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError)
+	bool CollectSource(const FString& InSource, const FGameTestClassFilter& InClass, FGameTestFlowContext& InContext, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError)
 	{
 		const FGameTestValue Value = GameTestPathText::ResolveSourceText(InSource, InContext);
 		if (Value.IsUnresolved())
@@ -159,7 +229,7 @@ namespace GameTestRefResolveImpl
 	FGameTestRefResult ResolveAt(const FGameTestRef& InRef, FGameTestFlowContext& InContext, int32 InDepth);
 	FGameTestRefResult ResolveValueAt(const TSharedPtr<FJsonValue>& InRef, FGameTestFlowContext& InContext, int32 InDepth);
 
-	bool CollectContainer(const FGameTestRef& InRef, FGameTestFlowContext& InContext, int32 InDepth, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError, FName& OutCode)
+	bool CollectContainer(const FGameTestRef& InRef, const FGameTestClassFilter& InClass, FGameTestFlowContext& InContext, int32 InDepth, TArray<FGameTestRefCandidate>& OutCandidates, FString& OutError, FName& OutCode)
 	{
 		const FGameTestRefResult Outer = ResolveValueAt(InRef.InObj, InContext, InDepth + 1);
 		if (!Outer.IsOk())
@@ -180,7 +250,7 @@ namespace GameTestRefResolveImpl
 			TInlineComponentArray<UActorComponent*> Components(Actor);
 			for (UActorComponent* Component : Components)
 			{
-				AddIfMatches(Component, InRef.Class, OutCandidates);
+				AddIfMatches(Component, InClass, OutCandidates);
 			}
 			return true;
 		}
@@ -203,7 +273,7 @@ namespace GameTestRefResolveImpl
 		{
 			UWidget* Widget = Entry.Widget.Get();
 			// 没显示出来的 ListView 条目：只有数据对象，类认不了，先收进来让 @item 过滤
-			if (Widget != nullptr && !GameTestObjectRoots::ClassMatches(Widget->GetClass(), InRef.Class))
+			if (Widget != nullptr && !InClass.Matches(Widget))
 			{
 				continue;
 			}
@@ -474,6 +544,20 @@ bool GameTestRefResolve::ToRef(const TSharedPtr<FJsonValue>& InRef, FGameTestFlo
 	{
 	case EGameTestRefForm::Named:
 	{
+		// objects 里写成来源字符串的（"@pawn"）：现取，和 $var 一样当直接给的对象
+		if (const FString* Source = InContext.GetScope().ObjectSources.Find(Text))
+		{
+			OutRef.Name = Text;
+			const FGameTestValue Value = GameTestPathText::ResolveSourceText(*Source, InContext);
+			OutDirect = Value.GetObject();
+			if (OutDirect == nullptr)
+			{
+				OutError = Value.IsUnresolved() ? FString::Printf(TEXT("「%s」（%s）取不到：%s"), *Text, **Source, *Value.GetString())
+					: FString::Printf(TEXT("「%s」（%s）不是对象（是 %s）"), *Text, **Source, *Value.TypeName());
+				return false;
+			}
+			return true;
+		}
 		const TSharedPtr<FJsonObject>* Def = InContext.GetScope().ObjectDefs.Find(Text);
 		if (Def == nullptr || !Def->IsValid() || !FGameTestRef::FromJson(**Def, OutRef))
 		{
@@ -527,44 +611,85 @@ bool GameTestRefResolve::Collect(const FGameTestRef& InRef, FGameTestFlowContext
 		OutCode = TEXT("ref_not_found");
 		return false;
 	}
-	UClass* Class = GameTestObjectRoots::FindClass(InRef.Class);
+	FGameTestClassFilter Filter;
+	if (!Filter.Build(InRef.Class, World, OutError, OutCode))
+	{
+		return false;
+	}
+	UClass* Class = Filter.IsLua() ? nullptr : GameTestObjectRoots::FindClass(InRef.Class);
 	switch (InRef.In)
 	{
 	case EGameTestRefIn::Screen:
-		CollectScreen(World, InRef.Class, OutCandidates);
+		CollectScreen(World, Filter, OutCandidates);
 		return true;
 	case EGameTestRefIn::World:
-		CollectWorld(World, InRef.Class, OutCandidates);
+		CollectWorld(World, Filter, OutCandidates);
 		return true;
+	case EGameTestRefIn::Lua:
+		if (!CollectLua(World, Filter, OutCandidates, OutError))
+		{
+			OutCode = TEXT("ref_not_found");
+			return false;
+		}
+		return true;
+	case EGameTestRefIn::List:
+	{
+		// 几处的并集：同一个对象（比如绑了 Lua 的界面）只算一次，按数组的顺序收
+		TArray<FGameTestRefCandidate> Part;
+		TSet<const UObject*> Seen;
+		for (const EGameTestRefIn Where : InRef.InList)
+		{
+			Part.Reset();
+			if (!CollectOne(Where, World, Filter, Part, OutError))
+			{
+				OutCode = TEXT("ref_not_found");
+				return false;
+			}
+			for (const FGameTestRefCandidate& Candidate : Part)
+			{
+				const UObject* Object = Candidate.Object.Get();
+				if (Object != nullptr && !Seen.Contains(Object))
+				{
+					Seen.Add(Object);
+					OutCandidates.Add(Candidate);
+				}
+			}
+		}
+		return true;
+	}
 	case EGameTestRefIn::All:
-		CollectAll(World, Class, OutCandidates);
+		CollectAllOf(World, Filter, Class, OutCandidates);
 		return true;
 	case EGameTestRefIn::Source:
-		return CollectSource(InRef.InSource, InRef.Class, InContext, OutCandidates, OutError);
+		return CollectSource(InRef.InSource, Filter, InContext, OutCandidates, OutError);
 	case EGameTestRefIn::Container:
 	case EGameTestRefIn::Owner:
-		return CollectContainer(InRef, InContext, 0, OutCandidates, OutError, OutCode);
+		return CollectContainer(InRef, Filter, InContext, 0, OutCandidates, OutError, OutCode);
 	default:
 		break;
 	}
-	// in 省略：按类推（类还没加载时按名字：先屏上再关卡）
+	// in 省略：Lua 类就在绑了 Lua 的对象里找；UE 类按类推（类还没加载时按名字：先屏上再关卡）
+	if (Filter.IsLua())
+	{
+		return CollectLua(World, Filter, OutCandidates, OutError);
+	}
 	if (Class == nullptr)
 	{
-		CollectScreen(World, InRef.Class, OutCandidates);
+		CollectScreen(World, Filter, OutCandidates);
 		if (OutCandidates.Num() == 0)
 		{
-			CollectWorld(World, InRef.Class, OutCandidates);
+			CollectWorld(World, Filter, OutCandidates);
 		}
 		return true;
 	}
 	if (Class->IsChildOf(UUserWidget::StaticClass()))
 	{
-		CollectScreen(World, InRef.Class, OutCandidates);
+		CollectScreen(World, Filter, OutCandidates);
 		return true;
 	}
 	if (Class->IsChildOf(AActor::StaticClass()))
 	{
-		CollectWorld(World, InRef.Class, OutCandidates);
+		CollectWorld(World, Filter, OutCandidates);
 		return true;
 	}
 	if (Class->IsChildOf(UActorComponent::StaticClass()))
@@ -683,7 +808,7 @@ TSharedPtr<FJsonObject> GameTestRefResolve::CandidateToJson(const FGameTestRefCa
 	TArray<TSharedPtr<FJsonValue>> Ident;
 	for (const FGameTestIdentItem& Item : InIdent)
 	{
-		const FGameTestPropRead Read = GameTestPropRead::ReadText(InCandidate.Object.Get(), Item.Prop.IsEmpty() ? FString(TEXT(":exists")) : Item.Prop, InContext, InCandidate.Item.Get());
+		const FGameTestPropRead Read = GameTestPropRead::ReadText(InCandidate.Object.Get(), Item.Prop.IsEmpty() ? FString(TEXT("@:exists")) : Item.Prop, InContext, InCandidate.Item.Get());
 		const TSharedRef<FJsonObject> Entry = MakeShared<FJsonObject>();
 		Entry->SetStringField(TEXT("prop"), Item.Prop);
 		const TSharedPtr<FJsonValue> Actual = Read.IsResolved() ? Read.Value.ToJson() : nullptr;

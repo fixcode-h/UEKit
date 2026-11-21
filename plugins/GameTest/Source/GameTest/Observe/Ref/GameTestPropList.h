@@ -18,6 +18,6 @@ namespace GameTestPropList
 	/** 补对象上 Collect 没列的反射属性（只要编辑器或蓝图看得见、读得到、能比较的），排在项目字段后面，常用的（可见性、文字、勾选…）在前。 */
 	GAMETEST_API void AddReflected(UObject* InObject, FGameTestFlowContext& InContext, TArray<FGameTestIdentProp>& InOutProps);
 
-	/** 按部件读出来的路径（`@self.X`、`:状态`、`@lua.X`、`@Txt:text`）改成从外层对象写的路径（`@部件.X`、`@部件:状态`…）。 */
+	/** 按部件读出来的路径（`@.X`、`@:状态`、`@#X`、`@/Txt:text`）改成从外层对象写的路径（`@/部件.X`、`@/部件:状态`…）；InPart 是 `Header.TxtTitle` 写法。 */
 	GAMETEST_API FString Rebase(const FString& InProp, const FString& InPart);
 }

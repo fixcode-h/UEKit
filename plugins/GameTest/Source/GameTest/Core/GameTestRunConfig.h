@@ -29,7 +29,7 @@ struct FGameTestGuardDef;
  *
  * 1.9.0 起 `blockers`（阻挡界面）换成了 `guards`（守护，见 docs/game-test-script.md 第 5 节）：读到只有 blockers 的旧文件时
  * 在内存里改写成 guards，Load 顺手把文件改写掉（原文件存 .bak）。
- * 面板和别的工具往这个文件里加的字段（`api`…）原样保留；2.0.0 起 1.x 的 `itemKeys` / `objectKeys` 报 settings_old（面板「升级脚本」迁成 identRules）：ToJson 从读到的原文出发，只改认得的字段。
+ * 面板和别的工具往这个文件里加的字段（`api`…）原样保留；2.0.0 起 1.x 的 `itemKeys` / `objectKeys` 报 settings_old（不再迁移，按新写法写 identRules）：ToJson 从读到的原文出发，只改认得的字段。
  */
 struct GAMETEST_API FGameTestRunConfig
 {

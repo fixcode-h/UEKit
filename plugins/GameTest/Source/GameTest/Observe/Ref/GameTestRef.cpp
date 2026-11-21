@@ -9,6 +9,7 @@
 #include "Dom/JsonValue.h"
 #include "GameTestCompat.h"
 #include "Observe/Compare/GameTestCompareRegistry.h"
+#include "Observe/Ref/GameTestClassFilter.h"
 #include "Observe/Ref/GameTestPropPath.h"
 #include "Observe/Ref/GameTestState.h"
 
@@ -31,7 +32,7 @@ namespace GameTestRefImpl
 			}
 			if (Key == TEXT("key"))
 			{
-				InSink.Error(TEXT("unknown_field"), FString::Printf(TEXT("%s 的 key 在 v4 改成 ident：[{\"prop\": \"@self.字段\", \"op\": \"eq\", \"value\": 值}]"), InWhat));
+				InSink.Error(TEXT("unknown_field"), FString::Printf(TEXT("%s 的 key 在 v4 改成 ident：[{\"prop\": \"@.字段\", \"op\": \"eq\", \"value\": 值}]"), InWhat));
 			}
 			else if (Key == TEXT("component"))
 			{
@@ -150,7 +151,7 @@ TSharedRef<FJsonObject> FGameTestIdentItem::ToJson() const
 
 FString FGameTestIdentItem::Describe() const
 {
-	const FString PropText = Prop.IsEmpty() ? FString(TEXT(":exists")) : Prop;
+	const FString PropText = Prop.IsEmpty() ? FString(TEXT("@:exists")) : Prop;
 	const IGameTestCompare* Compare = Op.IsEmpty() ? nullptr : FGameTestCompareRegistry::Find(Op);
 	const FString Verb = Compare != nullptr ? Compare->Verb() : Op.IsEmpty() ? FString(TEXT("等于")) : Op;
 	if (!Value.IsValid())
@@ -168,6 +169,15 @@ const TArray<FString>& FGameTestRef::Fields()
 	return List;
 }
 
+EGameTestRefIn FGameTestRef::InWord(const FString& InText)
+{
+	return InText.Equals(TEXT("screen"), ESearchCase::IgnoreCase) ? EGameTestRefIn::Screen
+		: InText.Equals(TEXT("world"), ESearchCase::IgnoreCase) ? EGameTestRefIn::World
+		: InText.Equals(TEXT("lua"), ESearchCase::IgnoreCase) ? EGameTestRefIn::Lua
+		: InText.Equals(TEXT("all"), ESearchCase::IgnoreCase) ? EGameTestRefIn::All
+		: EGameTestRefIn::Auto;
+}
+
 bool FGameTestRef::FromJson(const FJsonObject& InJson, FGameTestRef& OutRef)
 {
 	OutRef = FGameTestRef();
@@ -179,15 +189,44 @@ bool FGameTestRef::FromJson(const FJsonObject& InJson, FGameTestRef& OutRef)
 	const TSharedPtr<FJsonValue> In = InJson.TryGetField(TEXT("in"));
 	FString InText;
 	const TSharedPtr<FJsonObject>* InObject = nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* InArray = nullptr;
 	if (In.IsValid() && In->TryGetString(InText))
 	{
 		InText.TrimStartAndEndInline();
-		OutRef.In = InText.Equals(TEXT("screen"), ESearchCase::IgnoreCase) ? EGameTestRefIn::Screen
-			: InText.Equals(TEXT("world"), ESearchCase::IgnoreCase) ? EGameTestRefIn::World
-			: InText.Equals(TEXT("all"), ESearchCase::IgnoreCase) ? EGameTestRefIn::All
-			: InText.StartsWith(TEXT("@")) ? EGameTestRefIn::Source
-			: EGameTestRefIn::Auto;
+		OutRef.In = InText.StartsWith(TEXT("@")) ? EGameTestRefIn::Source : InWord(InText);
 		OutRef.InSource = OutRef.In == EGameTestRefIn::Source ? InText : FString();
+	}
+	else if (In.IsValid() && In->TryGetArray(InArray) && InArray != nullptr)
+	{
+		// ["screen", "lua"]：几处的并集；写了 all 或一个都没写 = all，只写一个 = 和字符串写法一样
+		bool bAll = InArray->Num() == 0;
+		for (const TSharedPtr<FJsonValue>& Word : *InArray)
+		{
+			FString WordText;
+			const EGameTestRefIn Where = Word.IsValid() && Word->TryGetString(WordText) ? InWord(WordText.TrimStartAndEnd()) : EGameTestRefIn::Auto;
+			if (Where == EGameTestRefIn::All)
+			{
+				bAll = true;
+			}
+			else if (Where != EGameTestRefIn::Auto)
+			{
+				OutRef.InList.AddUnique(Where);
+			}
+		}
+		if (bAll)
+		{
+			OutRef.In = EGameTestRefIn::All;
+			OutRef.InList.Reset();
+		}
+		else if (OutRef.InList.Num() == 1)
+		{
+			OutRef.In = OutRef.InList[0];
+			OutRef.InList.Reset();
+		}
+		else
+		{
+			OutRef.In = OutRef.InList.Num() > 1 ? EGameTestRefIn::List : EGameTestRefIn::Auto;
+		}
 	}
 	else if (In.IsValid() && In->TryGetObject(InObject) && InObject != nullptr && InObject->IsValid())
 	{
@@ -234,9 +273,22 @@ TSharedRef<FJsonObject> FGameTestRef::ToJson() const
 	case EGameTestRefIn::World:
 		Out->SetStringField(TEXT("in"), TEXT("world"));
 		break;
+	case EGameTestRefIn::Lua:
+		Out->SetStringField(TEXT("in"), TEXT("lua"));
+		break;
 	case EGameTestRefIn::All:
 		Out->SetStringField(TEXT("in"), TEXT("all"));
 		break;
+	case EGameTestRefIn::List:
+	{
+		TArray<TSharedPtr<FJsonValue>> Words;
+		for (const EGameTestRefIn Where : InList)
+		{
+			Words.Add(MakeShared<FJsonValueString>(Where == EGameTestRefIn::Screen ? TEXT("screen") : Where == EGameTestRefIn::World ? TEXT("world") : TEXT("lua")));
+		}
+		Out->SetArrayField(TEXT("in"), Words);
+		break;
+	}
 	case EGameTestRefIn::Source:
 		Out->SetStringField(TEXT("in"), InSource);
 		break;
@@ -303,7 +355,8 @@ bool GameTestRefForm::IsName(const FString& InText)
 	}
 	for (const TCHAR C : InText)
 	{
-		if (!(C < 0x80 && (FChar::IsAlnum(C) || C == TEXT('_'))))
+		// 2.1.0 起名字可以是中文（面板的对象列表让人起名）；ASCII 里只认字母数字下划线，带 : / @ 的多半是旧选择器
+		if (C < 0x80 ? !(FChar::IsAlnum(C) || C == TEXT('_')) : FChar::IsWhitespace(C))
 		{
 			return false;
 		}
@@ -341,6 +394,13 @@ EGameTestRefForm GameTestRefForm::Classify(const TSharedPtr<FJsonValue>& InValue
 	{
 		OutInline = *Object;
 		return EGameTestRefForm::Inline;
+	}
+	// {"$obj": "名字"}（2.1.0 起，和参数里的写法一致）= 直接写名字；只有这一个键才算
+	FString ObjName;
+	if (Object != nullptr && Object->IsValid() && (*Object)->Values.Num() == 1 && (*Object)->TryGetStringField(TEXT("$obj"), ObjName) && IsName(ObjName.TrimStartAndEnd()))
+	{
+		OutText = ObjName.TrimStartAndEnd();
+		return EGameTestRefForm::Named;
 	}
 	return EGameTestRefForm::Invalid;
 }
@@ -439,8 +499,7 @@ namespace GameTestRefCheck
 	void SelectorRemoved(const FString& InSelector, FGameTestDiagSink& InSink)
 	{
 		InSink.Error(TEXT("selector_removed"), FString::Printf(
-			TEXT("「%s」是旧的选择器写法，v4 不认：写成 {\"obj\": 对象引用, \"part\": \"部件名\"}（对象引用是 objects 里的名字、$变量或 {\"class\": 类名, \"ident\": [...]}）；"
-				 "旧脚本在面板里用「升级脚本」转换"), *InSelector.Left(80)));
+			TEXT("「%s」是旧的选择器写法，v4 不认：写成 {\"obj\": 对象引用, \"part\": \"部件名\"}（对象引用是 objects 里的名字、$变量或 {\"class\": 类名, \"ident\": [...]}）"), *InSelector.Left(80)));
 	}
 
 	void Ref(const TSharedPtr<FJsonValue>& InValue, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink)
@@ -478,28 +537,48 @@ namespace GameTestRefCheck
 		using namespace GameTestRefImpl;
 		CheckFields(InJson, FGameTestRef::Fields(), TEXT("对象引用"), InSink);
 		FString Class;
+		FString LuaModule;
 		if (!InJson.TryGetStringField(TEXT("class"), Class) || Class.TrimStartAndEnd().IsEmpty())
 		{
-			InSink.Error(TEXT("ref_bad_class"), TEXT("对象引用要写 class（类名或资源路径，按继承认）"));
+			InSink.Error(TEXT("ref_bad_class"), TEXT("对象引用要写 class（类名、资源路径或 lua:模块名，按继承认）"));
+		}
+		else if (FGameTestClassFilter::ParseLua(Class, LuaModule))
+		{
+			if (LuaModule.IsEmpty() || LuaModule.Contains(TEXT(":")) || LuaModule.Contains(TEXT("/")))
+			{
+				InSink.Error(TEXT("ref_bad_class"), FString::Printf(TEXT("class 写成了「%s」：Lua 类写 lua:模块名（require 用的名字，例：lua:UI.ShopPanel）"), *Class));
+			}
 		}
 		else if (Class.Contains(TEXT(":")) || Class.Contains(TEXT(">")))
 		{
-			InSink.Error(TEXT("ref_bad_class"), FString::Printf(TEXT("class 写成了「%s」：只写类名（WBP_Shop）或资源路径（/Game/UI/WBP_Shop），部件写在 part 里"), *Class));
+			InSink.Error(TEXT("ref_bad_class"), FString::Printf(TEXT("class 写成了「%s」：只写类名（WBP_Shop）、资源路径（/Game/UI/WBP_Shop）或 lua:模块名，部件写在 part 里"), *Class));
 		}
 		if (const TSharedPtr<FJsonValue> In = InJson.TryGetField(TEXT("in")))
 		{
 			FGameTestDiagSink::FScope Scope(InSink, TEXT("in"));
 			FString InText;
 			const TSharedPtr<FJsonObject>* InObject = nullptr;
+			const TArray<TSharedPtr<FJsonValue>>* InWords = nullptr;
 			if (In->TryGetString(InText))
 			{
 				if (InText.Equals(TEXT("widgets"), ESearchCase::IgnoreCase))
 				{
 					InSink.Error(TEXT("bad_type"), TEXT("in 的 widgets 在 v4 改名 screen"));
 				}
-				else if (!IsOneOf(InText, { TEXT("screen"), TEXT("world"), TEXT("all") }) && !InText.StartsWith(TEXT("@")))
+				else if (!IsOneOf(InText, { TEXT("screen"), TEXT("world"), TEXT("lua"), TEXT("all") }) && !InText.StartsWith(TEXT("@")))
 				{
-					InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("in 写成了 %s：只能是 screen、world、all、@来源.路径 或 {\"obj\": 引用, \"part\": 容器}"), *InText));
+					InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("in 写成了 %s：只能是 screen、world、lua、all（或它们的数组）、@来源 或 {\"obj\": 引用, \"part\": 容器}"), *InText));
+				}
+			}
+			else if (In->TryGetArray(InWords) && InWords != nullptr)
+			{
+				for (int32 Index = 0; Index < InWords->Num(); ++Index)
+				{
+					FString Word;
+					if (!(*InWords)[Index].IsValid() || !(*InWords)[Index]->TryGetString(Word) || !IsOneOf(Word, { TEXT("screen"), TEXT("world"), TEXT("lua"), TEXT("all") }))
+					{
+						InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("in 的第 %d 项要是 screen、world、lua 或 all（几处一起找写数组，例 [\"screen\", \"lua\"]）"), Index + 1));
+					}
 				}
 			}
 			else if (In->TryGetObject(InObject) && InObject != nullptr && InObject->IsValid())
@@ -529,7 +608,7 @@ namespace GameTestRefCheck
 			}
 			else if (!In->IsNull())
 			{
-				InSink.Error(TEXT("bad_type"), TEXT("in 要写字符串（screen / world / all / @来源）或 {\"obj\", \"part\"}"));
+				InSink.Error(TEXT("bad_type"), TEXT("in 要写字符串（screen / world / lua / all / @来源）、它们的数组或 {\"obj\", \"part\"}"));
 			}
 		}
 		const TSharedPtr<FJsonValue> Ident = InJson.TryGetField(TEXT("ident"));
@@ -592,7 +671,7 @@ namespace GameTestRefCheck
 		{
 			if (bInPropRequired)
 			{
-				InSink.Error(TEXT("bad_type"), TEXT("判断项要写 prop（属性路径，@self.X、@部件.X、@部件:状态）"));
+				InSink.Error(TEXT("bad_type"), TEXT("判断项要写 prop（属性路径，@.X、@/子控件.X、@/子控件:状态）"));
 			}
 		}
 		else
@@ -679,14 +758,15 @@ namespace GameTestRefCheck
 		FString Error;
 		if (!FGameTestPropPath::Parse(InProp, Path, Error))
 		{
-			InSink.Error(TEXT("prop_missing"), FString::Printf(TEXT("属性路径「%s」写得不对：%s"), *InProp, *Error));
+			// path_old（旧写法，消息里有新写法）/ path_syntax（第几个字符不对）
+			InSink.Error(Path.FailCode.IsNone() ? FName(TEXT("path_syntax")) : Path.FailCode, Error);
 			return;
 		}
 		if (Path.HasState() && FGameTestStateRegistry::Find(Path.State) == nullptr)
 		{
 			TArray<FString> Suggestions;
 			FGameTestStateRegistry::Get().Suggest(Path.State, Suggestions);
-			InSink.Error(TEXT("prop_missing"), FString::Printf(TEXT("没有算出状态 :%s%s"), *Path.State,
+			InSink.Error(TEXT("prop_missing"), FString::Printf(TEXT("没有运行状态 :%s%s"), *Path.State,
 				Suggestions.Num() > 0 ? *FString::Printf(TEXT("（是不是 :%s）"), *FString::Join(Suggestions, TEXT("、:"))) : TEXT("")));
 		}
 	}
@@ -699,12 +779,18 @@ namespace GameTestRefCheck
 			FGameTestDiagSink::FScope Scope(InSink, FString::Printf(TEXT("objects.%s"), *Name));
 			if (!GameTestRefForm::IsName(Name))
 			{
-				InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("objects 的名字「%s」只能用字母、数字、下划线"), *Name));
+				InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("objects 的名字「%s」只能用字母、数字、下划线或中文，不以数字开头"), *Name));
+			}
+			FString Source;
+			if (Pair.Value.IsValid() && Pair.Value->Type == EJson::String && Pair.Value->TryGetString(Source) && Source.TrimStartAndEnd().StartsWith(TEXT("@")))
+			{
+				// 来源字符串（"@pawn"、"@luaMod.X"）：运行时现取，写法由来源解析报
+				continue;
 			}
 			const TSharedPtr<FJsonObject>* Object = nullptr;
 			if (!Pair.Value.IsValid() || !Pair.Value->TryGetObject(Object) || Object == nullptr || !Object->IsValid())
 			{
-				InSink.Error(TEXT("bad_type"), TEXT("objects 的值要写成引用对象 {\"class\", \"ident\"…}（不能写另一个名字）"));
+				InSink.Error(TEXT("bad_type"), TEXT("objects 的值要写成引用对象 {\"class\", \"ident\"…} 或来源字符串（\"@pawn\"），不能写另一个名字"));
 				continue;
 			}
 			RefObject(**Object, InScope, InSink);

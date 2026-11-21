@@ -55,19 +55,39 @@ namespace GameTestRefTestLocal
 TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 {
-	/** 属性路径：@来源.路径、@部件:状态、:状态；不以 @ / : 开头的拒绝。 */
+	/** 属性路径 v5：@ / @item 出发，/ 子控件、. 属性、.f() 函数、# Lua、: 状态、[] 下标；旧写法报 path_old，写错报 path_syntax。 */
 	TEST_METHOD(PropPath_Parse)
 	{
 		FGameTestPropPath Path;
 		FString Error;
-		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@self.ShopId"), Path, Error), Error));
-		ASSERT_THAT(AreEqual(2, Path.Segments.Num()));
-		ASSERT_THAT(AreEqual(FString(TEXT("ShopId")), Path.Segments[1]));
-		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT(":onScreen"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@.ShopId"), Path, Error), Error));
+		ASSERT_THAT(AreEqual(1, Path.Segs.Num()));
+		ASSERT_THAT(AreEqual(FString(TEXT("ShopId")), Path.Segs[0].Name));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@:onScreen"), Path, Error), Error));
 		ASSERT_THAT(AreEqual(FString(TEXT("onScreen")), Path.State));
-		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@Header.TxtTitle:text"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@/Header/TxtTitle:text"), Path, Error), Error));
+		ASSERT_THAT(AreEqual(2, Path.NumChildren()));
+		ASSERT_THAT(AreEqual(FString(TEXT("Header.TxtTitle")), Path.ChildPart()));
 		ASSERT_THAT(AreEqual(FString(TEXT("text")), Path.State));
-		ASSERT_THAT(IsFalse(FGameTestPropPath::Parse(TEXT("ShopId"), Path, Error)));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@/ShopComp.Goods[0].Id"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(Path.Segs[2].Kind == EGameTestPathSeg::Index && Path.Segs[2].Name == TEXT("0")));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@item#cfgId"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(Path.bItem && Path.Segs[0].Kind == EGameTestPathSeg::Lua));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@/Claim_$what:text"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@.GetLevel()"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(Path.Segs[0].Kind == EGameTestPathSeg::Fn && Path.Segs[0].Name == TEXT("GetLevel")));
+		ASSERT_THAT(AreEqual(FString(TEXT("@/ShopComp.Goods[0].Id")), FGameTestPropPath::Parse(TEXT("@/ShopComp.Goods[0].Id"), Path, Error) ? Path.Format() : Error));
+
+		for (const TCHAR* Old : { TEXT("@self.ShopId"), TEXT("@lua.Count"), TEXT("@itemLua.cfgId"), TEXT("@Header.TxtTitle:text"), TEXT(":text") })
+		{
+			ASSERT_THAT(IsFalse(FGameTestPropPath::Parse(Old, Path, Error)));
+			ASSERT_THAT(AreEqual(FString(TEXT("path_old")), Path.FailCode.ToString()));
+		}
+		for (const TCHAR* Bad : { TEXT("ShopId"), TEXT("@.a:b.c"), TEXT("@.a/B"), TEXT("@[0]"), TEXT("@.a[") })
+		{
+			ASSERT_THAT(IsFalse(FGameTestPropPath::Parse(Bad, Path, Error)));
+			ASSERT_THAT(AreEqual(FString(TEXT("path_syntax")), Path.FailCode.ToString()));
+		}
 	}
 
 	/** 比较按 kind 给 op：文字没有 gt，数字没有 contains；visibility 有 visible。 */
@@ -86,11 +106,11 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 	TEST_METHOD(Judge_TestRead)
 	{
 		using namespace GameTestRefTestLocal;
-		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromString(TEXT("购买成功")), EGameTestKind::String, TEXT(R"({"prop":":text","op":"contains","value":"购买"})"))));
-		ASSERT_THAT(IsFalse(Holds(FGameTestValue::FromString(TEXT("金币不足")), EGameTestKind::String, TEXT(R"({"prop":":text","op":"contains","value":"购买"})"))));
-		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromString(TEXT("Shop")), EGameTestKind::String, TEXT(R"({"prop":"@self.Name","op":"eq","value":"shop"})"))));
-		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromNumber(5), EGameTestKind::Int, TEXT(R"({"prop":"@self.N","op":"between","value":[1,10]})"))));
-		ASSERT_THAT(IsFalse(Holds(FGameTestValue::FromNumber(11), EGameTestKind::Int, TEXT(R"({"prop":"@self.N","op":"between","value":[1,10]})"))));
+		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromString(TEXT("购买成功")), EGameTestKind::String, TEXT(R"({"prop":"@:text","op":"contains","value":"购买"})"))));
+		ASSERT_THAT(IsFalse(Holds(FGameTestValue::FromString(TEXT("金币不足")), EGameTestKind::String, TEXT(R"({"prop":"@:text","op":"contains","value":"购买"})"))));
+		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromString(TEXT("Shop")), EGameTestKind::String, TEXT(R"({"prop":"@.Name","op":"eq","value":"shop"})"))));
+		ASSERT_THAT(IsTrue(Holds(FGameTestValue::FromNumber(5), EGameTestKind::Int, TEXT(R"({"prop":"@.N","op":"between","value":[1,10]})"))));
+		ASSERT_THAT(IsFalse(Holds(FGameTestValue::FromNumber(11), EGameTestKind::Int, TEXT(R"({"prop":"@.N","op":"between","value":[1,10]})"))));
 	}
 
 	/** objects 的写法检查：选择器字符串报 selector_removed，in.obj 成环报 ref_cycle。 */
@@ -107,9 +127,31 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		ASSERT_THAT(IsTrue(HasCode(Selector, TEXT("selector_removed")), Describe(Selector)));
 
 		FGameTestDiagSink Good;
-		const TSharedPtr<FJsonObject> Target = Parse(TEXT(R"({"obj":{"class":"WBP_Shop","ident":[{"prop":"@self.ShopId","op":"eq","value":1001}]},"part":"BtnBuy"})"));
+		const TSharedPtr<FJsonObject> Target = Parse(TEXT(R"({"obj":{"class":"WBP_Shop","ident":[{"prop":"@.ShopId","op":"eq","value":1001}]},"part":"BtnBuy"})"));
 		GameTestRefCheck::Target(MakeShared<FJsonValueObject>(Target), Scope, Good);
 		ASSERT_THAT(IsFalse(Good.HasErrors(), Describe(Good)));
+	}
+
+	/** 2.1.0：in 写数组、in: lua、class: lua:模块名、objects 里的来源字符串。 */
+	TEST_METHOD(Ref_InListAndLuaClass)
+	{
+		using namespace GameTestRefTestLocal;
+		FGameTestRef Ref;
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Parse(TEXT(R"({"class":"lua:UI.ShopPanel","in":["screen","lua"]})")), Ref)));
+		ASSERT_THAT(IsTrue(Ref.In == EGameTestRefIn::List && Ref.InList.Num() == 2));
+		FGameTestRef Back;
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Ref.ToJson(), Back) && Back.In == EGameTestRefIn::List && Back.InList.Num() == 2));
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Parse(TEXT(R"({"class":"A","in":["lua"]})")), Ref) && Ref.In == EGameTestRefIn::Lua));
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Parse(TEXT(R"({"class":"A","in":["screen","all"]})")), Ref) && Ref.In == EGameTestRefIn::All));
+
+		FGameTestExprScope Scope;
+		FGameTestDiagSink Good;
+		GameTestRefCheck::Objects(*Parse(TEXT(R"({"shop":{"class":"lua:UI.ShopPanel","in":["screen","lua"]},"me":"@pawn"})")), Scope, Good);
+		ASSERT_THAT(IsFalse(Good.HasErrors(), Describe(Good)));
+
+		FGameTestDiagSink Bad;
+		GameTestRefCheck::Objects(*Parse(TEXT(R"({"a":{"class":"lua:","in":["screen","nope"]},"b":"pawn"})")), Scope, Bad);
+		ASSERT_THAT(IsTrue(HasCode(Bad, TEXT("ref_bad_class")) && HasCode(Bad, TEXT("bad_type")), Describe(Bad)));
 	}
 
 	/** 录制的选择器 → v4：屏去重进 objects，条目 → in + ident，嵌套 WBP 用 `.` 连。 */
@@ -161,7 +203,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		const TSharedPtr<FJsonObject> Cond = GameTestJson::TryGetObject(*AssertStep, TEXT("cond"));
 		ASSERT_THAT(IsTrue(Cond.IsValid()));
 		// 部件并进属性路径（判断里没有 part）
-		ASSERT_THAT(AreEqual(FString(TEXT("@TxtTitle:text")), Cond->GetStringField(TEXT("prop"))));
+		ASSERT_THAT(AreEqual(FString(TEXT("@/TxtTitle:text")), Cond->GetStringField(TEXT("prop"))));
 		ASSERT_THAT(IsFalse(Cond->HasField(TEXT("part"))));
 		const TSharedPtr<FJsonObject> Click = Steps[1]->AsObject();
 		ASSERT_THAT(IsTrue(Click.IsValid()));
@@ -169,7 +211,7 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		ASSERT_THAT(IsTrue(SkipIf.IsValid() && SkipIf->HasField(TEXT("cond")) && SkipIf->HasField(TEXT("also"))));
 		const TSharedPtr<FJsonObject> SkipCond = GameTestJson::TryGetObject(*SkipIf, TEXT("cond"));
 		ASSERT_THAT(IsTrue(SkipCond.IsValid()));
-		ASSERT_THAT(AreEqual(FString(TEXT("@ChkAuto:checked")), SkipCond->GetStringField(TEXT("prop"))));
+		ASSERT_THAT(AreEqual(FString(TEXT("@/ChkAuto:checked")), SkipCond->GetStringField(TEXT("prop"))));
 	}
 };
 

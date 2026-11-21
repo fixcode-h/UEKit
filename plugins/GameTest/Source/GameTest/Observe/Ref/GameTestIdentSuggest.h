@@ -14,7 +14,7 @@ struct FGameTestRefCandidate;
 /** 一个能当标识的属性（gt.props 的一项、录制挑标识的候选）。 */
 struct GAMETEST_API FGameTestIdentProp
 {
-	/** 能直接写进脚本的路径（`@self.ShopId`、`@TxtTitle:text`）。 */
+	/** 能直接写进脚本的路径（`@.ShopId`、`@/TxtTitle:text`）。 */
 	FString Prop;
 	FString Name;
 	/** self / item / lua / itemLua / part:<名字>：gt.props 按它分组。 */

@@ -75,14 +75,7 @@ bool GameTestResolve::Resolve(const TArray<FTarget>& InTargets, TMap<FString, TW
 	Flow.Handles = InHandles;
 	if (InObjects != nullptr)
 	{
-		for (const auto& Pair : InObjects->Values)
-		{
-			const TSharedPtr<FJsonObject>* Def = nullptr;
-			if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Def) && Def != nullptr && Def->IsValid())
-			{
-				Flow.GetScope().ObjectDefs.Add(GAMETEST_JSON_KEY(Pair.Key), *Def);
-			}
-		}
+		Flow.GetScope().AddObjects(*InObjects);
 	}
 	FGameTestFlowContext::FReadOnlyScope ReadOnly(Flow);
 	GameTestRefAmbient::FScope Ambient(&Flow);

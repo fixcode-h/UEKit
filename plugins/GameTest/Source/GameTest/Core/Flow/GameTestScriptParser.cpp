@@ -171,8 +171,8 @@ void FGameTestScriptParser::ParseHeader(const TSharedPtr<FJsonObject>& InJson, F
 	}
 	else if (Version < GameTestScenario::SupportedSchemaVersion)
 	{
-		// 2.0.0 起只认 v4（对象引用）：旧脚本由面板迁移，C++ 不再兼容选择器写法
-		DiagSink.Error(TEXT("schema_old"), FString::Printf(TEXT("这是旧格式脚本（schemaVersion %d），请在面板里用「升级脚本」转成 v%d（会先备份）"), Version, GameTestScenario::SupportedSchemaVersion));
+		// 2.1.0 起只认 v5（属性路径 v5）：不做迁移（用户定），旧脚本按新写法重写
+		DiagSink.Error(TEXT("schema_old"), FString::Printf(TEXT("旧格式不再支持，请按新写法重写（脚本是 schemaVersion %d，这个 GameTest 只认 %d，写法见 docs/game-test-ref.md）"), Version, GameTestScenario::SupportedSchemaVersion));
 	}
 	const TSharedPtr<FJsonObject>* Params = nullptr;
 	if (InJson->TryGetObjectField(TEXT("params"), Params) && Params && Params->IsValid())

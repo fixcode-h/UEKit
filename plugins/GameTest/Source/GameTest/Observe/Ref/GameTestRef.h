@@ -15,7 +15,7 @@ struct FGameTestExprScope;
  */
 struct GAMETEST_API FGameTestIdentItem
 {
-	/** 属性路径（`@self.ShopId`、`@TxtTitle:text`、`:exists`）。 */
+	/** 属性路径（`@.ShopId`、`@/TxtTitle:text`、`@:exists`）。 */
 	FString Prop;
 	/** 比较名（3.4 表）；空 = 按属性类型推（bool 真值、其余 eq）。 */
 	FString Op;
@@ -34,7 +34,7 @@ struct GAMETEST_API FGameTestIdentItem
 
 	TSharedRef<FJsonObject> ToJson() const;
 
-	/** 给人看的一句：`@self.ShopId 等于 1001`。 */
+	/** 给人看的一句：`@.ShopId 等于 1001`。 */
 	FString Describe() const;
 };
 
@@ -45,7 +45,11 @@ enum class EGameTestRefIn : uint8
 	Auto,
 	Screen,
 	World,
+	/** 绑了 UnLua 的 UObject（UELink lua.objects）。 */
+	Lua,
 	All,
+	/** 数组写法（`["screen", "lua"]`）：InList 里几处的并集。 */
+	List,
 	/** `@来源.路径`：容器属性里的对象。 */
 	Source,
 	/** `{obj, part}`：另一个对象里某个容器控件的条目。 */
@@ -63,6 +67,8 @@ struct GAMETEST_API FGameTestRef
 	FString Name;
 	FString Class;
 	EGameTestRefIn In = EGameTestRefIn::Auto;
+	/** `In == List` 时的几处（只会是 Screen / World / Lua）。 */
+	TArray<EGameTestRefIn> InList;
 	/** `In == Source` 时的 `@来源.路径`。 */
 	FString InSource;
 	/** `In == Container / Owner` 时外层对象的引用（三种写法之一）。 */
@@ -78,12 +84,15 @@ struct GAMETEST_API FGameTestRef
 
 	static const TArray<FString>& Fields();
 
+	/** `in` 的一个词（screen / world / lua / all）→ 枚举；不是这几个返回 Auto。 */
+	static EGameTestRefIn InWord(const FString& InText);
+
 	/** 读内联引用对象（不校验字段，校验在 GameTestRefCheck）。`class` 缺失时返回 false。 */
 	static bool FromJson(const FJsonObject& InJson, FGameTestRef& OutRef);
 
 	TSharedRef<FJsonObject> ToJson() const;
 
-	/** `WBP_Shop（@self.ShopId=1001）`。 */
+	/** `WBP_Shop（@.ShopId=1001）`。 */
 	FString Describe() const;
 };
 

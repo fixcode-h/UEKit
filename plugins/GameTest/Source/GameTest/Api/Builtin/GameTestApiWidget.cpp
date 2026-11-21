@@ -39,7 +39,7 @@ namespace
 			return true;
 		}
 		const FString Text = GA::Text(InArg);
-		return Text.StartsWith(TEXT("@")) || Text.StartsWith(TEXT("$")) || X.GetScope().ObjectDefs.Contains(Text);
+		return Text.StartsWith(TEXT("@")) || Text.StartsWith(TEXT("$")) || X.GetScope().HasObject(Text);
 	}
 
 	/** 解析控件参数；解析不到时写错误（selector_missing）并返回空。 */

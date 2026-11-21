@@ -1,6 +1,6 @@
 # GameTest
 
-> **2.0.0 起只认 schemaVersion 4：所有定位、判断、操作对象的地方都是「对象引用 = 类 + 唯一标识组」**，完整协议见 [game-test-ref.md](game-test-ref.md)。字符串选择器（`WBP_X:Root/Btn`）报 `selector_removed`，v1–v3 的场景报 `schema_old`（面板「升级脚本」迁移），`invoke` / `find` / `widget.close` / `widget.call` 换成 `obj.call` / `obj.find` / `obj.close`，`assert` / `wait` 的 `visible` / `text`… 换成条件里的 `{obj, prop, op, value}`。本文下面「选择器」一节和各处的选择器写法只描述录制内部和 1.x 的旧格式，以 game-test-ref.md 为准。
+> **2.1.0 起只认 schemaVersion 5（2.0.x 是 4）：所有定位、判断、操作对象的地方都是「对象引用 = 类 + 唯一标识组」，属性路径是 v5 写法（`@.X`、`@/部件:text`、`@#Lua字段`）**，完整协议见 [game-test-ref.md](game-test-ref.md)。字符串选择器（`WBP_X:Root/Btn`）报 `selector_removed`，其他版本的场景报 `schema_old`（不再迁移，按新写法重写），旧属性路径（`@self.X`、`:text`）报 `path_old`，`invoke` / `find` / `widget.close` / `widget.call` 换成 `obj.call` / `obj.find` / `obj.close`，`assert` / `wait` 的 `visible` / `text`… 换成条件里的 `{obj, prop, op, value}`。本文下面「选择器」一节和各处的选择器写法只描述录制内部和 1.x 的旧格式，以 game-test-ref.md 为准。
 >
 > 1.9.0 起场景可以写成脚本（schemaVersion 3：如果、循环、调用、变量、守护、调函数、接口库），见 [game-test-script.md](game-test-script.md)；「阻挡界面」改成守护。
 
@@ -27,7 +27,7 @@
 ```json
 {
   "kind": "gametest-scenario",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "name": "主菜单冒烟",
   "_note": "可选说明",
   "revision": 3,
@@ -38,7 +38,7 @@
     { "id": "s1", "action": "pie.start", "map": "/Game/Maps/MainMenu" },
     { "id": "s2", "action": "obj.wait", "obj": "menu", "prop": "@BtnStart:onScreen", "op": "is", "value": true },
     { "id": "s3", "action": "click", "target": { "obj": "menu", "part": "BtnStart" }, "note": "点开始" },
-    { "id": "s4", "action": "assert", "cond": { "obj": "hud", "prop": ":onScreen", "op": "is", "value": true } }
+    { "id": "s4", "action": "assert", "cond": { "obj": "hud", "prop": "@:onScreen", "op": "is", "value": true } }
   ]
 }
 ```
@@ -47,7 +47,7 @@
 - `clickVia`（可选，1.2.0-beta.7 起）这个场景里 `click` 没写 `via` 时的点击方式：`code`（默认，不动鼠标）或 `pointer`（真实鼠标），覆盖运行配置。
 - `skipIf`（可选，1.7.0 起）`false` 时这个场景忽略所有跳过条件（每一步都照做），写对象时覆盖运行配置的同名段，见「已达成就跳过」。
 - `uiWaitTimeoutMs`（可选，1.2.0-beta.6 起）这个场景里 UI 动作等界面的上限（毫秒，0 = 不限），覆盖运行配置和项目设置，见「UI 动作怎么执行」。
-- `schemaVersion`：当前是 4（2.0.0 起，对象引用）。`click` / `type` 默认走真实输入（真实指针、真实按键）。1–3 的文件报 `schema_old`，用面板「升级脚本」迁移（见下面「从旧场景迁移」）；写比插件支持的更高的版本会被明确拒绝。
+- `schemaVersion`：当前是 5（2.1.0 起，属性路径 v5；2.0.x 是 4）。`click` / `type` 默认走真实输入（真实指针、真实按键）。其他版本的文件报 `schema_old`（不迁移，按 game-test-ref.md 重写）；写比插件支持的更高的版本也会被拒绝。
 - `objects`（2.0.0 起）：命名的对象引用，步骤里写名字，见 game-test-ref.md 第 1、6 节。
 - 每一步的公共字段：`action`（必填）、`target`、`note`、`timeoutMs`、`onFail`（`stop` 默认 / `continue`）、`hint`、`skipIf`（已达成就跳过，1.7.0 起，见「已达成就跳过」）。动作不认识的字段直接报错，不静默忽略。
 - `hint`：录制写的线索（`asset` WBP 资源路径、`class`、`text`、`rect` 视口归一化 `[x, y, w, h]`、`vp` 录制时视口像素 `[宽, 高]`（1.2.5 起）；`shot`、`screen`、`opened` 录制截图和点完打开的界面（1.3.2 起，见「录制截图」），`ocr` 面板从截图认出的字；`fields` 点在列表、格子条目上时这个条目全部字段的缓存文件（1.6.0 起，见「条目字段缓存」））。录的时候选择器核对不唯一、但按线索挑得回来时多一个 `pick`（说明），`byIndex: true` 表示按位置写的选择器只按序号点、不按文字找回（1.2.4 起），挑不回来时多一个 `ambiguous`（原因）。回放在两种情况下用它（见「UI 动作怎么执行」里的「按录制线索消歧」）：选择器命中**同一个 WBP 的几个实例**时按线索挑回录的那一个；按位置写的选择器（`#类名#序号`、`列表[序号]`）唯一命中、但文字和 `hint.text` 对不上时，在同一个容器里换成文字对得上的那个（1.2.4 起）。别的情况不拿它换目标。手写场景不用写。
@@ -130,7 +130,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `obj.call` | `obj`, `part`, `function`, `args`, `saveAs`, `expect` | 主模块 | 2.0.0 起（取代 `invoke`）：调对象上的函数；`obj` 也可以是来源字符串 `@sub.X` / `@luaMod.X`，静态函数省略 `obj` 写 `类名.函数` |
 | `obj.close` | `obj`, `how`, `verify`, `verifyMs` | 主模块（`pop` 在 GameTestCommonUI） | 2.0.0 起（取代 `widget.close` / `widget.call`）：按 `how` 依次试关闭方式（`call` / `lua` / `click` / `visibility` / `remove` / `pop` / `key` / `destroy`），每种做完核对 `verify`（`gone` 默认 / `hidden` / `none`）；省略 `how` 用 `closeRules` 或按类推荐，见 game-test-ref.md 5.2 |
 | `snapshot` | `geometry`, `props` | 主模块 | 控件树快照：AI 的主要观察手段；给 target 就只取那棵子树，props=true 带出类自己的属性 |
-| `wait` | `until`, `seconds`, `actor`, `tag`, `point`, `radius`, `cond` | 主模块 | 跨帧等待谓词成立：pieReady/pieStopped/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（条件，见 game-test-script.md）。2.0.0 起 `widget` / `widgetGone` 删掉（`cond_removed`），改 `until=cond` + `{obj, prop: ":exists", op: "is", value: true/false}` 或 `obj.wait` |
+| `wait` | `until`, `seconds`, `actor`, `tag`, `point`, `radius`, `cond` | 主模块 | 跨帧等待谓词成立：pieReady/pieStopped/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（条件，见 game-test-script.md）。2.0.0 起 `widget` / `widgetGone` 删掉（`cond_removed`），改 `until=cond` + `{obj, prop: "@:exists", op: "is", value: true/false}` 或 `obj.wait` |
 | `click` | `via`, `at`, `button` | 主模块（要 target） | 点击控件：先等控件可操作（见下面「UI 动作怎么执行」）。`via` 取 `code`（默认，1.2.0-beta.7 起）或 `pointer`，没写时按场景 / 运行配置的 `clickVia`。`code` 不动鼠标：从目标往上（不出所在 WBP）找最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮依次广播 OnPressed → OnClicked → OnReleased，蓝图和 Lua 绑在哪个上都收得到）；目标是 WBP（列表条目、入口图标）时点它里面唯一可见的那个按钮；都找不到时在控件位置发一组虚拟鼠标事件（移动、按下、松开，同一帧发完，不移系统光标）。结果里 `via` 写实际用的（`code` / `virtualPointer`），`clicked` 写被调的控件。`pointer` 是真实鼠标：还要点击点没被挡住，把光标移过去按下松开，核对接住按下的是不是目标。`at=[x,y]` 控件内位置（0–1，默认中心），`button`（只对 `pointer`）默认 `LeftMouseButton` |
 | `drag` | `at`, `toTarget`, `toAt`, `by`, `button` | 主模块（要 target） | 拖动：从控件内 `at` 处按下，分几帧移到 `toTarget` 控件的 `toAt` 处（或按视口归一化位移 `by=[dx,dy]`，可以是负数）再松开；`toTarget` 和 `by` 二选一。起点和 click 一样先等可操作 |
 | `wheel` | `delta`, `at` | 主模块 | 滚轮：给 target 时先等控件可操作、把光标移到控件上再滚；不给时在光标当前位置滚。`delta` 必填，正数向上、负数向下 |
@@ -424,7 +424,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.actions` | — | `common`、`actions: [{name, params, targetRequired, editorOnly, summary, module}]`、`unavailable: [{name, module, plugin}]` |
 | `gt.scenarios` | `query`、`offset`、`limit`（默认 200） | `scenarios: [{name, relativePath, _note, steps, revision, tags, parseError?}]`、`total` |
 | `gt.run` | `scenario`（相对场景根）或 `steps` + `name`、`stepDelayMs`、`ignoreSkipIf`（1.7.0 起，全部照做）；批量：`tag`（场景的 `tags` 里有它的全部场景）或 `scenarios`（路径数组），可带 `name` | 单个：`runId`、`steps`、`scenario`、`finished`；批量：`batchId`、`scenarios`（个数）。都在后台跑 |
-| `gt.step` | `step: {action, ...}` | 这一步的结果：`ok`、`status`、`message`、`payload` |
+| `gt.step` | `step: {action, ...}`、`objects?`（2.1.0：名字 → 引用或来源字符串，步骤里可以写名字和 `{"$obj": 名}`） | 这一步的结果：`ok`、`status`、`message`、`payload` |
 | `gt.job` | `steps`（只回最后几步，默认 50） | 当前 / 最近一次 run：`status`、`busy`、`total`（已完成）、`planned`、`failed`、`steps`；批量运行时多 `batch`（见下） |
 | `gt.runs` | — | 本次会话最近的 run 摘要（含 `outputDir`） |
 | `gt.report` | `runId` | 完整报告（每步的状态、消息、payload、耗时；跑的是场景文件时有 `scenario`；失败的步骤 `payload.evidence` 是失败证据的路径） |
@@ -495,7 +495,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 ## 从旧场景迁移
 
-**2.0.0（schemaVersion 4）**：插件不再跑 v1–v3 的场景（`schema_old`），也不认 `_settings.json` 里的 `itemKeys` / `objectKeys`（`settings_old`）。用面板「升级脚本」一次迁移（原文件存 `.v3.bak`），规则见 [game-test-ref.md](game-test-ref.md) 第 9 节；迁不准的步骤带 `todo`。下面是 1.1.0 那次升级的说明，留作参考。
+**2.1.0（schemaVersion 5）**：不再迁移。插件只跑 v5 的场景，别的版本报 `schema_old`（「旧格式不再支持，请按新写法重写」），也不认 `_settings.json` 里的 `itemKeys` / `objectKeys`（`settings_old`）；2.0 的「升级脚本」已删。下面是 1.1.0 那次升级的说明，留作参考。
 
 1.1.0 把场景格式升到 `schemaVersion: 2`，旧文件不用改：
 
