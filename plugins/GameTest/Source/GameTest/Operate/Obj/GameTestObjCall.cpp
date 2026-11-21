@@ -13,6 +13,7 @@
 #include "Observe/Checks/GameTestCond.h"
 #include "Observe/GameTestWidgetNode.h"
 #include "Observe/Lua/GameTestLuaBridge.h"
+#include "Observe/Ref/GameTestRef.h"
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
 #include "Observe/Sources/GameTestValueSource.h"
@@ -216,7 +217,19 @@ namespace GameTestHandlers
 		{
 			return Finish(InContext, Function, Args);
 		}
-		const TSharedPtr<FJsonValue> Obj = Params.TryGetField(TEXT("obj"));
+		TSharedPtr<FJsonValue> Obj = Params.TryGetField(TEXT("obj"));
+		{
+			// objects 里写成来源字符串的名字（"me": "@pawn"、"shopMod": "@luaMod.UI.Shop"）：换成来源本身，走下面不用等的那条路
+			FString Name;
+			TSharedPtr<FJsonObject> Inline;
+			if (GameTestRefForm::Classify(Obj, Name, Inline) == EGameTestRefForm::Named)
+			{
+				if (const FString* Source = Flow.GetScope().ObjectSources.Find(Name))
+				{
+					Obj = MakeShared<FJsonValueString>(*Source);
+				}
+			}
+		}
 		FString ObjText;
 		if (!Obj.IsValid() || Obj->IsNull() || (Obj->TryGetString(ObjText) && ObjText.StartsWith(TEXT("@"))))
 		{
@@ -226,6 +239,39 @@ namespace GameTestHandlers
 				Value = CallDirect(InContext, Flow, Obj, Function, Args);
 			}
 			return Finish(InContext, Function, Value);
+		}
+		bool bEach = false;
+		if (Params.TryGetBoolField(TEXT("each"), bEach) && bEach)
+		{
+			// each：命中几个调几个，按命中顺序；任一失败整步失败（已调的不回滚，消息里写调到第几个）
+			return GameTestObjActions::RunWhenFoundAll(InContext, FString::Printf(TEXT("逐个调 %s"), *Function), [Function, Args](FGameTestStepContext& InStep, const TArray<UObject*>& InObjects)
+			{
+				TArray<TSharedPtr<FJsonValue>> Invokes;
+				TArray<FGameTestValue> Values;
+				for (int32 Index = 0; Index < InObjects.Num(); ++Index)
+				{
+					TSharedPtr<FJsonObject> One = MakeShared<FJsonObject>();
+					FGameTestValue Value;
+					{
+						FPayloadScope Scope(*InStep.Flow, One);
+						Value = CallOnObject(*InStep.Flow, InObjects[Index], Function, Args, One);
+					}
+					if (const TSharedPtr<FJsonValue> Invoke = One->TryGetField(TEXT("invoke")))
+					{
+						Invokes.Add(Invoke);
+					}
+					if (Value.IsUnresolved())
+					{
+						InStep.Payload->SetArrayField(TEXT("invoke"), Invokes);
+						const FString Why = FString::Printf(TEXT("第 %d 个（共 %d 个，%s）：%s；前面 %d 个已经调过，不回滚"), Index + 1, InObjects.Num(),
+							*GameTestApiArgs::NameOf(InObjects[Index]), *Value.GetString(), Index);
+						return Finish(InStep, Function, FGameTestValue::Unresolved(Why, Value.GetCode()));
+					}
+					Values.Add(Value);
+				}
+				InStep.Payload->SetArrayField(TEXT("invoke"), Invokes);
+				return Finish(InStep, Function, FGameTestValue::FromArray(MoveTemp(Values)));
+			});
 		}
 		// 对象引用（+ part）：等它出现再调
 		return GameTestObjActions::RunWhenFound(InContext, FString::Printf(TEXT("调 %s"), *Function), [Function, Args](FGameTestStepContext& InStep, UObject* InObject)

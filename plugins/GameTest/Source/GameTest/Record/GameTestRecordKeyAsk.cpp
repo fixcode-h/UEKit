@@ -23,6 +23,8 @@
 #include "Dom/JsonValue.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Observe/Ref/GameTestPropPath.h"
+#include "Observe/Ref/GameTestPropPathKey.h"
 
 namespace GameTestRecordKeyAskDetail
 {
@@ -70,24 +72,16 @@ namespace GameTestRecordKeyAskDetail
 				OutError = FString::Printf(TEXT("录制时挑标识只认 eq（%s 写的是 %s）：录完在面板属性树里再改比较"), *Prop, *Op);
 				return false;
 			}
-			const FString Default = bInList ? TEXT("@item.") : TEXT("@self.");
-			if (Prop == TEXT(":text"))
+			FString By;
+			if (!GameTestPropPathKey::ToBy(Prop, bInList, By))
 			{
-				OutBy.Add(TEXT("@text"));
-			}
-			else if (Prop.StartsWith(Default))
-			{
-				OutBy.Add(Prop.Mid(Default.Len()));
-			}
-			else if (Prop.StartsWith(TEXT("@self.")) || Prop.StartsWith(TEXT("@item.")) || Prop.StartsWith(TEXT("@lua.")) || Prop.StartsWith(TEXT("@itemLua.")))
-			{
-				OutBy.Add(Prop);
-			}
-			else
-			{
-				OutError = FString::Printf(TEXT("录制时挑标识只认条目上的字段（@item. / @self. / @lua. / @itemLua.）和 :text，不认 %s"), *Prop);
+				FGameTestPropPath Parsed;
+				FString ParseError;
+				OutError = !FGameTestPropPath::Parse(Prop, Parsed, ParseError) ? FString::Printf(TEXT("%s：%s"), *Parsed.FailCode.ToString(), *ParseError)
+					: FString::Printf(TEXT("录制时挑标识只认条目上的字段（@item.X / @item#X / @.X / @#X）和 @:text，不认 %s"), *Prop);
 				return false;
 			}
+			OutBy.Add(By);
 		}
 		return true;
 	}
@@ -546,7 +540,7 @@ bool FGameTestRecorder::AnswerKey(const TSharedPtr<FJsonObject>& InArgs, TShared
 	}
 
 	// 2.0.0：回答写成 ident: [{prop, op, value}]（docs/game-test-ref.md 7.6）。录制内部仍按 by 字段挑，这里换算：
-	// 默认来源（列表是 @item，其他容器是 @self）不带前缀，别的来源 `@lua.X`；值按条目此刻的值取（和 by 一样），op 只认 eq
+	// 默认来源（列表是 @item，其他容器是 @）不带前缀，别的来源换成 `@lua.X` 这类内部写法（GameTestPropPathKey）；值按条目此刻的值取（和 by 一样），op 只认 eq
 	const TArray<TSharedPtr<FJsonValue>>* IdentValues = nullptr;
 	if (Args->TryGetArrayField(TEXT("ident"), IdentValues) && IdentValues != nullptr)
 	{

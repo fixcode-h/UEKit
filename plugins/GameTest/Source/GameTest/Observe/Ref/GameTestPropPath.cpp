@@ -7,11 +7,13 @@
 #include "Observe/Checks/GameTestWidgetProbe.h"
 #include "Observe/Lua/GameTestLuaBridge.h"
 #include "Observe/Ref/GameTestState.h"
+#include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
 
 #include "Blueprint/IUserObjectListEntry.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/ActorComponent.h"
+#include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "GameFramework/Actor.h"
 #include "UObject/Package.h"
@@ -20,55 +22,42 @@
 // unity build 下各文件的匿名 namespace 会合并：辅助函数放进带文件名的 namespace。
 namespace GameTestPropPathImpl
 {
-	/** 一段 `Items[3]` / `Map["key"]`：名字 + 下标。 */
-	struct FSegment
+	bool IsPathIdentStart(TCHAR C)
 	{
-		FString Name;
-		/** 下标原文：数字或带引号的键（已去引号）。 */
-		TArray<FString> Keys;
-	};
-
-	bool SplitSegment(const FString& InText, FSegment& OutSegment, FString& OutError)
-	{
-		OutSegment = FSegment();
-		int32 Bracket = INDEX_NONE;
-		InText.FindChar(TEXT('['), Bracket);
-		OutSegment.Name = Bracket == INDEX_NONE ? InText : InText.Left(Bracket);
-		FString Rest = Bracket == INDEX_NONE ? FString() : InText.Mid(Bracket);
-		while (!Rest.IsEmpty())
-		{
-			int32 Close = INDEX_NONE;
-			if (!Rest.StartsWith(TEXT("[")) || !Rest.FindChar(TEXT(']'), Close))
-			{
-				OutError = FString::Printf(TEXT("「%s」的方括号不配对"), *InText);
-				return false;
-			}
-			FString Key = Rest.Mid(1, Close - 1).TrimStartAndEnd();
-			if (Key.Len() >= 2 && (Key.StartsWith(TEXT("\"")) || Key.StartsWith(TEXT("'"))))
-			{
-				Key = Key.Mid(1, Key.Len() - 2);
-			}
-			OutSegment.Keys.Add(Key);
-			Rest = Rest.Mid(Close + 1);
-		}
-		return true;
+		return (C >= TEXT('A') && C <= TEXT('Z')) || (C >= TEXT('a') && C <= TEXT('z')) || C == TEXT('_');
 	}
 
+	bool IsPathIdentChar(TCHAR C)
+	{
+		return IsPathIdentStart(C) || (C >= TEXT('0') && C <= TEXT('9'));
+	}
+
+	/**
+	 * 和面板 path.ts 的 IDENT 一样只认 ASCII：设计器名、属性名、Lua 字段名都是 ASCII。
+	 * 另外认 `$`：`@/Claim_$what:text` 这类嵌 $变量 的段在展开前也要能解析（校验、显示用），运行时先替换再读。
+	 */
 	bool IsIdentifier(const FString& InText)
 	{
-		if (InText.IsEmpty() || FChar::IsDigit(InText[0]))
+		if (InText.IsEmpty() || !(IsPathIdentStart(InText[0]) || InText[0] == TEXT('$')))
 		{
 			return false;
 		}
 		for (const TCHAR C : InText)
 		{
-			if (!(FChar::IsAlnum(C) || C == TEXT('_')))
+			if (!IsPathIdentChar(C) && C != TEXT('$'))
 			{
 				return false;
 			}
 		}
 		return true;
 	}
+
+	bool IsSegStart(TCHAR C)
+	{
+		return C == TEXT('/') || C == TEXT('.') || C == TEXT('#') || C == TEXT(':');
+	}
+
+	const TCHAR* const NewRules = TEXT("对象自己的属性 @.X，子控件 / 组件 @/子控件.X（多层 @/A/B.X），Lua 字段 @#X，条目数据 @item.X / @item#X，运行状态 @:状态 / @/子控件:状态");
 
 	/** Actor 的组件：按名字（忽略大小写）。 */
 	UActorComponent* FindComponent(AActor* InActor, const FString& InName)
@@ -102,12 +91,22 @@ namespace GameTestPropPathImpl
 		return nullptr;
 	}
 
+	FString MissingPartWhy(const UObject* InIn, const FString& InName)
+	{
+		return Cast<UUserWidget>(InIn) != nullptr || Cast<AActor>(InIn) != nullptr
+			? FString::Printf(TEXT("%s 里没有子控件或组件 %s"), *InIn->GetClass()->GetName(), *InName)
+			: FString::Printf(TEXT("%s 不是 WBP 也不是 Actor，不能再往里找 %s（嵌套的 WBP 才能用 / 进去）"), *InIn->GetClass()->GetName(), *InName);
+	}
+
 	/** 反射走路：当前所在的容器（对象或结构体）和值指针。 */
 	struct FCursor
 	{
 		const UStruct* Struct = nullptr;
 		void* Ptr = nullptr;
+		/** 当前容器是对象时是它；进了结构体为空（函数、Lua 字段要对象）。 */
 		UObject* Object = nullptr;
+		/** 最近经过的对象（进了结构体也不变）：读到的值挂在它上面，obj.set 往它上面写。 */
+		UObject* Owner = nullptr;
 		const FProperty* Prop = nullptr;
 		void* ValuePtr = nullptr;
 	};
@@ -165,8 +164,11 @@ namespace GameTestPropPathImpl
 				return false;
 			}
 			InOutCursor.Object = Next;
+			InOutCursor.Owner = Next;
 			InOutCursor.Struct = Next->GetClass();
 			InOutCursor.Ptr = Next;
+			InOutCursor.Prop = nullptr;
+			InOutCursor.ValuePtr = nullptr;
 			return true;
 		}
 		if (const FStructProperty* StructProp = CastField<FStructProperty>(InOutCursor.Prop))
@@ -178,6 +180,10 @@ namespace GameTestPropPathImpl
 			}
 			InOutCursor.Struct = StructProp->Struct;
 			InOutCursor.Ptr = InOutCursor.ValuePtr;
+			// 进了结构体：下一段不再直接落在对象上（函数、Lua 字段要对象）
+			InOutCursor.Object = nullptr;
+			InOutCursor.Prop = nullptr;
+			InOutCursor.ValuePtr = nullptr;
 			return true;
 		}
 		OutError = FString::Printf(TEXT("%s 不是对象或结构体，不能再往下取"), *InOutCursor.Prop->GetName());
@@ -191,70 +197,50 @@ namespace GameTestPropPathImpl
 		return Read;
 	}
 
-	/** 反射读剩下的段（`ShopId`、`Data.Items[0].Name`）。 */
-	FGameTestPropRead ReadReflect(UObject* InObject, const TArray<FString>& InSegments, int32 InFrom)
+	FGameTestPropRead ExistsFalse()
 	{
-		FCursor Cursor;
-		Cursor.Object = InObject;
-		Cursor.Struct = InObject->GetClass();
-		Cursor.Ptr = InObject;
-		for (int32 Index = InFrom; Index < InSegments.Num(); ++Index)
-		{
-			FString Error;
-			if (Cursor.Prop != nullptr && !Descend(Cursor, Error))
-			{
-				return Fail(Error);
-			}
-			FSegment Segment;
-			if (!SplitSegment(InSegments[Index], Segment, Error))
-			{
-				return Fail(Error);
-			}
-			const FProperty* Prop = GameTestReflectValue::FindProperty(Cursor.Struct, Segment.Name);
-			if (Prop == nullptr)
-			{
-				return Fail(FString::Printf(TEXT("%s 上没有属性 %s"), Cursor.Struct != nullptr ? *Cursor.Struct->GetName() : TEXT("?"), *Segment.Name));
-			}
-			void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Cursor.Ptr);
-			for (const FString& Key : Segment.Keys)
-			{
-				if (!StepIndex(Prop, ValuePtr, Key, Error))
-				{
-					return Fail(Error);
-				}
-			}
-			Cursor.Prop = Prop;
-			Cursor.ValuePtr = ValuePtr;
-		}
 		FGameTestPropRead Read;
-		if (Cursor.Prop == nullptr)
-		{
-			// `@部件` 后面什么都没写：值是部件对象本身
-			Read.Value = FGameTestValue::FromObject(InObject);
-			Read.Kind = EGameTestKind::Object;
-			Read.Type = InObject->GetClass()->GetName();
-			Read.Src = TEXT("cpp");
-			Read.bReadOnly = true;
-			Read.Holder = InObject;
-			return Read;
-		}
+		Read.Value = FGameTestValue::FromBool(false);
+		Read.Kind = EGameTestKind::Bool;
+		Read.Src = TEXT("state");
+		Read.Type = TEXT("bool");
+		Read.bReadOnly = true;
+		return Read;
+	}
+
+	FGameTestPropRead ObjectItself(UObject* InObject)
+	{
+		FGameTestPropRead Read;
+		Read.Value = FGameTestValue::FromObject(InObject);
+		Read.Kind = EGameTestKind::Object;
+		Read.Type = InObject != nullptr ? InObject->GetClass()->GetName() : FString(TEXT("Object"));
+		Read.Src = TEXT("cpp");
+		Read.bReadOnly = true;
+		Read.Holder = InObject;
+		return Read;
+	}
+
+	/** 光标停在反射属性上：读值、类型、来源、能不能写。 */
+	FGameTestPropRead FromCursor(const FCursor& InCursor, UObject* InHolder)
+	{
+		FGameTestPropRead Read;
 		FString Why;
-		Read.Value = GameTestReflectValue::FromProperty(Cursor.Prop, Cursor.ValuePtr);
-		Read.Kind = FGameTestPropKind::Of(Cursor.Prop, &Why);
-		Read.Type = FGameTestPropKind::TypeName(Cursor.Prop);
-		const UStruct* OwnerStruct = Cursor.Prop->GetOwnerStruct();
+		Read.Value = GameTestReflectValue::FromProperty(InCursor.Prop, InCursor.ValuePtr);
+		Read.Kind = FGameTestPropKind::Of(InCursor.Prop, &Why);
+		Read.Type = FGameTestPropKind::TypeName(InCursor.Prop);
+		const UStruct* OwnerStruct = InCursor.Prop->GetOwnerStruct();
 		const UPackage* Package = OwnerStruct != nullptr ? OwnerStruct->GetPackage() : nullptr;
 		Read.Src = Package != nullptr && Package->GetName().StartsWith(TEXT("/Script/")) ? TEXT("cpp") : TEXT("bp");
-		Read.bReadOnly = Read.Kind == EGameTestKind::None || Cursor.Prop->HasAnyPropertyFlags(CPF_BlueprintReadOnly | CPF_EditConst);
-		Read.Holder = Cursor.Object;
-		Read.PropName = Cursor.Prop->GetName();
-		Read.RawProp = Cursor.Prop;
-		Read.RawValue = Cursor.ValuePtr;
-		if (const FTextProperty* TextProp = CastField<FTextProperty>(Cursor.Prop))
+		Read.bReadOnly = Read.Kind == EGameTestKind::None || InCursor.Prop->HasAnyPropertyFlags(CPF_BlueprintReadOnly | CPF_EditConst);
+		Read.Holder = InHolder;
+		Read.PropName = InCursor.Prop->GetName();
+		Read.RawProp = InCursor.Prop;
+		Read.RawValue = InCursor.ValuePtr;
+		if (const FTextProperty* TextProp = CastField<FTextProperty>(InCursor.Prop))
 		{
 			FString Namespace;
 			FString Key;
-			if (GameTestCompat::TextKeyOf(TextProp->GetPropertyValue(Cursor.ValuePtr), Namespace, Key))
+			if (GameTestCompat::TextKeyOf(TextProp->GetPropertyValue(InCursor.ValuePtr), Namespace, Key))
 			{
 				Read.TextKey = Namespace + TEXT(",") + Key;
 			}
@@ -262,24 +248,48 @@ namespace GameTestPropPathImpl
 		return Read;
 	}
 
-	FGameTestPropRead ReadLua(UObject* InObject, const TArray<FString>& InSegments, int32 InFrom, FGameTestFlowContext& InContext)
+	/** `.名字()`：只许无参、有返回值、BlueprintPure 或 const 的函数（读值不能改游戏）。 */
+	FGameTestValue CallGetter(UObject* InObject, const FString& InName, FGameTestFlowContext& InContext)
 	{
-		TArray<FString> Rest;
-		for (int32 Index = InFrom; Index < InSegments.Num(); ++Index)
+		UFunction* Function = GameTestReflectValue::FindFunction(InObject->GetClass(), InName);
+		if (Function == nullptr)
 		{
-			Rest.Add(InSegments[Index]);
+			return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 上没有函数 %s"), *InObject->GetClass()->GetName(), *InName), TEXT("prop_missing"));
 		}
-		if (Rest.Num() == 0)
+		if (!GameTestReflectValue::IsReadOnlyFunction(*Function))
 		{
-			return Fail(TEXT("@lua 后面要写字段名（@lua.Count）"));
+			return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 不是 BlueprintPure 或 const 函数：路径里只能调取值函数"), *InName), TEXT("fn_not_callable"));
 		}
-		const FString Path = FString::Join(Rest, TEXT("."));
+		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
+			{
+				return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 有参数 %s：路径里只能调无参的取值函数（有参数的用 obj.call）"), *InName, *It->GetName()), TEXT("fn_not_callable"));
+			}
+		}
+		if (Function->GetReturnProperty() == nullptr)
+		{
+			return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 没有返回值"), *InName), TEXT("fn_not_callable"));
+		}
+		// 读路径不是一次调用步骤：不往报告的 payload.invoke 里写
+		const TSharedPtr<FJsonObject> PrevPayload = InContext.StepPayload;
+		InContext.StepPayload.Reset();
+		const TMap<FString, FGameTestValue> None;
+		GameTestReflectCall::FArgs Args;
+		Args.Named = &None;
+		const FGameTestValue Value = GameTestReflectCall::Call(InObject, Function, Args, InContext);
+		InContext.StepPayload = PrevPayload;
+		return Value;
+	}
+
+	FGameTestPropRead ReadLua(UObject* InObject, const TArray<TSharedPtr<FJsonValue>>& InKeys, const FString& InPath, FGameTestFlowContext& InContext)
+	{
 		FGameTestLuaValue LuaValue;
 		FString Error;
 		UWorld* World = GameTestWidgetProbe::WorldOf(InContext);
-		if (!GameTestLuaBridge::Read(World, InObject, GameTestLuaBridge::SplitPath(Path), LuaValue, Error))
+		if (!GameTestLuaBridge::Read(World, InObject, InKeys, LuaValue, Error))
 		{
-			return Fail(FString::Printf(TEXT("%s 的 Lua 表读不到 %s：%s"), *InObject->GetName(), *Path, *Error));
+			return Fail(FString::Printf(TEXT("%s 的 Lua 表读不到 %s：%s"), *InObject->GetName(), *InPath, *Error));
 		}
 		FGameTestPropRead Read;
 		Read.Value = LuaValue.ToValue();
@@ -287,21 +297,274 @@ namespace GameTestPropPathImpl
 		Read.Type = TEXT("lua:") + LuaValue.Type();
 		Read.Src = TEXT("lua");
 		Read.Holder = InObject;
-		Read.PropName = TEXT("lua.") + Path;
+		Read.PropName = TEXT("lua.") + InPath;
 		if (LuaValue.IsNil())
 		{
-			Read.Value = FGameTestValue::Unresolved(FString::Printf(TEXT("%s 的 Lua 表里没有 %s"), *InObject->GetName(), *Path), TEXT("prop_missing"));
+			Read.Value = FGameTestValue::Unresolved(FString::Printf(TEXT("%s 的 Lua 表里没有 %s"), *InObject->GetName(), *InPath), TEXT("prop_missing"));
 		}
 		return Read;
 	}
+
+	/** 子控件之后的各段（属性、函数、Lua、下标）和最后的状态。 */
+	struct FWalk
+	{
+		FGameTestFlowContext& Context;
+		/** 从对象自己出发、没走子控件（`:selected` 这类条目状态要条目的数据对象）。 */
+		bool bAtRoot = false;
+		FCursor Cursor;
+		/** 调过取值函数之后：值不再有属性地址，按值继续走。 */
+		bool bValueMode = false;
+		FGameTestValue Value;
+
+		explicit FWalk(FGameTestFlowContext& InContext)
+			: Context(InContext)
+		{
+		}
+
+		void StartAt(UObject* InObject)
+		{
+			Cursor = FCursor();
+			Cursor.Object = InObject;
+			Cursor.Owner = InObject;
+			Cursor.Struct = InObject->GetClass();
+			Cursor.Ptr = InObject;
+			bValueMode = false;
+		}
+
+		/** 现在落在哪个对象上（函数、Lua、状态要对象）；落在结构体或标量上返回空并写原因。 */
+		UObject* LandingObject(FString& OutError)
+		{
+			if (bValueMode)
+			{
+				UObject* Object = Value.GetObject();
+				if (Object == nullptr)
+				{
+					OutError = FString::Printf(TEXT("函数返回的 %s 不是对象"), *Value.ToDisplay(60));
+				}
+				return Object;
+			}
+			if (Cursor.Prop != nullptr)
+			{
+				FCursor Probe = Cursor;
+				if (CastField<FObjectPropertyBase>(Probe.Prop) == nullptr)
+				{
+					OutError = FString::Printf(TEXT("%s 不是对象"), *Probe.Prop->GetName());
+					return nullptr;
+				}
+				if (!Descend(Probe, OutError))
+				{
+					return nullptr;
+				}
+				return Probe.Object;
+			}
+			if (Cursor.Object == nullptr)
+			{
+				OutError = TEXT("这里是结构体，不是对象");
+			}
+			return Cursor.Object;
+		}
+
+		bool StepProp(const FString& InName, FString& OutError)
+		{
+			if (bValueMode)
+			{
+				if (UObject* Object = Value.GetObject())
+				{
+					StartAt(Object);
+				}
+				else
+				{
+					for (const TPair<FString, FGameTestValue>& Pair : Value.GetMap())
+					{
+						if (Pair.Key.Equals(InName, ESearchCase::IgnoreCase))
+						{
+							Value = Pair.Value;
+							return true;
+						}
+					}
+					OutError = FString::Printf(TEXT("函数返回值里没有 %s"), *InName);
+					return false;
+				}
+			}
+			if (Cursor.Prop != nullptr && !Descend(Cursor, OutError))
+			{
+				return false;
+			}
+			const FProperty* Prop = GameTestReflectValue::FindProperty(Cursor.Struct, InName);
+			if (Prop == nullptr)
+			{
+				OutError = FString::Printf(TEXT("%s 上没有属性 %s"), Cursor.Struct != nullptr ? *Cursor.Struct->GetName() : TEXT("?"), *InName);
+				return false;
+			}
+			Cursor.Prop = Prop;
+			Cursor.ValuePtr = Prop->ContainerPtrToValuePtr<void>(Cursor.Ptr);
+			return true;
+		}
+
+		bool StepIndexSeg(const FString& InKey, FString& OutError)
+		{
+			if (bValueMode)
+			{
+				const TArray<FGameTestValue>& Items = Value.GetArray();
+				if (InKey.IsNumeric())
+				{
+					const int32 Index = FCString::Atoi(*InKey);
+					if (!Items.IsValidIndex(Index))
+					{
+						OutError = FString::Printf(TEXT("返回值没有第 %s 项（共 %d 项）"), *InKey, Items.Num());
+						return false;
+					}
+					Value = Items[Index];
+					return true;
+				}
+				for (const TPair<FString, FGameTestValue>& Pair : Value.GetMap())
+				{
+					if (Pair.Key.Equals(InKey, ESearchCase::IgnoreCase))
+					{
+						Value = Pair.Value;
+						return true;
+					}
+				}
+				OutError = FString::Printf(TEXT("返回值里没有键 %s"), *InKey);
+				return false;
+			}
+			if (Cursor.Prop == nullptr)
+			{
+				OutError = FString::Printf(TEXT("[%s] 要跟在属性后面"), *InKey);
+				return false;
+			}
+			const FProperty* Prop = Cursor.Prop;
+			void* Ptr = Cursor.ValuePtr;
+			if (!StepIndex(Prop, Ptr, InKey, OutError))
+			{
+				return false;
+			}
+			Cursor.Prop = Prop;
+			Cursor.ValuePtr = Ptr;
+			return true;
+		}
+
+		bool StepFn(const FString& InName, FString& OutError, FName& OutCode)
+		{
+			UObject* Object = LandingObject(OutError);
+			if (Object == nullptr)
+			{
+				OutError = FString::Printf(TEXT("%s() 要落在对象上：%s"), *InName, *OutError);
+				return false;
+			}
+			const FGameTestValue Result = CallGetter(Object, InName, Context);
+			if (Result.IsUnresolved())
+			{
+				OutError = Result.GetString();
+				OutCode = Result.GetCode();
+				return false;
+			}
+			Value = Result;
+			bValueMode = true;
+			return true;
+		}
+	};
 }
 
 //~ 解析 -------------------------------------------------------------------------
 
-bool FGameTestPropPath::IsSourceWord(const FString& InSegment)
+int32 FGameTestPropPath::NumChildren() const
 {
-	return InSegment.Equals(TEXT("self"), ESearchCase::IgnoreCase) || InSegment.Equals(TEXT("lua"), ESearchCase::IgnoreCase)
-		|| InSegment.Equals(TEXT("item"), ESearchCase::IgnoreCase) || InSegment.Equals(TEXT("itemLua"), ESearchCase::IgnoreCase);
+	int32 Count = 0;
+	while (Count < Segs.Num() && Segs[Count].Kind == EGameTestPathSeg::Child)
+	{
+		++Count;
+	}
+	return Count;
+}
+
+FString FGameTestPropPath::ChildPart() const
+{
+	TArray<FString> Names;
+	for (int32 Index = 0; Index < NumChildren(); ++Index)
+	{
+		Names.Add(Segs[Index].Name);
+	}
+	return FString::Join(Names, TEXT("."));
+}
+
+FString FGameTestPropPath::Format() const
+{
+	FString Out = bItem ? TEXT("@item") : TEXT("@");
+	for (const FGameTestPathSeg& Seg : Segs)
+	{
+		switch (Seg.Kind)
+		{
+		case EGameTestPathSeg::Child:
+			Out += TEXT("/") + Seg.Name;
+			break;
+		case EGameTestPathSeg::Lua:
+			Out += TEXT("#") + Seg.Name;
+			break;
+		case EGameTestPathSeg::Fn:
+			Out += TEXT(".") + Seg.Name + TEXT("()");
+			break;
+		case EGameTestPathSeg::Index:
+			Out += Seg.Name.IsNumeric() ? FString::Printf(TEXT("[%s]"), *Seg.Name) : FString::Printf(TEXT("[\"%s\"]"), *Seg.Name);
+			break;
+		default:
+			Out += TEXT(".") + Seg.Name;
+			break;
+		}
+	}
+	if (HasState())
+	{
+		Out += TEXT(":") + State;
+	}
+	return Out;
+}
+
+FString FGameTestPropPath::PartToPath(const FString& InPart)
+{
+	TArray<FString> Pieces;
+	InPart.Replace(TEXT("/"), TEXT(".")).ParseIntoArray(Pieces, TEXT("."), /*CullEmpty=*/true);
+	FString Out;
+	for (const FString& Piece : Pieces)
+	{
+		Out += TEXT("/") + Piece;
+	}
+	return Out;
+}
+
+FString FGameTestPropPath::OfProp(const FString& InName)
+{
+	return TEXT("@.") + InName;
+}
+
+FString FGameTestPropPath::OfState(const FString& InState)
+{
+	return TEXT("@:") + InState;
+}
+
+FString FGameTestPropPath::SuggestNew(const FString& InOld)
+{
+	const FString Old = InOld.TrimStartAndEnd();
+	if (Old.StartsWith(TEXT(":")))
+	{
+		return TEXT("@") + Old;
+	}
+	struct FMap
+	{
+		const TCHAR* From;
+		const TCHAR* To;
+	};
+	// 长的在前：@itemLua. 要先于 @item 认
+	static const FMap Maps[] = {
+		{ TEXT("@itemLua."), TEXT("@item#") }, { TEXT("@self."), TEXT("@.") }, { TEXT("@self:"), TEXT("@:") }, { TEXT("@lua."), TEXT("@#") },
+	};
+	for (const FMap& Map : Maps)
+	{
+		if (Old.StartsWith(Map.From, ESearchCase::IgnoreCase))
+		{
+			return Map.To + Old.Mid(FCString::Strlen(Map.From));
+		}
+	}
+	return FString();
 }
 
 bool FGameTestPropPath::Parse(const FString& InText, FGameTestPropPath& OutPath, FString& OutError)
@@ -309,91 +572,110 @@ bool FGameTestPropPath::Parse(const FString& InText, FGameTestPropPath& OutPath,
 	using namespace GameTestPropPathImpl;
 	OutPath = FGameTestPropPath();
 	OutPath.Text = InText.TrimStartAndEnd();
-	const FString& Text = OutPath.Text;
-	if (Text.StartsWith(TEXT(":")))
+	const FString& S = OutPath.Text;
+	auto Syntax = [&OutPath, &OutError, &S](const FString& InWhy, int32 InAt)
 	{
-		OutPath.State = Text.RightChop(1);
-		if (!IsIdentifier(OutPath.State))
-		{
-			OutError = TEXT("冒号后面要写状态名（:text、:onScreen）");
-			return false;
-		}
-		return true;
-	}
-	if (!Text.StartsWith(TEXT("@")))
-	{
-		OutError = TEXT("属性路径以 @ 开头（@self.X、@部件.X、@部件:状态），算出状态以 : 开头");
+		OutPath.FailCode = TEXT("path_syntax");
+		OutError = FString::Printf(TEXT("属性路径「%s」第 %d 个字符：%s"), *S, InAt + 1, *InWhy);
 		return false;
-	}
-	// 按顶层的 `.` 和最后的 `:` 拆（方括号和引号里的不算）
-	FString Current;
-	int32 Depth = 0;
-	TCHAR Quote = 0;
-	FString Body = Text.RightChop(1);
-	for (int32 Index = 0; Index < Body.Len(); ++Index)
+	};
+	auto Old = [&OutPath, &OutError, &S]()
 	{
-		const TCHAR C = Body[Index];
-		if (Quote != 0)
+		OutPath.FailCode = TEXT("path_old");
+		const FString Suggest = SuggestNew(S);
+		OutError = Suggest.IsEmpty()
+			? FString::Printf(TEXT("「%s」是旧的属性路径写法（2.1.0 起改了）：%s"), *S, NewRules)
+			: FString::Printf(TEXT("「%s」是旧的属性路径写法（2.1.0 起改了），改成 %s（%s）"), *S, *Suggest, NewRules);
+		return false;
+	};
+	if (S.IsEmpty())
+	{
+		return Syntax(TEXT("是空的，属性路径以 @ 开头"), 0);
+	}
+	if (S[0] == TEXT(':'))
+	{
+		return Old();
+	}
+	if (S[0] != TEXT('@'))
+	{
+		return Syntax(TEXT("属性路径以 @ 开头（@.属性、@/子控件.属性、@:状态）"), 0);
+	}
+	int32 I = 1;
+	if (S.StartsWith(TEXT("@item"), ESearchCase::CaseSensitive) && (S.Len() == 5 || !IsPathIdentChar(S[5])))
+	{
+		OutPath.bItem = true;
+		I = 5;
+	}
+	else if (S.Len() > 1 && IsPathIdentStart(S[1]))
+	{
+		// `@self.X`、`@lua.X`、`@itemLua.X`、`@部件.X`：v4 的写法，@ 后面直接跟名字
+		return Old();
+	}
+	while (I < S.Len())
+	{
+		const TCHAR C = S[I];
+		if (OutPath.HasState())
 		{
-			Current.AppendChar(C);
-			Quote = C == Quote ? 0 : Quote;
-			continue;
-		}
-		if (C == TEXT('"') || C == TEXT('\''))
-		{
-			Quote = C;
-			Current.AppendChar(C);
-			continue;
+			return Syntax(TEXT("运行状态只能在最后"), I);
 		}
 		if (C == TEXT('['))
 		{
-			++Depth;
-		}
-		else if (C == TEXT(']'))
-		{
-			--Depth;
-		}
-		if (Depth == 0 && C == TEXT('.'))
-		{
-			OutPath.Segments.Add(Current);
-			Current.Reset();
+			const int32 Close = S.Find(TEXT("]"), ESearchCase::CaseSensitive, ESearchDir::FromStart, I);
+			if (Close == INDEX_NONE)
+			{
+				return Syntax(TEXT("方括号不配对"), I);
+			}
+			if (OutPath.Segs.Num() == 0 || OutPath.Segs.Last().Kind == EGameTestPathSeg::Child)
+			{
+				return Syntax(TEXT("下标要跟在属性后面"), I);
+			}
+			FString Key = S.Mid(I + 1, Close - I - 1).TrimStartAndEnd();
+			if (Key.Len() >= 2 && (Key[0] == TEXT('"') || Key[0] == TEXT('\'')) && (Key[Key.Len() - 1] == TEXT('"') || Key[Key.Len() - 1] == TEXT('\'')))
+			{
+				Key = Key.Mid(1, Key.Len() - 2);
+			}
+			if (Key.IsEmpty())
+			{
+				return Syntax(TEXT("方括号里是空的"), I);
+			}
+			OutPath.Segs.Add({ EGameTestPathSeg::Index, Key });
+			I = Close + 1;
 			continue;
 		}
-		if (Depth == 0 && C == TEXT(':'))
+		if (!IsSegStart(C))
 		{
-			OutPath.Segments.Add(Current);
-			OutPath.State = Body.Mid(Index + 1);
-			Current.Reset();
-			if (!IsIdentifier(OutPath.State))
-			{
-				OutError = FString::Printf(TEXT("「%s」：冒号后面要写状态名"), *Text);
-				return false;
-			}
-			break;
+			return Syntax(FString::Printf(TEXT("「%c」不认识：每段以 / . # : 开头"), C), I);
 		}
-		Current.AppendChar(C);
-	}
-	if (OutPath.State.IsEmpty())
-	{
-		OutPath.Segments.Add(Current);
-	}
-	if (Depth != 0 || Quote != 0)
-	{
-		OutError = FString::Printf(TEXT("「%s」的方括号或引号不配对"), *Text);
-		return false;
-	}
-	for (const FString& Segment : OutPath.Segments)
-	{
-		FSegment Parsed;
-		if (Segment.TrimStartAndEnd().IsEmpty())
+		int32 J = I + 1;
+		while (J < S.Len() && !IsSegStart(S[J]) && S[J] != TEXT('['))
 		{
-			OutError = FString::Printf(TEXT("「%s」里有空段（两个点连在一起，或 @ 后面直接是点）"), *Text);
-			return false;
+			++J;
 		}
-		if (!SplitSegment(Segment, Parsed, OutError))
+		FString Name = S.Mid(I + 1, J - I - 1);
+		EGameTestPathSeg Kind = C == TEXT('/') ? EGameTestPathSeg::Child : C == TEXT('#') ? EGameTestPathSeg::Lua : EGameTestPathSeg::Prop;
+		const bool bState = C == TEXT(':');
+		if (Kind == EGameTestPathSeg::Prop && !bState && Name.EndsWith(TEXT("()")))
 		{
-			return false;
+			Kind = EGameTestPathSeg::Fn;
+			Name = Name.LeftChop(2);
 		}
+		if (!IsIdentifier(Name))
+		{
+			return Syntax(FString::Printf(TEXT("「%s」不是合法的名字"), *Name), I + 1);
+		}
+		if (Kind == EGameTestPathSeg::Child && !bState && OutPath.Segs.ContainsByPredicate([](const FGameTestPathSeg& Seg) { return Seg.Kind != EGameTestPathSeg::Child; }))
+		{
+			return Syntax(TEXT("子控件要写在属性前面"), I);
+		}
+		if (bState)
+		{
+			OutPath.State = Name;
+		}
+		else
+		{
+			OutPath.Segs.Add({ Kind, Name });
+		}
+		I = J;
 	}
 	return true;
 }
@@ -430,17 +712,16 @@ UObject* GameTestPropRead::FindPart(UObject* InObject, const FString& InPart, FS
 	{
 		return InObject;
 	}
+	// target 的 part 用 `.` 分层；属性路径里的子控件段是 `/`，两种都认，从路径里截出来的部件也能直接用
 	TArray<FString> Pieces;
-	InPart.ParseIntoArray(Pieces, TEXT("."));
+	InPart.Replace(TEXT("/"), TEXT(".")).ParseIntoArray(Pieces, TEXT("."), /*CullEmpty=*/true);
 	UObject* Current = InObject;
 	for (const FString& Piece : Pieces)
 	{
 		UObject* Next = GameTestPropPathImpl::FindOnePart(Current, Piece);
 		if (Next == nullptr)
 		{
-			OutError = Cast<UUserWidget>(Current) != nullptr || Cast<AActor>(Current) != nullptr
-				? FString::Printf(TEXT("%s 里没有部件 %s"), *Current->GetClass()->GetName(), *Piece)
-				: FString::Printf(TEXT("%s 不是 WBP，不能再往里找 %s（嵌套的 WBP 才能用 . 进去）"), *Current->GetClass()->GetName(), *Piece);
+			OutError = GameTestPropPathImpl::MissingPartWhy(Current, Piece);
 			return nullptr;
 		}
 		Current = Next;
@@ -476,100 +757,129 @@ FGameTestPropRead GameTestPropRead::Read(UObject* InObject, const FGameTestPropP
 {
 	using namespace GameTestPropPathImpl;
 	const bool bExistsState = InPath.State.Equals(TEXT("exists"), ESearchCase::IgnoreCase);
-	// 还没显示出来的 ListView 条目只有数据对象没有控件：`@item.X` 照样能读（引用按它过滤，过滤完再滚出来）
-	const bool bItemOnly = InObject == nullptr && InItem != nullptr && InPath.Segments.Num() > 0
-		&& (InPath.Segments[0].Equals(TEXT("item"), ESearchCase::IgnoreCase) || InPath.Segments[0].Equals(TEXT("itemLua"), ESearchCase::IgnoreCase));
-	if (bItemOnly)
+	// 起点：@item 是条目的数据对象。还没显示出来的 ListView 条目只有数据对象没有控件：`@item.X` 照样能读（引用按它过滤，过滤完再滚出来）
+	UObject* Start = InObject;
+	if (InPath.bItem)
 	{
-		return InPath.Segments[0].Equals(TEXT("itemLua"), ESearchCase::IgnoreCase) ? ReadLua(InItem, InPath.Segments, 1, InContext) : ReadReflect(InItem, InPath.Segments, 1);
-	}
-	if (InObject == nullptr)
-	{
-		if (bExistsState && InPath.Segments.Num() == 0)
+		Start = InItem != nullptr ? InItem : ListItemOf(InObject);
+		if (Start == nullptr)
 		{
-			FGameTestPropRead Read;
-			Read.Value = FGameTestValue::FromBool(false);
-			Read.Kind = EGameTestKind::Bool;
-			Read.Src = TEXT("state");
-			Read.Type = TEXT("bool");
-			Read.bReadOnly = true;
-			return Read;
-		}
-		return Fail(TEXT("对象没找到"), TEXT("ref_not_found"));
-	}
-	const TArray<FString>& Segments = InPath.Segments;
-	UObject* Current = InObject;
-	int32 Index = 0;
-	bool bLua = false;
-	if (Segments.Num() > 0)
-	{
-		const FString& First = Segments[0];
-		if (First.Equals(TEXT("self"), ESearchCase::IgnoreCase))
-		{
-			Index = 1;
-		}
-		else if (First.Equals(TEXT("lua"), ESearchCase::IgnoreCase))
-		{
-			Index = 1;
-			bLua = true;
-		}
-		else if (First.Equals(TEXT("item"), ESearchCase::IgnoreCase) || First.Equals(TEXT("itemLua"), ESearchCase::IgnoreCase))
-		{
-			UObject* Item = InItem != nullptr ? InItem : ListItemOf(InObject);
-			if (Item == nullptr)
+			if (InObject == nullptr)
 			{
-				return Fail(FString::Printf(TEXT("%s 不是列表条目，没有数据对象（@item 只在 in 是 ListView 族容器时有）"), *InObject->GetClass()->GetName()));
+				return bExistsState && InPath.Segs.Num() == 0 ? ExistsFalse() : Fail(TEXT("对象没找到"), TEXT("ref_not_found"));
 			}
-			Current = Item;
-			Index = 1;
-			bLua = First.Equals(TEXT("itemLua"), ESearchCase::IgnoreCase);
+			return Fail(FString::Printf(TEXT("%s 不是列表条目，没有数据对象（@item 只在 in 是 ListView 族容器时有）"), *InObject->GetClass()->GetName()));
 		}
-		else
+	}
+	else if (InObject == nullptr)
+	{
+		return bExistsState && InPath.Segs.Num() == 0 ? ExistsFalse() : Fail(TEXT("对象没找到"), TEXT("ref_not_found"));
+	}
+
+	// 子控件 / 组件段
+	UObject* Current = Start;
+	const int32 Children = InPath.NumChildren();
+	for (int32 Index = 0; Index < Children; ++Index)
+	{
+		UObject* Part = FindOnePart(Current, InPath.Segs[Index].Name);
+		if (Part == nullptr)
 		{
-			// 部件：一段一段往里找，找不到就当属性（`@ShopId` = `@self.ShopId`）
-			while (Index < Segments.Num())
+			return bExistsState ? ExistsFalse() : Fail(MissingPartWhy(Current, InPath.Segs[Index].Name), TEXT("part_missing"));
+		}
+		Current = Part;
+	}
+
+	FWalk Walk(InContext);
+	Walk.bAtRoot = Children == 0 && !InPath.bItem;
+	Walk.StartAt(Current);
+	for (int32 Index = Children; Index < InPath.Segs.Num(); ++Index)
+	{
+		const FGameTestPathSeg& Seg = InPath.Segs[Index];
+		FString Error;
+		FName Code = TEXT("prop_missing");
+		bool bOk = true;
+		switch (Seg.Kind)
+		{
+		case EGameTestPathSeg::Prop:
+			bOk = Walk.StepProp(Seg.Name, Error);
+			break;
+		case EGameTestPathSeg::Index:
+			bOk = Walk.StepIndexSeg(Seg.Name, Error);
+			break;
+		case EGameTestPathSeg::Fn:
+			bOk = Walk.StepFn(Seg.Name, Error, Code);
+			break;
+		case EGameTestPathSeg::Lua:
+		{
+			UObject* Holder = Walk.LandingObject(Error);
+			if (Holder == nullptr)
 			{
-				if (Segments[Index].Equals(TEXT("lua"), ESearchCase::IgnoreCase))
-				{
-					bLua = true;
-					++Index;
-					break;
-				}
-				UObject* Part = FindOnePart(Current, Segments[Index]);
-				if (Part == nullptr)
-				{
-					break;
-				}
-				Current = Part;
-				++Index;
+				return Fail(FString::Printf(TEXT("#%s 要落在绑了 Lua 的对象上：%s"), *Seg.Name, *Error));
 			}
+			// `#a.b[2]`：# 之后的 . 和 [] 都是 Lua 表的键
+			TArray<TSharedPtr<FJsonValue>> Keys;
+			FString LuaPath = Seg.Name;
+			Keys.Add(MakeShared<FJsonValueString>(Seg.Name));
+			for (int32 Rest = Index + 1; Rest < InPath.Segs.Num(); ++Rest)
+			{
+				const FGameTestPathSeg& Next = InPath.Segs[Rest];
+				if (Next.Kind == EGameTestPathSeg::Index)
+				{
+					if (Next.Name.IsNumeric())
+					{
+						Keys.Add(MakeShared<FJsonValueNumber>(FCString::Atod(*Next.Name)));
+						LuaPath += FString::Printf(TEXT("[%s]"), *Next.Name);
+					}
+					else
+					{
+						Keys.Add(MakeShared<FJsonValueString>(Next.Name));
+						LuaPath += TEXT(".") + Next.Name;
+					}
+				}
+				else if (Next.Kind == EGameTestPathSeg::Prop || Next.Kind == EGameTestPathSeg::Lua)
+				{
+					Keys.Add(MakeShared<FJsonValueString>(Next.Name));
+					LuaPath += TEXT(".") + Next.Name;
+				}
+				else
+				{
+					return Fail(FString::Printf(TEXT("Lua 字段 #%s 后面不能调 %s()：调 Lua 函数用 obj.call"), *Seg.Name, *Next.Name));
+				}
+			}
+			if (InPath.HasState())
+			{
+				return Fail(FString::Printf(TEXT("Lua 字段 #%s 后面不能写运行状态 :%s"), *Seg.Name, *InPath.State));
+			}
+			return ReadLua(Holder, Keys, LuaPath, InContext);
+		}
+		default:
+			bOk = false;
+			Error = TEXT("子控件要写在属性前面");
+			break;
+		}
+		if (!bOk)
+		{
+			return Fail(Error, Code);
 		}
 	}
 
 	if (InPath.HasState())
 	{
-		if (bLua || Index < Segments.Num())
+		FString Error;
+		const bool bMoved = InPath.Segs.Num() > Children;
+		UObject* Holder = bMoved ? Walk.LandingObject(Error) : Current;
+		if (Holder == nullptr)
 		{
-			if (bExistsState)
-			{
-				FGameTestPropRead Read;
-				Read.Value = FGameTestValue::FromBool(false);
-				Read.Kind = EGameTestKind::Bool;
-				Read.Src = TEXT("state");
-				Read.Type = TEXT("bool");
-				Read.bReadOnly = true;
-				return Read;
-			}
-			return Fail(FString::Printf(TEXT("%s 里没有部件 %s"), *InObject->GetClass()->GetName(), Index < Segments.Num() ? *Segments[Index] : TEXT("lua")), TEXT("part_missing"));
+			return bExistsState ? ExistsFalse() : Fail(FString::Printf(TEXT("运行状态 :%s 要落在对象上：%s"), *InPath.State, *Error));
 		}
 		const IGameTestState* State = FGameTestStateRegistry::Find(InPath.State);
 		if (State == nullptr)
 		{
-			return Fail(FString::Printf(TEXT("没有算出状态 :%s"), *InPath.State));
+			return Fail(FString::Printf(TEXT("没有运行状态 :%s"), *InPath.State));
 		}
 		FGameTestStateContext StateContext(InContext);
-		StateContext.Item = InItem != nullptr && Current == InObject ? InItem : nullptr;
-		const FGameTestStateValue StateValue = State->Read(Current, StateContext);
+		StateContext.Item = Walk.bAtRoot && !bMoved ? InItem : nullptr;
+		const FGameTestStateValue StateValue = State->Read(Holder, StateContext);
 		FGameTestPropRead Read;
 		Read.Value = StateValue.Value;
 		Read.TextKey = StateValue.TextKey;
@@ -577,15 +887,27 @@ FGameTestPropRead GameTestPropRead::Read(UObject* InObject, const FGameTestPropP
 		Read.Type = TEXT("state");
 		Read.Src = TEXT("state");
 		Read.bReadOnly = true;
-		Read.Holder = Current;
+		Read.Holder = Holder;
 		Read.PropName = TEXT(":") + InPath.State;
 		return Read;
 	}
-	if (bLua)
+	if (Walk.bValueMode)
 	{
-		return ReadLua(Current, Segments, Index, InContext);
+		FGameTestPropRead Read;
+		Read.Value = Walk.Value;
+		Read.Kind = FGameTestPropKind::OfValue(Walk.Value);
+		Read.Type = TEXT("fn");
+		Read.Src = TEXT("fn");
+		Read.bReadOnly = true;
+		return Read;
 	}
-	return ReadReflect(Current, Segments, Index);
+	if (Walk.Cursor.Prop == nullptr)
+	{
+		// `@` / `@/子控件` 后面什么都没写：值是对象本身
+		return ObjectItself(Walk.Cursor.Object != nullptr ? Walk.Cursor.Object : Current);
+	}
+	// 落在结构体成员上时 Holder 是最近经过的对象（obj.set 原地写进结构体后要标脏的那个）
+	return FromCursor(Walk.Cursor, Walk.Cursor.Owner != nullptr ? Walk.Cursor.Owner : Current);
 }
 
 FGameTestPropRead GameTestPropRead::ReadText(UObject* InObject, const FString& InPath, FGameTestFlowContext& InContext, UObject* InItem)
@@ -594,7 +916,7 @@ FGameTestPropRead GameTestPropRead::ReadText(UObject* InObject, const FString& I
 	FString Error;
 	if (!FGameTestPropPath::Parse(InPath, Path, Error))
 	{
-		return GameTestPropPathImpl::Fail(Error);
+		return GameTestPropPathImpl::Fail(Error, Path.FailCode.IsNone() ? FName(TEXT("path_syntax")) : Path.FailCode);
 	}
 	return Read(InObject, Path, InContext, InItem);
 }

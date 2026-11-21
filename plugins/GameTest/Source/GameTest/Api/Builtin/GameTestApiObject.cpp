@@ -132,23 +132,31 @@ namespace
 		const FString Path = GA::Text(C.Arg(1));
 		if (Path.IsEmpty())
 		{
-			GA::ArgError(C, 1, TEXT("path"), TEXT("要写属性名或路径（Health、Stats.Level、@lua.hp）"));
+			GA::ArgError(C, 1, TEXT("path"), TEXT("要写属性名或路径（Health、Stats.Level、#hp）"));
 			return EState::Failed;
 		}
 		const TSharedPtr<FJsonValue> Value = C.Arg(2).ToJson();
 		FString Error;
-		if (Path.StartsWith(TEXT("@lua.")))
+		// Lua 字段：`#hp`（属性路径 v5 的写法，`@#hp` 也认）；旧的 `@lua.hp` 报 path_old
+		if (Path.StartsWith(TEXT("#")) || Path.StartsWith(TEXT("@#")))
 		{
-			if (!GameTestLuaBridge::Write(X.World, Object, GameTestLuaBridge::SplitPath(Path.Mid(5)), Value, Error))
+			const FString LuaPath = Path.Mid(Path.StartsWith(TEXT("@#")) ? 2 : 1);
+			if (!GameTestLuaBridge::Write(X.World, Object, GameTestLuaBridge::SplitPath(LuaPath), Value, Error))
 			{
 				return C.Fail(TEXT("path_missing"), Error);
 			}
 			return C.Done(FGameTestValue::Null());
 		}
+		if (Path.StartsWith(TEXT("@lua."), ESearchCase::IgnoreCase) || Path.StartsWith(TEXT("@self."), ESearchCase::IgnoreCase))
+		{
+			return C.Fail(TEXT("path_old"), FString::Printf(TEXT("「%s」是旧写法：Lua 字段写 #字段，属性直接写属性名（或 @.属性）"), *Path));
+		}
+		// UELink 的 set 认的是属性名路径（Stats.Level）：v5 的 `@.` 前缀去掉
+		const FString PropPath = Path.StartsWith(TEXT("@.")) ? Path.Mid(2) : Path;
 		// 属性写入复用 UELink 的 set：类型转换、运行时走 setter（UMG 的可见性、颜色才会刷新到屏幕）都在那边。
 		const TSharedRef<FJsonObject> Args = MakeShared<FJsonObject>();
 		Args->SetStringField(TEXT("path"), Object->GetPathName());
-		Args->SetStringField(TEXT("prop"), Path);
+		Args->SetStringField(TEXT("prop"), PropPath);
 		Args->SetField(TEXT("value"), Value.IsValid() ? Value : MakeShared<FJsonValueNull>());
 		Args->SetBoolField(TEXT("load"), false);
 		TSharedPtr<FJsonObject> Out;
@@ -256,8 +264,8 @@ namespace GameTestBuiltin
 				return C.Done(FGameTestValue::FromBool(GameTestObjectRoots::ClassMatches(Object->GetClass(), GA::Text(C.Arg(1)))));
 			});
 
-		GameTestApis::Add(TEXT("Object.Get"), Cat, TEXT("读对象的属性或路径（反射；@lua.字段 读绑的 Lua 实例表）"),
-			{ Req(TEXT("obj"), TEXT("obj")), Req(TEXT("path"), TEXT("string"), TEXT("Health、Stats.Level、Items[0].Id、@lua.hp")) },
+		GameTestApis::Add(TEXT("Object.Get"), Cat, TEXT("读对象的属性或路径（反射；#字段 读绑的 Lua 实例表，也可以写完整的属性路径 @/子控件.X、@:状态）"),
+			{ Req(TEXT("obj"), TEXT("obj")), Req(TEXT("path"), TEXT("string"), TEXT("Health、Stats.Level、Items[0].Id、#hp")) },
 			TEXT("any"), true,
 			[](FCall& C, FCtx& X)
 			{
@@ -270,7 +278,7 @@ namespace GameTestBuiltin
 				return Value.IsUnresolved() ? C.Fail(Value.GetCode(), Value.GetString()) : C.Done(Value);
 			});
 		GameTestApis::Add(TEXT("Object.Set"), Cat,
-			TEXT("改对象的属性（运行时走属性的 setter）；@lua.字段 改 Lua 实例表。网络同步属性要对服务器世界的对象改"),
+			TEXT("改对象的属性（运行时走属性的 setter）；#字段 改 Lua 实例表。网络同步属性要对服务器世界的对象改"),
 			{ Req(TEXT("obj"), TEXT("obj")), Req(TEXT("path"), TEXT("string")), Req(TEXT("value"), TEXT("any")) }, TEXT(""), false, &Set);
 		GameTestApis::Add(TEXT("Object.Call"), Cat,
 			TEXT("调对象上的函数，等于 invoke：args 给对象按参数名、给数组按顺序（Lua 函数）；条件里只能调只读函数"),

@@ -42,7 +42,7 @@ namespace GameTestCheckObjImpl
 	{
 		FString Prop;
 		InJson.TryGetStringField(TEXT("prop"), Prop);
-		return Prop.IsEmpty() ? FString(TEXT(":exists")) : Prop;
+		return Prop.IsEmpty() ? FString(TEXT("@:exists")) : Prop;
 	}
 
 	FString RefText(const FJsonObject& InJson)
@@ -91,7 +91,7 @@ namespace GameTestCheckObjImpl
 			FGameTestPropPath Path;
 			FString PathError;
 			const bool bParsed = FGameTestPropPath::Parse(PropText, Path, PathError);
-			const bool bObjectLevelExists = bParsed && Path.Segments.Num() == 0 && Path.State.Equals(TEXT("exists"), ESearchCase::IgnoreCase);
+			const bool bObjectLevelExists = bParsed && !Path.bItem && Path.Segs.Num() == 0 && Path.State.Equals(TEXT("exists"), ESearchCase::IgnoreCase);
 			if (!Ref.IsOk() && Ref.Code != TEXT("ref_not_found"))
 			{
 				// 歧义、类写错、组件没写 in：写法或场景问题，不当成「不存在」

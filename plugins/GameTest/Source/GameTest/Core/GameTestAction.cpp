@@ -104,13 +104,13 @@ namespace
 		}
 		if (Found.Num() > 0)
 		{
-			OutErrors.Add(FString::Printf(TEXT("cond_removed：%s 的 %s 在 v4 删掉了，改成 cond: {\"obj\": 引用, \"prop\": \":shown\" / \":text\" / \"@self.X\" …, \"op\": 比较, \"value\": 值}（docs/game-test-ref.md 第 4 节）"),
+			OutErrors.Add(FString::Printf(TEXT("cond_removed：%s 的 %s 在 v4 删掉了，改成 cond: {\"obj\": 引用, \"prop\": \"@:shown\" / \"@:text\" / \"@.X\" …, \"op\": 比较, \"value\": 值}（docs/game-test-ref.md 第 4 节）"),
 				*InAction, *FString::Join(Found, TEXT(" / "))));
 		}
 		FString Until;
 		if (InJson.TryGetStringField(TEXT("until"), Until) && (Until == TEXT("widget") || Until == TEXT("widgetGone")))
 		{
-			OutErrors.Add(FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 until=cond + {\"obj\": 引用, \"prop\": \":exists\", \"value\": %s}，或 obj.wait"),
+			OutErrors.Add(FString::Printf(TEXT("cond_removed：wait until=%s 在 v4 删掉了，改成 until=cond + {\"obj\": 引用, \"prop\": \"@:exists\", \"value\": %s}，或 obj.wait"),
 				*Until, Until == TEXT("widget") ? TEXT("true") : TEXT("false")));
 		}
 	}
@@ -150,7 +150,7 @@ namespace
 				TEXT("控件树快照：AI 的主要观察手段；给 target 就只取那棵子树，props=true 带出类自己的属性"),
 				&GameTestHandlers::HandleSnapshot },
 			{ TEXT("wait"), TEXT("until,seconds,actor,tag,point,radius,cond"), false, false,
-				TEXT("跨帧等待谓词成立：pieReady/pieStopped/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（cond 是统一条件，成立并稳住 settleMs 才算；等界面出现、消失写 {obj, prop: \":exists\", value}，或用 obj.wait）"),
+				TEXT("跨帧等待谓词成立：pieReady/pieStopped/seconds/actorNear（actorNear 用 actor 或 tag + point + radius）/cond（cond 是统一条件，成立并稳住 settleMs 才算；等界面出现、消失写 {obj, prop: \"@:exists\", value}，或用 obj.wait）"),
 				&GameTestHandlers::HandleWait },
 			{ TEXT("click"), TEXT("via,at,button"), true, false,
 				TEXT("点击控件：先等控件出现、可见、可用、位置稳定。via=code（默认，可在场景或运行配置的 clickVia 改）不动鼠标：找目标往上（不出所在 WBP）最近的按钮 / 复选框 / 菜单锚点，调它的委托（按钮 OnPressed → OnClicked → OnReleased）；目标是 WBP 时点它里面唯一可见的按钮；都没有时在控件位置发虚拟鼠标事件，不移系统光标。via=pointer 是真实鼠标：还要求点击点没被挡住，移光标按下松开，核对接住按下的是不是目标。at=[x,y] 控件内位置（默认中心），button 只对 pointer 有效"),
@@ -204,13 +204,13 @@ namespace
 				TEXT("按对象引用找到对象（找不到等到超时），存进变量 saveAs（这次运行里的弱引用），之后写 \"$变量\" 引用它"),
 				&GameTestHandlers::HandleObjFind },
 			{ TEXT("obj.wait"), TEXT("obj,prop,op,value,tol,ignoreCase,cmp,settleMs"), false, false,
-				TEXT("wait until=cond 的简写：等到对象的这个判断成立（prop 省略 = :exists is true；等它消失写 prop \":exists\" value false）"),
+				TEXT("wait until=cond 的简写：等到对象的这个判断成立（prop 省略 = @:exists is true；等它消失写 prop \"@:exists\" value false）"),
 				&GameTestHandlers::HandleObjWait },
 			{ TEXT("obj.set"), TEXT("obj,part,prop,value"), false, false,
 				TEXT("设对象（或 part）的属性：控件状态走控件自己的 setter 让委托照常触发（Visibility、IsChecked、Text、Value、IsEnabled），其余反射写入或 Lua 字段赋值；只读的报 prop_readonly"),
 				&GameTestHandlers::HandleObjSet },
-			{ TEXT("obj.call"), TEXT("obj,part,function,args,saveAs,expect"), false, false,
-				TEXT("调函数：obj 是引用 / @来源 / @luaMod.模块，part 选对象里的控件或组件；省略 obj 时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件"),
+			{ TEXT("obj.call"), TEXT("obj,part,function,args,saveAs,expect,each"), false, false,
+				TEXT("调函数：obj 是引用 / @来源 / @luaMod.模块，part 选对象里的控件或组件；省略 obj 时 function 写 类名.函数 调静态函数；args 按参数名给（Lua 按顺序给数组）；返回值存 saveAs，expect 是对返回值的统一条件；each: true 时引用命中几个就每个都调（返回值是数组，任一失败整步失败，已调的不回滚）"),
 				&GameTestHandlers::HandleObjCall },
 			{ TEXT("obj.close"), TEXT("obj,how,verify,verifyMs"), false, false,
 				TEXT("关掉对象：how 是关闭方式列表（call / lua / click / visibility / remove / pop / key / destroy），按顺序试，每种做完按 verify（gone / hidden / none）核对；省略 how 用运行配置 closeRules 或按类推荐"),

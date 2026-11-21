@@ -288,7 +288,7 @@ namespace GameTestGuards
 
 			TSharedRef<FJsonObject> When = MakeShared<FJsonObject>();
 			When->SetObjectField(TEXT("obj"), Ref);
-			When->SetStringField(TEXT("prop"), TEXT(":onScreen"));
+			When->SetStringField(TEXT("prop"), TEXT("@:onScreen"));
 			When->SetStringField(TEXT("op"), TEXT("is"));
 			When->SetBoolField(TEXT("value"), true);
 			int32 DelayMs = 0;

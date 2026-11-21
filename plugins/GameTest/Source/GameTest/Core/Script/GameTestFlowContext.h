@@ -25,6 +25,8 @@ struct GAMETEST_API FGameTestScriptScope
 	TMap<FString, FGameTestValue> Vars;
 	/** `objects` 段：名字 → 定位器（第 7 节），按需解析。 */
 	TMap<FString, TSharedPtr<FJsonObject>> ObjectDefs;
+	/** `objects` 段里写成来源字符串的（`"@pawn"`、`"@luaMod.X"`，2.1.0 起）：名字 → 来源，用的时候现取。 */
+	TMap<FString, FString> ObjectSources;
 	/** 已经找到的对象：同一次运行里同一个名字不重复找；对象销毁后弱引用失效，下次重找。 */
 	TMap<FString, TWeakObjectPtr<UObject>> ObjectCache;
 	/**
@@ -34,6 +36,12 @@ struct GAMETEST_API FGameTestScriptScope
 	TArray<TMap<FString, FGameTestValue>> Locals;
 	/** `return` 带回来的值（被 call 时存进 saveAs）。 */
 	FGameTestValue ReturnValue;
+
+	/** 收一份 `objects` 段：对象值进 ObjectDefs，`@` 开头的字符串进 ObjectSources，别的不认（写法检查会报）。 */
+	void AddObjects(const FJsonObject& InObjects);
+
+	/** 名字在 objects 里（两种写法都算）。 */
+	bool HasObject(const FString& InName) const { return ObjectDefs.Contains(InName) || ObjectSources.Contains(InName); }
 };
 
 /**

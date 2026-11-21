@@ -64,7 +64,7 @@ namespace GameTestHandlers
 			}
 			if (!Text.StartsWith(TEXT("$")) && !GameTestRefForm::IsName(Text))
 			{
-				OutError = FString::Printf(TEXT("selector_removed：%s 是旧的选择器写法「%s」，v4 不认：写 {\"obj\": 引用, \"part\": \"部件名\"}（面板「升级脚本」会转）"), InField, *Text.Left(80));
+				OutError = FString::Printf(TEXT("selector_removed：%s 是旧的选择器写法「%s」，v4 不认：写 {\"obj\": 引用, \"part\": \"部件名\"}"), InField, *Text.Left(80));
 				return false;
 			}
 		}

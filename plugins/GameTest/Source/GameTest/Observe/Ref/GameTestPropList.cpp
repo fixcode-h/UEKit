@@ -97,7 +97,7 @@ void GameTestPropList::AddReflected(UObject* InObject, FGameTestFlowContext& InC
 		}
 		// 蓝图变量的 GetName 带 GUID 后缀，路径用声明时的名字（和 Collect 一样）
 		const FString Name = Property->GetAuthoredName();
-		const FString Path = TEXT("@self.") + Name;
+		const FString Path = FGameTestPropPath::OfProp(Name);
 		if (Seen.Contains(Path.ToLower()))
 		{
 			continue;
@@ -135,23 +135,17 @@ void GameTestPropList::AddReflected(UObject* InObject, FGameTestFlowContext& InC
 
 FString GameTestPropList::Rebase(const FString& InProp, const FString& InPart)
 {
-	if (InPart.IsEmpty())
+	if (InPart.IsEmpty() || !InProp.StartsWith(TEXT("@")))
 	{
 		return InProp;
 	}
-	const FString Self = TEXT("@self");
-	if (InProp.StartsWith(TEXT(":")))
+	FGameTestPropPath Path;
+	FString Error;
+	// 条目数据对象（@item…）不跟着部件走；写法不对的原样返回，交给校验报错
+	if (!FGameTestPropPath::Parse(InProp, Path, Error) || Path.bItem)
 	{
-		return TEXT("@") + InPart + InProp;
+		return InProp;
 	}
-	if (InProp.StartsWith(Self + TEXT("."), ESearchCase::IgnoreCase) || InProp.StartsWith(Self + TEXT(":"), ESearchCase::IgnoreCase))
-	{
-		return TEXT("@") + InPart + InProp.Mid(Self.Len());
-	}
-	if (InProp.StartsWith(TEXT("@")))
-	{
-		// @lua.X → @部件.lua.X；@Txt:text → @部件.Txt:text
-		return TEXT("@") + InPart + TEXT(".") + InProp.Mid(1);
-	}
-	return InProp;
+	// `@.X` → `@/部件.X`，`@:text` → `@/部件:text`，`@#X` → `@/部件#X`，`@/Txt:text` → `@/部件/Txt:text`
+	return TEXT("@") + FGameTestPropPath::PartToPath(InPart) + InProp.Mid(1);
 }

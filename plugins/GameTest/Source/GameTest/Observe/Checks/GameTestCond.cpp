@@ -30,11 +30,11 @@ namespace
 	const TMap<FString, FString>& RemovedCondKeys()
 	{
 		static const TMap<FString, FString> Map = {
-			{ TEXT("exists"), TEXT(":exists") }, { TEXT("visible"), TEXT(":shown") }, { TEXT("onScreen"), TEXT(":onScreen") },
-			{ TEXT("enabled"), TEXT(":enabled") }, { TEXT("checked"), TEXT(":checked") }, { TEXT("selected"), TEXT(":selected") },
-			{ TEXT("text"), TEXT(":text") }, { TEXT("textContains"), TEXT(":text（op: contains）") }, { TEXT("textLike"), TEXT(":text（op: contains）") },
-			{ TEXT("textMatches"), TEXT(":text（op: matches）") }, { TEXT("image"), TEXT(":image") }, { TEXT("count"), TEXT(":count") },
-			{ TEXT("number"), TEXT("expr: num(prop(引用, ':text')) > N") }, { TEXT("field"), TEXT("@self.X") },
+			{ TEXT("exists"), TEXT("@:exists") }, { TEXT("visible"), TEXT("@:shown") }, { TEXT("onScreen"), TEXT("@:onScreen") },
+			{ TEXT("enabled"), TEXT("@:enabled") }, { TEXT("checked"), TEXT("@:checked") }, { TEXT("selected"), TEXT("@:selected") },
+			{ TEXT("text"), TEXT("@:text") }, { TEXT("textContains"), TEXT("@:text（op: contains）") }, { TEXT("textLike"), TEXT("@:text（op: contains）") },
+			{ TEXT("textMatches"), TEXT("@:text（op: matches）") }, { TEXT("image"), TEXT("@:image") }, { TEXT("count"), TEXT("@:count") },
+			{ TEXT("number"), TEXT("expr: num(prop(引用, '@:text')) > N") }, { TEXT("field"), TEXT("@.X") },
 		};
 		return Map;
 	}

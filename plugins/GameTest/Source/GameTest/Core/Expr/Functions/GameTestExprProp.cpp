@@ -39,8 +39,8 @@ namespace GameTestBuiltin
 {
 	void RegisterExprProp()
 	{
-		GameTestExprFunctions::Add(TEXT("prop"), 2, 2, TEXT("对象"), TEXT("prop(引用, \"@部件:状态\")"),
-			TEXT("读对象的属性或算出状态（引用写 objects 里的名字、$变量 或内联引用的 JSON 文字）；对象不在时 :exists 是 false，其余读不到"),
+		GameTestExprFunctions::Add(TEXT("prop"), 2, 2, TEXT("对象"), TEXT("prop(引用, \"@/子控件:状态\")"),
+			TEXT("读对象的属性或算出状态（引用写 objects 里的名字、$变量 或内联引用的 JSON 文字）；对象不在时 @:exists 是 false，其余读不到"),
 			[](const TArray<FGameTestValue>& A, FGameTestFlowContext& Context)
 			{
 				const FString Path = A[1].IsString() ? A[1].GetString() : A[1].ToDisplay(200);

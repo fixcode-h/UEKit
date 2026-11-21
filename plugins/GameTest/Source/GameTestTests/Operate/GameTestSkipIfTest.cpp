@@ -51,8 +51,8 @@ TEST_CLASS_WITH_FLAGS(GameTestSkipIfTest, "GameTest.SkipIf",
 	{
 		using namespace GameTestSkipIfTestDetail;
 		FString Errors;
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":"@ChkAuto:checked","op":"is","value":true}}})"), Errors), Errors));
-		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":":onScreen","op":"is","value":false},"also":2,"settleMs":500,"verify":false}})"), Errors), Errors));
+		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":"@/ChkAuto:checked","op":"is","value":true}}})"), Errors), Errors));
+		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":{"obj":"shop","prop":"@:onScreen","op":"is","value":false},"also":2,"settleMs":500,"verify":false}})"), Errors), Errors));
 		ASSERT_THAT(IsTrue(ParseStep(TEXT(R"({"action":"click","target":{"obj":"shop","part":"Btn"},"skipIf":{"cond":"1 == 1"}})"), Errors), Errors));
 	}
 

@@ -58,7 +58,7 @@ namespace GameTestObjCloseImpl
 		{
 			return false;
 		}
-		const FGameTestPropRead Read = GameTestPropRead::ReadText(Result.Get(), TEXT(":onScreen"), InFlow, Result.GetItem());
+		const FGameTestPropRead Read = GameTestPropRead::ReadText(Result.Get(), TEXT("@:onScreen"), InFlow, Result.GetItem());
 		return Read.IsResolved() && !Read.Value.Truthy();
 	}
 

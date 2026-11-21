@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 // 对象引用的深度检查（docs/game-test-ref.md 第 10 节的 part_missing / prop_missing / op_type）：
-// 引用的类在不在、`part` 第一段在不在这个类的控件树里、`@self.X` 在类上有没有、op 和属性类型对不对得上。
+// 引用的类在不在、`part` 第一段在不在这个类的控件树里、属性路径的 `/子控件` 在控件树里、`.属性` 在类上有没有、op 和属性类型对不对得上。
 // 读资产的 WidgetTree，不开游戏也能查；运行时才知道是谁的（`$变量`、Lua 字段、嵌套 WBP 里更深的段）不查。
 
 #include "Deep/GameTestDeepRefCheck.h"
@@ -132,7 +132,7 @@ namespace GameTestDeepRef
 				}
 				if (Part.IsEmpty() && InJson.HasField(TEXT("prop")))
 				{
-					CheckItem(Class, FGameTestIdentItem::FromJson(InJson), InEnv);
+					CheckItem(Class, ClassNameOf(InJson.TryGetField(TEXT("obj")), InEnv), FGameTestIdentItem::FromJson(InJson), InEnv);
 				}
 			}
 			// 内联引用本身（`{class, ident}`）的 ident
@@ -169,7 +169,8 @@ namespace GameTestDeepRef
 			{
 				Inline->TryGetStringField(TEXT("class"), Class);
 			}
-			return Class;
+			// `lua:模块` 是 Lua 类，没有 UE 类和控件树可查
+			return Class.StartsWith(TEXT("lua:"), ESearchCase::IgnoreCase) ? FString() : Class;
 		}
 
 		/** 查部件第一段在不在类的控件树里；返回已加载的类（查属性用，可能为空）。 */
@@ -215,6 +216,10 @@ namespace GameTestDeepRef
 		{
 			FString ClassName;
 			InRef.TryGetStringField(TEXT("class"), ClassName);
+			if (ClassName.StartsWith(TEXT("lua:"), ESearchCase::IgnoreCase))
+			{
+				ClassName.Reset();
+			}
 			const UClass* Class = ClassName.IsEmpty() ? nullptr : GameTestObjectRoots::FindClass(ClassName);
 			const TArray<TSharedPtr<FJsonValue>>* Ident = nullptr;
 			if (!InRef.TryGetArrayField(TEXT("ident"), Ident) || Ident == nullptr)
@@ -227,46 +232,78 @@ namespace GameTestDeepRef
 				if (Item.IsValid())
 				{
 					FGameTestDiagSink::FScope Scope(InEnv.Sink, FString::Printf(TEXT("ident[%d]"), Index));
-					CheckItem(Class, FGameTestIdentItem::FromJson(*Item), InEnv);
+					CheckItem(Class, ClassName, FGameTestIdentItem::FromJson(*Item), InEnv);
 				}
 			}
 		}
 
-		/** `@self.X` 在类上有没有；算出状态和 `@self.X` 的 op 能不能用在它的类型上。 */
-		void CheckItem(const UClass* InClass, const FGameTestIdentItem& InItem, FGameTestDeepEnv& InEnv) const
+		/**
+		 * 按段对类（docs/game-test-ref.md 3.1）：`/子控件` 第一段在类的控件树里，`.属性` / `.函数()` 在类上有，`:状态` 在注册表里
+		 * （写法检查已经查过）；再看 op 能不能用在属性类型上。`@item`（数据对象的类不知道）、`#Lua 字段`、子控件里面更深的段运行时才知道，不查。
+		 */
+		void CheckItem(const UClass* InClass, const FString& InClassName, const FGameTestIdentItem& InItem, FGameTestDeepEnv& InEnv) const
 		{
 			FGameTestPropPath Path;
 			FString Error;
 			// 嵌了 `$变量` 的路径运行时才替换出来，深度检查跳过
-			if (InItem.Prop.IsEmpty() || InItem.Prop.Contains(TEXT("$")) || !FGameTestPropPath::Parse(InItem.Prop, Path, Error))
+			if (InItem.Prop.IsEmpty() || InItem.Prop.Contains(TEXT("$")) || !FGameTestPropPath::Parse(InItem.Prop, Path, Error) || Path.bItem)
 			{
 				return;
 			}
 			EGameTestKind Kind = EGameTestKind::None;
-			if (Path.Segments.Num() == 0 && Path.HasState())
+			const int32 Children = Path.NumChildren();
+			if (Children > 0)
+			{
+				// Actor 的子段是组件名：只查界面
+				const bool bWidget = InClass == nullptr || InClass->IsChildOf(UUserWidget::StaticClass());
+				const TSet<FString>* Tree = bWidget && !InClassName.IsEmpty() ? Trees.TreeOf(InClassName) : nullptr;
+				const FString& First = Path.Segs[0].Name;
+				if (Tree != nullptr && !Tree->Contains(First))
+				{
+					FGameTestDiagSink::FScope Scope(InEnv.Sink, TEXT("prop"));
+					InEnv.Sink.Error(TEXT("part_missing"), FString::Printf(TEXT("%s 的控件树里没有 %s（属性路径 %s；用 gt.tree / gt.props 看现在的名字）"), *InClassName, *First, *InItem.Prop));
+					return;
+				}
+				if (Path.Segs.Num() == Children && Path.HasState())
+				{
+					if (const IGameTestState* State = FGameTestStateRegistry::Find(Path.State))
+					{
+						Kind = State->GetKind();
+					}
+				}
+			}
+			else if (Path.Segs.Num() == 0 && Path.HasState())
 			{
 				if (const IGameTestState* State = FGameTestStateRegistry::Find(Path.State))
 				{
 					Kind = State->GetKind();
 				}
 			}
-			else if (InClass != nullptr && Path.Segments.Num() == 2 && Path.Segments[0] == TEXT("self") && !Path.HasState())
+			else if (InClass != nullptr && (Path.Segs[0].Kind == EGameTestPathSeg::Prop || Path.Segs[0].Kind == EGameTestPathSeg::Fn))
 			{
 				++InEnv.Stats.Paths;
-				// `Arr[0]` / `Map["k"]` 只查名字
-				FString Name = Path.Segments[1];
-				Name.Split(TEXT("["), &Name, nullptr);
-				const FProperty* Prop = GameTestReflectValue::FindProperty(InClass, Name);
+				const FString& Name = Path.Segs[0].Name;
+				const FProperty* Prop = Path.Segs[0].Kind == EGameTestPathSeg::Prop ? GameTestReflectValue::FindProperty(InClass, Name) : nullptr;
 				if (Prop == nullptr)
 				{
-					if (GameTestReflectValue::FindFunction(InClass, Name) == nullptr)
+					const UFunction* Function = GameTestReflectValue::FindFunction(InClass, Name);
+					if (Function == nullptr)
 					{
 						FGameTestDiagSink::FScope Scope(InEnv.Sink, TEXT("prop"));
-						InEnv.Sink.Error(TEXT("prop_missing"), FString::Printf(TEXT("%s 上没有属性 %s（Lua 字段写 @lua.%s；gt.props 能看全部属性）"), *InClass->GetName(), *Name, *Name));
+						InEnv.Sink.Error(TEXT("prop_missing"), FString::Printf(TEXT("%s 上没有属性或函数 %s（Lua 字段写 @#%s；gt.props 能看全部属性）"), *InClass->GetName(), *Name, *Name));
+					}
+					else if (Path.Segs[0].Kind == EGameTestPathSeg::Fn && !GameTestReflectValue::IsReadOnlyFunction(*Function))
+					{
+						FGameTestDiagSink::FScope Scope(InEnv.Sink, TEXT("prop"));
+						InEnv.Sink.Error(TEXT("fn_not_callable"), FString::Printf(TEXT("%s 不是 BlueprintPure 或 const 函数：属性路径里只能调无参取值函数"), *Name));
 					}
 					return;
 				}
-				Kind = FGameTestPropKind::Of(Prop);
+				// `Arr[0]`、结构体成员这些更深的段只查名字
+				if (Path.Segs.Num() == 1 && !Path.HasState())
+				{
+					Kind = FGameTestPropKind::Of(Prop);
+				}
 			}
 			if (Kind == EGameTestKind::None || InItem.Op.IsEmpty() || FGameTestCompareRegistry::Find(InItem.Op) == nullptr)
 			{

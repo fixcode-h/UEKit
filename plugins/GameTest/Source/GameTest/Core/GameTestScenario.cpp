@@ -41,7 +41,7 @@ bool GameTestScenario::Validate(const TSharedPtr<FJsonObject>& InJson, TArray<FS
 	}
 	else if (SchemaVersion < SupportedSchemaVersion)
 	{
-		OutErrors.Add(FString::Printf(TEXT("schema_old：这是旧格式脚本（schemaVersion %d），请在面板里用「升级脚本」转成 v%d（会先备份）"), SchemaVersion, SupportedSchemaVersion));
+		OutErrors.Add(FString::Printf(TEXT("schema_old：旧格式不再支持（schemaVersion %d，这个 GameTest 只认 %d），请按新写法重写（docs/game-test-ref.md）"), SchemaVersion, SupportedSchemaVersion));
 	}
 	else if (SchemaVersion > SupportedSchemaVersion)
 	{
@@ -63,28 +63,6 @@ bool GameTestScenario::Validate(const TSharedPtr<FJsonObject>& InJson, TArray<FS
 	}
 
 	return OutErrors.Num() == 0;
-}
-
-void GameTestScenario::ApplyLegacyDefaults(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& InOutSteps)
-{
-	int32 SchemaVersion = 0;
-	if (!InJson.IsValid() || !GameTestJson::TryGetInt(*InJson, TEXT("schemaVersion"), SchemaVersion) || SchemaVersion >= 2)
-	{
-		return;
-	}
-
-	for (const TSharedPtr<FJsonObject>& Step : InOutSteps)
-	{
-		FString Action;
-		if (!Step.IsValid() || !GameTestJson::TryGetString(*Step, TEXT("action"), Action) || Step->HasField(TEXT("via")))
-		{
-			continue;
-		}
-		if (Action == TEXT("click") || Action == TEXT("type"))
-		{
-			Step->SetStringField(TEXT("via"), TEXT("code"));
-		}
-	}
 }
 
 bool GameTestScenario::CollectSteps(const TSharedPtr<FJsonObject>& InJson, TArray<TSharedPtr<FJsonObject>>& OutSteps, TArray<FString>& OutErrors)
@@ -278,7 +256,6 @@ bool GameTestScenario::LoadForRun(const FString& InRootDir, const FString& InPat
 		return false;
 	}
 
-	ApplyLegacyDefaults(Json, OutRun.Steps);
 	OutRun.Json = Json;
 	OutRun.Name = GetName(Json, FPaths::GetBaseFilename(InPath));
 	OutRun.Revision = GetRevision(Json);

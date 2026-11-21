@@ -11,7 +11,7 @@ class UObject;
 class UWidget;
 
 /**
- * 对象引用的 `/rpc` 操作（docs/game-test-ref.md 第 7 节）：gt.tree、gt.highlight、gt.props、gt.refFor，以及 gt.resolve 的 refs。
+ * 对象引用的 `/rpc` 操作（docs/game-test-ref.md 第 7 节）：gt.tree、gt.highlight、gt.props、gt.refFor、gt.classes，以及 gt.resolve 的 refs。
  * 一个操作一个文件（Integration/Ref/）。
  */
 namespace GameTestRpcRef
@@ -20,6 +20,8 @@ namespace GameTestRpcRef
 	bool Highlight(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 	bool Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 	bool RefFor(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
+	/** gt.classes：类树（UE 类或 Lua 类），面板选对象的类下拉用。 */
+	bool Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 
 	/** gt.resolve 带了 refs。 */
 	bool HasRefs(const TSharedPtr<FJsonObject>& InArgs);
@@ -42,6 +44,9 @@ namespace GameTestRpcRef
 
 	/** `node` 或 `target`（第 2 节写法）→ 对象（target 时是 part 落到的控件或组件）。 */
 	UObject* ObjectFromArgs(const FJsonObject& InArgs, FGameTestFlowContext& InContext, FString& OutError);
+
+	/** gt.props 的 `class: "lua:模块"`：Lua 类（模块表）的字段和函数，路径写 `@#字段`。 */
+	bool PropsLua(const FString& InModule, TSharedPtr<FJsonObject>& OutResult, FString& OutError);
 
 	/** 从游戏里点到的控件出 `{chain, ref, target?, matches, ask}`（gt.refFor、gt.pick at、gt.inspect、录制问标识共用）。 */
 	TSharedRef<FJsonObject> RefJsonFor(UWidget* InWidget, FGameTestFlowContext& InContext, int32 InLevel = 0);

@@ -62,7 +62,7 @@ namespace GameTestIdentSuggestImpl
 			for (const TCHAR* State : { TEXT(":textKey"), TEXT(":text") })
 			{
 				FGameTestIdentProp Prop;
-				Prop.Prop = FString::Printf(TEXT("@%s%s"), *Part, State);
+				Prop.Prop = FString::Printf(TEXT("@/%s%s"), *Part, State);
 				Prop.Name = Part + State;
 				Prop.Group = TEXT("part:") + Part;
 				Prop.Read = GameTestPropRead::ReadText(InWidget, Prop.Prop, InContext);
@@ -121,14 +121,14 @@ void GameTestIdentSuggest::Collect(UObject* InObject, UObject* InItem, FGameTest
 	FGameTestKeyCache Cache;
 	if (InObject != nullptr)
 	{
-		AddLeaves(GameTestItemKey::DumpFields(InObject, Cache), TEXT("@self."), TEXT("self"), TEXT("self"), InObject, nullptr, InContext, OutProps);
-		AddLeaves(GameTestItemKey::DumpLuaFields(InObject, Cache), TEXT("@lua."), TEXT("lua"), TEXT("lua"), InObject, nullptr, InContext, OutProps);
+		AddLeaves(GameTestItemKey::DumpFields(InObject, Cache), TEXT("@."), TEXT("self"), TEXT("self"), InObject, nullptr, InContext, OutProps);
+		AddLeaves(GameTestItemKey::DumpLuaFields(InObject, Cache), TEXT("@#"), TEXT("lua"), TEXT("lua"), InObject, nullptr, InContext, OutProps);
 		AddTextParts(Cast<UUserWidget>(InObject), InContext, OutProps);
 	}
 	if (InItem != nullptr)
 	{
 		AddLeaves(GameTestItemKey::DumpFields(InItem, Cache), TEXT("@item."), TEXT("item"), TEXT("item"), InObject, InItem, InContext, OutProps);
-		AddLeaves(GameTestItemKey::DumpLuaFields(InItem, Cache), TEXT("@itemLua."), TEXT("itemLua"), TEXT("itemLua"), InObject, InItem, InContext, OutProps);
+		AddLeaves(GameTestItemKey::DumpLuaFields(InItem, Cache), TEXT("@item#"), TEXT("itemLua"), TEXT("itemLua"), InObject, InItem, InContext, OutProps);
 	}
 	OutProps.RemoveAll([](const FGameTestIdentProp& Prop) { return !Prop.Read.IsResolved() || !FGameTestPropKind::IsComparable(Prop.Read.Kind); });
 }

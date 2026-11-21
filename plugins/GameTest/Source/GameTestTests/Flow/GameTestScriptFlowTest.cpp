@@ -100,7 +100,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"a","action":"mark","text":"1"},
 			{"id":"a","action":"mark","text":"2"},
 			{"id":"l","action":"loop","until":{"expr":"true"},"max":-1,"do":[{"action":"mark","text":"x"}]},
@@ -113,7 +113,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 		ASSERT_THAT(IsTrue(HasCode(Sink, TEXT("unknown_field")), DescribeDiags(Sink)));
 	}
 
-	/** 2.0.0 起 v1–v3 报 schema_old（面板「升级脚本」迁移），不再按旧语义跑。 */
+	/** 只认 schemaVersion 5：旧版本报 schema_old（不做迁移），不再按旧语义跑。 */
 	TEST_METHOD(Parse_RejectsOldSchema)
 	{
 		using namespace GameTestScriptFlowTestLocal;
@@ -128,16 +128,16 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Good;
-		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t",
-			"objects":{"shop":{"class":"WBP_Shop","ident":[{"prop":"@self.ShopId","op":"eq","value":1001}]}},
+		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t",
+			"objects":{"shop":{"class":"WBP_Shop","ident":[{"prop":"@.ShopId","op":"eq","value":1001}]}},
 			"steps":[
 			{"id":"a","action":"click","target":{"obj":"shop","part":"BtnBuy"}},
-			{"id":"b","action":"wait","until":"cond","cond":{"obj":"shop","prop":":onScreen","op":"is","value":false}},
+			{"id":"b","action":"wait","until":"cond","cond":{"obj":"shop","prop":"@:onScreen","op":"is","value":false}},
 			{"id":"c","action":"obj.close","obj":"shop","how":[{"by":"remove"}]}]})"), Good);
 		ASSERT_THAT(IsFalse(Good.HasErrors(), DescribeDiags(Good)));
 
 		FGameTestDiagSink Bad;
-		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"a","action":"click","target":"WBP_Shop:Root/BtnBuy"}]})"), Bad);
 		ASSERT_THAT(IsTrue(HasCode(Bad, TEXT("selector_removed")), DescribeDiags(Bad)));
 	}
@@ -147,7 +147,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t",
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t",
 			"vars":{"n":2},
 			"steps":[{"id":"pick","action":"if","cond":{"expr":"$n > 1","settleMs":0},
 				"then":[{"id":"big","action":"mark","text":"big"}],
@@ -167,7 +167,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"three","action":"loop","times":3,"do":[{"id":"tick","action":"mark","text":"轮"}]},
 			{"id":"early","action":"loop","times":5,"do":[
 				{"id":"once","action":"mark","text":"x"},
@@ -186,7 +186,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"g","action":"group","name":"会失败的段","onFail":"continue","do":[
 				{"id":"bad","action":"fail","message":"故意失败"},
 				{"id":"never","action":"mark","text":"不该跑"}]},
@@ -204,7 +204,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"setX","action":"set","var":"x","value":"=2 + 3"},
 			{"id":"ok","action":"assert","expr":"$x == 5"},
 			{"id":"bad","action":"assert","expr":"$x == 6"}]})"), Sink);
@@ -222,7 +222,7 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 	{
 		using namespace GameTestScriptFlowTestLocal;
 		FGameTestDiagSink Sink;
-		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":4,"name":"t","steps":[
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
 			{"id":"off","action":"fail","message":"不该跑","disabled":true},
 			{"id":"on","action":"mark","text":"跑"}]})"), Sink);
 		ASSERT_THAT(IsFalse(Sink.HasErrors(), DescribeDiags(Sink)));

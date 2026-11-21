@@ -10,6 +10,7 @@
 #include "Dom/JsonValue.h"
 #include "Observe/Compare/GameTestCompareRegistry.h"
 #include "Observe/Sources/GameTestReflectCall.h"
+#include "Observe/Ref/GameTestClassFilter.h"
 #include "Observe/Ref/GameTestIdentSuggest.h"
 #include "Observe/Ref/GameTestPropKind.h"
 #include "Observe/Ref/GameTestPropList.h"
@@ -25,7 +26,9 @@
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/SlateWrapperTypes.h"
+#include "Components/ActorComponent.h"
 #include "Components/Widget.h"
+#include "GameFramework/Actor.h"
 #include "UObject/EnumProperty.h"
 #include "UObject/UnrealType.h"
 
@@ -92,6 +95,21 @@ namespace GameTestRpcPropsImpl
 		OutItem.SetArrayField(TEXT("members"), Members);
 	}
 
+	/**
+	 * 属性在 UE 细节面板里的分类（UPROPERTY 的 Category，如 `Behavior`、`Appearance|Font`）：面板照 UE 的样子按分类分组。
+	 * Category 是元数据，只在带元数据的构建里有（编辑器、未烘焙的游戏），没有时不给，面板不分组。
+	 */
+	FString CategoryOf(const FProperty* InProperty)
+	{
+#if WITH_METADATA
+		if (InProperty != nullptr && InProperty->HasMetaData(TEXT("Category")))
+		{
+			return InProperty->GetMetaData(TEXT("Category"));
+		}
+#endif
+		return FString();
+	}
+
 	TSharedPtr<FJsonObject> ItemJson(const FString& InProp, const FString& InName, const FGameTestPropRead& InRead, int32 InScore, bool bInValue)
 	{
 		const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
@@ -127,6 +145,11 @@ namespace GameTestRpcPropsImpl
 			Item->SetStringField(TEXT("why"), FString::Printf(TEXT("%s 不能直接比较（展开成员或换一个属性）"), *InRead.Type));
 		}
 		Item->SetBoolField(TEXT("readOnly"), InRead.bReadOnly);
+		const FString Category = CategoryOf(InRead.RawProp);
+		if (!Category.IsEmpty())
+		{
+			Item->SetStringField(TEXT("cat"), Category);
+		}
 		AddMembers(InRead, *Item);
 		return Item;
 	}
@@ -160,6 +183,36 @@ namespace GameTestRpcPropsImpl
 		Args.Named = &None;
 		const FGameTestValue Result = GameTestReflectCall::Call(InObject, Function, Args, Plain);
 		return Result.IsString() ? Result.GetString() : FString();
+	}
+
+	/** Actor 的组件：一个组件一组（折叠），展开时用 part = 组件名再调。按类读时只有 C++ 默认子对象（蓝图 SCS 加的组件要开游戏）。 */
+	void AddComponentGroups(AActor* InActor, TArray<FGroup>& OutGroups)
+	{
+		if (InActor == nullptr)
+		{
+			return;
+		}
+		TInlineComponentArray<UActorComponent*> Components(InActor);
+		for (const UActorComponent* Component : Components)
+		{
+			if (Component == nullptr)
+			{
+				continue;
+			}
+			const FString Name = Component->GetName();
+			const FString Id = TEXT("part:") + Name;
+			if (OutGroups.ContainsByPredicate([&Id](const FGroup& G) { return G.Id == Id; }))
+			{
+				continue;
+			}
+			FGroup Group;
+			Group.Id = Id;
+			Group.Title = Name;
+			Group.Class = Component->GetClass()->GetName();
+			Group.Part = Name;
+			Group.bCollapsed = true;
+			OutGroups.Add(Group);
+		}
 	}
 
 	/**
@@ -219,6 +272,12 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 	UObject* Object = nullptr;
 	bool bClassOnly = false;
 	FString ClassName;
+	FString LuaClass;
+	if (InArgs->TryGetStringField(TEXT("class"), ClassName) && FGameTestClassFilter::ParseLua(ClassName, LuaClass) && !InArgs->HasField(TEXT("node")) && !InArgs->HasField(TEXT("target")))
+	{
+		// Lua 类（lua:模块）：读模块表的字段和函数（不开游戏读不到，Lua 环境要在）
+		return PropsLua(LuaClass, OutResult, OutError);
+	}
 	if (InArgs->TryGetStringField(TEXT("class"), ClassName) && !ClassName.IsEmpty() && !InArgs->HasField(TEXT("node")) && !InArgs->HasField(TEXT("target")))
 	{
 		UClass* Class = GameTestObjectRoots::FindClass(ClassName);
@@ -259,7 +318,8 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 	Offset = FMath::Max(0, Offset);
 	Limit = FMath::Clamp(Limit, 1, MaxLimit);
 
-	// 按部件读时路径都从外层对象写（`@部件.X`），条目数据对象只属于外层对象
+	// 2.1.0：按部件读时路径相对那个部件写（`@.X`、`@:text`），面板拼上 `/部件`；部件组的 part 仍从外层对象写。
+	// 条目数据对象只属于外层对象
 	const FString PartPrefix = bClassOnly ? FString() : Part;
 	UObject* Item = bClassOnly || !PartPrefix.IsEmpty() ? nullptr : GameTestPropRead::ListItemOf(Object);
 	TArray<FGameTestIdentProp> Props;
@@ -292,7 +352,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		{
 			continue;
 		}
-		const TSharedPtr<FJsonObject> Json = ItemJson(GameTestPropList::Rebase(Prop.Prop, PartPrefix), Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), !bClassOnly);
+		const TSharedPtr<FJsonObject> Json = ItemJson(Prop.Prop, Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), !bClassOnly);
 		if (Siblings.Num() > 1)
 		{
 			TSet<FString> Values;
@@ -309,7 +369,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 	const UObject* StateTarget = Object;
 	for (const TSharedRef<IGameTestState>& State : FGameTestStateRegistry::Get().GetAll())
 	{
-		const FString Prop = TEXT(":") + State->GetKey().ToString();
+		const FString Prop = FGameTestPropPath::OfState(State->GetKey().ToString());
 		if (!State->AppliesTo(StateTarget) || (!Filter.IsEmpty() && !Prop.Contains(Filter)))
 		{
 			continue;
@@ -326,13 +386,13 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 			Read.Src = TEXT("state");
 			Read.bReadOnly = true;
 		}
-		const TSharedPtr<FJsonObject> Json = ItemJson(GameTestPropList::Rebase(Prop, PartPrefix), State->GetSummary(), Read, State->IsStable() ? 3 : 0, !bClassOnly);
+		const TSharedPtr<FJsonObject> Json = ItemJson(Prop, State->GetSummary(), Read, State->IsStable() ? 3 : 0, !bClassOnly);
 		Items.Add({ TEXT("states"), Json });
 	}
 
 	// 组：self、item、各部件（WidgetTree 顺序）、嵌套界面（折叠）、states
 	TArray<FGroup> Groups;
-	Groups.Add({ TEXT("self"), PartPrefix.IsEmpty() ? FString(TEXT("自己")) : FString(TEXT("属性")), Object->GetClass()->GetName(), FString(), false });
+	Groups.Add({ TEXT("self"), TEXT("属性"), Object->GetClass()->GetName(), FString(), false });
 	if (Item != nullptr)
 	{
 		Groups.Add({ TEXT("item"), TEXT("条目的数据对象"), Item->GetClass()->GetName(), FString(), false });
@@ -359,6 +419,8 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		}
 	}
 	AddPartGroups(Tree, bClassOnly ? nullptr : Object, PartPrefix.IsEmpty() ? FString() : PartPrefix + TEXT("."), Groups);
+	// Actor：每个组件一个部件组（面板的组件树全靠它；part 是组件名，同 target 的 part）
+	AddComponentGroups(Cast<AActor>(Object), Groups);
 	Groups.Add({ TEXT("states"), TEXT("算出状态"), FString(), FString(), false });
 
 	// 分页 + 字数预算：按组的顺序数项
@@ -438,7 +500,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		TArray<TSharedPtr<FJsonValue>> Suggest;
 		for (const FGameTestIdentItem& Ident : RefFor.Ident)
 		{
-			Suggest.Add(MakeShared<FJsonValueString>(GameTestPropList::Rebase(Ident.Prop, PartPrefix)));
+			Suggest.Add(MakeShared<FJsonValueString>(Ident.Prop));
 		}
 		OutResult->SetArrayField(TEXT("suggest"), Suggest);
 		OutResult->SetNumberField(TEXT("matches"), RefFor.Matches);

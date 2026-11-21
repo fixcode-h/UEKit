@@ -9,9 +9,12 @@
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Observe/Ref/GameTestPropPath.h"
 #include "Observe/Ref/GameTestRef.h"
 #include "Observe/Ref/GameTestRefResolve.h"
 #include "Operate/Close/GameTestCloser.h"
+
+#include "Components/Widget.h"
 
 namespace GameTestObjActionsImpl
 {
@@ -77,61 +80,51 @@ namespace GameTestObjActionsImpl
 			InSink.Error(TEXT("bad_type"), TEXT("verifyMs 要写 0–600000 的毫秒数"));
 		}
 	}
-}
 
-namespace GameTestObjActions
-{
-	void Validate(const FJsonObject& InJson, FName InAction, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink)
+	/**
+	 * each：引用命中的全部（ref_ambiguous 时 Matches 也是全的；`$var`、来源直接给的只有 Picked），每个按 part 找部件。
+	 * 有一个找不到部件就返回空、OutCode = part_missing；没显示出来的 ListView 条目跳过（没有控件可调）。
+	 */
+	TArray<UObject*> AllParts(const FGameTestTargetResult& InResult, FName& OutCode, FString& OutError)
 	{
-		using namespace GameTestObjActionsImpl;
-		const FString Action = InAction.ToString();
-		if (!Action.StartsWith(TEXT("obj.")))
+		TArray<UObject*> Owners;
+		for (const FGameTestRefCandidate& Candidate : InResult.Ref.Matches)
 		{
-			return;
-		}
-		CheckObj(InJson, InScope, InSink, Action == TEXT("obj.call"));
-		if (Action == TEXT("obj.find"))
-		{
-			CheckString(InJson, TEXT("saveAs"), InSink, TEXT("存到哪个变量"));
-		}
-		else if (Action == TEXT("obj.wait"))
-		{
-			GameTestRefCheck::Ident(InJson, InScope, InSink, /*bInPropRequired=*/false);
-		}
-		else if (Action == TEXT("obj.set"))
-		{
-			CheckString(InJson, TEXT("prop"), InSink, TEXT("属性路径，如 @self.Count、@ChkAuto.IsChecked"));
-			FString Prop;
-			if (InJson.TryGetStringField(TEXT("prop"), Prop) && !Prop.IsEmpty())
+			if (UObject* Object = Candidate.Object.Get())
 			{
-				GameTestRefCheck::Prop(Prop, InSink);
-			}
-			if (!InJson.HasField(TEXT("value")))
-			{
-				InSink.Error(TEXT("arg_missing"), TEXT("obj.set 要写 value"));
+				Owners.AddUnique(Object);
 			}
 		}
-		else if (Action == TEXT("obj.call"))
+		if (Owners.Num() == 0 && InResult.Ref.Get() != nullptr)
 		{
-			CheckString(InJson, TEXT("function"), InSink, TEXT("函数名；静态函数写 类名.函数"));
+			Owners.Add(InResult.Ref.Get());
 		}
-		else if (Action == TEXT("obj.close"))
+		TArray<UObject*> Parts;
+		for (UObject* Owner : Owners)
 		{
-			CheckClose(InJson, InSink);
+			FString PartError;
+			UObject* Part = GameTestPropRead::FindPart(Owner, InResult.Target.Part, PartError);
+			if (Part == nullptr)
+			{
+				OutCode = TEXT("part_missing");
+				OutError = FString::Printf(TEXT("%s：%s"), *GameTestRefResolve::DisplayName(Owner), *PartError);
+				return TArray<UObject*>();
+			}
+			Parts.Add(Part);
 		}
+		if (Parts.Num() == 0)
+		{
+			OutCode = TEXT("ref_not_found");
+			OutError = InResult.Error.IsEmpty() ? FString(TEXT("一个都没找到")) : InResult.Error;
+		}
+		return Parts;
 	}
 
-	EGameTestStepStatus NoFlow(FGameTestStepContext& InContext, const TCHAR* InAction)
-	{
-		InContext.Message = FString::Printf(TEXT("这一步没有脚本上下文（%s 只能在场景里用）"), InAction);
-		return GameTestHandlers::StepFailed;
-	}
-
-	EGameTestStepStatus RunWhenFound(FGameTestStepContext& InContext, const FString& InWhat, FDo InDo)
+	EGameTestStepStatus RunWhenFoundImpl(FGameTestStepContext& InContext, const FString& InWhat, bool bInAll, GameTestObjActions::FDoAll InDo)
 	{
 		if (InContext.Flow == nullptr)
 		{
-			return NoFlow(InContext, *InContext.Step->Action.ToString());
+			return GameTestObjActions::NoFlow(InContext, *InContext.Step->Action.ToString());
 		}
 		FGameTestFlowContext& Flow = *InContext.Flow;
 		Flow.World = InContext.World ? InContext.World : Flow.World;
@@ -146,7 +139,7 @@ namespace GameTestObjActions
 		const TSharedRef<FJsonValueObject> Target = MakeShared<FJsonValueObject>(TargetJson);
 
 		// 解析一次：成了马上做；等也没用的直接失败；还没出现的每帧再找
-		auto Attempt = [Target](FGameTestStepContext& InStep, bool& bOutRetry) -> UObject*
+		auto Attempt = [Target, bInAll](FGameTestStepContext& InStep, bool& bOutRetry) -> TArray<UObject*>
 		{
 			FGameTestFlowContext& StepFlow = *InStep.Flow;
 			const TSharedPtr<FJsonObject> Prev = StepFlow.StepPayload;
@@ -154,21 +147,44 @@ namespace GameTestObjActions
 			const FGameTestTargetResult Result = GameTestRefResolve::ResolveTarget(Target, StepFlow);
 			GameTestRefResolve::WritePayload(Result.Ref, StepFlow);
 			StepFlow.StepPayload = Prev;
-			bOutRetry = !Result.IsOk() && (Result.Code == TEXT("ref_not_found") || Result.Code == TEXT("part_missing"));
-			if (!Result.IsOk())
+			TArray<UObject*> Found;
+			FName Code = Result.Code;
+			FString Error = Result.Error;
+			if (bInAll && (Result.IsOk() || Result.Code == TEXT("ref_ambiguous")))
 			{
-				InStep.Message = FString::Printf(TEXT("%s：%s"), *Result.Code.ToString(), *Result.Error);
-				InStep.Payload->SetStringField(TEXT("code"), Result.Code.ToString());
-				return nullptr;
+				Found = AllParts(Result, Code, Error);
+				// each 时命中多个不是错：payload.ref 改成「挑了全部」
+				const TSharedPtr<FJsonObject>* RefPayload = nullptr;
+				if (Found.Num() > 0 && InStep.Payload.IsValid() && InStep.Payload->TryGetObjectField(TEXT("ref"), RefPayload) && RefPayload != nullptr && RefPayload->IsValid())
+				{
+					(*RefPayload)->RemoveField(TEXT("error"));
+					(*RefPayload)->RemoveField(TEXT("code"));
+					(*RefPayload)->SetStringField(TEXT("by"), TEXT("each"));
+					(*RefPayload)->SetNumberField(TEXT("count"), Found.Num());
+				}
 			}
-			InStep.TouchedWidget = Result.GetWidget();
-			return Result.Get();
+			else if (Result.IsOk())
+			{
+				Found.Add(Result.Get());
+			}
+			bOutRetry = Found.Num() == 0 && (Code == TEXT("ref_not_found") || Code == TEXT("part_missing"));
+			if (Found.Num() == 0)
+			{
+				InStep.Message = FString::Printf(TEXT("%s：%s"), *Code.ToString(), *Error);
+				InStep.Payload->SetStringField(TEXT("code"), Code.ToString());
+				return Found;
+			}
+			InStep.TouchedWidget = Cast<UWidget>(Found[0]);
+			return Found;
 		};
 
 		bool bRetry = false;
-		if (UObject* Found = Attempt(InContext, bRetry))
 		{
-			return InDo(InContext, Found);
+			const TArray<UObject*> Found = Attempt(InContext, bRetry);
+			if (Found.Num() > 0)
+			{
+				return InDo(InContext, Found);
+			}
 		}
 		if (!bRetry)
 		{
@@ -192,8 +208,8 @@ namespace GameTestObjActions
 			}
 			*LastTry = InNow;
 			bool bAgain = false;
-			UObject* Found = Attempt(*Copy, bAgain);
-			if (Found == nullptr)
+			const TArray<UObject*> Found = Attempt(*Copy, bAgain);
+			if (Found.Num() == 0)
 			{
 				*Progress = Copy->Message;
 				if (bAgain)
@@ -213,5 +229,72 @@ namespace GameTestObjActions
 		FGameTestTarget::FromJson(Target, Described);
 		InContext.Message = FString::Printf(TEXT("等 %s 出现后%s"), *Described.Describe(), *InWhat);
 		return GameTestHandlers::StepPending;
+	}
+}
+
+namespace GameTestObjActions
+{
+	void Validate(const FJsonObject& InJson, FName InAction, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink)
+	{
+		using namespace GameTestObjActionsImpl;
+		const FString Action = InAction.ToString();
+		if (!Action.StartsWith(TEXT("obj.")))
+		{
+			return;
+		}
+		CheckObj(InJson, InScope, InSink, Action == TEXT("obj.call"));
+		if (Action == TEXT("obj.find"))
+		{
+			CheckString(InJson, TEXT("saveAs"), InSink, TEXT("存到哪个变量"));
+		}
+		else if (Action == TEXT("obj.wait"))
+		{
+			GameTestRefCheck::Ident(InJson, InScope, InSink, /*bInPropRequired=*/false);
+		}
+		else if (Action == TEXT("obj.set"))
+		{
+			CheckString(InJson, TEXT("prop"), InSink, TEXT("属性路径，如 @.Count、@/ChkAuto.IsChecked"));
+			FString Prop;
+			if (InJson.TryGetStringField(TEXT("prop"), Prop) && !Prop.IsEmpty())
+			{
+				GameTestRefCheck::Prop(Prop, InSink);
+			}
+			if (!InJson.HasField(TEXT("value")))
+			{
+				InSink.Error(TEXT("arg_missing"), TEXT("obj.set 要写 value"));
+			}
+		}
+		else if (Action == TEXT("obj.call"))
+		{
+			CheckString(InJson, TEXT("function"), InSink, TEXT("函数名；静态函数写 类名.函数"));
+			const TSharedPtr<FJsonValue> Each = InJson.TryGetField(TEXT("each"));
+			if (Each.IsValid() && Each->Type != EJson::Boolean)
+			{
+				InSink.Error(TEXT("bad_type"), TEXT("each 要写 true / false（true = 引用命中几个就每个都调）"));
+			}
+		}
+		else if (Action == TEXT("obj.close"))
+		{
+			CheckClose(InJson, InSink);
+		}
+	}
+
+	EGameTestStepStatus NoFlow(FGameTestStepContext& InContext, const TCHAR* InAction)
+	{
+		InContext.Message = FString::Printf(TEXT("这一步没有脚本上下文（%s 只能在场景里用）"), InAction);
+		return GameTestHandlers::StepFailed;
+	}
+
+	EGameTestStepStatus RunWhenFound(FGameTestStepContext& InContext, const FString& InWhat, FDo InDo)
+	{
+		return GameTestObjActionsImpl::RunWhenFoundImpl(InContext, InWhat, false, [InDo](FGameTestStepContext& InStep, const TArray<UObject*>& InObjects)
+		{
+			return InDo(InStep, InObjects[0]);
+		});
+	}
+
+	EGameTestStepStatus RunWhenFoundAll(FGameTestStepContext& InContext, const FString& InWhat, FDoAll InDo)
+	{
+		return GameTestObjActionsImpl::RunWhenFoundImpl(InContext, InWhat, true, MoveTemp(InDo));
 	}
 }

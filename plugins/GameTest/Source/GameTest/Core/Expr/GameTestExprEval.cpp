@@ -289,9 +289,9 @@ namespace
 	const TMap<FString, FString>& ExprRemovedFunctions()
 	{
 		static const TMap<FString, FString> Map = {
-			{ TEXT("text"), TEXT("@部件:text") }, { TEXT("number"), TEXT("@部件:text") /* 再套 num() 或改用数字属性 */ },
-			{ TEXT("visible"), TEXT("@部件:onScreen") }, { TEXT("enabled"), TEXT("@部件:enabled") }, { TEXT("exists"), TEXT(":exists") },
-			{ TEXT("checked"), TEXT("@部件:checked") }, { TEXT("count"), TEXT("@部件:count") }, { TEXT("onScreen"), TEXT(":onScreen") },
+			{ TEXT("text"), TEXT("@/部件:text") }, { TEXT("number"), TEXT("@/部件:text") /* 再套 num() 或改用数字属性 */ },
+			{ TEXT("visible"), TEXT("@/部件:onScreen") }, { TEXT("enabled"), TEXT("@/部件:enabled") }, { TEXT("exists"), TEXT("@:exists") },
+			{ TEXT("checked"), TEXT("@/部件:checked") }, { TEXT("count"), TEXT("@/部件:count") }, { TEXT("onScreen"), TEXT("@:onScreen") },
 		};
 		return Map;
 	}

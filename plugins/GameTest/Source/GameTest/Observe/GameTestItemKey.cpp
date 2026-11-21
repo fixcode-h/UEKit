@@ -6,6 +6,7 @@
 #include "Observe/GameTestItemMatch.h"
 #include "Observe/GameTestSlate.h"
 #include "Observe/GameTestSnapshot.h"
+#include "Observe/Ref/GameTestPropPathKey.h"
 
 #include "AgentPanelLua.h"
 #include "Blueprint/IUserObjectListEntry.h"
@@ -1057,11 +1058,11 @@ TSharedPtr<FJsonObject> GameTestItemKey::ListFields(UWidget* InContainer, const 
 			// 2.0.0：能直接写进对象引用 ident 的属性路径（docs/game-test-ref.md 3.1）；行列号没有对应的属性，不给
 			if (IsFieldSource(Source))
 			{
-				Field->SetStringField(TEXT("prop"), FString::Printf(TEXT("@%s.%s"), *Source, *Leaf.Key));
+				Field->SetStringField(TEXT("prop"), GameTestPropPathKey::FromSource(Source, Leaf.Key));
 			}
 			else if (Source == TEXT("text"))
 			{
-				Field->SetStringField(TEXT("prop"), TEXT(":text"));
+				Field->SetStringField(TEXT("prop"), TEXT("@:text"));
 			}
 			Field->SetField(TEXT("v"), Leaf.Value);
 			const int32 Hits = CountHits(InEntries, bList, Source, Leaf.Key, *Leaf.Value, Cache);

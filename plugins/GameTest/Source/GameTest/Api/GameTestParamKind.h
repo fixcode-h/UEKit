@@ -35,6 +35,8 @@ struct GAMETEST_API FGameTestParamInfo
 	bool bOut = false;
 	/** Kind 是 Unsupported 时为什么。 */
 	FString Why;
+	/** Kind 是 Object 时参数要的类（`AActor`、`WBP_Shop_C`）：面板按它挑类型对得上的对象。拿不到为空。 */
+	FString ObjectClass;
 };
 
 class GAMETEST_API GameTestParamKind
@@ -55,6 +57,6 @@ public:
 	/** 返回值类型描述；没有返回值时为空。 */
 	static FString ReturnType(const UFunction& InFunction);
 
-	/** `[{name, type, constructible, object?, out?, auto?, why?}]`，gt.vars 的 args 和 _api.json 的 args 共用。 */
+	/** `[{name, type, constructible, object?, objectClass?, out?, auto?, why?}]`，gt.vars 的 args 和 _api.json 的 args 共用。 */
 	static TArray<TSharedPtr<class FJsonValue>> ToJson(const TArray<FGameTestParamInfo>& InParams);
 };

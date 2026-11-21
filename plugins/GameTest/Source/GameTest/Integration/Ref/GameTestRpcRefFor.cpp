@@ -122,14 +122,7 @@ bool GameTestRpcRef::ResolveRefs(const TSharedPtr<FJsonObject>& InArgs, TSharedP
 	const TSharedPtr<FJsonObject>* Objects = nullptr;
 	if (InArgs->TryGetObjectField(TEXT("objects"), Objects) && Objects != nullptr && Objects->IsValid())
 	{
-		for (const auto& Pair : (*Objects)->Values)
-		{
-			const TSharedPtr<FJsonObject>* Def = nullptr;
-			if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Def) && Def != nullptr)
-			{
-				Flow.GetScope().ObjectDefs.Add(GAMETEST_JSON_KEY(Pair.Key), *Def);
-			}
-		}
+		Flow.GetScope().AddObjects(**Objects);
 	}
 	FGameTestFlowContext::FReadOnlyScope ReadOnly(Flow);
 	TArray<TSharedPtr<FJsonValue>> Items;
@@ -190,6 +183,12 @@ bool GameTestRpcRef::ResolveRefs(const TSharedPtr<FJsonObject>& InArgs, TSharedP
 			{
 				const TSharedPtr<FJsonObject> One = GameTestRefResolve::CandidateToJson(Candidate, Show, Flow);
 				One->SetBoolField(TEXT("match"), bMatch);
+				// 面板把候选对上控件树：name 是控件名（同 gt.tree 的 name），调过 gt.tree 时再给节点 id
+				const FString NodeId = NodeIdOf(Cast<UWidget>(Candidate.Object.Get()));
+				if (!NodeId.IsEmpty())
+				{
+					One->SetStringField(TEXT("node"), NodeId);
+				}
 				CandidateJson.Add(MakeShared<FJsonValueObject>(One));
 			}
 		}
