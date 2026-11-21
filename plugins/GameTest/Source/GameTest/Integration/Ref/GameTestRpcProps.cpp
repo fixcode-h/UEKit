@@ -217,12 +217,18 @@ namespace GameTestRpcPropsImpl
 			// 2.1.6：参数都是数字 / 布尔 / 文字 / 枚举时，路径里能写常量参数 `@.名字(0, "")`：按参数顺序给个零值当起点，面板里再改
 			TArray<FString> ArgDefaults;
 			bool bArgsWritable = true;
+			// 自动填的 WorldContext、输出参数（非 const 引用）调用时都不按位置吃参数：分类和 GameTestReflectCall 用同一份（#93 评审）
 			TSet<FString> AutoParams;
+			TSet<FString> OutParams;
 			for (const FGameTestParamInfo& Info : GameTestParamKind::Describe(*Function))
 			{
-				if (Info.Kind == EGameTestParamKind::WorldContext)
+				if (Info.Kind == EGameTestParamKind::WorldContext || Info.bOut)
 				{
 					AutoParams.Add(Info.Name);
+				}
+				if (Info.bOut)
+				{
+					OutParams.Add(Info.Name);
 				}
 			}
 			for (TFieldIterator<FProperty> Param(Function); Param && Param->HasAnyPropertyFlags(CPF_Parm); ++Param)
@@ -232,9 +238,9 @@ namespace GameTestRpcPropsImpl
 					Ret = Param->GetCPPType();
 					continue;
 				}
-				const bool bOut = Param->HasAnyPropertyFlags(CPF_OutParm) && !Param->HasAnyPropertyFlags(CPF_ConstParm | CPF_ReferenceParm);
+				const bool bOut = OutParams.Contains(Param->GetName());
 				Params.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("%s%s %s"), bOut ? TEXT("out ") : TEXT(""), *Param->GetCPPType(), *Param->GetName())));
-				if (bOut || AutoParams.Contains(Param->GetName()))
+				if (AutoParams.Contains(Param->GetName()))
 				{
 					continue;
 				}
