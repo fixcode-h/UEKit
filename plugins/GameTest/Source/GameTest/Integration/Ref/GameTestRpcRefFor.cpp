@@ -46,6 +46,17 @@ UObject* GameTestRpcRef::ObjectFromArgs(const FJsonObject& InArgs, FGameTestFlow
 		}
 		return Widget;
 	}
+	// 2.1.3：按对象路径读一个具体的实例（gt.resolve 候选的 path）
+	FString ObjectPath;
+	if (InArgs.TryGetStringField(TEXT("path"), ObjectPath) && !ObjectPath.IsEmpty())
+	{
+		UObject* Found = FindObject<UObject>(nullptr, *ObjectPath);
+		if (Found == nullptr)
+		{
+			OutError = FString::Printf(TEXT("对象 %s 已经不在了（关卡切换或被销毁）：点刷新重新列此刻的实例"), *ObjectPath);
+		}
+		return Found;
+	}
 	if (InArgs.HasField(TEXT("target")))
 	{
 		const FGameTestTargetResult Result = GameTestRefResolve::ResolveTarget(InArgs.TryGetField(TEXT("target")), InContext);
@@ -56,7 +67,7 @@ UObject* GameTestRpcRef::ObjectFromArgs(const FJsonObject& InArgs, FGameTestFlow
 		}
 		return Result.Get();
 	}
-	OutError = TEXT("要 node（gt.tree 的 id）或 target（部件写法）");
+	OutError = TEXT("要 node（gt.tree 的 id）、path（对象路径）或 target（部件写法）");
 	return nullptr;
 }
 

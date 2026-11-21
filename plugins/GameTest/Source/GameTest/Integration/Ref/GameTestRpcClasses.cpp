@@ -251,6 +251,57 @@ namespace GameTestRpcClassesImpl
 		return true;
 	}
 
+	/** Lua 模块名所在的目录：按 `/` 和 `.` 切段，去掉最后一段，用 `/` 连（`/Module/A/X`、`UI.Base.X` 都认）。 */
+	FString LuaFolderOf(const FString& InName)
+	{
+		TArray<FString> Parts;
+		InName.Replace(TEXT("."), TEXT("/")).ParseIntoArray(Parts, TEXT("/"), true);
+		if (Parts.Num() > 0)
+		{
+			Parts.Pop();
+		}
+		return FString::Join(Parts, TEXT("/"));
+	}
+
+	/** 目录写法统一：`.` 当 `/`，去掉首尾的 `/`。 */
+	FString NormalizeDir(const FString& InDir)
+	{
+		TArray<FString> Parts;
+		InDir.Replace(TEXT("."), TEXT("/")).ParseIntoArray(Parts, TEXT("/"), true);
+		return FString::Join(Parts, TEXT("/"));
+	}
+
+	/**
+	 * Lua 类按目录列（用户 2026-11-21：Lua 也要树形，几千个模块平铺看不了）：OutNames = 正好在 InDir 下的模块，
+	 * OutDirs = InDir 的下一层子目录和其下（含更深层）的模块数。
+	 */
+	void PickDir(const FNodes& InNodes, const FString& InDir, TArray<FString>& OutNames, TMap<FString, int32>& OutDirs)
+	{
+		const FString Prefix = InDir.IsEmpty() ? FString() : InDir + TEXT("/");
+		for (const TPair<FString, FNode>& Pair : InNodes)
+		{
+			const FString Folder = LuaFolderOf(Pair.Key);
+			if (Folder.Equals(InDir, ESearchCase::IgnoreCase))
+			{
+				OutNames.Add(Pair.Key);
+				continue;
+			}
+			if (!Prefix.IsEmpty() && !Folder.StartsWith(Prefix, ESearchCase::IgnoreCase))
+			{
+				continue;
+			}
+			const FString Rest = Folder.RightChop(Prefix.Len());
+			FString Head = Rest;
+			FString Tail;
+			Rest.Split(TEXT("/"), &Head, &Tail);
+			if (!Head.IsEmpty())
+			{
+				OutDirs.FindOrAdd(Prefix + Head) += 1;
+			}
+		}
+		OutNames.Sort();
+	}
+
 	FString Serialize(const TSharedRef<FJsonObject>& InJson)
 	{
 		FString Text;
@@ -389,11 +440,43 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 		return false;
 	}
 
+	// Lua 按目录列：给了 dir（空字符串是最顶层）且不搜时
+	FString Dir;
+	const bool bDirMode = bLua && Query.IsEmpty() && Args->TryGetStringField(TEXT("dir"), Dir);
 	TArray<FString> Names;
-	Impl::Pick(Nodes, Parent, Query, Names);
+	TMap<FString, int32> Dirs;
+	if (bDirMode)
+	{
+		Impl::PickDir(Nodes, Impl::NormalizeDir(Dir), Names, Dirs);
+	}
+	else
+	{
+		Impl::Pick(Nodes, Parent, Query, Names);
+	}
 
-	TArray<TSharedPtr<FJsonValue>> Items;
+	// 子目录先占预算（最多一半），剩下的给模块；子目录只在第一页给，太多时截断并标 dirsMore
+	TArray<TSharedPtr<FJsonValue>> DirItems;
+	bool bDirsMore = false;
 	int32 Chars = 0;
+	if (bDirMode && Offset == 0)
+	{
+		Dirs.KeySort([](const FString& A, const FString& B) { return A < B; });
+		for (const TPair<FString, int32>& Pair : Dirs)
+		{
+			const TSharedRef<FJsonObject> DirItem = MakeShared<FJsonObject>();
+			DirItem->SetStringField(TEXT("name"), Pair.Key);
+			DirItem->SetNumberField(TEXT("count"), Pair.Value);
+			const int32 Size = Impl::Serialize(DirItem).Len() + 1;
+			if (DirItems.Num() > 0 && Chars + Size > Impl::MaxChars / 2)
+			{
+				bDirsMore = true;
+				break;
+			}
+			Chars += Size;
+			DirItems.Add(MakeShared<FJsonValueObject>(DirItem));
+		}
+	}
+	TArray<TSharedPtr<FJsonValue>> Items;
 	int32 Index = Offset;
 	for (; Index < Names.Num() && Items.Num() < Limit; ++Index)
 	{
@@ -430,6 +513,14 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 
 	OutResult = MakeShared<FJsonObject>();
 	OutResult->SetArrayField(TEXT("items"), Items);
+	if (bDirMode && Offset == 0)
+	{
+		OutResult->SetArrayField(TEXT("dirs"), DirItems);
+		if (bDirsMore)
+		{
+			OutResult->SetBoolField(TEXT("dirsMore"), true);
+		}
+	}
 	OutResult->SetNumberField(TEXT("total"), Names.Num());
 	OutResult->SetBoolField(TEXT("hasMore"), Index < Names.Num());
 	if (Index < Names.Num())

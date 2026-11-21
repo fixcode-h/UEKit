@@ -801,6 +801,11 @@ TSharedPtr<FJsonObject> GameTestRefResolve::CandidateToJson(const FGameTestRefCa
 {
 	const TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 	Out->SetStringField(TEXT("name"), DisplayName(InCandidate.Object.Get()));
+	// 2.1.3：对象路径，面板点了某个实例时拿它给 gt.props 读这一个（Actor 的组件树要按实例读，类默认对象没有蓝图加的组件）
+	if (const UObject* Object = InCandidate.Object.Get())
+	{
+		Out->SetStringField(TEXT("path"), Object->GetPathName());
+	}
 	if (InCandidate.Index != INDEX_NONE)
 	{
 		Out->SetNumberField(TEXT("index"), InCandidate.Index);
