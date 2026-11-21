@@ -352,7 +352,8 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		{
 			continue;
 		}
-		const TSharedPtr<FJsonObject> Json = ItemJson(Prop.Prop, Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), !bClassOnly);
+		// 只按类读时也给值：类默认对象（CDO）上的值就是蓝图 / 类的默认值，和 AssetForge 细节面板一样（用户 2026-11-21：没运行时值全空）
+		const TSharedPtr<FJsonObject> Json = ItemJson(Prop.Prop, Prop.Name, Prop.Read, GameTestIdentSuggest::Score10(Prop.Score), true);
 		if (Siblings.Num() > 1)
 		{
 			TSet<FString> Values;
