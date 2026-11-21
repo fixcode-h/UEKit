@@ -92,6 +92,21 @@ namespace GameTestRpcPropsImpl
 		OutItem.SetArrayField(TEXT("members"), Members);
 	}
 
+	/**
+	 * 属性在 UE 细节面板里的分类（UPROPERTY 的 Category，如 `Behavior`、`Appearance|Font`）：面板照 UE 的样子按分类分组。
+	 * Category 是元数据，只在带元数据的构建里有（编辑器、未烘焙的游戏），没有时不给，面板不分组。
+	 */
+	FString CategoryOf(const FProperty* InProperty)
+	{
+#if WITH_METADATA
+		if (InProperty != nullptr && InProperty->HasMetaData(TEXT("Category")))
+		{
+			return InProperty->GetMetaData(TEXT("Category"));
+		}
+#endif
+		return FString();
+	}
+
 	TSharedPtr<FJsonObject> ItemJson(const FString& InProp, const FString& InName, const FGameTestPropRead& InRead, int32 InScore, bool bInValue)
 	{
 		const TSharedRef<FJsonObject> Item = MakeShared<FJsonObject>();
@@ -127,6 +142,11 @@ namespace GameTestRpcPropsImpl
 			Item->SetStringField(TEXT("why"), FString::Printf(TEXT("%s 不能直接比较（展开成员或换一个属性）"), *InRead.Type));
 		}
 		Item->SetBoolField(TEXT("readOnly"), InRead.bReadOnly);
+		const FString Category = CategoryOf(InRead.RawProp);
+		if (!Category.IsEmpty())
+		{
+			Item->SetStringField(TEXT("cat"), Category);
+		}
 		AddMembers(InRead, *Item);
 		return Item;
 	}
@@ -332,7 +352,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 
 	// 组：self、item、各部件（WidgetTree 顺序）、嵌套界面（折叠）、states
 	TArray<FGroup> Groups;
-	Groups.Add({ TEXT("self"), PartPrefix.IsEmpty() ? FString(TEXT("自己")) : FString(TEXT("属性")), Object->GetClass()->GetName(), FString(), false });
+	Groups.Add({ TEXT("self"), TEXT("属性"), Object->GetClass()->GetName(), FString(), false });
 	if (Item != nullptr)
 	{
 		Groups.Add({ TEXT("item"), TEXT("条目的数据对象"), Item->GetClass()->GetName(), FString(), false });
