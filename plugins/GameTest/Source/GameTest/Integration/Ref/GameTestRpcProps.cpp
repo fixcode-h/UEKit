@@ -8,6 +8,7 @@
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Api/GameTestParamKind.h"
 #include "Observe/Compare/GameTestCompareRegistry.h"
 #include "Observe/Sources/GameTestReflectCall.h"
 #include "Observe/Sources/GameTestReflectValue.h"
@@ -213,6 +214,17 @@ namespace GameTestRpcPropsImpl
 			Json->SetStringField(TEXT("name"), Name);
 			TArray<TSharedPtr<FJsonValue>> Params;
 			FString Ret;
+			// 2.1.6：参数都是数字 / 布尔 / 文字 / 枚举时，路径里能写常量参数 `@.名字(0, "")`：按参数顺序给个零值当起点，面板里再改
+			TArray<FString> ArgDefaults;
+			bool bArgsWritable = true;
+			TSet<FString> AutoParams;
+			for (const FGameTestParamInfo& Info : GameTestParamKind::Describe(*Function))
+			{
+				if (Info.Kind == EGameTestParamKind::WorldContext)
+				{
+					AutoParams.Add(Info.Name);
+				}
+			}
 			for (TFieldIterator<FProperty> Param(Function); Param && Param->HasAnyPropertyFlags(CPF_Parm); ++Param)
 			{
 				if (Param->HasAnyPropertyFlags(CPF_ReturnParm))
@@ -222,6 +234,26 @@ namespace GameTestRpcPropsImpl
 				}
 				const bool bOut = Param->HasAnyPropertyFlags(CPF_OutParm) && !Param->HasAnyPropertyFlags(CPF_ConstParm | CPF_ReferenceParm);
 				Params.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("%s%s %s"), bOut ? TEXT("out ") : TEXT(""), *Param->GetCPPType(), *Param->GetName())));
+				if (bOut || AutoParams.Contains(Param->GetName()))
+				{
+					continue;
+				}
+				if (CastField<FBoolProperty>(*Param) != nullptr)
+				{
+					ArgDefaults.Add(TEXT("false"));
+				}
+				else if (CastField<FNumericProperty>(*Param) != nullptr || CastField<FEnumProperty>(*Param) != nullptr)
+				{
+					ArgDefaults.Add(TEXT("0"));
+				}
+				else if (CastField<FStrProperty>(*Param) != nullptr || CastField<FNameProperty>(*Param) != nullptr || CastField<FTextProperty>(*Param) != nullptr)
+				{
+					ArgDefaults.Add(TEXT("\"\""));
+				}
+				else
+				{
+					bArgsWritable = false;
+				}
 			}
 			Json->SetArrayField(TEXT("params"), Params);
 			if (!Ret.IsEmpty())
@@ -239,12 +271,17 @@ namespace GameTestRpcPropsImpl
 			{
 				Json->SetBoolField(TEXT("pure"), true);
 			}
-			// 无参、有返回值的取值函数（Pure 或 const）能写进路径 `@.名字()` 当唯一标识的条件（用户 2026-11-21）：给 path 和 kind
+			// 有返回值的取值函数（Pure 或 const）能写进路径 `@.名字(参数)` 当唯一标识的条件（用户 2026-11-21）：给 path 和 kind；
+			// 参数只能写常量（2.1.6），有对象、结构体这类参数的不给 path
 			const FProperty* Return = Function->GetReturnProperty();
-			if (Params.Num() == 0 && Return != nullptr && GameTestReflectValue::IsReadOnlyFunction(*Function))
+			if (bArgsWritable && Return != nullptr && GameTestReflectValue::IsReadOnlyFunction(*Function))
 			{
 				const EGameTestKind Kind = FGameTestPropKind::Of(Return);
-				Json->SetStringField(TEXT("path"), FGameTestPropPath::OfProp(Name) + TEXT("()"));
+				Json->SetStringField(TEXT("path"), FGameTestPropPath::OfProp(Name) + TEXT("(") + FString::Join(ArgDefaults, TEXT(", ")) + TEXT(")"));
+				if (ArgDefaults.Num() > 0)
+				{
+					Json->SetNumberField(TEXT("args"), ArgDefaults.Num());
+				}
 				Json->SetStringField(TEXT("kind"), FGameTestPropKind::Name(Kind));
 				if (FGameTestPropKind::IsComparable(Kind))
 				{

@@ -79,7 +79,8 @@ namespace GameTestRpcClassesImpl
 	const FNodes* CachedNodes(bool bInLua, UWorld* InWorld)
 	{
 		const FNodesCache& Cache = CacheFor(bInLua);
-		const bool bSameWorld = Cache.bHasWorld ? Cache.World.Get() == InWorld : InWorld == nullptr;
+		// 存的时候有世界、世界后来销毁了（弱指针失效）：不能当成「都没有世界」复用，作废重建（UEKit #92 评审）
+		const bool bSameWorld = Cache.bHasWorld ? Cache.World.IsValid() && Cache.World.Get() == InWorld : InWorld == nullptr;
 		if (Cache.At < 0.0 || !bSameWorld || FPlatformTime::Seconds() - Cache.At > CacheSeconds)
 		{
 			return nullptr;

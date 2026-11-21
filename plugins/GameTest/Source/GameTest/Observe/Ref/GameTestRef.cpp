@@ -122,9 +122,69 @@ FGameTestIdentItem FGameTestIdentItem::FromJson(const FJsonObject& InJson)
 	return Item;
 }
 
+FGameTestIdentItem FGameTestIdentItem::NodeFromJson(const FJsonObject& InJson, int32 InDepth)
+{
+	const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+	const bool bAll = InJson.TryGetArrayField(TEXT("all"), List) && List != nullptr;
+	const bool bAny = !bAll && InJson.TryGetArrayField(TEXT("any"), List) && List != nullptr;
+	FGameTestIdentItem Item;
+	if (bAll || bAny)
+	{
+		Item.Join = bAll ? EGameTestIdentJoin::All : EGameTestIdentJoin::Any;
+		// 套得太深的子组不再往下读（校验报 bad_type），免得手写的 JSON 递归太深
+		if (InDepth < GroupDepth)
+		{
+			for (const TSharedPtr<FJsonValue>& Value : *List)
+			{
+				const TSharedPtr<FJsonObject>* Kid = nullptr;
+				if (Value.IsValid() && Value->TryGetObject(Kid) && Kid != nullptr && Kid->IsValid())
+				{
+					Item.Kids.Add(NodeFromJson(**Kid, InDepth + 1));
+				}
+			}
+		}
+	}
+	else
+	{
+		Item = FromJson(InJson);
+	}
+	bool bNotValue = false;
+	Item.bNot = InJson.TryGetBoolField(TEXT("not"), bNotValue) && bNotValue;
+	return Item;
+}
+
+void FGameTestIdentItem::CollectLeaves(const TArray<FGameTestIdentItem>& InNodes, TArray<FGameTestIdentItem>& OutLeaves)
+{
+	for (const FGameTestIdentItem& Node : InNodes)
+	{
+		if (Node.IsGroup())
+		{
+			CollectLeaves(Node.Kids, OutLeaves);
+		}
+		else if (!OutLeaves.ContainsByPredicate([&Node](const FGameTestIdentItem& It) { return It.Prop == Node.Prop; }))
+		{
+			OutLeaves.Add(Node);
+		}
+	}
+}
+
 TSharedRef<FJsonObject> FGameTestIdentItem::ToJson() const
 {
 	const TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+	if (bNot)
+	{
+		Out->SetBoolField(TEXT("not"), true);
+	}
+	if (IsGroup())
+	{
+		TArray<TSharedPtr<FJsonValue>> List;
+		for (const FGameTestIdentItem& Kid : Kids)
+		{
+			List.Add(MakeShared<FJsonValueObject>(Kid.ToJson()));
+		}
+		Out->SetArrayField(Join == EGameTestIdentJoin::All ? TEXT("all") : TEXT("any"), List);
+		return Out;
+	}
 	Out->SetStringField(TEXT("prop"), Prop);
 	if (!Op.IsEmpty())
 	{
@@ -151,6 +211,22 @@ TSharedRef<FJsonObject> FGameTestIdentItem::ToJson() const
 
 FString FGameTestIdentItem::Describe() const
 {
+	if (IsGroup())
+	{
+		TArray<FString> Parts;
+		for (const FGameTestIdentItem& Kid : Kids)
+		{
+			Parts.Add(Kid.Describe());
+		}
+		const FString Body = FString::Printf(TEXT("（%s）"), *FString::Join(Parts, Join == EGameTestIdentJoin::All ? TEXT(" 且 ") : TEXT(" 或 ")));
+		return bNot ? TEXT("非") + Body : Body;
+	}
+	if (bNot)
+	{
+		FGameTestIdentItem Plain = *this;
+		Plain.bNot = false;
+		return TEXT("非 ") + Plain.Describe();
+	}
 	const FString PropText = Prop.IsEmpty() ? FString(TEXT("@:exists")) : Prop;
 	const IGameTestCompare* Compare = Op.IsEmpty() ? nullptr : FGameTestCompareRegistry::Find(Op);
 	const FString Verb = Compare != nullptr ? Compare->Verb() : Op.IsEmpty() ? FString(TEXT("等于")) : Op;
@@ -242,7 +318,7 @@ bool FGameTestRef::FromJson(const FJsonObject& InJson, FGameTestRef& OutRef)
 			const TSharedPtr<FJsonObject>* Item = nullptr;
 			if (Value.IsValid() && Value->TryGetObject(Item) && Item != nullptr && Item->IsValid())
 			{
-				OutRef.Ident.Add(FGameTestIdentItem::FromJson(**Item));
+				OutRef.Ident.Add(FGameTestIdentItem::NodeFromJson(**Item));
 			}
 		}
 	}
@@ -627,10 +703,10 @@ namespace GameTestRefCheck
 					const TSharedPtr<FJsonObject>* Item = nullptr;
 					if (!(*Items)[Index].IsValid() || !(*Items)[Index]->TryGetObject(Item) || Item == nullptr || !Item->IsValid())
 					{
-						InSink.Error(TEXT("bad_type"), TEXT("判断项要写成对象 {\"prop\", \"op\", \"value\"}"));
+						InSink.Error(TEXT("bad_type"), TEXT("判断项要写成对象 {\"prop\", \"op\", \"value\"}，条件组写 {\"all\": [...]} 或 {\"any\": [...]}"));
 						continue;
 					}
-					GameTestRefCheck::Ident(**Item, InScope, InSink, /*bInPropRequired=*/true);
+					GameTestRefCheck::IdentNode(**Item, InScope, InSink, 0);
 				}
 			}
 		}
@@ -662,10 +738,67 @@ namespace GameTestRefCheck
 		}
 	}
 
-	void Ident(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, bool bInPropRequired)
+	void IdentNode(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, int32 InDepth)
 	{
 		using namespace GameTestRefImpl;
-		CheckFields(InJson, FGameTestIdentItem::Fields(), TEXT("判断项"), InSink);
+		const bool bAll = InJson.HasField(TEXT("all"));
+		const bool bAny = InJson.HasField(TEXT("any"));
+		const TSharedPtr<FJsonValue> NotValue = InJson.TryGetField(TEXT("not"));
+		if (NotValue.IsValid() && NotValue->Type != EJson::Boolean)
+		{
+			InSink.Error(TEXT("bad_type"), TEXT("not 要写 true 或 false"));
+		}
+		if (!bAll && !bAny)
+		{
+			static const TArray<FString> LeafFields = []()
+			{
+				TArray<FString> List = FGameTestIdentItem::Fields();
+				List.Add(TEXT("not"));
+				return List;
+			}();
+			CheckFields(InJson, LeafFields, TEXT("判断项"), InSink);
+			Ident(InJson, InScope, InSink, /*bInPropRequired=*/true, /*bInFieldsChecked=*/true);
+			return;
+		}
+		static const TArray<FString> GroupFields = { TEXT("all"), TEXT("any"), TEXT("not") };
+		CheckFields(InJson, GroupFields, TEXT("条件组"), InSink);
+		if (bAll && bAny)
+		{
+			InSink.Error(TEXT("bad_type"), TEXT("条件组只能写 all 或 any 其中一个：都满足写 all，任一满足写 any，混着来就套子组"));
+			return;
+		}
+		if (InDepth >= FGameTestIdentItem::GroupDepth)
+		{
+			InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("条件组最多套 %d 层"), FGameTestIdentItem::GroupDepth));
+			return;
+		}
+		const TCHAR* Key = bAll ? TEXT("all") : TEXT("any");
+		const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+		if (!InJson.TryGetArrayField(Key, List) || List == nullptr || List->Num() == 0)
+		{
+			InSink.Error(TEXT("bad_type"), FString::Printf(TEXT("%s 要写成非空数组：[判断项或子组…]"), Key));
+			return;
+		}
+		for (int32 Index = 0; Index < List->Num(); ++Index)
+		{
+			FGameTestDiagSink::FScope Scope(InSink, FString::Printf(TEXT("%s.%d"), Key, Index));
+			const TSharedPtr<FJsonObject>* Kid = nullptr;
+			if (!(*List)[Index].IsValid() || !(*List)[Index]->TryGetObject(Kid) || Kid == nullptr || !Kid->IsValid())
+			{
+				InSink.Error(TEXT("bad_type"), TEXT("条件组里每项写判断项 {\"prop\", \"op\", \"value\"} 或子组 {\"all\"|\"any\": [...]}"));
+				continue;
+			}
+			IdentNode(**Kid, InScope, InSink, InDepth + 1);
+		}
+	}
+
+	void Ident(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, bool bInPropRequired, bool bInFieldsChecked)
+	{
+		using namespace GameTestRefImpl;
+		if (!bInFieldsChecked)
+		{
+			CheckFields(InJson, FGameTestIdentItem::Fields(), TEXT("判断项"), InSink);
+		}
 		FString Prop;
 		if (!InJson.TryGetStringField(TEXT("prop"), Prop) || Prop.IsEmpty())
 		{

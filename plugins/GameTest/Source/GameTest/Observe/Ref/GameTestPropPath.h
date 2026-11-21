@@ -17,7 +17,7 @@ enum class EGameTestPathSeg : uint8
 	Child,
 	/** `.名字`：反射属性（UPROPERTY、蓝图变量、结构体字段）；跟在 `#` 后面时是 Lua 表字段。 */
 	Prop,
-	/** `.名字()`：无参、有返回值的取值函数（只许 BlueprintPure 或 const）。 */
+	/** `.名字()` / `.名字(1, "a")`：有返回值的取值函数（只许 BlueprintPure 或 const）；2.1.6 起可以带常量参数。 */
 	Fn,
 	/** `#名字`：绑的 UnLua 实例表字段。 */
 	Lua,
@@ -29,6 +29,8 @@ struct FGameTestPathSeg
 {
 	EGameTestPathSeg Kind = EGameTestPathSeg::Prop;
 	FString Name;
+	/** Fn 段括号里的原文（去掉首尾空白）：逗号分开的常量，数字、"文字"、true / false / null；没写参数为空。 */
+	FString Args;
 };
 
 /**
@@ -39,7 +41,7 @@ struct FGameTestPathSeg
  * | `@` / `@item` | 对象自己 / 列表条目的数据对象（开头） |
  * | `/名字` | 子控件或组件（只在属性前面，可以连续多段） |
  * | `.名字` | 反射属性 |
- * | `.名字()` | 无参取值函数（BlueprintPure 或 const） |
+ * | `.名字()` / `.名字(1, "a")` | 取值函数（BlueprintPure 或 const），参数只能写常量（2.1.6） |
  * | `#名字` | Lua 实例表字段（之后的 `.b` `[i]` 仍是 Lua 表的键） |
  * | `:名字` | 运行状态（只在最后） |
  * | `[i]` / `["键"]` | 下标 / Map 键 |
@@ -72,6 +74,9 @@ struct GAMETEST_API FGameTestPropPath
 	FString ChildPart() const;
 
 	/** 拼回文字（Parse 的反操作）。 */
+	/** 函数段的参数原文 → 值（`1, "a", true`）。写法不对返回 false 并写原因（第几个参数、只能写什么）。 */
+	static bool ParseArgs(const FString& InText, TArray<FGameTestValue>& OutArgs, FString& OutError);
+
 	FString Format() const;
 
 	/** 部件写法（`Header.TxtTitle`）→ 路径里的子控件段（`/Header/TxtTitle`）。空部件返回空串。 */
