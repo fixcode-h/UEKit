@@ -398,7 +398,8 @@ namespace AgentPanelLuaDev
 	/** 脚本根目录：参数给的（相对项目目录），默认 Content/Script（UnLua 的默认位置） */
 	FString ScriptRoot(const TSharedPtr<FJsonObject>& A)
 	{
-		const FString Root = Str(A, TEXT("root"));
+		// 请求没给时用面板下发的 Lua 设置（lua.config）里的脚本根
+		const FString Root = Str(A, TEXT("root"), LuaConfig().ScriptRoot);
 		if (Root.IsEmpty())
 		{
 			return FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir() / TEXT("Script"));

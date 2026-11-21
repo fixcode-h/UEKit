@@ -32,6 +32,7 @@ bool FAgentPanelLua::IsCompiledIn()
 void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 {
 	AgentPanelRegisterLuaObjectOps(B);
+	AgentPanelRegisterLuaInstanceOps(B);
 	AgentPanelRegisterLuaDevOps(B);
 	AgentPanelRegisterLuaDebugOps(B);
 	AgentPanelRegisterEmmyValues();
@@ -399,6 +400,10 @@ namespace AgentPanelLuaImpl
 		{
 			lua_pushglobaltable(C.L);
 			return true;
+		}
+		if (IsLuaRef(Path))
+		{
+			return PushLuaRef(C.L, Path, Error);
 		}
 		if (!C.Map)
 		{
@@ -812,7 +817,8 @@ namespace AgentPanelLuaImpl
 	{
 		const FString Path = Str(A, TEXT("path"));
 		Obj = nullptr;
-		if (!Path.IsEmpty())
+		// luaref:<编号> 是纯 Lua 实例（lua.instances 给的），不是对象路径：按目标世界选 Lua 环境
+		if (!Path.IsEmpty() && !IsLuaRef(Path))
 		{
 			Obj = FindObjectByPath(Path, false, Error);
 			if (!Obj)
@@ -1087,7 +1093,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 				return false;
 			}
 		}
-		if (Obj)
+		if (Obj || IsLuaRef(Str(A, TEXT("path"))))
 		{
 			if (!PushRoot(C, Str(A, TEXT("path")), Obj, Error))
 			{
@@ -1166,6 +1172,7 @@ void AgentPanelRegisterLuaOps(FAgentPanelBridge& B)
 
 	// 2.4 起的各组 Lua 操作各在自己的文件里登记
 	AgentPanelRegisterLuaObjectOps(B);
+	AgentPanelRegisterLuaInstanceOps(B);
 	AgentPanelRegisterLuaDevOps(B);
 	AgentPanelRegisterLuaDebugOps(B);
 	AgentPanelRegisterEmmyValues();

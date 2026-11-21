@@ -293,6 +293,105 @@ namespace AgentPanelLuaImpl
 	extern TArray<FString>* GPrintSink;
 	int PrintFn(lua_State* L);
 	int TracebackFn(lua_State* L);
+
+	// 走 Lua 堆（2.20 起 lua.leaks、lua.instances 共用；KeySeg、WeakMode 定义在 AgentPanelLuaDebugOps.cpp）
+	/** 引用链上的一段：字符串键写成 .name，别的写成 [值]，upvalue、元表写成 <...> */
+	FString KeySeg(lua_State* L, int K);
+	/** 表的 __mode（弱表）；不是弱表为空 */
+	FString WeakMode(lua_State* L, int T);
+
+	/** 从 _G 和注册表出发广度优先走一遍 Lua 堆，记下每个表 / 函数第一次是从哪条路走到的 */
+	struct FHeapWalk
+	{
+		lua_State* L = nullptr;
+		int Q = 0;
+		int Seen = 0;
+		int32 Max = 200000;
+		int32 Count = 0;
+		bool bTruncated = false;
+		TArray<int32> Parent;
+		TArray<FString> Seg;
+
+		/** 栈顶的值没见过就排进队列（值留在栈上不动） */
+		void Visit(int32 From, const FString& Key)
+		{
+			const int T = lua_type(L, -1);
+			if (T != LUA_TTABLE && T != LUA_TFUNCTION)
+			{
+				return;
+			}
+			lua_pushvalue(L, -1);
+			lua_rawget(L, Seen);
+			const bool bSeen = !lua_isnil(L, -1);
+			lua_pop(L, 1);
+			if (bSeen)
+			{
+				return;
+			}
+			if (Count >= Max)
+			{
+				bTruncated = true;
+				return;
+			}
+			++Count;
+			lua_pushvalue(L, -1);
+			lua_pushinteger(L, Count);
+			lua_rawset(L, Seen);
+			lua_pushvalue(L, -1);
+			lua_rawseti(L, Q, Count);
+			Parent.Add(From);
+			Seg.Add(Key);
+		}
+
+		/** 不算引用来源的表（对象表本身）：先记成见过，不往里走 */
+		void Block(int Idx)
+		{
+			lua_pushvalue(L, Idx);
+			lua_pushinteger(L, 0);
+			lua_rawset(L, Seen);
+		}
+
+		FString PathOf(int32 I) const
+		{
+			TArray<const FString*> Parts;
+			for (int32 Cur = I; Cur >= 1 && Parts.Num() < 40; Cur = Parent[Cur - 1])
+			{
+				Parts.Add(&Seg[Cur - 1]);
+			}
+			FString Out;
+			for (int32 K = Parts.Num() - 1; K >= 0; --K)
+			{
+				Out += *Parts[K];
+			}
+			return Out;
+		}
+	};
+
+	// 纯 Lua 实例（2.20，AgentPanelLuaInstances.cpp）
+	/** 对象路径写成 luaref:<编号> 时指的是 lua.instances 找到的纯 Lua 表，不是 UObject */
+	bool IsLuaRef(const FString& Path);
+	/** 把 luaref 指的表压栈；表已经被回收时返回 false 并写清原因 */
+	bool PushLuaRef(lua_State* L, const FString& Path, FString& Error);
+	/** 给栈上 Idx 处的表发一个 luaref（同一张表总是同一个编号；弱引用，不挡回收） */
+	FString LuaRefOf(lua_State* L, int Idx);
+
+	/** 面板下发的 Lua 设置（lua.config，存 Saved/UELink/lua-config.json）：各项留空 = 自动 */
+	struct FLuaConfig
+	{
+		/** 脚本根（相对项目目录或绝对路径）；空 = Content/Script */
+		FString ScriptRoot;
+		/** UnLua 实例表里放 UObject 的字段名；空 = Object */
+		FString ObjectKey;
+		/** 纯 Lua 实例上写着自己类（模块路径）的字段，如 SubModulePath */
+		TArray<FString> ClassFields;
+		/** 从哪些变量开始找纯 Lua 实例（_G.GameApp 这种点路径）；空 = 从 _G 和注册表走整个堆 */
+		TArray<FString> Roots;
+		/** 纯 Lua 实例的显示名字段，如 SubModuleName */
+		TArray<FString> NameFields;
+		/** 走堆最多看多少个表 / 函数 */
+		int32 MaxVisit = 200000;
+	};
+	const FLuaConfig& LuaConfig();
 }
 
 #endif
