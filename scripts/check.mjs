@@ -7,6 +7,7 @@ import { listPlugins, pickPlugins, readChangelog, readVersionMacro, semver, walk
 import { findWrappedSignatures } from './sig-wrap.mjs'
 import { findUnityClashes } from './unity-names.mjs'
 import { findPrintfIssues } from './printf-args.mjs'
+import { findRawStringIssues } from './raw-string.mjs'
 
 const errors = []
 const all = listPlugins()
@@ -116,6 +117,8 @@ for (const p of plugins) {
       fail(`${rel} 有 \`T x(U(*y));\` 这种写法，会被解析成函数声明：改成 T x{ U(*y) };`)
     // 格式串参数（见 printf-args.mjs）：5.8 编译期核对，对不上直接编不过
     if (/\.(h|cpp|inl)$/.test(f)) for (const issue of findPrintfIssues(text)) fail(`${rel} ${issue}`)
+    // 原始字符串内容里有 `)"` 会提前结束（见 raw-string.mjs）
+    if (/\.(h|cpp|inl)$/.test(f)) for (const issue of findRawStringIssues(text)) fail(`${rel} ${issue}`)
     // CQTest 的测试类是 struct 定义，结尾少了分号时本文件报 C1004「意外的文件尾」，合并编译时还会连累下一个文件
     // （UE 5.4 上表现成 UMG 的 PanelSlot.h 语法错误，GameTest 1.3.0 就是这样）
     const testClasses = (text.match(/^TEST_CLASS\w*\s*\(/gm) ?? []).length

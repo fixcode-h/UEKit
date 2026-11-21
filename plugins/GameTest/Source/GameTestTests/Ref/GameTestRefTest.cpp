@@ -179,7 +179,8 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 	TEST_METHOD(Ref_IdentGroups)
 	{
 		using namespace GameTestRefTestLocal;
-		const TCHAR* Text = TEXT(R"({"class":"WBP_Shop","ident":[{"prop":"@.ShopId","op":"eq","value":1001},{"any":[{"prop":"@.GetCount()","op":"gt","value":3},{"all":[{"prop":"@:onScreen"}],"not":true}]}]})");
+		// 内容里有 `()"`：原始字符串用 JSON 当分隔符，免得 `)"` 提前结束
+		const TCHAR* Text = TEXT(R"JSON({"class":"WBP_Shop","ident":[{"prop":"@.ShopId","op":"eq","value":1001},{"any":[{"prop":"@.GetCount()","op":"gt","value":3},{"all":[{"prop":"@:onScreen"}],"not":true}]}]})JSON");
 		FGameTestRef Ref;
 		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Parse(Text), Ref)));
 		ASSERT_THAT(AreEqual(2, Ref.Ident.Num()));
