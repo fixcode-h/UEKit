@@ -290,17 +290,21 @@ namespace GameTestRpcClassesImpl
 			const bool bB = B.StartsWith(InQuery, ESearchCase::IgnoreCase);
 			return bA != bB ? bA : A < B;
 		});
+		// 每个要列的名字记一个档次：开头对上的命中和它的祖先是 0，其余 1；最后先按档次排，分页截掉的是后面那档
+		TMap<FString, int32> Rank;
 		for (const FString& Hit : Hits)
 		{
+			const int32 HitRank = Hit.StartsWith(InQuery, ESearchCase::IgnoreCase) ? 0 : 1;
 			FString Current = Hit;
 			for (int32 Step = 0; Step < MaxChain && !Current.IsEmpty() && !Picked.Contains(Current); ++Step)
 			{
 				Picked.Add(Current);
+				Rank.Add(Current, HitRank);
 				const FNode* Node = InNodes.Find(Current);
 				Current = Node != nullptr ? Node->Parent : FString();
 			}
 		}
-		// 祖先在前（按深度），同一层按名字：面板按 parent 拼树时父节点先到
+		// 先按档次，同一档里祖先在前（按深度），同一层按名字：面板按 parent 拼树时父节点先到
 		TMap<FString, int32> Depth;
 		for (const FString& Name : Picked)
 		{
@@ -314,8 +318,14 @@ namespace GameTestRpcClassesImpl
 			Depth.Add(Name, Level);
 		}
 		OutNames = Picked.Array();
-		OutNames.Sort([&Depth](const FString& A, const FString& B)
+		OutNames.Sort([&Depth, &Rank](const FString& A, const FString& B)
 		{
+			const int32 RankA = Rank.FindRef(A);
+			const int32 RankB = Rank.FindRef(B);
+			if (RankA != RankB)
+			{
+				return RankA < RankB;
+			}
 			const int32 DepthA = Depth.FindRef(A);
 			const int32 DepthB = Depth.FindRef(B);
 			return DepthA != DepthB ? DepthA < DepthB : A < B;
