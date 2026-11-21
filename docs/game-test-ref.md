@@ -322,7 +322,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 | 操作 | 变化 |
 | --- | --- |
-| `gt.resolve` | `conds` 里接受第 4 节写法；新增 `refs: [{id?, ref, show?: [prop…]}]`（可同时给场景的 `objects`，`ref` 才能写名字）→ `refs: [{id, count, total, candidates: [{name, match, ident: [{prop, actual}]}]}]`（最多 8 个），`show` 里的属性按候选给实际值放进 `ident`，面板「命中几个」用它（配 `gt.watch` 推送）。`targets`（部件写法数组）和 `scenario` 核对改按引用解析，字符串选择器报 `selector_removed` |
+| `gt.resolve` | `conds` 里接受第 4 节写法；新增 `refs: [{id?, ref, show?: [prop…]}]`（可同时给场景的 `objects`，`ref` 才能写名字）→ `refs: [{id, count, total, candidates: [{name, path, match, ident: [{prop, actual}]}]}]`（最多 8 个；`path` 是对象路径，2.1.3 起，面板点了某个实例时拿它给 `gt.props path` 读这一个），`show` 里的属性按候选给实际值放进 `ident`，面板「命中几个」用它（配 `gt.watch` 推送）。`targets`（部件写法数组）和 `scenario` 核对改按引用解析，字符串选择器报 `selector_removed` |
 | `gt.vars` | `scope: "object"` 的参数从定位器改成引用：`{scope: "object", ref}`（写 `locator` 报错）；2.1.0：界面、类成员的 `path` 是 v5 路径（`@.X`，Lua 实例字段 `@#X`）；函数参数是对象（UObject 指针、软引用、类引用）时带 `objectClass`（参数的类名，如 `PlayerController`、`WBP_Shop_C`），面板据此只列类型对得上的对象 |
 | `gt.validate` | 按本文校验；新错误码见第 10 节。`deep: true` 的选择器检查换成引用检查：类在不在、`part` 第一段在不在 WBP 控件树里（`part_missing`）、`@.X` 在类上有没有（`prop_missing`）、`@.F()` 能不能调（`fn_not_callable`）、op 和属性类型对不对（`op_type`）；`checked.selectors` 改名 `checked.refs` |
 | `gt.record.*` | 录出来就是 v4（第 8 节）。暂停问标识（`gt.record { phase: "ask" }` 和 `gt.record.status` 的 `ask`）带 `ref`（条目的引用）、`node`（`gt.tree` 的 id，调过 `gt.tree` 才有）、`target`（`{obj, part}`，界面引用写名字时同时给 `objects`）；原来的选择器文本挪到 `selector`。`gt.record.key` 的回答：`{step?, resume?, ident: [{prop, op: "eq", value}], rule?: true（写进 identRules）, all?: true（同一列表后面的条目都按它认）}`，先跳过 `{mode: "skip"}`；空 `ident` = 只按第几个认。录制时挑标识只认 `eq` 和条目上的字段（v5 路径：`@item.X` / `@item#X` / `@.X` / `@#X`、`@:text`；写旧写法报 `path_old`） |
@@ -330,7 +330,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 | `gt.keys` | `target` 改成部件写法；返回的字段带 `prop`（能直接写进 `ident` 的 v5 路径，行列号没有），其余不变 |
 | `gt.actions` | 按本文列；另给 `compares`（`[{op, kinds, verb, summary, noValue?}]`）、`states`（`[{prop, kind, on, summary, changing?}]`）、`closers`（`[{by, summary, fields}]`），面板核对自己的表 |
 | `gt.config` | 读写都带 `identRules` / `closeRules` / `refDefaults` / `allowDestroy`（写回时只改认得的字段，别的原样留着） |
-| `gt.props` | 7.3；`class` 模式用类的默认对象和 WBP 生成类的设计器树，不开游戏也行（只给结构，不给值） |
+| `gt.props` | 7.3；`class` 模式用类的默认对象和 WBP 生成类的设计器树，不开游戏也行（只给结构，不给值）；`class` 给资产路径（`/Game/A/BP_X.BP_X`）时蓝图没加载会先加载（2.1.3）；`path`（对象路径，2.1.3）读一个具体实例 |
 | `gt.step` | 2.1.0：新参数 `objects`（同场景的 `objects`：名字 → 引用或来源字符串）。给了时步骤里可以写名字、`{"$obj": 名}`；照样等这一步跑完再返回（同块步骤的临时场景） |
 | `gt.resolve` / `gt.watch` | 候选的 `name` 是控件名（同 `gt.tree` 的 `name`），调过 `gt.tree` 时另带 `node`（节点 id）；`in` 数组、`lua`、`class: "lua:…"` 随引用生效；`objects` 也收来源字符串 |
 
@@ -382,5 +382,6 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 ## 12. 版本
 
 - GameTest 2.0.0：本文全部（实现和本文不同的地方已在对应小节写明：`obj.close` 的 `click` 只做代码点击、关闭方式同步做一次再跨帧核对、`gt.highlight` 不避开截图、`gt.props` 没有 `changing`、`gt.tree` 和引用的 `client` 没做、skipIf 不再自动把没生成的列表条目滚出来）。需要 UELink ≥ 2.12.0（不变）。
+- GameTest 2.1.3：`gt.props` 收 `path`、`class` 给资产路径时加载蓝图；`gt.resolve` 候选带 `path`。
 - GameTest 2.1.0：schemaVersion 5（属性路径 v5，3.1；旧写法报 `path_old`，不迁移）、引用的 `in` 数组 / `lua` / `class: "lua:…"`、`objects` 收来源字符串和中文名、`{"$obj": 名}` 当引用、`gt.classes`、`gt.step objects`、`obj.call each`、`gt.vars` 的 `objectClass`、`gt.props` 的 `cat`。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 2.1.0 时编辑页只读、提示升级 GameTest；脚本不是 v5 时提示按新写法重写。

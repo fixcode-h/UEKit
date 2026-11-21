@@ -95,9 +95,19 @@ UClass* GameTestObjectRoots::FindClass(const FString& InNameOrPath)
 			const FString Short = FPaths::GetBaseFilename(Path);
 			Path += TEXT(".") + Short + TEXT("_C");
 		}
+		else if (!Path.EndsWith(TEXT("_C")))
+		{
+			// 资产对象路径（/Game/A/BP_X.BP_X，gt.classes 的 asset）也补成生成类
+			Path += TEXT("_C");
+		}
 		if (UClass* Found = FindObject<UClass>(nullptr, *Path))
 		{
 			return Found;
+		}
+		// 2.1.3：给了路径但蓝图还没加载（类树里选的蓝图、没开过的关卡里的 Actor）：加载它，只读类默认对象
+		if (UClass* Loaded = LoadObject<UClass>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet))
+		{
+			return Loaded;
 		}
 	}
 	const FString Wanted = StripClassDecor(Trimmed);
