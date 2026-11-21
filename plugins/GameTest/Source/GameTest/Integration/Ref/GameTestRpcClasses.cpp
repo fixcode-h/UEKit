@@ -259,7 +259,7 @@ namespace GameTestRpcClassesImpl
 		return Text;
 	}
 
-	/** 要列哪些：有 q 时 = 名字以 q 开头的 + 它们的祖先；否则 = parent 的直接子类。 */
+	/** 要列哪些：有 q 时 = 名字里含 q 的（不分大小写，用户 2026-11-21：不要只按开头）+ 它们的祖先；否则 = parent 的直接子类。 */
 	void Pick(const FNodes& InNodes, const FString& InParent, const FString& InQuery, TArray<FString>& OutNames)
 	{
 		if (InQuery.IsEmpty())
@@ -278,12 +278,18 @@ namespace GameTestRpcClassesImpl
 		TArray<FString> Hits;
 		for (const TPair<FString, FNode>& Pair : InNodes)
 		{
-			if (Pair.Key.StartsWith(InQuery, ESearchCase::IgnoreCase))
+			if (Pair.Key.Contains(InQuery, ESearchCase::IgnoreCase))
 			{
 				Hits.Add(Pair.Key);
 			}
 		}
-		Hits.Sort();
+		// 开头就对上的排前面：命中太多被分页截掉时，先留最像的
+		Hits.Sort([&InQuery](const FString& A, const FString& B)
+		{
+			const bool bA = A.StartsWith(InQuery, ESearchCase::IgnoreCase);
+			const bool bB = B.StartsWith(InQuery, ESearchCase::IgnoreCase);
+			return bA != bB ? bA : A < B;
+		});
 		for (const FString& Hit : Hits)
 		{
 			FString Current = Hit;
