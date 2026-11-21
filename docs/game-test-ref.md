@@ -347,7 +347,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 - `name`：原生类是不带前缀的类名（`Actor`、`UserWidget`），蓝图是去掉 `_C` 的生成类名（和引用的 `class` 写法一致，可以直接写进去）；Lua 类是模块名（写进引用时加 `lua:`）。
 - `parent`：父类名（`Object` 没有）；`kind`：`umg`（继承 `Widget`）/ `actor` / `component`（继承 `ActorComponent`）/ `object` / `lua`；`asset`：蓝图的资产包名（原生类没有）；`kids`：直接子类个数；`live`：游戏开着时这个世界里此刻的实例数（只算这个类本身，不含子类；0 不写）。Lua 类的 `live` 是绑定这个模块的对象数（`lua.modules` 的 `objects`），另带 `file`。
-- Lua 按目录列（2.1.3）：`lua: true` 且给了 `dir`（字符串，空 = 最顶层；`.` 和 `/` 都当分隔）、不搜时，`items` 是正好在这个目录下的模块（不管父类，模块的目录 = 名字按 `/`、`.` 切段去掉最后一段），第一页另带 `dirs: [{name, count}]`：下一层子目录（`name` 是 `/` 连的完整目录）和它下面（含更深层）的模块数。点开模块看子类照旧用 `parent`。
+- Lua 按目录列（2.1.3）：`lua: true` 且给了 `dir`（字符串，空 = 最顶层；`.` 和 `/` 都当分隔）、不搜时，`items` 是正好在这个目录下的模块（不管父类，模块的目录 = 名字按 `/`、`.` 切段去掉最后一段），第一页另带 `dirs: [{name, count}]`：下一层子目录（`name` 是 `/` 连的完整目录）和它下面（含更深层）的模块数；子目录最多占回包预算的一半，太多时截断并带 `dirsMore: true`（多打几个字搜）。点开模块看子类照旧用 `parent`。
 - UE 类 = 已加载的 `UClass` + 编辑器里资产注册表的蓝图（只读 `GeneratedClass` / `ParentClass` 标签，**不加载资产**）；打包的游戏进程里只有已加载的类。资产注册表还在扫描时带 `note`。
 - 结果按名字排；回包最多 12000 字，超了截断，`hasMore: true` + `nextOffset`（至少给一项）。
 - Lua 类树要 UnLua（没有时报错说明）；父类 = `lua.inspect` 元表链上的下一层 Lua 模块，只看已经 require 的模块。

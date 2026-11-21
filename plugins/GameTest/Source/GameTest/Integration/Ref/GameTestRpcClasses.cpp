@@ -454,8 +454,29 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 		Impl::Pick(Nodes, Parent, Query, Names);
 	}
 
-	TArray<TSharedPtr<FJsonValue>> Items;
+	// 子目录先占预算（最多一半），剩下的给模块；子目录只在第一页给，太多时截断并标 dirsMore
+	TArray<TSharedPtr<FJsonValue>> DirItems;
+	bool bDirsMore = false;
 	int32 Chars = 0;
+	if (bDirMode && Offset == 0)
+	{
+		Dirs.KeySort([](const FString& A, const FString& B) { return A < B; });
+		for (const TPair<FString, int32>& Pair : Dirs)
+		{
+			const TSharedRef<FJsonObject> DirItem = MakeShared<FJsonObject>();
+			DirItem->SetStringField(TEXT("name"), Pair.Key);
+			DirItem->SetNumberField(TEXT("count"), Pair.Value);
+			const int32 Size = Impl::Serialize(DirItem).Len() + 1;
+			if (DirItems.Num() > 0 && Chars + Size > Impl::MaxChars / 2)
+			{
+				bDirsMore = true;
+				break;
+			}
+			Chars += Size;
+			DirItems.Add(MakeShared<FJsonValueObject>(DirItem));
+		}
+	}
+	TArray<TSharedPtr<FJsonValue>> Items;
 	int32 Index = Offset;
 	for (; Index < Names.Num() && Items.Num() < Limit; ++Index)
 	{
@@ -494,16 +515,11 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 	OutResult->SetArrayField(TEXT("items"), Items);
 	if (bDirMode && Offset == 0)
 	{
-		Dirs.KeySort([](const FString& A, const FString& B) { return A < B; });
-		TArray<TSharedPtr<FJsonValue>> DirItems;
-		for (const TPair<FString, int32>& Pair : Dirs)
-		{
-			const TSharedRef<FJsonObject> DirItem = MakeShared<FJsonObject>();
-			DirItem->SetStringField(TEXT("name"), Pair.Key);
-			DirItem->SetNumberField(TEXT("count"), Pair.Value);
-			DirItems.Add(MakeShared<FJsonValueObject>(DirItem));
-		}
 		OutResult->SetArrayField(TEXT("dirs"), DirItems);
+		if (bDirsMore)
+		{
+			OutResult->SetBoolField(TEXT("dirsMore"), true);
+		}
 	}
 	OutResult->SetNumberField(TEXT("total"), Names.Num());
 	OutResult->SetBoolField(TEXT("hasMore"), Index < Names.Num());
