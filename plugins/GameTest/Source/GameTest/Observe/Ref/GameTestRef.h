@@ -9,6 +9,14 @@ class FJsonObject;
 class FJsonValue;
 struct FGameTestExprScope;
 
+/** 条件组怎么合（2.1.6）：不是组 / 都满足 / 任一满足。 */
+enum class EGameTestIdentJoin : uint8
+{
+	None,
+	All,
+	Any,
+};
+
 /**
  * 判断项（docs/game-test-ref.md 第 3.3 节）：`{prop, op, value, tol?, ignoreCase?, cmp?}`。
  * 引用的 `ident`、条件里的对象判断、`obj.wait`、录制的断言都用它。
@@ -25,17 +33,34 @@ struct GAMETEST_API FGameTestIdentItem
 	FString Cmp;
 	TOptional<double> Tol;
 	TOptional<bool> IgnoreCase;
+	/** 取反（2.1.6，只在引用的 ident 里认）：叶子和条件组都能写 `not: true`。 */
+	bool bNot = false;
+	/** 条件组（2.1.6，docs/game-test-ref.md 3.3）：`{"all": [...]}` 都满足 / `{"any": [...]}` 任一满足；None = 普通判断项。 */
+	EGameTestIdentJoin Join = EGameTestIdentJoin::None;
+	/** 条件组里的项（判断项或子组）；只在 Join 不是 None 时用。 */
+	TArray<FGameTestIdentItem> Kids;
 
-	/** 认得的字段。 */
+	bool IsGroup() const { return Join != EGameTestIdentJoin::None; }
+
+	/** 认得的字段（判断项）。 */
 	static const TArray<FString>& Fields();
 
 	/** 读一条（不校验，校验在 GameTestRefCheck）。`prop` 缺省时不报错（条件里省略 = `:exists`）。 */
 	static FGameTestIdentItem FromJson(const FJsonObject& InJson);
 
+	/** 读 ident 里的一项：`all` / `any` 是条件组（递归，最多 GroupDepth 层），否则是判断项；都认 `not`。 */
+	static FGameTestIdentItem NodeFromJson(const FJsonObject& InJson, int32 InDepth = 0);
+
+	/** 条件组最多套几层（超过的子组当空组，校验会报）。 */
+	static constexpr int32 GroupDepth = 4;
+
 	TSharedRef<FJsonObject> ToJson() const;
 
-	/** 给人看的一句：`@.ShopId 等于 1001`。 */
+	/** 给人看的一句：`@.ShopId 等于 1001`；条件组是 `（A 且 B）`、`非（A 或 B）`。 */
 	FString Describe() const;
+
+	/** 把判断项（叶子）按顺序收进 OutLeaves，条件组展开；同一个 prop 只收一次。 */
+	static void CollectLeaves(const TArray<FGameTestIdentItem>& InNodes, TArray<FGameTestIdentItem>& OutLeaves);
 };
 
 /** `in` 的几种写法。 */
@@ -75,6 +100,7 @@ struct GAMETEST_API FGameTestRef
 	TSharedPtr<FJsonValue> InObj;
 	/** `In == Container` 时容器控件的部件写法。 */
 	FString InPart;
+	/** 唯一标识：每项都要满足（且）；每项是判断项或条件组（2.1.6 起，组里自己定且 / 或、可以套子组、取反）。 */
 	TArray<FGameTestIdentItem> Ident;
 	/** `error` / `first` / `last` / `nearest`；空 = 运行配置 refDefaults.many。 */
 	FString Many;
@@ -152,8 +178,11 @@ namespace GameTestRefCheck
 	/** 内联引用对象（`objects` 的值也是它；`bInObjects` 时不许再引用别的名字）。 */
 	GAMETEST_API void RefObject(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink);
 
-	/** 一条判断项。 */
-	GAMETEST_API void Ident(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, bool bInPropRequired = true);
+	/** 一条判断项。`bInFieldsChecked`：调用方已经查过字段（IdentNode 多认一个 not）。 */
+	GAMETEST_API void Ident(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, bool bInPropRequired = true, bool bInFieldsChecked = false);
+
+	/** 引用 ident 里的一项（2.1.6）：判断项，或 `{all|any: [...], not?}` 条件组（递归查，最多 GroupDepth 层）。 */
+	GAMETEST_API void IdentNode(const FJsonObject& InJson, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink, int32 InDepth);
 
 	/** 部件写法（target、toTarget、each、widget）。 */
 	GAMETEST_API void Target(const TSharedPtr<FJsonValue>& InValue, const FGameTestExprScope& InScope, FGameTestDiagSink& InSink);

@@ -30,7 +30,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | --- | --- | --- |
 | `class` | 是 | 类名或资源路径。`U`/`A` 前缀、`_C` 后缀可省（`WBP_Shop`、`WBP_Shop_C`、`/Game/UI/WBP_Shop` 等价）。**按继承认**，子类也算。界面只认直接或间接继承 `UUserWidget` 的。2.1.0 起也可以写 `lua:模块名`（`lua:UI.ShopPanel`，require 用的名字）= 绑定的 Lua 模块是它或它的子类（沿元表 `__index` 的 Lua 继承链）的 UObject；模块没加载（`package.loaded` 里没有）报 `lua_class_missing`，项目没有 UnLua 也报它 |
 | `in` | 否 | 在哪找。字符串：`screen`（屏上的界面，含游戏窗口弹出的子窗口）/ `world`（关卡里的 Actor）/ `lua`（2.1.0：绑了 UnLua 的 UObject，经 UELink `lua.objects`，不含类本身和已标记销毁的）/ `all`（`TObjectIterator`，最后才用）/ 前三个的数组（2.1.0：`["screen", "lua"]` = 几处的并集，同一个对象只算一次、按数组顺序排；数组里有 `all` 或是空数组 = `all`；面板「都不选」写 `all`）/ `@来源.路径`（容器属性里的对象，来源同 game-test-script 4.3）。对象：`{"obj": 引用, "part": "容器部件"}`（另一个对象里某个容器控件的条目：ListView 族、Panel 子项、DynamicEntryBox、挂在 Slate 上的子界面）；`{"obj": 引用}` 且 `class` 是组件类时 = 那个 Actor 的组件。省略时按类推：`lua:` 类 → `lua`；UUserWidget 子类 → `screen`；AActor 子类 → `world`；子系统（`USubsystem` 子类）→ 直接取单例，`ident` 必须为空；UActorComponent 子类且没给 `in` → 校验报 `ref_need_owner` |
-| `ident` | 否 | 唯一标识组，数组，**全部满足**。每条是一个判断项（第 3 节）。空 / 省略 = 只按类认 |
+| `ident` | 否 | 唯一标识，数组，**每项都要满足**。每项是一个判断项（第 3 节），或一个条件组（3.5，2.1.6 起）。空 / 省略 = 只按类认 |
 | `many` | 否 | 过滤后还剩多个时：`error`（默认；运行配置 `refDefaults.many` 可改）/ `first`（排序固定：`world` 里关卡放置的在前，再按创建顺序；`screen` 按 ZOrder 从小到大、同 ZOrder 先加入的在前，即最底层）/ `last`（`screen`：最上层，ZOrder 最大、同 ZOrder 后加的在上；其余：最后一个）/ `nearest`（离 `near` 最近，`near` 省略 = 本地 Pawn；只在有世界位置的候选里挑，都没有位置时报 `ref_ambiguous`） |
 | `near` | 否 | `[x,y,z]` / `$var` / `@pawn` / 另一个引用 |
 | `client` | 否 | 多客户端时在哪个世界找（`server` 或序号）。2.0.0 只认字段、不生效：引用一律在步骤的世界里找 |
@@ -83,18 +83,18 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `@item` | 列表条目的数据对象（只有 `in` 是 ListView 族容器时有；条目控件上没给时从 `IUserObjectListEntry` 取） | 开头 |
 | `/名字` | 子控件（这个类自己的 WidgetTree 里的设计器名，嵌套 WBP 再 `/` 进去）或 Actor 组件 | 只能在属性前面，可以连续多段 |
 | `.名字` | 反射属性（C++ `UPROPERTY`、蓝图变量、结构体字段；对象引用会跟进去） | 任意 |
-| `.名字()` | 无参、有返回值的取值函数：只许 `BlueprintPure` 或 `const`，不许有参数；只读，回放时每帧调 | 落在对象上时 |
+| `.名字()` / `.名字(1, "a")` | 有返回值的取值函数：只许 `BlueprintPure` 或 `const`；只读，回放时每帧调。2.1.6 起括号里可以写参数，只能是常量（数字、`"文字"` / `'文字'`、`true` / `false` / `null`，逗号分开，按参数顺序；没写的参数用零值，多写报错；WorldContext 参数自动填、不用写） | 落在对象上时 |
 | `#名字` | 绑的 UnLua 实例表字段；`#a.b`、`#a[1]` 里后面的 `.b`、`[1]` 继续是 Lua 表的键（后面不能再写 `()` 或 `:状态`） | 任意（落在对象上时） |
 | `:名字` | 运行状态（3.2 注册表） | 只在最后 |
 | `[i]` / `["键"]` | 数组下标（从 0 起）/ Map 键 | 跟在属性后面 |
 
-例：`@/Header/TxtTitle.Text`、`@.ShopId`、`@/ItemList:selectedCount`、`@#shopName`、`@/ShopComp.Goods[0].Id`、`@:text`、`@item.Data.ItemId`、`@item#cfgId`、`@.GetLevel()`。
+例：`@/Header/TxtTitle.Text`、`@.ShopId`、`@/ItemList:selectedCount`、`@#shopName`、`@/ShopComp.Goods[0].Id`、`@:text`、`@item.Data.ItemId`、`@item#cfgId`、`@.GetLevel()`、`@.GetCount(1001)`。
 
 - 名字是 ASCII 标识符（字母、数字、下划线，不以数字开头），大小写不敏感；名字里可以嵌 `$变量`（`@/Claim_$what:text`），解析时当名字的一部分，运行时先按文字替换再读。解析规则和面板 `ue/shared/gt-script/ref/path.ts`（`parsePropPath` / `formatPropPath`）一致，改一边要改另一边。
 - 写法不对报 `path_syntax`，消息写第几个字符（从 1 数）和原因。
 - 旧写法（v4：`@self.X`、`@部件.X`、`@lua.X`、`@itemLua.X`、`@部件:状态`、开头的 `:状态`）报 `path_old`，消息里给新写法（`@self.X` → `@.X`，`@lua.X` → `@#X`，`@itemLua.X` → `@item#X`，`:text` → `@:text`；`@部件.X` 按部件写 `@/部件.X`、按属性写 `@.部件.X`）。
 - 读不到（部件不存在、属性不存在、Lua 表没有这个字段、对象引用为空、函数不能调）：这一项结果是 **unresolved**，按不成立算，报告写哪一段读不到。例外：`@/部件:exists` 在部件不存在时是 false（不是 unresolved）。
-- 深度检查（`gt.validate deep`）按段对类：第一个 `/` 段在 WBP 控件树里（`part_missing`），紧跟在对象上的 `.` 段是类上的属性（`prop_missing`）或可调的无参函数（`fn_not_callable`），`:` 段在状态注册表里。
+- 深度检查（`gt.validate deep`）按段对类：第一个 `/` 段在 WBP 控件树里（`part_missing`），紧跟在对象上的 `.` 段是类上的属性（`prop_missing`）或可调的取值函数（`fn_not_callable`），`:` 段在状态注册表里。
 
 ### 3.2 算出状态（注册表，一种一个文件）
 
@@ -137,6 +137,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `value` | 常量 / `$var` / `"=表达式"`（只读，同 game-test-script 第 3 节）；`between` 是 `[a,b]`，`in` 是数组 |
 | `tol` | `eq` / `near` 的容差（浮点默认 0.001，向量 10，旋转 1，颜色每通道 0.02；运行配置 `refDefaults.tol` 可改） |
 | `ignoreCase` | 文字比较，默认 true（`refDefaults.ignoreCase`） |
+| `not` | 取反（2.1.6，只在引用的 `ident` 里认，条件里的对象判断不认） |
 
 ### 3.4 比较（按属性类型，注册表；面板和 C++ 同名同表）
 
@@ -161,6 +162,24 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 Lua 值的 kind 按运行时值推：number → `float`（整数值也收 `int` 的 op）、string → `string`、boolean → `bool`、table → `array`（只有 `count`、`empty`）。
 
 类型和 op 对不上：校验报 `op_type`（不开游戏时只查得到反射属性的类型；Lua 字段按 `---@field` 的类型查，查不到不报）。
+
+### 3.5 条件组（2.1.6）
+
+`ident` 顶层的各项都要满足（条件组之间是「且」）；一项也可以是条件组，组里的项按 `all`（都满足）或 `any`（任一满足）合起来，项可以是判断项或子组，**最多套 4 层**；判断项和条件组都能写 `not: true` 取反。
+
+```jsonc
+"ident": [
+  { "all": [ { "prop": "@.ItemId", "op": "eq", "value": 1001 },
+             { "any": [ { "prop": "@.GetCount()", "op": "gt", "value": 3 },
+                        { "prop": "@.IsSoldOut()", "not": true } ] } ] },
+  { "any": [ { "prop": "@:onScreen" }, { "prop": "@/Header/TxtTitle:text", "op": "contains", "value": "杂货" } ] }
+]
+```
+
+- 条件组只写 `all` 或 `any` 其中一个（两个都写报 `bad_type`），数组不能为空；字段只认 `all` / `any` / `not`。
+- 旧的平铺写法 `[判断项, 判断项]` 就是「每项都满足」，照样认；只有一项、`all`、不取反的组和直接写那一项等价，面板存的时候会拆掉这一层。
+- 匹配时组里按顺序算、能短路就短路；报告的 `payload.ref.ident`、歧义说明、`gt.resolve` 的 `candidates[].ident` 把条件组展开成判断项，每个 `prop` 一条此刻值。
+- 面板「每组命中几个」= 只拿这一组当 `ident` 再发一次 `gt.resolve`，不另加操作。
 
 ## 4. 条件里的对象判断
 
@@ -300,7 +319,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 - 带 `part` 时（2.1.0 起）：返回的 `prop` 和 `suggest` **相对那个部件**写（`@.X`、`@:text`、`@#X`），面板写进脚本时补上 `/部件`（`@/部件.X`）；`self` 组标题是「属性」，没有 `item` 组；里面再嵌的部件组 `part` 从外层对象写（`Header.TxtTitle`，下次展开直接用）。
 - Actor：每个组件一个部件组（`part` = 组件名，`class` = 组件类，折叠），面板的组件树靠它；按类读时只有 C++ 默认子对象，蓝图里加的组件要开游戏。
 - `class: "lua:模块"`（2.1.0）：读模块表（UELink `lua.inspect`，模块要已经 require）：`groups` 是 `lua`（模块表自己的字符串键字段，`prop: "@#字段"`、`kind` 按值推、`value` 是模块表上的值 = 默认值）和 `functions`（`{name, params, from?}`，`from` = 第几层父类继承来的）；另给 `luaModule`、`chain`（Lua 继承链）。模块没加载报 `lua_class_missing`。
-- UE 类和实例（2.1.5）：组的最后多一个 `functions`（标题「函数」）：类上蓝图能调的公有函数（`BlueprintCallable` / `BlueprintPure`，含继承来的，自己的在前，最多 300 个），项是 `{name, params, ret?, from?, src, pure?}`：`params` 是「`[out ]类型 名`」，`ret` 是返回类型，`from` = 定义它的父类，`src` 是 `cpp` / `bp`。无参、有返回值的取值函数（Pure 或 const，和路径里 `.名字()` 的要求一样）另给 `path`（`@.名字()`）、`kind`、`ops`，能加进唯一标识组；其余只列出来看，调用用 `obj.call`。不开游戏按类也能读。
+- UE 类和实例（2.1.5）：组的最后多一个 `functions`（标题「函数」）：类上蓝图能调的公有函数（`BlueprintCallable` / `BlueprintPure`，含继承来的，自己的在前，最多 300 个），项是 `{name, params, ret?, from?, src, pure?}`：`params` 是「`[out ]类型 名`」，`ret` 是返回类型，`from` = 定义它的父类，`src` 是 `cpp` / `bp`。有返回值的取值函数（Pure 或 const，和路径里 `.名字()` 的要求一样），参数都是数字 / 布尔 / 文字 / 枚举时（2.1.6 起；之前只认无参的）另给 `path`（`@.名字(0, "")`，参数按顺序先填零值）、`args`（要写几个参数，没有参数时不给）、`kind`、`ops`，能加进唯一标识；其余只列出来看，调用用 `obj.call`。不开游戏按类也能读。
 - 每项：`prop`（直接能写进脚本的 v5 路径：自己的属性 `@.X`、Lua 字段 `@#X`、条目数据对象 `@item.X` / `@item#X`、状态 `@:X`）、`name`、`src`（`cpp` / `bp` / `lua` / `state`）、`type`（引擎类型名）、`kind`（3.4）、`value?`（游戏开着时，超长截 200 字）、`distinct?`（同类 `siblings` 个实例里有几种值；`siblings` 是同 `in` 下同类的实例数，最多看 50 个）、`members?`（enum 和 visibility：全部成员名，面板给下拉）、`score`（0–10，当标识的推荐分，同录制条目打分：唯一、像 Id、数据对象上分高；位置、选中、计数、长文字、会变的分低；`changing`「1 秒内自己变过」2.0.0 没做，会变的只按名字和状态的 `IsStable` 压分）、`ops`、`comparable`（false 时带 `why`）、`readOnly`、`cat?`（2.0.5 起：UPROPERTY 的 Category，即 UE 细节面板里的分类，如 `Behavior`、`Appearance|Font`；只在带元数据的构建里有，面板按它分组，没有就不分）。
 - `suggest`：能把当前对象和同类其他实例区分开的最少属性组合（最多 3 个），按 `identRules` 先、再按分数。
 - `matches`：按 `suggest` 组成的 `ident` 此刻命中几个。
@@ -384,6 +403,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 ## 12. 版本
 
 - GameTest 2.0.0：本文全部（实现和本文不同的地方已在对应小节写明：`obj.close` 的 `click` 只做代码点击、关闭方式同步做一次再跨帧核对、`gt.highlight` 不避开截图、`gt.props` 没有 `changing`、`gt.tree` 和引用的 `client` 没做、skipIf 不再自动把没生成的列表条目滚出来）。需要 UELink ≥ 2.12.0（不变）。
+- GameTest 2.1.6：`ident` 条件组（3.5）、判断项 `not`、路径里的函数带常量参数（3.1）、`gt.props` 的 `functions` 给带参数的 `path` 和 `args`。
 - GameTest 2.1.4：`gt.props` 的 `class` 模式给默认值。
 - GameTest 2.1.3：`gt.classes` 的 Lua 按目录列（`dir`、`dirs`）；`gt.props` 收 `path`、`class` 给资产路径时加载蓝图；`gt.resolve` 候选带 `path`。
 - GameTest 2.1.0：schemaVersion 5（属性路径 v5，3.1；旧写法报 `path_old`，不迁移）、引用的 `in` 数组 / `lua` / `class: "lua:…"`、`objects` 收来源字符串和中文名、`{"$obj": 名}` 当引用、`gt.classes`、`gt.step objects`、`obj.call each`、`gt.vars` 的 `objectClass`、`gt.props` 的 `cat`。

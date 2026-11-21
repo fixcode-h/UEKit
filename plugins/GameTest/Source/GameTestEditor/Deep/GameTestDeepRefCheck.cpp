@@ -232,8 +232,23 @@ namespace GameTestDeepRef
 				if (Item.IsValid())
 				{
 					FGameTestDiagSink::FScope Scope(InEnv.Sink, FString::Printf(TEXT("ident[%d]"), Index));
-					CheckItem(Class, ClassName, FGameTestIdentItem::FromJson(*Item), InEnv);
+					CheckNode(Class, ClassName, FGameTestIdentItem::NodeFromJson(*Item), InEnv);
 				}
+			}
+		}
+
+		/** 条件组（2.1.6）里每个判断项都按类查一遍。 */
+		void CheckNode(const UClass* InClass, const FString& InClassName, const FGameTestIdentItem& InNode, FGameTestDeepEnv& InEnv) const
+		{
+			if (!InNode.IsGroup())
+			{
+				CheckItem(InClass, InClassName, InNode, InEnv);
+				return;
+			}
+			for (int32 Index = 0; Index < InNode.Kids.Num(); ++Index)
+			{
+				FGameTestDiagSink::FScope Scope(InEnv.Sink, FString::Printf(TEXT("%s[%d]"), InNode.Join == EGameTestIdentJoin::All ? TEXT("all") : TEXT("any"), Index));
+				CheckNode(InClass, InClassName, InNode.Kids[Index], InEnv);
 			}
 		}
 
@@ -295,7 +310,7 @@ namespace GameTestDeepRef
 					else if (Path.Segs[0].Kind == EGameTestPathSeg::Fn && !GameTestReflectValue::IsReadOnlyFunction(*Function))
 					{
 						FGameTestDiagSink::FScope Scope(InEnv.Sink, TEXT("prop"));
-						InEnv.Sink.Error(TEXT("fn_not_callable"), FString::Printf(TEXT("%s 不是 BlueprintPure 或 const 函数：属性路径里只能调无参取值函数"), *Name));
+						InEnv.Sink.Error(TEXT("fn_not_callable"), FString::Printf(TEXT("%s 不是 BlueprintPure 或 const 函数：属性路径里只能调取值函数"), *Name));
 					}
 					return;
 				}

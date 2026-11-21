@@ -57,6 +57,36 @@ namespace GameTestPropPathImpl
 		return C == TEXT('/') || C == TEXT('.') || C == TEXT('#') || C == TEXT(':');
 	}
 
+	/** 从 `(` 起找配对的 `)`：引号里的括号不算。找不到返回 INDEX_NONE。 */
+	int32 FindArgsClose(const FString& InText, int32 InOpen)
+	{
+		TCHAR Quote = 0;
+		for (int32 Index = InOpen + 1; Index < InText.Len(); ++Index)
+		{
+			const TCHAR C = InText[Index];
+			if (Quote != 0)
+			{
+				if (C == TEXT('\\'))
+				{
+					++Index;
+				}
+				else if (C == Quote)
+				{
+					Quote = 0;
+				}
+			}
+			else if (C == TEXT('"') || C == TEXT('\''))
+			{
+				Quote = C;
+			}
+			else if (C == TEXT(')'))
+			{
+				return Index;
+			}
+		}
+		return INDEX_NONE;
+	}
+
 	const TCHAR* const NewRules = TEXT("对象自己的属性 @.X，子控件 / 组件 @/子控件.X（多层 @/A/B.X），Lua 字段 @#X，条目数据 @item.X / @item#X，运行状态 @:状态 / @/子控件:状态");
 
 	/** Actor 的组件：按名字（忽略大小写）。 */
@@ -249,7 +279,7 @@ namespace GameTestPropPathImpl
 	}
 
 	/** `.名字()`：只许无参、有返回值、BlueprintPure 或 const 的函数（读值不能改游戏）。 */
-	FGameTestValue CallGetter(UObject* InObject, const FString& InName, FGameTestFlowContext& InContext)
+	FGameTestValue CallGetter(UObject* InObject, const FString& InName, const TArray<FGameTestValue>& InArgs, FGameTestFlowContext& InContext)
 	{
 		UFunction* Function = GameTestReflectValue::FindFunction(InObject->GetClass(), InName);
 		if (Function == nullptr)
@@ -260,13 +290,6 @@ namespace GameTestPropPathImpl
 		{
 			return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 不是 BlueprintPure 或 const 函数：路径里只能调取值函数"), *InName), TEXT("fn_not_callable"));
 		}
-		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
-		{
-			if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
-			{
-				return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 有参数 %s：路径里只能调无参的取值函数（有参数的用 obj.call）"), *InName, *It->GetName()), TEXT("fn_not_callable"));
-			}
-		}
 		if (Function->GetReturnProperty() == nullptr)
 		{
 			return FGameTestValue::Unresolved(FString::Printf(TEXT("%s 没有返回值"), *InName), TEXT("fn_not_callable"));
@@ -274,9 +297,17 @@ namespace GameTestPropPathImpl
 		// 读路径不是一次调用步骤：不往报告的 payload.invoke 里写
 		const TSharedPtr<FJsonObject> PrevPayload = InContext.StepPayload;
 		InContext.StepPayload.Reset();
+		// 2.1.6：参数按顺序给（路径里写的常量）；没写的参数用零值，和蓝图里不连线一样（ReflectCall 处理，多给了报错）
 		const TMap<FString, FGameTestValue> None;
 		GameTestReflectCall::FArgs Args;
-		Args.Named = &None;
+		if (InArgs.Num() > 0)
+		{
+			Args.Positional = &InArgs;
+		}
+		else
+		{
+			Args.Named = &None;
+		}
 		const FGameTestValue Value = GameTestReflectCall::Call(InObject, Function, Args, InContext);
 		InContext.StepPayload = PrevPayload;
 		return Value;
@@ -444,7 +475,7 @@ namespace GameTestPropPathImpl
 			return true;
 		}
 
-		bool StepFn(const FString& InName, FString& OutError, FName& OutCode)
+		bool StepFn(const FString& InName, const FString& InArgs, FString& OutError, FName& OutCode)
 		{
 			UObject* Object = LandingObject(OutError);
 			if (Object == nullptr)
@@ -452,7 +483,13 @@ namespace GameTestPropPathImpl
 				OutError = FString::Printf(TEXT("%s() 要落在对象上：%s"), *InName, *OutError);
 				return false;
 			}
-			const FGameTestValue Result = CallGetter(Object, InName, Context);
+			TArray<FGameTestValue> ArgValues;
+			if (!FGameTestPropPath::ParseArgs(InArgs, ArgValues, OutError))
+			{
+				OutCode = TEXT("path_syntax");
+				return false;
+			}
+			const FGameTestValue Result = CallGetter(Object, InName, ArgValues, Context);
 			if (Result.IsUnresolved())
 			{
 				OutError = Result.GetString();
@@ -488,6 +525,88 @@ FString FGameTestPropPath::ChildPart() const
 	return FString::Join(Names, TEXT("."));
 }
 
+bool FGameTestPropPath::ParseArgs(const FString& InText, TArray<FGameTestValue>& OutArgs, FString& OutError)
+{
+	OutArgs.Reset();
+	const FString Text = InText.TrimStartAndEnd();
+	if (Text.IsEmpty())
+	{
+		return true;
+	}
+	// 按逗号拆（引号里的逗号不算），每段一个常量
+	TArray<FString> Parts;
+	FString Current;
+	TCHAR Quote = 0;
+	for (int32 Index = 0; Index < Text.Len(); ++Index)
+	{
+		const TCHAR C = Text[Index];
+		if (Quote != 0)
+		{
+			Current.AppendChar(C);
+			if (C == TEXT('\\') && Index + 1 < Text.Len())
+			{
+				Current.AppendChar(Text[++Index]);
+			}
+			else if (C == Quote)
+			{
+				Quote = 0;
+			}
+		}
+		else if (C == TEXT('"') || C == TEXT('\''))
+		{
+			Quote = C;
+			Current.AppendChar(C);
+		}
+		else if (C == TEXT(','))
+		{
+			Parts.Add(Current.TrimStartAndEnd());
+			Current.Reset();
+		}
+		else
+		{
+			Current.AppendChar(C);
+		}
+	}
+	if (Quote != 0)
+	{
+		OutError = TEXT("函数参数的引号不配对");
+		return false;
+	}
+	Parts.Add(Current.TrimStartAndEnd());
+	for (int32 Index = 0; Index < Parts.Num(); ++Index)
+	{
+		const FString& Part = Parts[Index];
+		const TCHAR First = Part.IsEmpty() ? 0 : Part[0];
+		if (Part.Len() >= 2 && (First == TEXT('"') || First == TEXT('\'')) && Part[Part.Len() - 1] == First)
+		{
+			// 只认 \" \' \\ 三种转义
+			FString Body = Part.Mid(1, Part.Len() - 2);
+			Body.ReplaceInline(TEXT("\\\""), TEXT("\""));
+			Body.ReplaceInline(TEXT("\\'"), TEXT("'"));
+			Body.ReplaceInline(TEXT("\\\\"), TEXT("\\"));
+			OutArgs.Add(FGameTestValue::FromString(Body));
+		}
+		else if (Part == TEXT("true") || Part == TEXT("false"))
+		{
+			OutArgs.Add(FGameTestValue::FromBool(Part == TEXT("true")));
+		}
+		else if (Part == TEXT("null"))
+		{
+			OutArgs.Add(FGameTestValue::Null());
+		}
+		else if (!Part.IsEmpty() && Part.IsNumeric())
+		{
+			OutArgs.Add(FGameTestValue::FromNumber(FCString::Atod(*Part)));
+		}
+		else
+		{
+			OutError = FString::Printf(TEXT("第 %d 个参数「%s」不认识：函数参数只能写数字、\"文字\"、true / false / null"), Index + 1, *Part.Left(40));
+			return false;
+		}
+	}
+	return true;
+}
+
 FString FGameTestPropPath::Format() const
 {
 	FString Out = bItem ? TEXT("@item") : TEXT("@");
@@ -502,7 +621,7 @@ FString FGameTestPropPath::Format() const
 			Out += TEXT("#") + Seg.Name;
 			break;
 		case EGameTestPathSeg::Fn:
-			Out += TEXT(".") + Seg.Name + TEXT("()");
+			Out += TEXT(".") + Seg.Name + TEXT("(") + Seg.Args + TEXT(")");
 			break;
 		case EGameTestPathSeg::Index:
 			Out += Seg.Name.IsNumeric() ? FString::Printf(TEXT("[%s]"), *Seg.Name) : FString::Printf(TEXT("[\"%s\"]"), *Seg.Name);
@@ -647,17 +766,42 @@ bool FGameTestPropPath::Parse(const FString& InText, FGameTestPropPath& OutPath,
 			return Syntax(FString::Printf(TEXT("「%c」不认识：每段以 / . # : 开头"), C), I);
 		}
 		int32 J = I + 1;
+		// 函数段的括号（2.1.6 起可以带参数）：括号里的 . / : 、引号里的字符不算分段
+		int32 Open = INDEX_NONE;
+		int32 Close = INDEX_NONE;
 		while (J < S.Len() && !IsSegStart(S[J]) && S[J] != TEXT('['))
 		{
+			if (S[J] == TEXT('('))
+			{
+				Open = J;
+				Close = FindArgsClose(S, J);
+				if (Close == INDEX_NONE)
+				{
+					return Syntax(TEXT("函数的括号不配对"), J);
+				}
+				J = Close + 1;
+				break;
+			}
 			++J;
 		}
-		FString Name = S.Mid(I + 1, J - I - 1);
+		FString Name = S.Mid(I + 1, (Open != INDEX_NONE ? Open : J) - I - 1);
+		FString Args;
 		EGameTestPathSeg Kind = C == TEXT('/') ? EGameTestPathSeg::Child : C == TEXT('#') ? EGameTestPathSeg::Lua : EGameTestPathSeg::Prop;
 		const bool bState = C == TEXT(':');
-		if (Kind == EGameTestPathSeg::Prop && !bState && Name.EndsWith(TEXT("()")))
+		if (Open != INDEX_NONE)
 		{
+			if (Kind != EGameTestPathSeg::Prop || bState)
+			{
+				return Syntax(TEXT("只有 .函数() 能写括号"), Open);
+			}
 			Kind = EGameTestPathSeg::Fn;
-			Name = Name.LeftChop(2);
+			Args = S.Mid(Open + 1, Close - Open - 1).TrimStartAndEnd();
+			TArray<FGameTestValue> ArgValues;
+			FString ArgError;
+			if (!FGameTestPropPath::ParseArgs(Args, ArgValues, ArgError))
+			{
+				return Syntax(ArgError, Open + 1);
+			}
 		}
 		if (!IsIdentifier(Name))
 		{
@@ -673,7 +817,11 @@ bool FGameTestPropPath::Parse(const FString& InText, FGameTestPropPath& OutPath,
 		}
 		else
 		{
-			OutPath.Segs.Add({ Kind, Name });
+			FGameTestPathSeg Seg;
+			Seg.Kind = Kind;
+			Seg.Name = Name;
+			Seg.Args = Args;
+			OutPath.Segs.Add(Seg);
 		}
 		I = J;
 	}
@@ -807,7 +955,7 @@ FGameTestPropRead GameTestPropRead::Read(UObject* InObject, const FGameTestPropP
 			bOk = Walk.StepIndexSeg(Seg.Name, Error);
 			break;
 		case EGameTestPathSeg::Fn:
-			bOk = Walk.StepFn(Seg.Name, Error, Code);
+			bOk = Walk.StepFn(Seg.Name, Seg.Args, Error, Code);
 			break;
 		case EGameTestPathSeg::Lua:
 		{

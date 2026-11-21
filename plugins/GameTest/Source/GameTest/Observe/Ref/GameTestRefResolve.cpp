@@ -713,17 +713,57 @@ bool GameTestRefResolve::Collect(const FGameTestRef& InRef, FGameTestFlowContext
 	return true;
 }
 
+namespace GameTestRefResolveImpl
+{
+	/**
+	 * 一项（判断项或条件组）此刻成不成立。要记每条读到的值（OutActuals）时不短路，每个判断项都读一遍；
+	 * 同一个 prop 只记一次（同一条属性可能在几个组里各写一次）。
+	 */
+	bool MatchesNode(const FGameTestRefCandidate& InCandidate, const FGameTestIdentItem& InNode, FGameTestFlowContext& InContext, TArray<FString>* OutActuals)
+	{
+		bool bHolds = false;
+		if (InNode.IsGroup())
+		{
+			const bool bAll = InNode.Join == EGameTestIdentJoin::All;
+			// 空组：都满足的算成立、任一满足的算不成立（和数学上的空且 / 空或一样；校验会报空组）
+			bHolds = bAll;
+			for (const FGameTestIdentItem& Kid : InNode.Kids)
+			{
+				const bool bKid = MatchesNode(InCandidate, Kid, InContext, OutActuals);
+				if (bAll ? !bKid : bKid)
+				{
+					bHolds = !bAll;
+					if (OutActuals == nullptr)
+					{
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			const FGameTestJudgeResult Judged = GameTestJudge::Test(InCandidate.Object.Get(), InNode, InContext, InCandidate.Item.Get());
+			if (OutActuals != nullptr)
+			{
+				const FString Head = InNode.Prop + TEXT("=");
+				if (!OutActuals->ContainsByPredicate([&Head](const FString& It) { return It.StartsWith(Head); }))
+				{
+					OutActuals->Add(Head + (Judged.Read.IsResolved() ? Judged.Read.Value.ToDisplay(40) : FString(TEXT("读不到"))));
+				}
+			}
+			bHolds = Judged.bHolds;
+		}
+		return InNode.bNot ? !bHolds : bHolds;
+	}
+}
+
 bool GameTestRefResolve::MatchesIdent(const FGameTestRefCandidate& InCandidate, const TArray<FGameTestIdentItem>& InIdent, FGameTestFlowContext& InContext, TArray<FString>* OutActuals)
 {
+	// 顶层每项都要满足（条件组之间是「且」）
 	bool bAll = true;
 	for (const FGameTestIdentItem& Item : InIdent)
 	{
-		const FGameTestJudgeResult Judged = GameTestJudge::Test(InCandidate.Object.Get(), Item, InContext, InCandidate.Item.Get());
-		if (OutActuals != nullptr)
-		{
-			OutActuals->Add(FString::Printf(TEXT("%s=%s"), *Item.Prop, Judged.Read.IsResolved() ? *Judged.Read.Value.ToDisplay(40) : TEXT("读不到")));
-		}
-		if (!Judged.bHolds)
+		if (!GameTestRefResolveImpl::MatchesNode(InCandidate, Item, InContext, OutActuals))
 		{
 			bAll = false;
 			if (OutActuals == nullptr)
@@ -811,7 +851,10 @@ TSharedPtr<FJsonObject> GameTestRefResolve::CandidateToJson(const FGameTestRefCa
 		Out->SetNumberField(TEXT("index"), InCandidate.Index);
 	}
 	TArray<TSharedPtr<FJsonValue>> Ident;
-	for (const FGameTestIdentItem& Item : InIdent)
+	// 条件组展开成判断项，每个 prop 一条此刻值（面板的实例表、标识卡片按 prop 对）
+	TArray<FGameTestIdentItem> Leaves;
+	FGameTestIdentItem::CollectLeaves(InIdent, Leaves);
+	for (const FGameTestIdentItem& Item : Leaves)
 	{
 		const FGameTestPropRead Read = GameTestPropRead::ReadText(InCandidate.Object.Get(), Item.Prop.IsEmpty() ? FString(TEXT("@:exists")) : Item.Prop, InContext, InCandidate.Item.Get());
 		const TSharedRef<FJsonObject> Entry = MakeShared<FJsonObject>();

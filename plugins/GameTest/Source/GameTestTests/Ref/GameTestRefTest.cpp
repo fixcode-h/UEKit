@@ -154,6 +154,59 @@ TEST_CLASS_WITH_FLAGS(GameTestRefTest, "GameTest.Ref",
 		ASSERT_THAT(IsTrue(HasCode(Bad, TEXT("ref_bad_class")) && HasCode(Bad, TEXT("bad_type")), Describe(Bad)));
 	}
 
+	/** 2.1.6：取值函数带常量参数；括号里的 . : / 和引号里的逗号不算分段。 */
+	TEST_METHOD(PropPath_FnArgs)
+	{
+		FGameTestPropPath Path;
+		FString Error;
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@.GetCount(1001, \"a.b:c, d\", true)"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(Path.Segs.Num() == 1 && Path.Segs[0].Kind == EGameTestPathSeg::Fn && Path.Segs[0].Name == TEXT("GetCount")));
+		TArray<FGameTestValue> Args;
+		ASSERT_THAT(IsTrue(FGameTestPropPath::ParseArgs(Path.Segs[0].Args, Args, Error), Error));
+		ASSERT_THAT(AreEqual(3, Args.Num()));
+		ASSERT_THAT(AreEqual(FString(TEXT("a.b:c, d")), Args[1].GetString()));
+		ASSERT_THAT(AreEqual(FString(TEXT("@.GetCount(1001, \"a.b:c, d\", true)")), Path.Format()));
+		ASSERT_THAT(IsTrue(FGameTestPropPath::Parse(TEXT("@/Slot.Find(-1.5).Id:exists"), Path, Error), Error));
+		ASSERT_THAT(IsTrue(Path.Segs.Num() == 3 && Path.Segs[1].Args == TEXT("-1.5") && Path.State == TEXT("exists")));
+		for (const TCHAR* Bad : { TEXT("@.Get(1"), TEXT("@.Get(abc)"), TEXT("@.Get(1,,2)"), TEXT("@#tbl(1)"), TEXT("@.Get(\"x)") })
+		{
+			ASSERT_THAT(IsFalse(FGameTestPropPath::Parse(Bad, Path, Error)));
+			ASSERT_THAT(AreEqual(FString(TEXT("path_syntax")), Path.FailCode.ToString()));
+		}
+	}
+
+	/** 2.1.6：ident 里的条件组读写来回一致，校验认 all / any / not，拒两个都写、空组、套太深。 */
+	TEST_METHOD(Ref_IdentGroups)
+	{
+		using namespace GameTestRefTestLocal;
+		const TCHAR* Text = TEXT(R"({"class":"WBP_Shop","ident":[{"prop":"@.ShopId","op":"eq","value":1001},{"any":[{"prop":"@.GetCount()","op":"gt","value":3},{"all":[{"prop":"@:onScreen"}],"not":true}]}]})");
+		FGameTestRef Ref;
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Parse(Text), Ref)));
+		ASSERT_THAT(AreEqual(2, Ref.Ident.Num()));
+		ASSERT_THAT(IsTrue(Ref.Ident[1].Join == EGameTestIdentJoin::Any && Ref.Ident[1].Kids.Num() == 2));
+		ASSERT_THAT(IsTrue(Ref.Ident[1].Kids[1].IsGroup() && Ref.Ident[1].Kids[1].bNot));
+		FGameTestRef Back;
+		ASSERT_THAT(IsTrue(FGameTestRef::FromJson(*Ref.ToJson(), Back) && Back.Ident.Num() == 2 && Back.Ident[1].Kids[1].bNot));
+		TArray<FGameTestIdentItem> Leaves;
+		FGameTestIdentItem::CollectLeaves(Ref.Ident, Leaves);
+		ASSERT_THAT(AreEqual(3, Leaves.Num()));
+
+		FGameTestExprScope Scope;
+		FGameTestDiagSink Good;
+		GameTestRefCheck::RefObject(*Parse(Text), Scope, Good);
+		ASSERT_THAT(IsFalse(Good.HasErrors(), Describe(Good)));
+		for (const TCHAR* Bad : {
+				 TEXT(R"({"class":"A","ident":[{"all":[{"prop":"@.X"}],"any":[{"prop":"@.Y"}]}]})"),
+				 TEXT(R"({"class":"A","ident":[{"any":[]}]})"),
+				 TEXT(R"({"class":"A","ident":[{"all":[{"prop":"@.X"}],"mode":"or"}]})"),
+				 TEXT(R"({"class":"A","ident":[{"all":[{"all":[{"all":[{"all":[{"all":[{"prop":"@.X"}]}]}]}]}]}]})") })
+		{
+			FGameTestDiagSink Sink;
+			GameTestRefCheck::RefObject(*Parse(Bad), Scope, Sink);
+			ASSERT_THAT(IsTrue(Sink.HasErrors(), Bad));
+		}
+	}
+
 	/** 录制的选择器 → v4：屏去重进 objects，条目 → in + ident，嵌套 WBP 用 `.` 连。 */
 	TEST_METHOD(RecordV4_TargetOf)
 	{
