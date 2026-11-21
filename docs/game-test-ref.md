@@ -300,6 +300,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 - 带 `part` 时（2.1.0 起）：返回的 `prop` 和 `suggest` **相对那个部件**写（`@.X`、`@:text`、`@#X`），面板写进脚本时补上 `/部件`（`@/部件.X`）；`self` 组标题是「属性」，没有 `item` 组；里面再嵌的部件组 `part` 从外层对象写（`Header.TxtTitle`，下次展开直接用）。
 - Actor：每个组件一个部件组（`part` = 组件名，`class` = 组件类，折叠），面板的组件树靠它；按类读时只有 C++ 默认子对象，蓝图里加的组件要开游戏。
 - `class: "lua:模块"`（2.1.0）：读模块表（UELink `lua.inspect`，模块要已经 require）：`groups` 是 `lua`（模块表自己的字符串键字段，`prop: "@#字段"`、`kind` 按值推、`value` 是模块表上的值 = 默认值）和 `functions`（`{name, params, from?}`，`from` = 第几层父类继承来的）；另给 `luaModule`、`chain`（Lua 继承链）。模块没加载报 `lua_class_missing`。
+- UE 类和实例（2.1.5）：组的最后多一个 `functions`（标题「函数」）：类上蓝图能调的公有函数（`BlueprintCallable` / `BlueprintPure`，含继承来的，自己的在前，最多 300 个），项是 `{name, params, ret?, from?, src, pure?}`：`params` 是「`[out ]类型 名`」，`ret` 是返回类型，`from` = 定义它的父类，`src` 是 `cpp` / `bp`。无参、有返回值的取值函数（Pure 或 const，和路径里 `.名字()` 的要求一样）另给 `path`（`@.名字()`）、`kind`、`ops`，能加进唯一标识组；其余只列出来看，调用用 `obj.call`。不开游戏按类也能读。
 - 每项：`prop`（直接能写进脚本的 v5 路径：自己的属性 `@.X`、Lua 字段 `@#X`、条目数据对象 `@item.X` / `@item#X`、状态 `@:X`）、`name`、`src`（`cpp` / `bp` / `lua` / `state`）、`type`（引擎类型名）、`kind`（3.4）、`value?`（游戏开着时，超长截 200 字）、`distinct?`（同类 `siblings` 个实例里有几种值；`siblings` 是同 `in` 下同类的实例数，最多看 50 个）、`members?`（enum 和 visibility：全部成员名，面板给下拉）、`score`（0–10，当标识的推荐分，同录制条目打分：唯一、像 Id、数据对象上分高；位置、选中、计数、长文字、会变的分低；`changing`「1 秒内自己变过」2.0.0 没做，会变的只按名字和状态的 `IsStable` 压分）、`ops`、`comparable`（false 时带 `why`）、`readOnly`、`cat?`（2.0.5 起：UPROPERTY 的 Category，即 UE 细节面板里的分类，如 `Behavior`、`Appearance|Font`；只在带元数据的构建里有，面板按它分组，没有就不分）。
 - `suggest`：能把当前对象和同类其他实例区分开的最少属性组合（最多 3 个），按 `identRules` 先、再按分数。
 - `matches`：按 `suggest` 组成的 `ident` 此刻命中几个。
@@ -336,7 +337,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 
 ### 7.7 `gt.classes`：类树（2.1.0）
 
-面板「选对象」的类下拉用。参数：`parent?`（列它的直接子类；省略 = `Object`，Lua 类树省略 = 最顶层的模块）、`q?`（名字**包含**即命中，大小写不敏感，开头对上的排前面；给了时不看 `parent`，返回命中的和它们的全部祖先，祖先在前）、`lua?`（true：Lua 类树）、`offset` / `limit`（默认 200，最多 500）。
+面板「选对象」的类下拉用。参数：`parent?`（列它的直接子类；省略 = `Object`，Lua 类树省略 = 最顶层的模块）、`q?`（名字**包含**即命中，大小写不敏感，开头对上的排前面；Lua 模块只比最后一段（q 里带 `.` 或 `/` 时比整条路径）；给了时不看 `parent`，返回命中的和它们的全部祖先，祖先在前）、`lua?`（true：Lua 类树）、`offset` / `limit`（默认 200，最多 500）、`fresh?`（true：不用缓存重建类表；平时 15 秒内的请求复用上一次建好的类表，逐层展开不再每次重扫）。
 
 ```jsonc
 { "items": [

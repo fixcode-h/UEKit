@@ -10,6 +10,7 @@
 #include "Dom/JsonValue.h"
 #include "Observe/Compare/GameTestCompareRegistry.h"
 #include "Observe/Sources/GameTestReflectCall.h"
+#include "Observe/Sources/GameTestReflectValue.h"
 #include "Observe/Ref/GameTestClassFilter.h"
 #include "Observe/Ref/GameTestIdentSuggest.h"
 #include "Observe/Ref/GameTestPropKind.h"
@@ -28,6 +29,7 @@
 #include "Components/SlateWrapperTypes.h"
 #include "Components/ActorComponent.h"
 #include "Components/Widget.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "GameFramework/Actor.h"
 #include "UObject/EnumProperty.h"
 #include "UObject/UnrealType.h"
@@ -168,6 +170,97 @@ namespace GameTestRpcPropsImpl
 	}
 
 	/** UnLua 绑的模块名（面板按它找 Lua 源文件补 `---@field`，7.5）：对象上有 GetModuleName 就调一次。CDO 上也能调（返回常量）。 */
+	/** 函数页最多列这么多个（Actor 继承来的可调函数有一两百个，再多面板也翻不过来）。 */
+	constexpr int32 MaxFunctions = 300;
+
+	/** 类名去掉蓝图生成类的 `_C`（和类树、引用里的写法一致）。 */
+	FString ShortClassName(const UClass* InClass)
+	{
+		FString Name = InClass != nullptr ? InClass->GetName() : FString();
+		if (Cast<UBlueprintGeneratedClass>(InClass) != nullptr)
+		{
+			Name.RemoveFromEnd(TEXT("_C"));
+		}
+		return Name;
+	}
+
+	/**
+	 * 类的公有函数（用户 2026-11-21：方法页是空的）：反射里蓝图能调的（BlueprintCallable / BlueprintPure），含继承来的，
+	 * 自己的在前；不开游戏也能读。项的形状同 Lua 类的 functions 组：{name, params, ret?, from?, src}，面板只列出来看。
+	 */
+	void AddFunctions(const UClass* InClass, const FString& InFilter, TArray<FItem>& OutItems)
+	{
+		if (InClass == nullptr)
+		{
+			return;
+		}
+		int32 Count = 0;
+		TSet<FName> Seen;
+		for (TFieldIterator<UFunction> It(InClass, EFieldIteratorFlags::IncludeSuper); It && Count < MaxFunctions; ++It)
+		{
+			const UFunction* Function = *It;
+			if (Function == nullptr || !Function->HasAnyFunctionFlags(FUNC_Public) || !Function->HasAnyFunctionFlags(FUNC_BlueprintCallable | FUNC_BlueprintPure) || Function->HasAnyFunctionFlags(FUNC_Delegate))
+			{
+				continue;
+			}
+			const FString Name = Function->GetName();
+			if (Seen.Contains(Function->GetFName()) || (!InFilter.IsEmpty() && !Name.Contains(InFilter)))
+			{
+				continue;
+			}
+			Seen.Add(Function->GetFName());
+			const TSharedPtr<FJsonObject> Json = MakeShared<FJsonObject>();
+			Json->SetStringField(TEXT("name"), Name);
+			TArray<TSharedPtr<FJsonValue>> Params;
+			FString Ret;
+			for (TFieldIterator<FProperty> Param(Function); Param && Param->HasAnyPropertyFlags(CPF_Parm); ++Param)
+			{
+				if (Param->HasAnyPropertyFlags(CPF_ReturnParm))
+				{
+					Ret = Param->GetCPPType();
+					continue;
+				}
+				const bool bOut = Param->HasAnyPropertyFlags(CPF_OutParm) && !Param->HasAnyPropertyFlags(CPF_ConstParm | CPF_ReferenceParm);
+				Params.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("%s%s %s"), bOut ? TEXT("out ") : TEXT(""), *Param->GetCPPType(), *Param->GetName())));
+			}
+			Json->SetArrayField(TEXT("params"), Params);
+			if (!Ret.IsEmpty())
+			{
+				Json->SetStringField(TEXT("ret"), Ret);
+			}
+			const UClass* Owner = Function->GetOwnerClass();
+			if (Owner != nullptr && Owner != InClass)
+			{
+				Json->SetStringField(TEXT("from"), ShortClassName(Owner));
+			}
+			const bool bBlueprint = Cast<UBlueprintGeneratedClass>(Owner) != nullptr;
+			Json->SetStringField(TEXT("src"), bBlueprint ? TEXT("bp") : TEXT("cpp"));
+			if (Function->HasAnyFunctionFlags(FUNC_BlueprintPure))
+			{
+				Json->SetBoolField(TEXT("pure"), true);
+			}
+			// 无参、有返回值的取值函数（Pure 或 const）能写进路径 `@.名字()` 当唯一标识的条件（用户 2026-11-21）：给 path 和 kind
+			const FProperty* Return = Function->GetReturnProperty();
+			if (Params.Num() == 0 && Return != nullptr && GameTestReflectValue::IsReadOnlyFunction(*Function))
+			{
+				const EGameTestKind Kind = FGameTestPropKind::Of(Return);
+				Json->SetStringField(TEXT("path"), FGameTestPropPath::OfProp(Name) + TEXT("()"));
+				Json->SetStringField(TEXT("kind"), FGameTestPropKind::Name(Kind));
+				if (FGameTestPropKind::IsComparable(Kind))
+				{
+					TArray<TSharedPtr<FJsonValue>> Ops;
+					for (const FString& Op : FGameTestCompareRegistry::OpsFor(Kind))
+					{
+						Ops.Add(MakeShared<FJsonValueString>(Op));
+					}
+					Json->SetArrayField(TEXT("ops"), Ops);
+				}
+			}
+			OutItems.Add({ TEXT("functions"), Json });
+			++Count;
+		}
+	}
+
 	FString LuaModuleOf(UObject* InObject)
 	{
 		UFunction* Function = InObject != nullptr ? InObject->FindFunction(TEXT("GetModuleName")) : nullptr;
@@ -366,6 +459,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 		}
 		Items.Add({ GroupOf(Prop.Group), Json });
 	}
+	AddFunctions(Object->GetClass(), Filter, Items);
 	// 算出状态：适用于这个对象的都列
 	const UObject* StateTarget = Object;
 	for (const TSharedRef<IGameTestState>& State : FGameTestStateRegistry::Get().GetAll())
@@ -423,6 +517,7 @@ bool GameTestRpcRef::Props(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJs
 	// Actor：每个组件一个部件组（面板的组件树全靠它；part 是组件名，同 target 的 part）
 	AddComponentGroups(Cast<AActor>(Object), Groups);
 	Groups.Add({ TEXT("states"), TEXT("算出状态"), FString(), FString(), false });
+	Groups.Add({ TEXT("functions"), TEXT("函数"), FString(), FString(), false });
 
 	// 分页 + 字数预算：按组的顺序数项
 	TArray<FItem> Ordered;

@@ -17,12 +17,14 @@
 #include "Dom/JsonValue.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "HAL/PlatformTime.h"
 #include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 
 #if WITH_EDITOR
 #include "AssetRegistry/AssetData.h"
@@ -52,6 +54,47 @@ namespace GameTestRpcClassesImpl
 	};
 
 	using FNodes = TMap<FString, FNode>;
+
+	/**
+	 * 上一次建好的类表（已数好 Kids）。面板逐层展开、再打开时定位到已选类会连着发好几次 gt.classes，
+	 * 每次都重扫全部 UClass / 全部 Lua 模块（Lua 每个模块还要查文件时间）会很慢（用户 2026-11-21 嫌慢）；
+	 * 几秒内的请求直接复用。fresh: true 强制重建（面板的「刷新」按钮）。
+	 */
+	struct FNodesCache
+	{
+		FNodes Nodes;
+		TWeakObjectPtr<UWorld> World;
+		bool bHasWorld = false;
+		double At = -1.0;
+	};
+	constexpr double CacheSeconds = 15.0;
+
+	FNodesCache& CacheFor(bool bInLua)
+	{
+		static FNodesCache UeCache;
+		static FNodesCache LuaCache;
+		return bInLua ? LuaCache : UeCache;
+	}
+
+	const FNodes* CachedNodes(bool bInLua, UWorld* InWorld)
+	{
+		const FNodesCache& Cache = CacheFor(bInLua);
+		const bool bSameWorld = Cache.bHasWorld ? Cache.World.Get() == InWorld : InWorld == nullptr;
+		if (Cache.At < 0.0 || !bSameWorld || FPlatformTime::Seconds() - Cache.At > CacheSeconds)
+		{
+			return nullptr;
+		}
+		return &Cache.Nodes;
+	}
+
+	void StoreNodes(bool bInLua, UWorld* InWorld, const FNodes& InNodes)
+	{
+		FNodesCache& Cache = CacheFor(bInLua);
+		Cache.Nodes = InNodes;
+		Cache.World = InWorld;
+		Cache.bHasWorld = InWorld != nullptr;
+		Cache.At = FPlatformTime::Seconds();
+	}
 
 	/** 类在树里的名字：蓝图生成类去掉 `_C`（和引用的 class 写法一致）。 */
 	FString NameOf(const UClass* InClass)
@@ -310,6 +353,21 @@ namespace GameTestRpcClassesImpl
 		return Text;
 	}
 
+	/** 搜索比对的那一段：Lua 模块名带目录（a.b.c），只比最后一段，不然搜一个目录名会把目录下全部模块都当命中（用户 2026-11-21）；q 里带 . 或 / 时按整条路径比 */
+	FString SearchText(const FString& InName, const FString& InQuery)
+	{
+		if (InQuery.Contains(TEXT(".")) || InQuery.Contains(TEXT("/")))
+		{
+			return InName;
+		}
+		int32 Dot = INDEX_NONE;
+		int32 Slash = INDEX_NONE;
+		InName.FindLastChar(TEXT('.'), Dot);
+		InName.FindLastChar(TEXT('/'), Slash);
+		const int32 Cut = FMath::Max(Dot, Slash);
+		return Cut == INDEX_NONE ? InName : InName.Mid(Cut + 1);
+	}
+
 	/** 要列哪些：有 q 时 = 名字里含 q 的（不分大小写，用户 2026-11-21：不要只按开头）+ 它们的祖先；否则 = parent 的直接子类。 */
 	void Pick(const FNodes& InNodes, const FString& InParent, const FString& InQuery, TArray<FString>& OutNames)
 	{
@@ -329,7 +387,7 @@ namespace GameTestRpcClassesImpl
 		TArray<FString> Hits;
 		for (const TPair<FString, FNode>& Pair : InNodes)
 		{
-			if (Pair.Key.Contains(InQuery, ESearchCase::IgnoreCase))
+			if (SearchText(Pair.Key, InQuery).Contains(InQuery, ESearchCase::IgnoreCase))
 			{
 				Hits.Add(Pair.Key);
 			}
@@ -337,15 +395,15 @@ namespace GameTestRpcClassesImpl
 		// 开头就对上的排前面：命中太多被分页截掉时，先留最像的
 		Hits.Sort([&InQuery](const FString& A, const FString& B)
 		{
-			const bool bA = A.StartsWith(InQuery, ESearchCase::IgnoreCase);
-			const bool bB = B.StartsWith(InQuery, ESearchCase::IgnoreCase);
+			const bool bA = SearchText(A, InQuery).StartsWith(InQuery, ESearchCase::IgnoreCase);
+			const bool bB = SearchText(B, InQuery).StartsWith(InQuery, ESearchCase::IgnoreCase);
 			return bA != bB ? bA : A < B;
 		});
 		// 每个要列的名字记一个档次：开头对上的命中和它的祖先是 0，其余 1；最后先按档次排，分页截掉的是后面那档
 		TMap<FString, int32> Rank;
 		for (const FString& Hit : Hits)
 		{
-			const int32 HitRank = Hit.StartsWith(InQuery, ESearchCase::IgnoreCase) ? 0 : 1;
+			const int32 HitRank = SearchText(Hit, InQuery).StartsWith(InQuery, ESearchCase::IgnoreCase) ? 0 : 1;
 			FString Current = Hit;
 			for (int32 Step = 0; Step < MaxChain && !Current.IsEmpty() && !Picked.Contains(Current); ++Step)
 			{
@@ -411,7 +469,14 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 
 	Impl::FNodes Nodes;
 	bool bAssetsLoading = false;
-	if (bLua)
+	bool bFresh = false;
+	Args->TryGetBoolField(TEXT("fresh"), bFresh);
+	const Impl::FNodes* Cached = bFresh ? nullptr : Impl::CachedNodes(bLua, World);
+	if (Cached != nullptr)
+	{
+		Nodes = *Cached;
+	}
+	else if (bLua)
 	{
 		if (!Impl::AddLuaModules(World, Nodes, OutError))
 		{
@@ -427,11 +492,19 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 #endif
 		Impl::CountLive(World, Loaded, Nodes);
 	}
-	for (const TPair<FString, Impl::FNode>& Pair : Nodes)
+	if (Cached == nullptr)
 	{
-		if (Impl::FNode* Up = Pair.Value.Parent.IsEmpty() ? nullptr : Nodes.Find(Pair.Value.Parent))
+		for (const TPair<FString, Impl::FNode>& Pair : Nodes)
 		{
-			++Up->Kids;
+			if (Impl::FNode* Up = Pair.Value.Parent.IsEmpty() ? nullptr : Nodes.Find(Pair.Value.Parent))
+			{
+				++Up->Kids;
+			}
+		}
+		// 资产注册表还在扫时不缓存：扫完后的下一次要拿到完整的
+		if (!bAssetsLoading)
+		{
+			Impl::StoreNodes(bLua, World, Nodes);
 		}
 	}
 	if (Query.IsEmpty() && !bLua && !Parent.IsEmpty() && !Nodes.Contains(Parent))
