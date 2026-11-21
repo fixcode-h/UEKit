@@ -5,6 +5,8 @@
 
 #include "Integration/Ref/GameTestRpcRef.h"
 
+#include "Observe/Lua/GameTestLuaTable.h"
+
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -306,6 +308,11 @@ namespace GameTestRpcPropsImpl
 
 	FString LuaModuleOf(UObject* InObject)
 	{
+		// 纯 Lua 实例的替身：模块是 lua.instances 认出来的
+		if (const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(InObject))
+		{
+			return Table->Info.Module;
+		}
 		UFunction* Function = InObject != nullptr ? InObject->FindFunction(TEXT("GetModuleName")) : nullptr;
 		if (Function == nullptr)
 		{

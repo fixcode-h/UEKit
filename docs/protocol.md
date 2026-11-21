@@ -64,7 +64,7 @@
 | 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop`；`job.batch`（2.14，见「批量」） |
-| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.gc`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks` |
+| Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.gc`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks`、`lua.instances`、`lua.config`（2.20） |
 
 `asset.snapshot {"out", "package", "file"?}`（2.14）：资源的结构化快照，给面板资源页的「版本差异」逐项比较。`file` 是某一版资源的临时文件（和 `asset.textify` 一样挂到临时挂载点加载、用完卸载）；不给 `file` 就读编辑器里已加载的那份（含没保存的改动）。快照写进 `out`（面板给的绝对路径，UTF-8 紧凑 JSON），回包只有 `{out, bytes, class}`。快照里的临时包名都换回 `package`。形状：
 
@@ -239,6 +239,13 @@
   - `destroyed`：从 `_G` 和注册表出发走 Lua 堆（表、函数的 upvalue、元表；弱表不算引用），找到像 UnLua 实例表（有元表、`objectKey` 字段是 userdata）却不在对象表里的表——UnLua 在对象销毁时会把它从对象表删掉。是推测，`path` 是 Lua 里拿着它的第一条路径（如 `_G.UIManager.Panels[3]`、`<upvalue Panels>`）。
   - `stale`（对象表里还有、UObject 已经不在）、`garbage`（已标记销毁）、`noworld`（Actor、组件、UMG 控件所在的世界已经关了）：对象表本身的问题，`path` 是 Lua 里另外拿着它的路径（只有对象表拿着时没有）。
   - 协程栈上的局部变量走不到。全部结果写进 `Saved/UELink/lua-leaks/leaks-<时间>.json`；大项目走一遍几百毫秒，会卡一下游戏线程。
+- `lua.instances {"module"?, "classFields"?, "roots"?, "nameFields"?, "objectKey"?, "limit"?: 200, "maxVisit"?, "world"?}`（2.20）→ 给了 `module`：`{"module", "items": [{"ref", "path", "module", "name"?, "byField"?}], "total", "more", "visited", "truncated", "ms", "rootsMissing"?}`；没给：`items` 是 `[{"module", "count"}]`（每个类有几个实例，多的在前）。找**纯 Lua 实例**：Lua 框架自己 `setmetatable({}, Class)` 出来、不绑 UObject 的表（UnLua 对象表里没有，`lua.objects` 列不出）。
+  - 从 `roots`（`_G.GameApp.Modules` 这种点路径，`_G.` 可省）走 Lua 堆；不给 `roots` 从 `_G` 和注册表走整个堆（和 `lua.leaks` 同一种走法：表的键值、元表、函数的 upvalue，弱表不算），最多走 `maxVisit` 个表 / 函数。
+  - 一张表算 `module` 的实例：元表链（元表、元表的 `__index`，往上最多 12 层）上有 `package.loaded[module]` 那张表（子类的实例也算）；或者 `classFields` 里某个字段的值写的就是这个模块（`SubModulePath = "/Module/A/B"`）。模块名比较时 `.`、`/`、`\` 一样，不分大小写，首尾的 `/` 和 `.lua` 不算。模块表自己（类）、`objectKey` 字段是 userdata 的（UnLua 绑了 UObject 的实例表，归 `lua.objects`）不算。
+  - `ref`：`luaref:<编号>`，同一张表总是同一个编号（弱引用，不挡回收）。`lua.get` / `lua.set` / `lua.call` / `lua.inspect` / `lua.exec` 的 `path` 填它就以这张表为起点（`lua.exec` 里是 `self`）；表被回收、模块重载后报错让客户端重新找。`path` 只是给人看的（第一次走到它的那条路），不能拿来取值。
+  - `name`：`nameFields` 里第一个有值（字符串或数字）的字段。`byField`：按类名字段认出来的。
+  - `classFields`、`roots`、`nameFields`、`objectKey` 不给时用 `lua.config` 存的。没加载的模块：配了 `classFields` 时照样按字段找，没配报错。
+- `lua.config {"set"?: {"scriptRoot", "objectKey", "classFields", "roots", "nameFields", "maxVisit"}}` → `{"config", "file"}`（2.20）：面板「权限与设置 → Lua」下发的设置，`set` 整份替换并写进 `Saved/UELink/lua-config.json`（编辑器重启后照样生效，没连面板跑的 GameTest 也用它）；不给 `set` 只读。各项留空 = 自动：`scriptRoot`（`lua.modules` 等没给 `root` 时的脚本根，空 = `Content/Script`）、`objectKey`（`lua.leaks`、`lua.instances` 认 UnLua 实例表的字段，空 = `Object`）、其余见 `lua.instances`。
 
 2.9.0 起 Lua 函数进 Unreal Insights trace（「装了 UnLua 时」才有，代码在 `AgentPanelLuaTrace.cpp`）。不是一个操作：客户端录 trace 时在通道串里加上下面的通道（`Trace.File`、`Trace.Start` 或命令行 `-trace=default,lua`），录下的 .utrace 用 `trace.query` 或 UE 自带的 Unreal Insights 都能看到 Lua 函数：
 

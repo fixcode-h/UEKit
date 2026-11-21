@@ -2,6 +2,8 @@
 
 #include "Observe/Sources/GameTestObjectRoots.h"
 
+#include "Observe/Lua/GameTestLuaTable.h"
+
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
@@ -324,6 +326,11 @@ FString GameTestObjectRoots::DisplayName(const UObject* InObject)
 	if (InObject == nullptr)
 	{
 		return FString();
+	}
+	// 纯 Lua 实例的替身：显示名字段或模块名，别显示成 LuaTable_12
+	if (const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(InObject))
+	{
+		return Table->Label();
 	}
 #if WITH_EDITOR
 	if (const AActor* Actor = Cast<AActor>(InObject))

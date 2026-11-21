@@ -2,6 +2,8 @@
 
 #include "Observe/Lua/GameTestLuaBridge.h"
 
+#include "Observe/Lua/GameTestLuaTable.h"
+
 #include "AgentPanelBridge.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -17,6 +19,12 @@ namespace
 	TSharedRef<FJsonObject> BaseArgs(UWorld* InWorld, UObject* InSelf)
 	{
 		const TSharedRef<FJsonObject> Args = MakeShared<FJsonObject>();
+		// 纯 Lua 实例的替身：起点是它的 luaref，Lua 环境按它所在的世界选
+		const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(InSelf);
+		if (InWorld == nullptr && Table != nullptr)
+		{
+			InWorld = Table->World.Get();
+		}
 		if (InWorld != nullptr)
 		{
 			// 多客户端时每个世界一个 Lua 环境：按世界选
@@ -24,7 +32,7 @@ namespace
 		}
 		if (InSelf != nullptr)
 		{
-			Args->SetStringField(TEXT("path"), InSelf->GetPathName());
+			Args->SetStringField(TEXT("path"), Table != nullptr ? Table->Info.Ref : InSelf->GetPathName());
 		}
 		return Args;
 	}

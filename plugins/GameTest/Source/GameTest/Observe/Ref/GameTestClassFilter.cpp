@@ -23,6 +23,8 @@ bool FGameTestClassFilter::Build(const FString& InClass, UWorld* InWorld, FStrin
 	Class = InClass;
 	LuaModule.Reset();
 	LuaPaths.Reset();
+	LuaTables.Reset();
+	LuaRefs.Reset();
 	FString Module;
 	if (!ParseLua(InClass, Module))
 	{
@@ -42,6 +44,20 @@ bool FGameTestClassFilter::Build(const FString& InClass, UWorld* InWorld, FStrin
 	{
 		OutCode = TEXT("lua_class_missing");
 		return false;
+	}
+	// 纯 Lua 实例（2.2.0）：Lua 框架自己 new 的表，UnLua 的对象表里没有；Lua 设置配了类名字段时模块没加载也能按字段认
+	FString TableError;
+	if (!GameTestLuaObjects::ListTables(InWorld, Module, LuaTables, TableError))
+	{
+		LuaTables.Reset();
+	}
+	for (const FGameTestLuaInstance& Table : LuaTables)
+	{
+		LuaRefs.Add(Table.Ref);
+	}
+	if (!bLoaded && LuaTables.Num() > 0)
+	{
+		return true;
 	}
 	if (!bLoaded)
 	{
@@ -91,6 +107,10 @@ bool FGameTestClassFilter::Matches(const UObject* InObject) const
 	}
 	if (IsLua())
 	{
+		if (const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(InObject))
+		{
+			return LuaRefs.Contains(Table->Info.Ref);
+		}
 		return LuaPaths.Contains(InObject->GetPathName());
 	}
 	return GameTestObjectRoots::ClassMatches(InObject->GetClass(), Class);

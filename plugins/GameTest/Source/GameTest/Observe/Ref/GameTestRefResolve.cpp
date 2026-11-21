@@ -8,6 +8,7 @@
 #include "Observe/Compare/GameTestJudge.h"
 #include "Observe/GameTestItemKey.h"
 #include "Observe/Lua/GameTestLuaObjects.h"
+#include "Observe/Lua/GameTestLuaTable.h"
 #include "Observe/Ref/GameTestClassFilter.h"
 #include "Observe/Ref/GameTestIdentSuggest.h"
 #include "Observe/Ref/GameTestPropPath.h"
@@ -142,6 +143,20 @@ namespace GameTestRefResolveImpl
 			for (const FGameTestLuaObject& Object : Objects)
 			{
 				Paths.Add(Object.Path);
+			}
+		}
+		// 纯 Lua 实例（2.2.0）：包成替身，后面的标识、取值、调函数照旧按对象走
+		for (const FGameTestLuaInstance& Table : InClass.LuaTables)
+		{
+			if (OutCandidates.Num() >= MaxCandidates)
+			{
+				break;
+			}
+			if (UGameTestLuaTable* Proxy = UGameTestLuaTable::Obtain(InWorld, Table))
+			{
+				FGameTestRefCandidate Candidate;
+				Candidate.Object = Proxy;
+				OutCandidates.Add(Candidate);
 			}
 		}
 		for (const FString& Path : Paths)
@@ -845,6 +860,15 @@ TSharedPtr<FJsonObject> GameTestRefResolve::CandidateToJson(const FGameTestRefCa
 	if (const UObject* Object = InCandidate.Object.Get())
 	{
 		Out->SetStringField(TEXT("path"), Object->GetPathName());
+		// 2.2.0：纯 Lua 实例的替身，面板标成「纯 Lua」并显示 Lua 里拿着它的路径
+		if (const UGameTestLuaTable* Table = Cast<UGameTestLuaTable>(Object))
+		{
+			const TSharedRef<FJsonObject> Lua = MakeShared<FJsonObject>();
+			Lua->SetStringField(TEXT("ref"), Table->Info.Ref);
+			Lua->SetStringField(TEXT("module"), Table->Info.Module);
+			Lua->SetStringField(TEXT("path"), Table->Info.Path);
+			Out->SetObjectField(TEXT("luaTable"), Lua);
+		}
 	}
 	if (InCandidate.Index != INDEX_NONE)
 	{
