@@ -10,7 +10,7 @@ class UWidget;
 struct FGameTestStepRecord;
 
 /**
- * 一步失败时自动留下的证据：截图、控件快照（选择器解析的结果或候选）、失败前后 50 行日志。
+ * 一步失败时自动留下的证据：截图、控件快照（选择器解析的结果或候选）、这一步用到的对象的属性（2.3.1）、失败前后 50 行日志。
  *
  * 写进 `<run 产物目录>/failures/step-<第几步>/`，报告里只记路径（`payload.evidence`），不把内容塞进返回：
  * 截图和控件树动辄几十 KB，Agent 要看时按路径读（面板 ADR 0067 的返回长度规则）。
@@ -59,6 +59,9 @@ private:
 	};
 
 	void WriteLog(const FPendingLog& InPending, bool bInFinal) const;
+
+	/** 这一步引用解析到的对象（payload.ref.path）此刻的属性写进 object.json，证据里记 `object`。 */
+	void CaptureObject(const FGameTestStepRecord& InRecord, const FString& InDir, const TSharedPtr<FJsonObject>& InOutEvidence) const;
 
 	FGameTestLogTap& LogTap;
 	TArray<FPendingLog> PendingLogs;

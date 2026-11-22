@@ -913,6 +913,11 @@ void GameTestRefResolve::WritePayload(const FGameTestRefResult& InResult, FGameT
 	{
 		Ref->SetStringField(TEXT("picked"), DisplayName(InResult.Get()));
 		Ref->SetStringField(TEXT("by"), InResult.By);
+		// 2.3.1：对象路径，这一步失败时留证据按它再读一次这个对象的属性（FGameTestEvidence）；面板也能拿它给 gt.props 读这一个
+		if (const UObject* Picked = InResult.Get())
+		{
+			Ref->SetStringField(TEXT("path"), Picked->GetPathName());
+		}
 	}
 	else
 	{
