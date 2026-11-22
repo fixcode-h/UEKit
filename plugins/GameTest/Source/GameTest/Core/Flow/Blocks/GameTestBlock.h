@@ -95,6 +95,15 @@ public:
 		return false;
 	}
 
+	/**
+	 * 子节点失败往外传到这一块：接住返回 true（执行器收掉里面的帧、不按 onFail 处理，之后照常调 Tick，由块决定接着跑什么、最后成功还是失败）。
+	 * 只有附带 GM（hooks）用：主步骤失败后还要跑「失败时」那组。块自己 Tick 返回 Failed 时也会问到这里，接过一次的要返回 false，不然出不去。
+	 */
+	virtual bool CatchFailure(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext, const FString& InMessage) const
+	{
+		return false;
+	}
+
 	/** 出块（做完、失败、被信号穿过、取消都调）：收拾作用域（call 弹出子脚本作用域、loop 弹出局部名字）。 */
 	virtual void Leave(const FGameTestNode& InNode, FGameTestBlockState& InState, FGameTestFlowContext& InContext) const
 	{

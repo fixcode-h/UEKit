@@ -84,6 +84,9 @@ public:
 	 */
 	TSharedPtr<FJsonObject> StepPayload;
 
+	/** 附带 GM 里写了 `once: true` 的项这次 run 跑过的（脚本路径 + 节点路径）：循环里再到这一步就跳过它。 */
+	TSet<FString> HooksOnceDone;
+
 	//~ 作用域 -------------------------------------------------------------
 	/** 进一层脚本（主场景、call）。超过 MaxCallDepth 返回 false，不压栈。 */
 	bool PushScript(const FString& InScript);

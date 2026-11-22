@@ -3,6 +3,7 @@
 #include "Core/Flow/GameTestScriptParser.h"
 
 #include "Core/Flow/Blocks/GameTestBlock.h"
+#include "Core/Flow/Blocks/GameTestBlockHooks.h"
 #include "Core/Flow/GameTestGuards.h"
 #include "Core/GameTestAction.h"
 #include "Core/GameTestScenario.h"
@@ -245,11 +246,13 @@ void FGameTestScriptParser::ParseNodes(const TSharedPtr<FJsonValue>& InValue, co
 	for (int32 Index = 0; Index < Items->Num(); ++Index)
 	{
 		const TSharedRef<FGameTestNode> Node = ParseNode((*Items)[Index], FString::Printf(TEXT("%s.%d"), *InPath, Index));
-		if (!Node->IsBlock())
+		// 带附带 GM 的步骤外面包了一层：第几步、在不在块里记在里面的主步骤上
+		FGameTestNode& Main = GameTestHookWrap::Main(*Node);
+		if (!Main.IsBlock())
 		{
-			Node->Step.bNested = !bTopLevel;
-			Node->Step.bSetup = InPath == TEXT("setup");
-			Node->Step.Index = Index;
+			Main.Step.bNested = !bTopLevel;
+			Main.Step.bSetup = InPath == TEXT("setup");
+			Main.Step.Index = Index;
 		}
 		OutList.Nodes.Add(Node);
 	}
@@ -270,6 +273,11 @@ TSharedRef<FGameTestNode> FGameTestScriptParser::ParseNode(const TSharedPtr<FJso
 	{
 		DiagSink.Error(TEXT("bad_type"), TEXT("步骤要写成对象"));
 		return Node;
+	}
+	if ((*Object)->HasField(TEXT("hooks")))
+	{
+		// 附带 GM：包一层，主步骤在里面照常解析（路径、id 不变）
+		return GameTestHookWrap::Wrap(*this, *Object, InPath);
 	}
 	Node->Json = *Object;
 	FString Action;

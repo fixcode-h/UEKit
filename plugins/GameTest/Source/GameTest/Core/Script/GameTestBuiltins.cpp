@@ -14,6 +14,7 @@ namespace GameTestBuiltin
 	void RegisterBlockIf();
 	void RegisterBlockLoop();
 	void RegisterBlockCall();
+	void RegisterBlockGm();
 	void RegisterBlockSetVar();
 	void RegisterBlockSignals();
 	//~ 判断（Observe/Checks）
@@ -105,6 +106,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterBlockIf();
 	GameTestBuiltin::RegisterBlockLoop();
 	GameTestBuiltin::RegisterBlockCall();
+	GameTestBuiltin::RegisterBlockGm();
 	GameTestBuiltin::RegisterBlockSetVar();
 	GameTestBuiltin::RegisterBlockSignals();
 
