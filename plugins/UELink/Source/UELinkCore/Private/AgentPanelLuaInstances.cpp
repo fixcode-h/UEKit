@@ -439,6 +439,9 @@ namespace AgentPanelLuaInst
 		FHeapWalk W;
 		W.L = L;
 		W.Max = FMath::Clamp(Int(A, TEXT("maxVisit"), Cfg.MaxVisit), 1000, 2000000);
+		// 所有表加起来最多看这么多项（每个表 / 函数平均 10 项）；超了标 truncated，让客户端填起点变量缩小范围
+		const int64 EntryBudget = static_cast<int64>(W.Max) * 10;
+		int64 Entries = 0;
 		lua_newtable(L);
 		W.Q = lua_gettop(L);
 		lua_newtable(L);
@@ -522,22 +525,31 @@ namespace AgentPanelLuaInst
 				lua_pushnil(L);
 				while (lua_next(L, V))
 				{
-					if (!bWeakV)
+					// 只有表和函数会排进队列：别的值不算路径段（KeySeg 要拼字符串，大数组表每项都算会很慢）
+					const int VT = lua_type(L, -1);
+					if (!bWeakV && (VT == LUA_TTABLE || VT == LUA_TFUNCTION))
 					{
 						lua_pushvalue(L, -2);
 						const FString Seg = KeySeg(L, -1);
 						lua_pop(L, 1);
 						W.Visit(I, Seg);
 					}
-					if (!bWeakK)
+					const int KT = lua_type(L, -2);
+					if (!bWeakK && (KT == LUA_TTABLE || KT == LUA_TFUNCTION))
 					{
 						lua_pushvalue(L, -2);
 						W.Visit(I, TEXT("[<key>]"));
 						lua_pop(L, 1);
 					}
 					lua_pop(L, 1);
-					if (++N >= 100000)
+					// 整次查找的项数预算（2.20.1，#95 评审）：在游戏线程上同步跑，几张十万项的大表不能把一帧拖到几秒
+					++Entries;
+					if (++N >= 100000 || Entries >= EntryBudget)
 					{
+						if (Entries >= EntryBudget)
+						{
+							W.bTruncated = true;
+						}
 						lua_pop(L, 1);
 						break;
 					}
