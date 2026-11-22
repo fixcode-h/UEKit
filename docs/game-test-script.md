@@ -72,7 +72,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `break` / `continue` | `cond?` | 出最内层循环 / 进下一轮 |
 | `return` | `cond?`, `value?` | 结束当前脚本（被 `call` 时回到调用处） |
 | `fail` | `message`（可用表达式） | 主动失败 |
-| `gm.run`（2.3.0） | `gm: {kind, name}`、`args`、`run` | 执行一条 Agent 面板的 GM（预设 / 自定义 GM / 宏）。GameTest 不读面板的 gm.json：面板存盘、运行前按 GM 库把它展开成步骤写进 `run`，这里只跑 `run`；`gm` 记是哪条（报告带 `payload.gm`）。`args` 在外层求值（可写 `$变量`、`= 表达式`），`run` 里按 `$参数名` 用，出了这一步看不到。缺 `run` 加载时报 `bad_type`。（`gm` 这个名字是控制台 GM 命令的叶子动作，所以叫 `gm.run`） |
+| `gm.run`（2.3.0） | `gm: {kind, name}`、`args`、`run` | 执行一条 Agent 面板的 GM（C++ / Lua / 控制台 / 自定义 GM / 宏）：`run` 里一般是 `api Gm.Run`、`api Gm.Lua`、`console`、`obj.call`。GameTest 不读面板的 gm.json：面板存盘、运行前按 GM 库把它展开成步骤写进 `run`，这里只跑 `run`；`gm` 记是哪条（报告带 `payload.gm`）。`args` 在外层求值（可写 `$变量`、`= 表达式`），`run` 里按 `$参数名` 用，出了这一步看不到。缺 `run` 加载时报 `bad_type`。（`gm` 这个名字是控制台 GM 命令的叶子动作，所以叫 `gm.run`） |
 | `obj.close`（2.0.0 起，取代 `widget.close` / `widget.call`） | `obj`, `how`, `verify`, `verifyMs` | 关界面 / 对象，见 game-test-ref.md 5.2 |
 | `obj.find` / `obj.wait` / `obj.set`（2.0.0 起） | 见 game-test-ref.md 5.3 | |
 | `assert` | `expr` / `cond` | `cond` 是统一条件；`expr` 是表达式（2.0.0 起按控件写的判断字段删掉） |
@@ -311,6 +311,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | Lua | `Lua.Get(module, path)` → 值、`Lua.Global(name)` → 值、`Lua.Loaded(module)` → bool | ✓ | 模块按 require 路径；没加载的不主动加载 |
 | | `Lua.Call(module, fn, args)` → 值 | | 受 `allowLuaInvoke`；多个返回值给数组 |
 | | `Lua.Errors(since?)` → [{message, traceback, at}] | ✓ | 只 Lua 报错（含被 pcall 接住但打了日志的） |
+| GM（2.3.0） | `Gm.Run(name, args?, owner?)` → {output, …} | | 执行 C++ GM（Exec 函数、UAgentPanelGMLibrary 的函数），走 UELink 的 `gm.run`，和面板 GM 页一样；失败 `gm_failed` |
+| | `Gm.Lua(code, name?)` → {results, output} | | 执行 Lua GM（面板按扫描结果拼好的调用代码），走 UELink 的 `lua.exec`，受 `allowLuaInvoke`；失败 `gm_failed` |
 | 日志 | `Log.Mark()` → {log, lua} | | 记下日志和 Lua 报错的当前位置，给 `since` 用 |
 | | `Log.Contains(text, category?, since?)` → bool、`Log.Count(text, category?, since?)` → int、`Log.Errors(since?)` → [{category, verbosity, message}] | ✓ | `since` 省略 = 本次 run 开始；Errors 含 Error、Ensure、Lua 报错 |
 | 等待 | `Wait.Seconds(n)`、`Wait.Frames(n)`、`Wait.Until(cond, timeoutMs)`、`Wait.Loading(timeoutMs?)` | | `Loading`：等地图、流送关卡加载完，且没有异步加载中的包（`IsAsyncLoading`） |
@@ -402,7 +404,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 `unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
 `expr_syntax`、`expr_type`、`expr_not_readonly`、`path_missing`、`unresolved`、`fn_missing`、`fn_not_callable`、`arg_missing`、`arg_type`、`arg_object`（对象参数来源不可重找）、
-`api_missing`、`api_renamed`、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
+`api_missing`、`api_renamed`、`gm_failed`（2.3.0）、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
 2.0.0 新增和改名的见 game-test-ref.md 第 10 节（`selector_missing` 换成 `part_missing`，`object_not_found` / `object_ambiguous` 改名 `ref_not_found` / `ref_ambiguous`）。
 
 ## 13. 版本
@@ -411,7 +413,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 需要 UELink ≥ 2.12.0（调函数复用 `ue.call` 的参数打包，读 Lua 模块、调 Lua 函数、看 Lua 报错用 UELink 的操作）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
 - GameTest 2.0.0：对象引用（schemaVersion 4），见 [game-test-ref.md](game-test-ref.md)。
-- GameTest 2.3.0：`gm.run`、`hooks`（附带 GM）、记录的 `warn` 和报告的 `warned`。面板低于 2.3.0 时「执行 GM」节点和附带 GM 只能编辑、提示升级后再跑。
+- GameTest 2.3.0：`gm.run`、`hooks`（附带 GM）、接口 `Gm.Run` / `Gm.Lua`、记录的 `warn` 和报告的 `warned`。面板低于 2.3.0 时「执行 GM」节点和附带 GM 只能编辑、提示升级后再跑。
 - GameTest 1.10.0：`gt.pick`、`gt.watch`（从游戏里抓控件、此刻的结果实时推送）；`gt.inspect` 多 `widgetClass`、`kind`、`rect`、`screen`、`screenClass`。低于 1.10.0 时面板的「从游戏里抓」提示升级，条件的此刻结果退回「现在核对」问一次。
 
 ## 14. 代码结构（扩展点）

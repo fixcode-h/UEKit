@@ -85,6 +85,7 @@ namespace GameTestBuiltin
 	void RegisterApiWorld();
 	void RegisterApiGlobal();
 	void RegisterApiLua();
+	void RegisterApiGm();
 	void RegisterApiLog();
 	void RegisterApiWait();
 	void RegisterApiRuntime();
@@ -179,6 +180,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterApiWorld();
 	GameTestBuiltin::RegisterApiGlobal();
 	GameTestBuiltin::RegisterApiLua();
+	GameTestBuiltin::RegisterApiGm();
 	GameTestBuiltin::RegisterApiLog();
 	GameTestBuiltin::RegisterApiWait();
 	GameTestBuiltin::RegisterApiRuntime();
