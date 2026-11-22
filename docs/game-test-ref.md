@@ -118,6 +118,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 | `:location` / `:distance` | Actor、场景组件 | vector / float | 世界位置 / 离本地 Pawn 的距离（厘米） |
 | `:hiddenInGame` | Actor、场景组件 | bool | 是否隐藏 |
 | `:class` | 任何 | class | 实际类名 |
+| `:name` | 任何 | string | 对象名（`GetName`，如 `UMG_Main_C_0`；2.2.2 起）。只在这次运行里稳定，面板抓取值把某个实例当值时用，不建议写进长期脚本 |
 | `:selectedIndex` | ComboBoxString | int | 选中第几项（从 0 起，没选 -1） |
 | `:selectedCount` | ListView 族 | int | 选中了几条 |
 | `:scrollOffset` | ScrollBox | float | 当前滚动位置（下一帧布局后才变） |
