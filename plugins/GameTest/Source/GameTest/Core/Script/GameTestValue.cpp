@@ -463,6 +463,72 @@ TSharedPtr<FJsonValue> FGameTestValue::ToJson() const
 	}
 }
 
+TSharedPtr<FJsonValue> FGameTestValue::ToTypedJson(int32 InMaxItems, int32 InMaxDepth) const
+{
+	// 和 ToJson 的区别：对象写成 {"$obj": 路径, class, name}（面板按它画成可展开的对象，再用 gt.props path 读成员），
+	// 数组 / Map 超过 InMaxItems 截断并在 "$more" 里写还剩几个，超过 InMaxDepth 层写成显示文字，返回值再大也不会撑爆回包
+	switch (Type)
+	{
+	case EGameTestValueType::Object:
+	{
+		const UObject* Live = Obj.Get();
+		if (Live == nullptr)
+		{
+			return MakeShared<FJsonValueNull>();
+		}
+		TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetStringField(TEXT("$obj"), Live->GetPathName());
+		Out->SetStringField(TEXT("class"), Live->GetClass()->GetName());
+		Out->SetStringField(TEXT("name"), Live->GetName());
+		return MakeShared<FJsonValueObject>(Out);
+	}
+	case EGameTestValueType::Array:
+	{
+		if (InMaxDepth <= 0)
+		{
+			return MakeShared<FJsonValueString>(ToDisplay(200));
+		}
+		const TArray<FGameTestValue>& List = GetArray();
+		TArray<TSharedPtr<FJsonValue>> Out;
+		for (int32 Index = 0; Index < List.Num() && Index < InMaxItems; ++Index)
+		{
+			Out.Add(List[Index].ToTypedJson(InMaxItems, InMaxDepth - 1));
+		}
+		if (List.Num() > InMaxItems)
+		{
+			TSharedPtr<FJsonObject> More = MakeShared<FJsonObject>();
+			More->SetNumberField(TEXT("$more"), List.Num() - InMaxItems);
+			Out.Add(MakeShared<FJsonValueObject>(More));
+		}
+		return MakeShared<FJsonValueArray>(Out);
+	}
+	case EGameTestValueType::Map:
+	{
+		if (InMaxDepth <= 0)
+		{
+			return MakeShared<FJsonValueString>(ToDisplay(200));
+		}
+		TSharedPtr<FJsonObject> Out = MakeShared<FJsonObject>();
+		int32 Count = 0;
+		for (const TPair<FString, FGameTestValue>& Pair : GetMap())
+		{
+			if (Count++ >= InMaxItems)
+			{
+				break;
+			}
+			Out->SetField(Pair.Key, Pair.Value.ToTypedJson(InMaxItems, InMaxDepth - 1));
+		}
+		if (GetMap().Num() > InMaxItems)
+		{
+			Out->SetNumberField(TEXT("$more"), GetMap().Num() - InMaxItems);
+		}
+		return MakeShared<FJsonValueObject>(Out);
+	}
+	default:
+		return ToJson();
+	}
+}
+
 FGameTestValue FGameTestValue::FromJson(const TSharedPtr<FJsonValue>& InJson)
 {
 	if (!InJson.IsValid())

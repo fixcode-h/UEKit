@@ -115,6 +115,8 @@ namespace
 			Invoke->SetObjectField(TEXT("args"), InArgs);
 		}
 		Invoke->SetStringField(TEXT("returned"), InReturned.ToDisplay(PayloadChars));
+		// 带类型的返回值（对象、数组、Lua 表）：面板「输出」按它画成可展开的树，returned 留给旧客户端和报告
+		Invoke->SetField(TEXT("value"), InReturned.ToTypedJson());
 		Invoke->SetNumberField(TEXT("ms"), InMs);
 		InContext.StepPayload->SetObjectField(TEXT("invoke"), Invoke);
 	}

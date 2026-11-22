@@ -238,7 +238,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 | 动作 | 字段 | 说明 |
 | --- | --- | --- |
 | `obj.set` | `obj`, `part?`, `prop`, `value` | 设属性（`prop` 是 3.1 的路径：`@.Count`、`@/ChkAuto.IsChecked`、`@#hp`；只能落在属性或 Lua 字段上，不能是 `()` 和 `:状态`）。控件状态走控件自己的 setter 让委托照常触发：`Visibility` → `SetVisibility`、CheckBox `IsChecked`/`CheckedState` → `SetIsChecked`/`SetCheckedState`、`Text` → `SetText`、Slider `Value` → `SetValue`、`IsEnabled` → `SetIsEnabled`；其余反射写入（`ImportText` / JSON 转换）或 Lua 字段赋值。只读、`none` 类的报 `prop_readonly` |
-| `obj.call` | `obj`, `part?`, `function`, `args`, `saveAs`, `expect`, `each?` | 取代 `invoke`（`object` 字段改 `obj`；`obj` 也可以是 game-test-script 4.3 的来源字符串 `@sub.X` / `@luaMod.X`，或 `objects` 里写成来源字符串的名字；静态函数省略 `obj`，`function` 写 `类名.函数`）。2.1.0：`each: true` 时引用命中几个就每个都调（不按 `many` 挑，命中多个不算歧义；每个都按 `part` 找部件，有一个找不到整步失败），按命中顺序调；`payload.invoke` 变成数组（每个一条），返回值是数组（存 `saveAs`、`expect` 对着数组判断）；任一个调失败整步失败，消息写第几个，**已调的不回滚**。`obj` 是来源字符串时 `each` 不起作用 |
+| `obj.call` | `obj`, `part?`, `function`, `args`, `saveAs`, `expect`, `each?` | 取代 `invoke`（`object` 字段改 `obj`；`obj` 也可以是 game-test-script 4.3 的来源字符串 `@sub.X` / `@luaMod.X`，或 `objects` 里写成来源字符串的名字；静态函数省略 `obj`，`function` 写 `类名.函数`）。2.1.0：`each: true` 时引用命中几个就每个都调（不按 `many` 挑，命中多个不算歧义；每个都按 `part` 找部件，有一个找不到整步失败），按命中顺序调；`payload.invoke` 变成数组（每个一条），返回值是数组（存 `saveAs`、`expect` 对着数组判断）；任一个调失败整步失败，消息写第几个，**已调的不回滚**。`obj` 是来源字符串时 `each` 不起作用。2.2.1：`payload.invoke` 每条多一个 `value`，是带类型的返回值（对象写 `{"$obj": 路径, "class", "name"}`，数组 / Map 每层最多 100 项、多出的写 `"$more": 个数`，最多 6 层），`returned` 仍是显示文字 |
 | `obj.find` | `obj`, `saveAs` | 找到后把对象存进变量（这次运行里的弱引用） |
 | `obj.wait` | `obj`, `prop?`, `op?`, `value?` | `wait until=cond` 的简写：等到这个判断成立 |
 
