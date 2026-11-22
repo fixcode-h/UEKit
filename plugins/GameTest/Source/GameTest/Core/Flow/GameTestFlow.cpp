@@ -328,8 +328,9 @@ void FGameTestFlow::OnLeafFinished(FGameTestStepRecord& InOutRecord, double InNo
 			InOutRecord.Message = FString::Printf(TEXT("%s；%s"), *InOutRecord.Message, *Error);
 		}
 	}
-	Emit(TEXT("leave"), Node, StatusWord(InOutRecord.Status), -1, FString(), (InOutRecord.FinishedAt - InOutRecord.StartedAt) * 1000.0);
 	InOutRecord.bWarn = Node->bHookNote && InOutRecord.Status == EGameTestStepStatus::Failed;
+	// 附带 GM 出错只记一笔的推 warned：面板标黄，不当成这一步失败
+	Emit(TEXT("leave"), Node, InOutRecord.bWarn ? TEXT("warned") : StatusWord(InOutRecord.Status), -1, FString(), (InOutRecord.FinishedAt - InOutRecord.StartedAt) * 1000.0);
 	if (InOutRecord.Status != EGameTestStepStatus::Failed || bFinished)
 	{
 		return;
@@ -496,7 +497,8 @@ void FGameTestFlow::LeaveBlock(int32 InFrame, EGameTestStepStatus InStatus, cons
 		Frame.Payload->SetNumberField(TEXT("attempt"), Frame.Attempt);
 	}
 	AddRecord(Node, InStatus, InMessage, Frame.StartedAt, InNowSeconds, Frame.Payload, true);
-	Emit(TEXT("leave"), &Node, StatusWord(InStatus), -1, FString(), (InNowSeconds - Frame.StartedAt) * 1000.0);
+	const bool bWarn = Node.bHookNote && InStatus == EGameTestStepStatus::Failed;
+	Emit(TEXT("leave"), &Node, bWarn ? TEXT("warned") : StatusWord(InStatus), -1, FString(), (InNowSeconds - Frame.StartedAt) * 1000.0);
 }
 
 void FGameTestFlow::UnwindTo(int32 InKeep, EGameTestStepStatus InStatus, const FString& InMessage, double InNowSeconds)

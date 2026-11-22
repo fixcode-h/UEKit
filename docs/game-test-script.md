@@ -388,7 +388,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
-| `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already`）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
+| `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already` / `warned`：附带 GM 出错只记一笔，2.3.0 起）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
 | `gt.pick`（1.10.0） | 抓取中：画面变了（按 `fps`）；游戏里按住 Ctrl+Alt 点了一下（这一下不传给游戏） | `kind`：`frame`（`jpg`、`width`、`height`）/ `picked`（同 `gt.pick action=at` 的返回，`via: "game"`；没抓到时只有 `error`） |
 | `gt.watch`（1.10.0） | 登记的查询结果变了 | `id`、`seq`、`results: {变了的键: 结果}` |
 | `gt.record`（变化，1.11.0） | 录编辑器操作也推这个主题 | 同游戏录制，多 `target: "editor"`；`gt.editrec.status` 的字段 |
