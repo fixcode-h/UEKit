@@ -48,7 +48,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`）都按这份�
 
 **解析**：按 `in` + `class` 收候选 → 按 `ident` 逐条过滤 → 0 个：等（受步骤 `timeoutMs`）→ 1 个：用 → 多个：按 `many`。
 `error` 时报 `ref_ambiguous`，`message` 列出每个候选（最多 8 个）的标识值和一个能区分它们的属性建议。
-报告 `payload.ref: {name?, class, picked: 显示名, by: "only"/"ident"/"first"/"last"/"nearest", candidates, ident: [{prop, actual}]}`；`obj.call each` 时 `by: "each"`、`count`（调了几个）。
+报告 `payload.ref: {name?, class, picked: 显示名, path（2.3.1，对象路径）, by: "only"/"ident"/"first"/"last"/"nearest", candidates, ident: [{prop, actual}]}`；`obj.call each` 时 `by: "each"`、`count`（调了几个）。
 纯 Lua 实例（2.2.0）：GameTest 给每张表包一个瞬态替身对象（`UGameTestLuaTable`，对象名 `LuaTable_<编号>`），候选、`ident` 的 `@#字段`、`obj.call` 调 Lua 函数、对象上的 Lua 字段取值都照对象走，读写时换成表的 `luaref`。替身没有反射属性（`@.X` 读不到）、不是控件也不是 Actor（屏上高亮、准星、点击对它没用）。候选的 JSON 多一个 `luaTable: {ref, module, path}`，`name` 是 Lua 设置的显示名字段，没配时是「模块名最后一段#编号」。模块没加载、但 Lua 设置配了类名字段且找到了实例时不报 `lua_class_missing`。表被回收或模块重载后，下一次解析重新找。
 
 `lua:` 类每次解析问一次 UELink（`lua.objects` 一次 + 每个用到的模块 `lua.inspect` 一次），比按 UE 类找慢，能写 UE 类时优先写 UE 类。

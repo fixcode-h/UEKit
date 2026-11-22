@@ -450,7 +450,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 
 ### 失败证据（1.2.0 起）
 
-一步失败（取消不算）时自动留下三样东西，写进这次 run 产物目录的 `failures/step-<第几步>/`，报告里那一步的 `payload.evidence` 只记路径（相对项目根）：
+一步失败（取消不算）时自动留下这些东西，写进这次 run 产物目录的 `failures/step-<第几步>/`，报告里那一步的 `payload.evidence` 只记路径（相对项目根）：
 
 | 字段 | 内容 |
 | --- | --- |
@@ -458,6 +458,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `screenshot` | `screen.png`，失败那一刻的游戏窗口（截不了时是 `screenshotError`） |
 | `widgets` | `widgets.json`，那一刻屏上的控件树（结构和几何，不含属性，最多 3000 个节点）；`screens` 是屏数 |
 | `target` / `selectorError` | 步骤有 `target` 时再解析一次：找到了是 `target`（路径、类、文字、`visibility`、`enabled`，说明「控件在，但没点成」）；找不到是 `selectorError`，带候选 |
+| `object`（2.3.1） | 这一步引用解析到了对象（`obj.call`、`obj.set`、判断对象属性……，`payload.ref.path` 有值）时，失败那一刻按路径用 `gt.props` 读它一次：`object.json`（和 `gt.props` 的返回同一种形状，最多 400 项，不算同类）。`object: {path, name?, class?, props?}`，读不到或对象已经没了时是 `error` |
 | `log` | `log.txt`：先是本次 run 里 LogGameTest 的每一行（每一步的结果、每次点击送到了哪）和任何类别的警告 / 错误；再是失败前后各 50 行日志，某个类别在这段里超过 20 行（每帧打印的 Lua 日志之类）时只留它的警告和错误，其余折成一句「省略了多少行」（之后的最多等 3 秒，Stop 模式下失败后马上收尾，可能不满 50 行） |
 
 一次 run 最多留 5 份。设置「失败时留证据」（`bCaptureFailureEvidence`，默认开）可以关掉。

@@ -7,6 +7,7 @@
 #include "Core/GameTestLogTap.h"
 #include "Core/GameTestTypes.h"
 #include "Core/GameTestWorld.h"
+#include "Integration/Ref/GameTestRpcRef.h"
 #include "Observe/GameTestSnapshot.h"
 #include "Observe/GameTestWidgetNode.h"
 #include "Shot/GameTestShot.h"
@@ -25,6 +26,9 @@ namespace
 
 	/** 控件快照的节点上限：够看清失败时屏上有什么，又不至于整棵树几 MB。 */
 	constexpr int32 EvidenceMaxNodes = 3000;
+
+	/** 用到的对象的属性最多读几项：gt.props 的上限，够看清失败那一刻它的状态。 */
+	constexpr int32 EvidenceMaxProps = 400;
 
 	/** 选择器候选的说明截断：候选清单可能很长，证据里放够判断的那一段。 */
 	constexpr int32 EvidenceMaxSelectorChars = 2000;
@@ -162,7 +166,12 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 		}
 	}
 
-	// 3. 日志：先写「之前」，「之后」等攒够了再补
+	// 3. 这一步用到的对象（obj.call、obj.set、检查对象属性……引用解析时在 payload.ref 记了路径）：
+	// 失败那一刻把它的属性读一次存成 object.json（和 gt.props 返回同一种形状，面板直接按细节面板画），
+	// 不用再开游戏重跑去看「当时那个对象是什么状态」。对象这时已经没了只记原因
+	CaptureObject(InOutRecord, Dir, Evidence);
+
+	// 4. 日志：先写「之前」，「之后」等攒够了再补
 	{
 		FPendingLog Pending;
 		Pending.Path = FPaths::Combine(Dir, TEXT("log.txt"));
@@ -180,6 +189,61 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 		InOutRecord.Payload = MakeShared<FJsonObject>();
 	}
 	InOutRecord.Payload->SetObjectField(TEXT("evidence"), Evidence);
+}
+
+void FGameTestEvidence::CaptureObject(const FGameTestStepRecord& InRecord, const FString& InDir, const TSharedPtr<FJsonObject>& InOutEvidence) const
+{
+	if (!InRecord.Payload.IsValid() || !InOutEvidence.IsValid())
+	{
+		return;
+	}
+	const TSharedPtr<FJsonObject>* Ref = nullptr;
+	if (!InRecord.Payload->TryGetObjectField(TEXT("ref"), Ref) || Ref == nullptr || !(*Ref).IsValid())
+	{
+		return;
+	}
+	FString ObjectPath;
+	if (!(*Ref)->TryGetStringField(TEXT("path"), ObjectPath) || ObjectPath.IsEmpty())
+	{
+		return;
+	}
+	const TSharedPtr<FJsonObject> Found = MakeShared<FJsonObject>();
+	Found->SetStringField(TEXT("path"), ObjectPath);
+	FString Picked;
+	if ((*Ref)->TryGetStringField(TEXT("picked"), Picked) && !Picked.IsEmpty())
+	{
+		Found->SetStringField(TEXT("name"), Picked);
+	}
+	FString ClassName;
+	if ((*Ref)->TryGetStringField(TEXT("class"), ClassName) && !ClassName.IsEmpty())
+	{
+		Found->SetStringField(TEXT("class"), ClassName);
+	}
+
+	// 和面板点开实例时同一条路（gt.props 按 path 读），同类比较不做：证据只要这一个对象此刻的值
+	const TSharedPtr<FJsonObject> Args = MakeShared<FJsonObject>();
+	Args->SetStringField(TEXT("path"), ObjectPath);
+	Args->SetBoolField(TEXT("siblings"), false);
+	Args->SetNumberField(TEXT("limit"), EvidenceMaxProps);
+	TSharedPtr<FJsonObject> Props;
+	FString Error;
+	if (GameTestRpcRef::Props(Args, Props, Error) && Props.IsValid())
+	{
+		const FString PropsPath = FPaths::Combine(InDir, TEXT("object.json"));
+		if (FFileHelper::SaveStringToFile(GameTestJson::ToPrettyString(Props), *PropsPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		{
+			Found->SetStringField(TEXT("props"), GameTestShot::ToProjectRelative(PropsPath));
+		}
+		else
+		{
+			Found->SetStringField(TEXT("error"), TEXT("属性读到了，但写不进证据目录（磁盘满或没有权限）"));
+		}
+	}
+	else
+	{
+		Found->SetStringField(TEXT("error"), Error.IsEmpty() ? FString(TEXT("读不到这个对象的属性")) : Error.Left(EvidenceMaxSelectorChars));
+	}
+	InOutEvidence->SetObjectField(TEXT("object"), Found);
 }
 
 void FGameTestEvidence::Tick(double InNowSeconds)
