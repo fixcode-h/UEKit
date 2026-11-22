@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.20.0",
-        "versionCode": 47,
+        "version": "2.20.1",
+        "versionCode": 48,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.20.0",
-        "asset": "UELink-2.20.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.20.0/UELink-2.20.0-src.zip",
-        "sha256": "ea9e1d7efe0cd960d6f9b907ff8410de663d779e72fb7fd4edccb8d46e36be81",
-        "size": 359204,
+        "tag": "UELink-v2.20.1",
+        "asset": "UELink-2.20.1-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.20.1/UELink-2.20.1-src.zip",
+        "sha256": "66e782d650e0fa4fbd1980b789404666c765c59b3397b076670ee63de73a8894",
+        "size": 359990,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **找纯 Lua 实例** — 新操作 `lua.instances`：Lua 框架自己 new 出来、不绑 UObject 的表（像子模块 SM_xxx）以前哪儿都找不到，现在按元表链或「类名字段」（如 `SubModulePath`）认出是哪个 Lua 类的实例；给每个实例一个 `luaref:编号`，读字段、改字段、调函数、看结构都能拿它当起点\n- **Lua 设置** — 新操作 `lua.config`：面板下发的脚本根、UnLua 实例表的对象字段名、类名字段、起点变量、显示名字段存进 `Saved/UELink/lua-config.json`，编辑器重启后照样生效\n\n### 改进\n- **脚本根和对象字段名可配** — 「模块改过没重载」、查泄漏以前写死 `Content/Script` 和 `Object`，现在按 Lua 设置来"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### Bug 修复\n- **找纯 Lua 实例时卡一下** — 项目里有十几万项的大表时，走 Lua 堆会把游戏卡上好几秒；现在只为表和函数记路径，整次查找有总项数上限，超了标「没走完」，提示填起点变量缩小范围\n- **对象的 Lua 字段读不全** — 角色这类 Lua 表上挂了大子表时，读字段的名额先被子表用光，同层的 `self.DefaultFOV` 这类简单字段反而没读到（选对象时显示成「游戏没开」、不能加进唯一判定）；现在先读同层的数、字符串、布尔，再进子表"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-21T11:31:36.870Z"
+  "updatedAt": "2026-11-22T01:28:53.321Z"
 }
