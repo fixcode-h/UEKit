@@ -232,6 +232,87 @@ TEST_CLASS_WITH_FLAGS(GameTestScriptFlowTest, "GameTest.Script",
 		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("off"), EGameTestStepStatus::Disabled), DescribeReport(Report)));
 		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("on"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
 	}
+	/** gm.run：args 在 run 里当 $参数名，出了这一步看不到；缺 run 时加载就报错。 */
+	TEST_METHOD(Run_GmRunArgsAreLocal)
+	{
+		using namespace GameTestScriptFlowTestLocal;
+		FGameTestDiagSink Sink;
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","vars":{"base":1},"steps":[
+			{"id":"gm1","action":"gm.run","gm":{"kind":"custom","name":"加金币"},"args":{"n":"=$base + 2"},
+				"run":[{"id":"chk","action":"assert","expr":"$n == 3"}]}]})"), Sink);
+		ASSERT_THAT(IsFalse(Sink.HasErrors(), DescribeDiags(Sink)));
+		FGameTestRunner Runner;
+		FString Error;
+		const FGameTestReport& Report = RunToEnd(Runner, Script, Error);
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("chk"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.bSucceeded, DescribeReport(Report)));
+
+		FGameTestDiagSink Bad;
+		ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
+			{"action":"gm.run","gm":{"name":"x"}},
+			{"action":"assert","expr":"$n == 3"}]})"), Bad);
+		ASSERT_THAT(IsTrue(HasCode(Bad, TEXT("bad_type")), DescribeDiags(Bad)));
+		ASSERT_THAT(IsTrue(HasCode(Bad, TEXT("var_undefined")), DescribeDiags(Bad)));
+	}
+
+	/** 附带 GM：执行前 → 主步骤 → 成功后；主步骤失败时跑失败时那组、不跑成功后那组，run 失败。 */
+	TEST_METHOD(Run_HooksBeforeAfterFail)
+	{
+		using namespace GameTestScriptFlowTestLocal;
+		FGameTestDiagSink Sink;
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
+			{"id":"ok","action":"mark","text":"主","hooks":{
+				"before":[{"id":"b1","action":"mark","text":"前"}],
+				"after":[{"id":"a1","action":"mark","text":"后"}]}},
+			{"id":"bad","action":"fail","message":"故意失败","hooks":{
+				"after":[{"id":"a2","action":"mark","text":"不该跑"}],
+				"fail":[{"id":"f2","action":"mark","text":"失败时"}]}},
+			{"id":"never","action":"mark","text":"不该跑"}]})"), Sink);
+		ASSERT_THAT(IsFalse(Sink.HasErrors(), DescribeDiags(Sink)));
+		FGameTestRunner Runner;
+		FString Error;
+		const FGameTestReport& Report = RunToEnd(Runner, Script, Error);
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("b1"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("ok"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("a1"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(0, CountById(Report, TEXT("a2"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("f2"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(0, CountById(Report, TEXT("never"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(IsFalse(Report.bSucceeded, DescribeReport(Report)));
+	}
+
+	/** 附带 GM 出错默认只记一笔（warn，不算失败）；onError: fail 让这一步失败；once 在循环里只跑第一次。 */
+	TEST_METHOD(Run_HooksOnErrorAndOnce)
+	{
+		using namespace GameTestScriptFlowTestLocal;
+		FGameTestDiagSink Sink;
+		const TSharedRef<FGameTestScript> Script = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
+			{"id":"l","action":"loop","times":3,"do":[
+				{"id":"tick","action":"mark","text":"轮","hooks":{"before":[{"id":"first","action":"mark","text":"只第一次","once":true}]}}]},
+			{"id":"m","action":"mark","text":"主","hooks":{"after":[{"id":"warn","action":"fail","message":"附带的出错"}]}},
+			{"id":"next","action":"mark","text":"照跑"}]})"), Sink);
+		ASSERT_THAT(IsFalse(Sink.HasErrors(), DescribeDiags(Sink)));
+		FGameTestRunner Runner;
+		FString Error;
+		const FGameTestReport& Report = RunToEnd(Runner, Script, Error);
+		ASSERT_THAT(AreEqual(3, CountById(Report, TEXT("tick"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("first"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(AreEqual(1, CountById(Report, TEXT("next"), EGameTestStepStatus::Succeeded), DescribeReport(Report)));
+		ASSERT_THAT(IsTrue(Report.bSucceeded, DescribeReport(Report)));
+
+		FGameTestDiagSink Sink2;
+		const TSharedRef<FGameTestScript> Strict = ParseText(TEXT(R"({"kind":"gametest-scenario","schemaVersion":5,"name":"t","steps":[
+			{"id":"m","action":"mark","text":"主","hooks":{"before":[{"action":"fail","message":"附带的出错","onError":"fail"}],
+				"fail":[{"id":"f","action":"mark","text":"失败时"}]}},
+			{"id":"never","action":"mark","text":"不该跑"}]})"), Sink2);
+		ASSERT_THAT(IsFalse(Sink2.HasErrors(), DescribeDiags(Sink2)));
+		FGameTestRunner Runner2;
+		const FGameTestReport& Report2 = RunToEnd(Runner2, Strict, Error);
+		ASSERT_THAT(AreEqual(0, CountById(Report2, TEXT("m"), EGameTestStepStatus::Succeeded), DescribeReport(Report2)));
+		ASSERT_THAT(AreEqual(1, CountById(Report2, TEXT("f"), EGameTestStepStatus::Succeeded), DescribeReport(Report2)));
+		ASSERT_THAT(AreEqual(0, CountById(Report2, TEXT("never"), EGameTestStepStatus::Succeeded), DescribeReport(Report2)));
+		ASSERT_THAT(IsFalse(Report2.bSucceeded, DescribeReport(Report2)));
+	}
 };
 
 #endif

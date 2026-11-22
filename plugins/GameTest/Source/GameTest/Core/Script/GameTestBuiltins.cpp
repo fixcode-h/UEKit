@@ -14,6 +14,7 @@ namespace GameTestBuiltin
 	void RegisterBlockIf();
 	void RegisterBlockLoop();
 	void RegisterBlockCall();
+	void RegisterBlockGm();
 	void RegisterBlockSetVar();
 	void RegisterBlockSignals();
 	//~ 判断（Observe/Checks）
@@ -84,6 +85,7 @@ namespace GameTestBuiltin
 	void RegisterApiWorld();
 	void RegisterApiGlobal();
 	void RegisterApiLua();
+	void RegisterApiGm();
 	void RegisterApiLog();
 	void RegisterApiWait();
 	void RegisterApiRuntime();
@@ -105,6 +107,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterBlockIf();
 	GameTestBuiltin::RegisterBlockLoop();
 	GameTestBuiltin::RegisterBlockCall();
+	GameTestBuiltin::RegisterBlockGm();
 	GameTestBuiltin::RegisterBlockSetVar();
 	GameTestBuiltin::RegisterBlockSignals();
 
@@ -177,6 +180,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterApiWorld();
 	GameTestBuiltin::RegisterApiGlobal();
 	GameTestBuiltin::RegisterApiLua();
+	GameTestBuiltin::RegisterApiGm();
 	GameTestBuiltin::RegisterApiLog();
 	GameTestBuiltin::RegisterApiWait();
 	GameTestBuiltin::RegisterApiRuntime();

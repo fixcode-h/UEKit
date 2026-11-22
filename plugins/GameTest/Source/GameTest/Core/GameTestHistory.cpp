@@ -72,7 +72,7 @@ TSharedPtr<FJsonObject> GameTestHistory::MakeEntry(const FGameTestReport& InRepo
 
 	for (const FGameTestStepRecord& Record : InReport.Steps)
 	{
-		if (Record.Status == EGameTestStepStatus::Failed)
+		if (Record.Status == EGameTestStepStatus::Failed && !Record.bWarn)
 		{
 			// 第几步（从 1 数，和面板、报告里说的一致）和原因
 			// 前置步骤失败记成第 0 步：场景本身一步都没跑

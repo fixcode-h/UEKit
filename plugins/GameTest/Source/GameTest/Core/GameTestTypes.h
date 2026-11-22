@@ -92,6 +92,8 @@ struct GAMETEST_API FGameTestStepRecord
 	bool bBlock = false;
 	/** 在循环的第几轮里执行的（从 0）；不在循环里为 -1。 */
 	int32 Iter = -1;
+	/** 附带 GM 出错只记一笔（2.3.0）：状态照样是 Failed，但不算整次 run 失败，面板标黄。 */
+	bool bWarn = false;
 
 	TSharedPtr<FJsonObject> ToJson() const;
 };

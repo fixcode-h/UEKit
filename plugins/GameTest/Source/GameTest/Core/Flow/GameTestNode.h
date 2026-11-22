@@ -57,6 +57,12 @@ struct GAMETEST_API FGameTestNode
 	bool bExpectNoErrors = false;
 	/** `onFail: retry` 时最多重做几次。 */
 	int32 Retries = 0;
+	/** 附带 GM（`hooks`）解析时包在步骤外面的那一层：断点、单步不在它上面停，单步的深度也不算它那一层。 */
+	bool bHookWrap = false;
+	/** 附带 GM 里的步骤（含它们的子步骤）：断点、单步跳过，调试时只停在主步骤上。 */
+	bool bInHook = false;
+	/** 附带 GM 里 `onError: note`（默认）的项里的节点：失败只记一笔（记录标 warn），不算整次 run 失败。 */
+	bool bHookNote = false;
 
 	bool IsBlock() const { return Block != nullptr; }
 

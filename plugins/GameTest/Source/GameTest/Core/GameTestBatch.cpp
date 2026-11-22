@@ -91,7 +91,7 @@ void FGameTestBatch::OnRunFinished(const FGameTestReport& InReport)
 	Item.Status = InReport.bSucceeded ? TEXT("passed") : TEXT("failed");
 	for (const FGameTestStepRecord& Record : InReport.Steps)
 	{
-		if (Record.Status == EGameTestStepStatus::Failed)
+		if (Record.Status == EGameTestStepStatus::Failed && !Record.bWarn)
 		{
 			Item.FailedStep = Record.Step.bSetup ? 0 : Record.Step.Index + 1;
 			Item.Message = Record.Message.Left(BatchMaxMessageChars);

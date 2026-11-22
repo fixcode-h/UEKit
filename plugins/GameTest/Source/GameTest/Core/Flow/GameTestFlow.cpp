@@ -328,7 +328,9 @@ void FGameTestFlow::OnLeafFinished(FGameTestStepRecord& InOutRecord, double InNo
 			InOutRecord.Message = FString::Printf(TEXT("%s；%s"), *InOutRecord.Message, *Error);
 		}
 	}
-	Emit(TEXT("leave"), Node, StatusWord(InOutRecord.Status), -1, FString(), (InOutRecord.FinishedAt - InOutRecord.StartedAt) * 1000.0);
+	InOutRecord.bWarn = Node->bHookNote && InOutRecord.Status == EGameTestStepStatus::Failed;
+	// 附带 GM 出错只记一笔的推 warned：面板标黄，不当成这一步失败
+	Emit(TEXT("leave"), Node, InOutRecord.bWarn ? TEXT("warned") : StatusWord(InOutRecord.Status), -1, FString(), (InOutRecord.FinishedAt - InOutRecord.StartedAt) * 1000.0);
 	if (InOutRecord.Status != EGameTestStepStatus::Failed || bFinished)
 	{
 		return;
@@ -495,7 +497,8 @@ void FGameTestFlow::LeaveBlock(int32 InFrame, EGameTestStepStatus InStatus, cons
 		Frame.Payload->SetNumberField(TEXT("attempt"), Frame.Attempt);
 	}
 	AddRecord(Node, InStatus, InMessage, Frame.StartedAt, InNowSeconds, Frame.Payload, true);
-	Emit(TEXT("leave"), &Node, StatusWord(InStatus), -1, FString(), (InNowSeconds - Frame.StartedAt) * 1000.0);
+	const bool bWarn = Node.bHookNote && InStatus == EGameTestStepStatus::Failed;
+	Emit(TEXT("leave"), &Node, bWarn ? TEXT("warned") : StatusWord(InStatus), -1, FString(), (InNowSeconds - Frame.StartedAt) * 1000.0);
 }
 
 void FGameTestFlow::UnwindTo(int32 InKeep, EGameTestStepStatus InStatus, const FString& InMessage, double InNowSeconds)
@@ -551,6 +554,12 @@ void FGameTestFlow::PropagateFailure(int32 InFrame, const FString& InMessage, do
 			const FGameTestNode& Node = *Frames[Index].Node;
 			const int32 Attempt = Frames[Index].Attempt;
 			UnwindTo(Index + 1, EGameTestStepStatus::Failed, TEXT("没跑完（里面的步骤失败）"), InNowSeconds);
+			if (Node.Block->CatchFailure(Node, *Frames[Index].State, *Context, InMessage))
+			{
+				// 块接住了失败（附带 GM 要接着跑「失败时」那组）：由它的 Tick 决定后面怎么走。
+				Frames[Index].bNeedTick = true;
+				return;
+			}
 			if (Node.Step.FailMode == EGameTestFailMode::Retry && Attempt < Node.Retries)
 			{
 				// 整块重做：从块的第一步开始，状态全新。
@@ -922,6 +931,11 @@ void FGameTestFlow::Step(bool bInto)
 
 bool FGameTestFlow::ShouldPauseAt(const FGameTestNode& InNode)
 {
+	if (InNode.bHookWrap || InNode.bInHook)
+	{
+		// 附带 GM 不停：断点、单步、暂停请求都留给主步骤（暂停请求不清，下一个主步骤前停）。
+		return false;
+	}
 	if (bPauseRequested)
 	{
 		bPauseRequested = false;
@@ -956,9 +970,11 @@ void FGameTestFlow::PauseAt(const FGameTestNode& InNode)
 int32 FGameTestFlow::ListDepth() const
 {
 	int32 Depth = 0;
-	for (const FFrame& Frame : Frames)
+	for (int32 Index = 0; Index < Frames.Num(); ++Index)
 	{
-		Depth += Frame.Kind == EFrameKind::List ? 1 : 0;
+		// 附带 GM 包的那一层不算深度：主步骤和它前后的步骤在同一层，单步跳过它时照样停在下一步。
+		const bool bHookLayer = Index > 0 && Frames[Index - 1].Kind == EFrameKind::Block && Frames[Index - 1].Node->bHookWrap;
+		Depth += Frames[Index].Kind == EFrameKind::List && !bHookLayer ? 1 : 0;
 	}
 	return Depth;
 }
@@ -996,6 +1012,7 @@ void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus I
 	Record.FinishedAt = InNowSeconds;
 	Record.bBlock = bInBlock;
 	Record.Iter = CurrentIter();
+	Record.bWarn = InNode.bHookNote && InStatus == EGameTestStepStatus::Failed;
 	Report.Steps.Add(MoveTemp(Record));
 }
 

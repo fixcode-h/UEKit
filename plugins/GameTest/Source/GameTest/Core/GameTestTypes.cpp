@@ -46,6 +46,10 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	{
 		Json->SetNumberField(TEXT("iter"), Iter);
 	}
+	if (bWarn)
+	{
+		Json->SetBoolField(TEXT("warn"), true);
+	}
 	Json->SetStringField(TEXT("message"), Message);
 
 	if (!Step.Target.IsEmpty())
@@ -70,7 +74,8 @@ int32 FGameTestReport::CountByStatus(EGameTestStepStatus InStatus) const
 	int32 Count = 0;
 	for (const FGameTestStepRecord& Record : Steps)
 	{
-		if (Record.Status == InStatus)
+		// 只记一笔的失败（附带 GM 出错）不算失败：整次 run 的成败和 failed 计数都不含它，另计 warned
+		if (Record.Status == InStatus && !(Record.bWarn && InStatus == EGameTestStepStatus::Failed))
 		{
 			++Count;
 		}
@@ -98,6 +103,15 @@ TSharedPtr<FJsonObject> FGameTestReport::ToJson() const
 		Json->SetObjectField(TEXT("guards"), Guards);
 	}
 	Json->SetNumberField(TEXT("failed"), CountByStatus(EGameTestStepStatus::Failed));
+	int32 Warned = 0;
+	for (const FGameTestStepRecord& Record : Steps)
+	{
+		Warned += Record.bWarn ? 1 : 0;
+	}
+	if (Warned > 0)
+	{
+		Json->SetNumberField(TEXT("warned"), Warned);
+	}
 	// 已达成跳过的步数（1.6.0）：算通过，单独计数，面板结果条上写「N 步已达成跳过」
 	const int32 Already = CountByStatus(EGameTestStepStatus::Already);
 	if (Already > 0)

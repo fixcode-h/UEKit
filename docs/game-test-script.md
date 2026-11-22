@@ -58,7 +58,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ## 2. 块和新动作
 
-所有步骤共用的字段：`id`、`note`、`onFail`（`stop` 默认 / `continue` / `retry`）+ `retries`、`timeoutMs`、`skipIf`（统一条件 + 原有 `also` / `verify`）、`guards`（只在这一块里生效）、`expectNoErrors`（这一步 / 这一块执行期间日志里出现 Error、Ensure、Lua 报错就算失败，默认 false）、`disabled`（true 时跳过，报告记 `disabled`）。
+所有步骤共用的字段：`id`、`note`、`onFail`（`stop` 默认 / `continue` / `retry`）+ `retries`、`timeoutMs`、`skipIf`（统一条件 + 原有 `also` / `verify`）、`guards`（只在这一块里生效）、`expectNoErrors`（这一步 / 这一块执行期间日志里出现 Error、Ensure、Lua 报错就算失败，默认 false）、`disabled`（true 时跳过，报告记 `disabled`）、`hooks`（附带 GM，2.3.0 起，见 2.1）。
 
 | `action` | 字段 | 说明 |
 | --- | --- | --- |
@@ -72,6 +72,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `break` / `continue` | `cond?` | 出最内层循环 / 进下一轮 |
 | `return` | `cond?`, `value?` | 结束当前脚本（被 `call` 时回到调用处） |
 | `fail` | `message`（可用表达式） | 主动失败 |
+| `gm.run`（2.3.0） | `gm: {kind, name}`、`args`、`run` | 执行一条 Agent 面板的 GM（C++ / Lua / 控制台 / 自定义 GM / 宏）：`run` 里一般是 `api Gm.Run`、`api Gm.Lua`、`console`、`obj.call`。GameTest 不读面板的 gm.json：面板存盘、运行前按 GM 库把它展开成步骤写进 `run`，这里只跑 `run`；`gm` 记是哪条（报告带 `payload.gm`）。`args` 在外层求值（可写 `$变量`、`= 表达式`），`run` 里按 `$参数名` 用，出了这一步看不到。缺 `run` 加载时报 `bad_type`。（`gm` 这个名字是控制台 GM 命令的叶子动作，所以叫 `gm.run`） |
 | `obj.close`（2.0.0 起，取代 `widget.close` / `widget.call`） | `obj`, `how`, `verify`, `verifyMs` | 关界面 / 对象，见 game-test-ref.md 5.2 |
 | `obj.find` / `obj.wait` / `obj.set`（2.0.0 起） | 见 game-test-ref.md 5.3 | |
 | `assert` | `expr` / `cond` | `cond` 是统一条件；`expr` 是表达式（2.0.0 起按控件写的判断字段删掉） |
@@ -81,6 +82,16 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - `timeoutMs` 写 0 = 不限时（1.11.3 起）：叶子步骤一直等到成立或被「停止」，块不设总时限；不写才用默认（`DefaultStepTimeoutMs` / 动作自己的默认）。
 - `onFail: retry` 写在块上是整块重做（从块的第一步开始）。
 - 校验：未知字段、未知动作、`call` 找不到 / 成环、`$变量` 未定义、`id` 重复都在加载和 `gt.validate` 时报出来。
+
+### 2.1 附带 GM（`hooks`，2.3.0）
+
+任何步骤（叶子或块）都可以带 `hooks: {before?, after?, fail?}`，每组是步骤列表（面板写的是 `gm.run`，别的步骤也认）：
+
+- `before`：这一步开始前跑；`after`：这一步判定通过后跑（`onFail: retry` 重做时只在最后通过那次之后跑一次，`before` 不随重做再跑）；`fail`：这一步最终失败后跑，跑完这一步照样算失败、按它的 `onFail` 往外传（`continue` 时跑完失败时那组再接着往下）。
+- 每项可带 `onError`：`note`（默认，出错只记一笔：记录照样 `failed` 但带 `warn: true`，不算整次 run 失败，报告顶上另计 `warned`）/ `fail`（`before` / `after` 里的出错让这一步算失败，接着跑 `fail` 那组）；`once: true`：循环里只第一次跑（同一次 run 内按脚本 + 路径记）。
+- `after`、`fail` 里能用 `$ret`：这一步 `saveAs` 存的值（调函数的返回值、找到的对象、`call` 的返回）；没写 `saveAs` 时没有 `$ret`。
+- `disabled` 的步骤整步不跑，附带的也不跑。断点、单步、「从这一步开始」都只停在主步骤上，附带项不停、不算一层。
+- 执行和报告：解析时在步骤外面包一层（路径 `<步骤路径>#hooks`，记录 `action: "hooks"`、`block: true`），主步骤的路径和 `id` 不变；附带项的路径是 `<步骤路径>.hooks.<before|after|fail>.<序号>`，面板按这个前缀把它们挂在主步骤下面。
 
 ## 3. 表达式
 
@@ -300,6 +311,8 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | Lua | `Lua.Get(module, path)` → 值、`Lua.Global(name)` → 值、`Lua.Loaded(module)` → bool | ✓ | 模块按 require 路径；没加载的不主动加载 |
 | | `Lua.Call(module, fn, args)` → 值 | | 受 `allowLuaInvoke`；多个返回值给数组 |
 | | `Lua.Errors(since?)` → [{message, traceback, at}] | ✓ | 只 Lua 报错（含被 pcall 接住但打了日志的） |
+| GM（2.3.0） | `Gm.Run(name, args?, owner?)` → {output, …} | | 执行 C++ GM（Exec 函数、UAgentPanelGMLibrary 的函数），走 UELink 的 `gm.run`，和面板 GM 页一样；失败 `gm_failed` |
+| | `Gm.Lua(code, name?)` → {results, output} | | 执行 Lua GM（面板按扫描结果拼好的调用代码），走 UELink 的 `lua.exec`，受 `allowLuaInvoke`；失败 `gm_failed` |
 | 日志 | `Log.Mark()` → {log, lua} | | 记下日志和 Lua 报错的当前位置，给 `since` 用 |
 | | `Log.Contains(text, category?, since?)` → bool、`Log.Count(text, category?, since?)` → int、`Log.Errors(since?)` → [{category, verbosity, message}] | ✓ | `since` 省略 = 本次 run 开始；Errors 含 Error、Ensure、Lua 报错 |
 | 等待 | `Wait.Seconds(n)`、`Wait.Frames(n)`、`Wait.Until(cond, timeoutMs)`、`Wait.Loading(timeoutMs?)` | | `Loading`：等地图、流送关卡加载完，且没有异步加载中的包（`IsAsyncLoading`） |
@@ -375,7 +388,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 | 主题 | 什么时候 | 字段 |
 | --- | --- | --- |
-| `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already`）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
+| `gt.flow`（新） | 节点开始 / 结束、循环换轮、守护触发 / 结束、暂停 / 继续 | `runId`、`phase`（`enter` / `leave` / `iter` / `guard` / `guardEnd` / `pause` / `resume`）、`id`、`path`、`status?`（`passed` / `failed` / `skipped` / `already` / `warned`：附带 GM 出错只记一笔，2.3.0 起）、`iter?`、`guard?`、`ms?`、`vars?`（只在 `pause` 时） |
 | `gt.pick`（1.10.0） | 抓取中：画面变了（按 `fps`）；游戏里按住 Ctrl+Alt 点了一下（这一下不传给游戏） | `kind`：`frame`（`jpg`、`width`、`height`）/ `picked`（同 `gt.pick action=at` 的返回，`via: "game"`；没抓到时只有 `error`） |
 | `gt.watch`（1.10.0） | 登记的查询结果变了 | `id`、`seq`、`results: {变了的键: 结果}` |
 | `gt.record`（变化，1.11.0） | 录编辑器操作也推这个主题 | 同游戏录制，多 `target: "editor"`；`gt.editrec.status` 的字段 |
@@ -391,7 +404,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 `unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
 `expr_syntax`、`expr_type`、`expr_not_readonly`、`path_missing`、`unresolved`、`fn_missing`、`fn_not_callable`、`arg_missing`、`arg_type`、`arg_object`（对象参数来源不可重找）、
-`api_missing`、`api_renamed`、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
+`api_missing`、`api_renamed`、`gm_failed`（2.3.0）、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
 2.0.0 新增和改名的见 game-test-ref.md 第 10 节（`selector_missing` 换成 `part_missing`，`object_not_found` / `object_ambiguous` 改名 `ref_not_found` / `ref_ambiguous`）。
 
 ## 13. 版本
@@ -400,6 +413,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 需要 UELink ≥ 2.12.0（调函数复用 `ue.call` 的参数打包，读 Lua 模块、调 Lua 函数、看 Lua 报错用 UELink 的操作）。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
 - GameTest 2.0.0：对象引用（schemaVersion 4），见 [game-test-ref.md](game-test-ref.md)。
+- GameTest 2.3.0：`gm.run`、`hooks`（附带 GM）、接口 `Gm.Run` / `Gm.Lua`、记录的 `warn` 和报告的 `warned`。面板低于 2.3.0 时「执行 GM」节点和附带 GM 只能编辑、提示升级后再跑。
 - GameTest 1.10.0：`gt.pick`、`gt.watch`（从游戏里抓控件、此刻的结果实时推送）；`gt.inspect` 多 `widgetClass`、`kind`、`rect`、`screen`、`screenClass`。低于 1.10.0 时面板的「从游戏里抓」提示升级，条件的此刻结果退回「现在核对」问一次。
 
 ## 14. 代码结构（扩展点）
