@@ -43,6 +43,7 @@ namespace GameTestBuiltin
 	void RegisterStateDistance();
 	void RegisterStateHiddenInGame();
 	void RegisterStateClass();
+	void RegisterStateName();
 	void RegisterStateControl();
 	//~ 比较（Observe/Compare）
 	void RegisterCompareEquality();
@@ -135,6 +136,7 @@ void GameTestBuiltins::EnsureRegistered()
 	GameTestBuiltin::RegisterStateDistance();
 	GameTestBuiltin::RegisterStateHiddenInGame();
 	GameTestBuiltin::RegisterStateClass();
+	GameTestBuiltin::RegisterStateName();
 	GameTestBuiltin::RegisterStateControl();
 
 	//~ 比较（顺序即协议 3.4 表格的顺序，gt.props 的 ops 按它排）
