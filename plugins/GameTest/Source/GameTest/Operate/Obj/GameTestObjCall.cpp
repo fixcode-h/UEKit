@@ -82,6 +82,8 @@ namespace GameTestInvokeLocal
 		Invoke->SetStringField(TEXT("function"), InFunction);
 		Invoke->SetArrayField(TEXT("args"), Args);
 		Invoke->SetStringField(TEXT("returned"), Value.ToDisplay(500));
+		// 带类型的返回值（对象、数组、Lua 表）：面板「输出」按它画成可展开的树，returned 留给旧客户端和报告
+		Invoke->SetField(TEXT("value"), Value.ToTypedJson());
 		Invoke->SetNumberField(TEXT("ms"), FMath::RoundToInt((FPlatformTime::Seconds() - Start) * 1000.0));
 		OutPayload->SetObjectField(TEXT("invoke"), Invoke);
 		return Value;

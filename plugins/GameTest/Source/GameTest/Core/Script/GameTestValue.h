@@ -113,6 +113,11 @@ struct GAMETEST_API FGameTestValue
 	TSharedPtr<FJsonValue> ToJson() const;
 	/** 从 JSON 来：对象 → Map，数组 → Array，不认 `$` / `=` 这类引用（那是表达式求值的事）。 */
 	static FGameTestValue FromJson(const TSharedPtr<FJsonValue>& InJson);
+	/**
+	 * 带类型的 JSON（2.2.1 起，obj.call 的 invoke.value）：对象写成 {"$obj": 路径, "class", "name"}，
+	 * 数组 / Map 每层最多 InMaxItems 项（多出的写 "$more": 个数），超过 InMaxDepth 层写成显示文字。面板按它画返回值
+	 */
+	TSharedPtr<FJsonValue> ToTypedJson(int32 InMaxItems = 100, int32 InMaxDepth = 6) const;
 
 private:
 	bool bValue = false;
