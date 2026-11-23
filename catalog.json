@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.20.2",
-        "versionCode": 49,
+        "version": "2.20.3",
+        "versionCode": 50,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.20.2",
-        "asset": "UELink-2.20.2-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.20.2/UELink-2.20.2-src.zip",
-        "sha256": "00dc18c2cf75b4ba7b50ab36f99e44fbd0b991ade19519d89d5d68b169abf29d",
-        "size": 360086,
+        "tag": "UELink-v2.20.3",
+        "asset": "UELink-2.20.3-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.20.3/UELink-2.20.3-src.zip",
+        "sha256": "2df1945c6a04c7db9d86097bee53232e084f49622097f35ae4703dcac04f0e23",
+        "size": 360828,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### Bug 修复\n- **Lua 字段没读全却没标出来** — 简单字段正好把名额用完时，后面的子表被跳过但没标「还有更多」，现在照样标出来"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### Bug 修复\n- **打开 Lua 声明后加载蓝图时编辑器崩溃** — 异步加载蓝图时引擎会在加载线程上就地编译蓝图并发出编译完成事件，Lua 声明记脏包时和编辑器主线程同时改同一个集合，崩在 `TSet::Append`；现在事件先记进加锁的收件箱，主线程每帧取走再处理"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-22T10:49:01.086Z"
+  "updatedAt": "2026-11-23T02:01:24.512Z"
 }
