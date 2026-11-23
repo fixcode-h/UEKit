@@ -354,6 +354,32 @@ namespace GameTestRpcClassesImpl
 		return Text;
 	}
 
+	/**
+	 * all: true（2.4.0）：整张类表一次给出，面板在网页里建本地索引（打开下拉直接显示、打字在本地筛，用户 2026-11-23 嫌每次打开都重读、搜索慢）。
+	 * 只给网页用、Agent 工具不开放，所以不分页、不受 12000 字限制。每行 [名字, 父类, kind, 资产包名或 Lua 文件, 此刻实例数]，空的写 "" 和 0。
+	 */
+	TSharedRef<FJsonObject> AllRows(const FNodes& InNodes, bool bInLua)
+	{
+		TArray<TSharedPtr<FJsonValue>> Rows;
+		Rows.Reserve(InNodes.Num());
+		for (const TPair<FString, FNode>& Pair : InNodes)
+		{
+			const FNode& Node = Pair.Value;
+			TArray<TSharedPtr<FJsonValue>> Row;
+			Row.Reserve(5);
+			Row.Add(MakeShared<FJsonValueString>(Pair.Key));
+			Row.Add(MakeShared<FJsonValueString>(Node.Parent));
+			Row.Add(MakeShared<FJsonValueString>(bInLua ? FString(TEXT("lua")) : KindOf(Pair.Key, InNodes)));
+			Row.Add(MakeShared<FJsonValueString>(Node.Asset.IsEmpty() ? Node.File : Node.Asset));
+			Row.Add(MakeShared<FJsonValueNumber>(FMath::Max(0, Node.Live)));
+			Rows.Add(MakeShared<FJsonValueArray>(Row));
+		}
+		const TSharedRef<FJsonObject> Result = MakeShared<FJsonObject>();
+		Result->SetArrayField(TEXT("rows"), Rows);
+		Result->SetNumberField(TEXT("total"), Rows.Num());
+		return Result;
+	}
+
 	/** 搜索比对的那一段：Lua 模块名带目录（a.b.c），只比最后一段，不然搜一个目录名会把目录下全部模块都当命中（用户 2026-11-21）；q 里带 . 或 / 时按整条路径比 */
 	FString SearchText(const FString& InName, const FString& InQuery)
 	{
@@ -507,6 +533,17 @@ bool GameTestRpcRef::Classes(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<F
 		{
 			Impl::StoreNodes(bLua, World, Nodes);
 		}
+	}
+	bool bAll = false;
+	Args->TryGetBoolField(TEXT("all"), bAll);
+	if (bAll)
+	{
+		OutResult = Impl::AllRows(Nodes, bLua);
+		if (bAssetsLoading)
+		{
+			OutResult->SetStringField(TEXT("note"), TEXT("资产注册表还在扫描，蓝图类可能不全；稍后再查一次"));
+		}
+		return true;
 	}
 	if (Query.IsEmpty() && !bLua && !Parent.IsEmpty() && !Nodes.Contains(Parent))
 	{

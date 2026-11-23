@@ -373,6 +373,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 - Lua 按目录列（2.1.3）：`lua: true` 且给了 `dir`（字符串，空 = 最顶层；`.` 和 `/` 都当分隔）、不搜时，`items` 是正好在这个目录下的模块（不管父类，模块的目录 = 名字按 `/`、`.` 切段去掉最后一段），第一页另带 `dirs: [{name, count}]`：下一层子目录（`name` 是 `/` 连的完整目录）和它下面（含更深层）的模块数；子目录最多占回包预算的一半，太多时截断并带 `dirsMore: true`（多打几个字搜）。点开模块看子类照旧用 `parent`。
 - UE 类 = 已加载的 `UClass` + 编辑器里资产注册表的蓝图（只读 `GeneratedClass` / `ParentClass` 标签，**不加载资产**）；打包的游戏进程里只有已加载的类。资产注册表还在扫描时带 `note`。
 - 结果按名字排；回包最多 12000 字，超了截断，`hasMore: true` + `nextOffset`（至少给一项）。
+- 整表（2.4.0）：`all: true` 时不看 `q` / `parent` / `dir`、不分页，回 `{ rows: [[name, parent, kind, asset 或 file, live], …], total, note? }`（空的写 `""` 和 `0`），面板用它在网页里建本地索引（打开下拉直接显示、打字在本地筛）。只给网页用，不受 12000 字限制，Agent 工具不开放这个参数；旧版 GameTest 不认识 `all`，面板按没有 `rows` 判断、改用磁盘上的类表。
 - Lua 类树要 UnLua（没有时报错说明）；父类 = `lua.inspect` 元表链上的下一层 Lua 模块，只看已经 require 的模块。
 
 ## 8. 录制
@@ -408,6 +409,7 @@ game-test-script 第 4 节的统一条件里，「一条判断」新增并**取�
 - GameTest 2.0.0：本文全部（实现和本文不同的地方已在对应小节写明：`obj.close` 的 `click` 只做代码点击、关闭方式同步做一次再跨帧核对、`gt.highlight` 不避开截图、`gt.props` 没有 `changing`、`gt.tree` 和引用的 `client` 没做、skipIf 不再自动把没生成的列表条目滚出来）。需要 UELink ≥ 2.12.0（不变）。
 - GameTest 2.1.6：`ident` 条件组（3.5）、判断项 `not`、路径里的函数带常量参数（3.1）、`gt.props` 的 `functions` 给带参数的 `path` 和 `args`。
 - GameTest 2.1.4：`gt.props` 的 `class` 模式给默认值。
+- GameTest 2.4.0：`gt.classes` 的 `all: true` 整表。
 - GameTest 2.1.3：`gt.classes` 的 Lua 按目录列（`dir`、`dirs`）；`gt.props` 收 `path`、`class` 给资产路径时加载蓝图；`gt.resolve` 候选带 `path`。
 - GameTest 2.1.0：schemaVersion 5（属性路径 v5，3.1；旧写法报 `path_old`，不迁移）、引用的 `in` 数组 / `lua` / `class: "lua:…"`、`objects` 收来源字符串和中文名、`{"$obj": 名}` 当引用、`gt.classes`、`gt.step objects`、`obj.call each`、`gt.vars` 的 `objectClass`、`gt.props` 的 `cat`。
 - 面板 UE 插件按 `gt.health.version` 判断：低于 2.1.0 时编辑页只读、提示升级 GameTest；脚本不是 v5 时提示按新写法重写。
