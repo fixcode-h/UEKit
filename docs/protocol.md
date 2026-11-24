@@ -71,6 +71,8 @@
 - `class`、`props`（属性列表，每项和 `props` 操作一样带 `name`/`displayName`/`category`/`type`/`value`，跳过 Transient，值不截断）、`note?`；
 - 蓝图另有 `blueprint`：`parent`、`interfaces[]`、`variables[{name, type, category, flags[]}]`、`components[{name, class, parent, source: native|scs|inherited, props}]`、`graphs[{name, kind, nodes[{id, guid, title, class, comment?, pins{引脚: 默认值}, links["出引脚->节点id.入引脚"]}], pseudo}]`，`props` 是类默认值；
 - 其他资源另有 `subobjects[{name(相对资源的路径), class, props}]`，数据表 / 曲线表另有 `rows`（`GetTableAsJSON` 的原文）、`rowStruct`。
+- 控件蓝图（2.21）的 `blueprint` 还有 `widgets[{name, class, path, parent, props, slotClass?, slot?}]`（设计时控件树，按 `path` 排序，`path` 和 `umg.design` 一致、`parent` 是父控件的路径；`slot` 是插槽对象的存盘属性）和 `anims[{name, length, channels[{target, channel, keys[[秒, 值]]}]}]`（通道和 `umg.anims` 一致，每条通道最多 200 个关键帧）。
+- 2.21 起带 `file` 时按引擎「和版本库比较」的方式加载（`LOAD_ForDiff | LOAD_DisableCompileOnLoad`），不在加载时编译这一版的蓝图（`asset.textify` 同样）：编辑器里同一个蓝图开着时，以前编译副本会很慢、报编译错或卸不掉。
 
 `trace.query {"file", "what", "live"?, ...}`：用 TraceServices 分析 .utrace（what 的各项见面板 `ue/server/trace-query.ts`）。每个回包都带 `analyzing`、`duration`（秒，从进程启动算）；2.8.1 起还带 `readBytes` / `fileBytes`（已交给分析器的字节数 / 文件大小）、`origin`（第一帧的开始时间，客户端减掉它就是「从录制开始算」的秒数，还没有帧时是 0）、`caughtUp`（读到了文件当前的末尾）、`live`（正在跟着读）。`live: true` 表示这份文件还在录：读到末尾不结束，等新数据接着分析，没分析完也能查已经分析到的部分；客户端看着时每隔几秒再带 `live: true` 查一次续上，30 秒没人续就把现有数据读完结束。2.8.1 之前文件一变就从头重新分析，录制中的文件永远停在 `analyzing`。
 
