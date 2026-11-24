@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.20.3",
-        "versionCode": 50,
+        "version": "2.21.0",
+        "versionCode": 51,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.20.3",
-        "asset": "UELink-2.20.3-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.20.3/UELink-2.20.3-src.zip",
-        "sha256": "2df1945c6a04c7db9d86097bee53232e084f49622097f35ae4703dcac04f0e23",
-        "size": 360828,
+        "tag": "UELink-v2.21.0",
+        "asset": "UELink-2.21.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.21.0/UELink-2.21.0-src.zip",
+        "sha256": "19f37376c918c1d2dfeef2ae399f8128e466884145f9ff9d5f891e15734fced8",
+        "size": 362093,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### Bug 修复\n- **打开 Lua 声明后加载蓝图时编辑器崩溃** — 异步加载蓝图时引擎会在加载线程上就地编译蓝图并发出编译完成事件，Lua 声明记脏包时和编辑器主线程同时改同一个集合，崩在 `TSet::Append`；现在事件先记进加锁的收件箱，主线程每帧取走再处理"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **控件蓝图的版本差异按控件树比** — 资源快照多带控件树（每个控件和它插槽的属性）和动画通道，面板能列出新加、删掉、改过的控件和改了哪些属性\n\n### Bug 修复\n- **编辑器开着时版本差异读不出来** — 读某一版资源时改用引擎「和版本库比较」的加载方式，不在加载时编译这一版的蓝图；以前编辑器里同一个蓝图开着时，编译副本很慢、可能报错或卸不掉"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-23T06:56:59.151Z"
+  "updatedAt": "2026-11-24T14:47:27.287Z"
 }
