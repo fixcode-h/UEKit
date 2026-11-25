@@ -413,6 +413,7 @@ public:
 		RegisterStreamOps();
 		RegisterSelectionOps();
 		RegisterEditorToolsOps();
+		RegisterMapOps();
 		RegisterImportCallOps();
 		RegisterEditorBatchOps();
 		RegisterUmgViewOps();

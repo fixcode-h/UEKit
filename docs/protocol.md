@@ -61,7 +61,7 @@
 | 控件蓝图（编辑器，2.17） | `umg.design`、`umg.anims`、`umg.render` |
 | 蓝图 | `bp.outline`、`bp.graph`、`bp.edit`、`bp.compile`、`bp.find`、`bp.node_search` |
 | 日志和性能 | `log.tail`、`log.clear`、`perf.live`、`trace.query` |
-| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy` |
+| 编辑器 | `pie`、`livecoding`、`livecoding.status`、`tests.run`、`tests.status`、`editor.selection`、`editor.select`、`object.reveal`、`editor.spawn`、`editor.destroy`、`editor.map`（2.22） |
 | Lua 声明（编辑器，2.5） | `luadecl.status`、`luadecl.enable`、`luadecl.run` |
 | 作业（2.13） | `job.start`、`job.get`、`job.wait`、`job.stop`；`job.batch`（2.14，见「批量」） |
 | Lua（装了 UnLua 时） | `lua.status`、`lua.objects`、`lua.gc`、`lua.get`、`lua.set`、`lua.exec`、`lua.check`、`lua.reload`、`lua.modules`、`lua.errors`、`lua.inspect`、`lua.call`、`lua.snap`、`lua.profile`、`lua.leaks`、`lua.instances`、`lua.config`（2.20） |
@@ -277,6 +277,13 @@
   - 修复会保存引用方、删除重定向器文件：客户端按「结构性操作」请用户确认，P4 项目先把 `readOnly` 的文件签出，修完再把删掉的重定向器标记删除。
 - `editor.spawn {"class", "location"?: [x,y,z], "rotation"?: [pitch,yaw,roll], "scale"?: [x,y,z], "level"?, "label"?, "folder"?, "select"?: true}` → `{"actor": {"path", "name", "label", "class", "level", "location"}, "tx", "dirtied"?}`：在编辑器关卡里放一个 Actor（`GEditor->AddActor`，和从内容浏览器拖进视口同一套）。`class` 写原生类名或蓝图路径；`level` 是已加载关卡的包名或短名，空为当前关卡。包在编辑器事务里，`tx` 交给 `asset.undo` 撤回。PIE 运行中、后台编辑器里拒绝。
 - `editor.destroy {"actors": [Actor 路径]}` → `{"destroyed": [同上的 actor], "missing"?: [没找到的路径], "tx"}`：删掉编辑器关卡里的 Actor（`UEditorActorSubsystem::DestroyActors`），一次最多 100 个，进撤销栈。PIE 里的 Actor 不能用它删。
+- `editor.map {"action": "status"}` → `{"package", "map", "pie", "dirty"?: [包名], "dirtyCount"?, "loading"?: true, "last"?: {"package", "previous", "ok"?, "ms"?, "error"?}}`（2.22.0 起，只在编辑器进程里有）：编辑器当前打开的地图（包名和短名）、PIE 在不在跑、改了没保存的关卡包（地图包、子关卡、World Partition 的外部 Actor 包，最多列 50 个），以及正在打开 / 上一次打开的结果（`last` 里有 `ok` 表示打开完了）。
+- `editor.map {"action": "open", "map", "unsaved"?: "error"|"discard", "reload"?: false}` → `{"started", "package", "previous", "already"?: true, "discarded"?: [包名]}`：在编辑器里打开地图，和关卡编辑器「打开关卡」同一个入口（`FEditorFileUtils::LoadMap`），加载时压住模态对话框（`GIsRunningUnattendedScript`）。
+  - `map` 可以是包名、对象路径、`.umap` 文件路径，也可以只写地图名或路径的结尾（`QuestMain_P_Free`、`QuestMain/QuestMain_P_Free`）：按资源注册表里的 World 找，同名的有几张时报出候选（最多 10 个）。
+  - 已经是这张图时回 `already: true`、不重开（`reload: true` 强制重开）。PIE 运行中、正在打开别的地图时拒绝。
+  - 有没保存的关卡包时：`unsaved` 默认 `error`，拒绝并列出包名（要留着由客户端先 `asset.save`）；`discard` 清掉脏标记后打开，回包 `discarded` 列出丢掉的包。
+  - 回包只表示「下一帧开始打开」：加载会卡住编辑器主线程，期间的 HTTP 请求要等加载完才回。客户端接着调 `status`，`last.ok` 为 true 才算打开好；为 false 时 `last.error` 写了现在是哪张图。
+  - 为什么不用控制台 `open`：编辑器世界里 `open` 立刻回成功，换没换图、有没有弹保存对话框都不知道。
 
 > 2.4.0 这一批的操作由几个并行的工作包分别加：每个包的新操作放各自的 `*Ops.cpp`（例如 `UELinkSelectionOps.cpp`、`AgentPanelLuaDevOps.cpp`），在这份文档里各写一段，操作表里各加一格，版本统一记在 UELink 的 CHANGELOG `v2.4.0-beta.1` 一节里。
 
