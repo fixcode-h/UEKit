@@ -4,7 +4,7 @@
 // 为什么不用控制台 open：编辑器世界里的 open 立刻回「成功」，真正换没换图、有没有弹保存对话框都不知道，
 // Agent 只能 sleep 再反复查状态、日志、截图（2026-11-25 碰杯玩法实测，最后是用户自己换的图）。
 // 这里调关卡编辑器「打开关卡」同一个入口（FEditorFileUtils::LoadMap）：有没保存的关卡改动先拒绝或按要求丢弃，
-// 加载时压住模态对话框。加载会卡住编辑器主线程，所以放到下一帧做；客户端随后调 status 等结果
+// 加载时压住模态对话框。pie 操作的 map 参数（只在 PIE 里玩那张图、不换编辑器的图）也用这里的找地图。加载会卡住编辑器主线程，所以放到下一帧做；客户端随后调 status 等结果
 // （加载期间的 HTTP 请求要等加载完才回，回来时 last 里就是结果）。PIE 运行中拒绝，客户端先停 PIE。
 #include "UELinkCompat.h"
 #include "AgentPanelEditorShared.h"
@@ -311,6 +311,12 @@ namespace UELinkMapOps
 		Out->SetBoolField(TEXT("started"), true);
 		return true;
 	}
+}
+
+bool AgentPanelEd::ResolveMapPackage(const FString& In, FString& OutPackage, FString& Error)
+{
+	FString File;
+	return UELinkMapOps::ResolveMap(In, OutPackage, File, Error);
 }
 
 void AgentPanelEd::RegisterMapOps()
