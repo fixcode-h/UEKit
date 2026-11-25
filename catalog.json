@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.22.0",
-        "versionCode": 52,
+        "version": "2.23.0",
+        "versionCode": 53,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.22.0",
-        "asset": "UELink-2.22.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.22.0/UELink-2.22.0-src.zip",
-        "sha256": "0e0cfeb6bd65043ed8595b78cea5f962264c1266b5d0d7f795e93f14ae007e9a",
-        "size": 367162,
+        "tag": "UELink-v2.23.0",
+        "asset": "UELink-2.23.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.23.0/UELink-2.23.0-src.zip",
+        "sha256": "3b5006d279fbe211aea505975054113d1358e7c389b9d4206b73cc35d711231a",
+        "size": 367899,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 新功能\n- **在编辑器里打开 / 切换地图** — 新操作 `editor.map`：按地图名、包名或 .umap 路径找到地图，用关卡编辑器「打开关卡」同一个入口打开，加载时不弹模态对话框；关卡有没保存的改动时先拒绝并列出来（可以要求丢掉），能查到正在打开和上一次打开的结果。Agent 在游戏里测试前换地图不用再靠控制台 `open` 加干等\n- **PIE 直接玩指定地图** — `pie` 开 PIE 时可以带 `map`：只在 PIE 里玩那张图，编辑器里打开的图和没保存的改动都不动"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 改进\n- **执行 Lua 的结果展开小的子表** — `lua.exec` 返回表时，不超过 20 项的子表就地展开一层（`depth` 默认 2、最多 3），Agent 不用再改成 print 拼字符串重跑一遍\n- **编辑器截图更稳** — 换图时截编辑器世界直接说「正在加载地图」；焦点不在关卡视口上时退回第一个关卡视口，不再回「这个世界没有视口」"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-25T06:43:43.413Z"
+  "updatedAt": "2026-11-25T07:43:30.230Z"
 }
