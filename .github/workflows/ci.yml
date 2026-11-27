@@ -10,6 +10,10 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # dev → main 的 PR：头提交就是 dev 的最新提交，推送 dev 时已经跑过检查（结果按提交挂在 PR 上），
+    # 这里只做推送时没有的那一项「改了的插件要升版本号」，不再把检查重跑一遍
+    env:
+      DEV_TO_MAIN: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,6 +22,7 @@ jobs:
         with:
           node-version: 22
       - name: 检查（版本号、模块、编译产物、扩展规则）
+        if: env.DEV_TO_MAIN != 'true'
         run: node scripts/check.mjs
       - name: 出包（附更新说明）
         run: node scripts/package.mjs
@@ -39,6 +44,7 @@ jobs:
           done
           exit $bad
       - uses: actions/upload-artifact@v4
+        if: env.DEV_TO_MAIN != 'true'
         with:
           name: uekit-packages
           path: dist/
