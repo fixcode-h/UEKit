@@ -134,7 +134,7 @@ namespace GameTestRpcScript
 		OutResult->SetArrayField(TEXT("warnings"), Warnings);
 		const TSharedRef<FJsonObject> Checked = GameTestDeepChecks::StatsToJson(Stats);
 		Checked->SetNumberField(TEXT("steps"), Parsed->CountLeaves());
-		Checked->SetNumberField(TEXT("calls"), CountCalls(Parsed->Setup) + CountCalls(Parsed->Steps));
+		Checked->SetNumberField(TEXT("calls"), CountCalls(Parsed->Setup) + CountCalls(Parsed->Steps) + CountCalls(Parsed->Teardown));
 		Checked->SetNumberField(TEXT("exprs"), CountExprs(MakeShared<FJsonValueObject>(Script)));
 		OutResult->SetObjectField(TEXT("checked"), Checked);
 		OutResult->SetBoolField(TEXT("deep"), bDeep);

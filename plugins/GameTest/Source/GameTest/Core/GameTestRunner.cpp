@@ -519,6 +519,16 @@ void FGameTestRunner::Cancel(const FString& InReason)
 			FString::Printf(TEXT("已取消：%s"), *InReason), FPlatformTime::Seconds());
 	}
 
+	// 场景有收尾段（2.7.0）：第一次停止先跑完收尾段把状态恢复，再停；收尾段里再按一次停止就立刻结束。
+	// 正在执行的那一步上面已经记了「已取消」，这次 run 照样算失败。
+	if (bActive && Flow.IsValid() && !Flow->IsInTeardown() && Flow->BeginTeardown(FString::Printf(TEXT("已取消：%s"), *InReason), FPlatformTime::Seconds()))
+	{
+		bCancelling = false;
+		bHaveNextLeaf = false;
+		NextStepNotBefore = 0.0;
+		return;
+	}
+
 	FinishRun();
 }
 

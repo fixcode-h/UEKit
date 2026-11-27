@@ -178,6 +178,10 @@ EGameTestFlowNext FGameTestFlow::Next(double InNowSeconds, FGameTestFlowLeaf& Ou
 		}
 		if (Frames.Num() == 0)
 		{
+			if (BeginTeardown(FString(), InNowSeconds))
+			{
+				continue;
+			}
 			bFinished = true;
 			return EGameTestFlowNext::Done;
 		}
@@ -328,10 +332,11 @@ void FGameTestFlow::OnLeafFinished(FGameTestStepRecord& InOutRecord, double InNo
 			InOutRecord.Message = FString::Printf(TEXT("%s；%s"), *InOutRecord.Message, *Error);
 		}
 	}
-	InOutRecord.bWarn = Node->bHookNote && InOutRecord.Status == EGameTestStepStatus::Failed;
+	// 收尾段里失败只记警告：主流程的结论不该被收尾改掉；接着跑下一步，尽量把状态恢复干净
+	InOutRecord.bWarn = (Node->bHookNote || bInTeardown) && InOutRecord.Status == EGameTestStepStatus::Failed;
 	// 附带 GM 出错只记一笔的推 warned：面板标黄，不当成这一步失败
 	Emit(TEXT("leave"), Node, InOutRecord.bWarn ? TEXT("warned") : StatusWord(InOutRecord.Status), -1, FString(), (InOutRecord.FinishedAt - InOutRecord.StartedAt) * 1000.0);
-	if (InOutRecord.Status != EGameTestStepStatus::Failed || bFinished)
+	if (InOutRecord.Status != EGameTestStepStatus::Failed || bFinished || bInTeardown)
 	{
 		return;
 	}
@@ -605,7 +610,10 @@ void FGameTestFlow::PropagateSignal(EGameTestFlowSignal InSignal, const FString&
 	{
 		// 主脚本 return：后面的步骤不跑，算正常结束。
 		UnwindTo(0, EGameTestStepStatus::Succeeded, TEXT("return 跳出"), InNowSeconds);
-		bFinished = true;
+		if (bInTeardown || !BeginTeardown(FString(), InNowSeconds))
+		{
+			bFinished = true;
+		}
 		return;
 	}
 	Fail(TEXT("break / continue 不在循环里"), InNowSeconds);
@@ -615,6 +623,12 @@ void FGameTestFlow::Fail(const FString& InMessage, double InNowSeconds)
 {
 	if (bFinished)
 	{
+		return;
+	}
+	if (bInTeardown)
+	{
+		// 收尾段里的块失败：收尾到此为止，结论仍按主流程（失败的记录已标警告）
+		bFinished = true;
 		return;
 	}
 	// 走到这里的失败不一定有一条失败的记录（守护处理不掉、信号没人接）：补一条，报告才不会显示成通过。
@@ -638,19 +652,55 @@ void FGameTestFlow::Fail(const FString& InMessage, double InNowSeconds)
 		Report.Steps.Add(MoveTemp(Record));
 	}
 	bFailed = true;
-	bFinished = true;
+	if (!BeginTeardown(InMessage, InNowSeconds))
+	{
+		bFinished = true;
+	}
 }
 
 void FGameTestFlow::Abort(const FString& InReason, double InNowSeconds)
 {
+	UnwindAll(InReason, InNowSeconds);
+	LeafInFlight = nullptr;
+	bFinished = true;
+	if (Context.IsValid() && Context->GetScriptDepth() > 0)
+	{
+		Context->PopScript();
+	}
+}
+
+bool FGameTestFlow::BeginTeardown(const FString& InReason, double InNowSeconds)
+{
+	if (bInTeardown || bFinished || Script->Teardown.Nodes.Num() == 0)
+	{
+		return false;
+	}
+	UnwindAll(InReason.IsEmpty() ? FString(TEXT("未执行（转去跑收尾段）")) : FString::Printf(TEXT("未执行（%s，转去跑收尾段）"), *InReason), InNowSeconds);
+	// 停在断点、等「失败后继续」、重做中的状态都作废：收尾段从头跑，不停下等人
+	LeafInFlight = nullptr;
+	RetryLeaf = nullptr;
+	ResumedAt = nullptr;
+	bPaused = false;
+	bPauseRequested = false;
+	bFailurePending = false;
+	StepDepth = -1;
+	bSeeking = false;
+	bInTeardown = true;
+	PushList(Script->Teardown);
+	return true;
+}
+
+void FGameTestFlow::UnwindAll(const FString& InReason, double InNowSeconds)
+{
 	// 还开着的块记失败（调 Leave 收拾作用域），没轮到的步骤记跳过：报告里能看到哪些没跑。
+	// 收尾段自己没跑完的不记：跳过会把整次 run 算成失败，而收尾段只该报警告（出错的那步已标警告）。
 	while (Frames.Num() > 0)
 	{
 		const int32 Top = Frames.Num() - 1;
 		if (Frames[Top].Kind == EFrameKind::List)
 		{
 			FFrame& Frame = Frames[Top];
-			for (int32 Index = Frame.Index; Index < Frame.List->Nodes.Num(); ++Index)
+			for (int32 Index = bInTeardown ? Frame.List->Nodes.Num() : Frame.Index; Index < Frame.List->Nodes.Num(); ++Index)
 			{
 				const FGameTestNode& Node = *Frame.List->Nodes[Index];
 				FGameTestStepRecord Record;
@@ -672,12 +722,6 @@ void FGameTestFlow::Abort(const FString& InReason, double InNowSeconds)
 			continue;
 		}
 		Frames.Pop();
-	}
-	LeafInFlight = nullptr;
-	bFinished = true;
-	if (Context.IsValid() && Context->GetScriptDepth() > 0)
-	{
-		Context->PopScript();
 	}
 }
 
@@ -1012,7 +1056,7 @@ void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus I
 	Record.FinishedAt = InNowSeconds;
 	Record.bBlock = bInBlock;
 	Record.Iter = CurrentIter();
-	Record.bWarn = InNode.bHookNote && InStatus == EGameTestStepStatus::Failed;
+	Record.bWarn = (InNode.bHookNote || bInTeardown) && InStatus == EGameTestStepStatus::Failed;
 	Report.Steps.Add(MoveTemp(Record));
 }
 

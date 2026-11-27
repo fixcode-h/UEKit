@@ -101,6 +101,10 @@ const FGameTestNode* FGameTestScript::FindNode(const FString& InKey) const
 	{
 		return Found;
 	}
+	if (const FGameTestNode* Found = FindIn(Teardown, InKey))
+	{
+		return Found;
+	}
 	for (const TSharedRef<FGameTestGuardDef>& Guard : Guards)
 	{
 		if (const FGameTestNode* Found = FindIn(Guard->Do, InKey))
@@ -113,7 +117,7 @@ const FGameTestNode* FGameTestScript::FindNode(const FString& InKey) const
 
 int32 FGameTestScript::CountLeaves() const
 {
-	return CountIn(Setup) + CountIn(Steps);
+	return CountIn(Setup) + CountIn(Steps) + CountIn(Teardown);
 }
 
 TSharedRef<FGameTestScript> FGameTestScript::FromSteps(const TArray<FGameTestStep>& InSteps)

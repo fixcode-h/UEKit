@@ -110,6 +110,11 @@ struct GAMETEST_API FGameTestScript
 	TArray<TSharedRef<FGameTestGuardDef>> Guards;
 	FGameTestNodeList Setup;
 	FGameTestNodeList Steps;
+	/**
+	 * 收尾段（2.7.0）：主流程跑完、失败或第一次按停止后都执行一遍，用来退出玩法、恢复状态，
+	 * 免得这一份失败把后面批量跑的几份带崩。只在直接运行的脚本上生效，被 call 的子脚本里写了不跑。
+	 */
+	FGameTestNodeList Teardown;
 
 	/** 按 id 或路径找节点（断点、from / to、gt.debug）。 */
 	const FGameTestNode* FindNode(const FString& InKey) const;

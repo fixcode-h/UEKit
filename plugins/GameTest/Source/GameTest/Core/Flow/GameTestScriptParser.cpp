@@ -139,6 +139,7 @@ TSharedRef<FGameTestScript> FGameTestScriptParser::ParseScript(const TSharedPtr<
 		ParseHeader(InJson, *Script);
 		ParseNodes(InJson->TryGetField(TEXT("setup")), TEXT("setup"), Script->Setup);
 		ParseNodes(InJson->TryGetField(TEXT("steps")), TEXT("steps"), Script->Steps);
+		ParseNodes(InJson->TryGetField(TEXT("teardown")), TEXT("teardown"), Script->Teardown);
 	}
 	States.Pop();
 	return Script;
@@ -252,6 +253,7 @@ void FGameTestScriptParser::ParseNodes(const TSharedPtr<FJsonValue>& InValue, co
 		{
 			Main.Step.bNested = !bTopLevel;
 			Main.Step.bSetup = InPath == TEXT("setup");
+			Main.Step.bTeardown = InPath == TEXT("teardown");
 			Main.Step.Index = Index;
 		}
 		OutList.Nodes.Add(Node);

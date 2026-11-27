@@ -105,6 +105,7 @@ void GameTestDeepChecks::Run(const FGameTestScript& InScript, FGameTestFlowConte
 	}
 	GameTestDeepWalk::VisitList(InScript.Setup, Env);
 	GameTestDeepWalk::VisitList(InScript.Steps, Env);
+	GameTestDeepWalk::VisitList(InScript.Teardown, Env);
 }
 
 TSharedRef<FJsonObject> GameTestDeepChecks::StatsToJson(const FGameTestDeepStats& InStats)
