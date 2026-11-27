@@ -48,6 +48,8 @@ struct FGameTestStep
 {
 	FName Action;
 	FString Target;
+	/** 节点名称（2.6.0）：很短的中文，给人看这一步做什么；Note 是详细说明。 */
+	FString Title;
 	FString Note;
 	/** 0 = 没写（用默认）；小于 0 = 写了 0，不限时（用户 2026-11-19：0 表示不限），解析时把写了的 0 换成 -1 */
 	int32 TimeoutMs = 0;
@@ -55,6 +57,8 @@ struct FGameTestStep
 	int32 Index = 0;
 	/** 运行配置里的前置步骤（`_settings.json` 的 setup）：Index 是它在前置步骤里的序号，不占场景的步骤序号。 */
 	bool bSetup = false;
+	/** 场景的收尾段（2.7.0，`teardown`）：Index 是它在收尾段里的序号；这里失败只记警告，不改整次 run 的结论。 */
+	bool bTeardown = false;
 	TSharedPtr<FJsonObject> Params;
 	/** 步骤 id（1.9.0，场景里写的；没写为空）。 */
 	FString Id;
@@ -69,6 +73,10 @@ struct FGameTestStep
 		if (bSetup)
 		{
 			return FString::Printf(TEXT("前置第 %d 步"), Index + 1);
+		}
+		if (bTeardown && !bNested)
+		{
+			return FString::Printf(TEXT("收尾第 %d 步"), Index + 1);
 		}
 		if (bNested)
 		{

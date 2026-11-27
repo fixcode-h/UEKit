@@ -26,7 +26,7 @@ namespace
 	const TArray<FString>& CommonFields()
 	{
 		static const TArray<FString> Fields = {
-			TEXT("action"), TEXT("id"), TEXT("note"), TEXT("onFail"), TEXT("retries"), TEXT("timeoutMs"), TEXT("skipIf"),
+			TEXT("action"), TEXT("id"), TEXT("title"), TEXT("note"), TEXT("onFail"), TEXT("retries"), TEXT("timeoutMs"), TEXT("skipIf"),
 			TEXT("guards"), TEXT("expectNoErrors"), TEXT("disabled"), TEXT("hint"),
 		};
 		return Fields;
@@ -36,7 +36,7 @@ namespace
 	const TArray<FString>& NonValueFields()
 	{
 		static const TArray<FString> Fields = {
-			TEXT("action"), TEXT("id"), TEXT("note"), TEXT("hint"), TEXT("skipIf"), TEXT("guards"), TEXT("cond"), TEXT("expr"),
+			TEXT("action"), TEXT("id"), TEXT("title"), TEXT("note"), TEXT("hint"), TEXT("skipIf"), TEXT("guards"), TEXT("cond"), TEXT("expr"),
 			TEXT("expect"), TEXT("until"), TEXT("onFail"),
 			// 写引用、部件、判断项、关闭方式的字段由 GameTestRefCheck 检查（$var 是对象，不是填值）
 			TEXT("target"), TEXT("toTarget"), TEXT("obj"), TEXT("prop"), TEXT("op"), TEXT("how"),
@@ -139,6 +139,7 @@ TSharedRef<FGameTestScript> FGameTestScriptParser::ParseScript(const TSharedPtr<
 		ParseHeader(InJson, *Script);
 		ParseNodes(InJson->TryGetField(TEXT("setup")), TEXT("setup"), Script->Setup);
 		ParseNodes(InJson->TryGetField(TEXT("steps")), TEXT("steps"), Script->Steps);
+		ParseNodes(InJson->TryGetField(TEXT("teardown")), TEXT("teardown"), Script->Teardown);
 	}
 	States.Pop();
 	return Script;
@@ -252,6 +253,7 @@ void FGameTestScriptParser::ParseNodes(const TSharedPtr<FJsonValue>& InValue, co
 		{
 			Main.Step.bNested = !bTopLevel;
 			Main.Step.bSetup = InPath == TEXT("setup");
+			Main.Step.bTeardown = InPath == TEXT("teardown");
 			Main.Step.Index = Index;
 		}
 		OutList.Nodes.Add(Node);
@@ -349,9 +351,10 @@ void FGameTestScriptParser::ParseBlock(const FJsonObject& InJson, FGameTestNode&
 				*FString::Join(OutNode.Block->GetFields(), TEXT(", "))));
 		}
 	}
-	// 公共字段（note、timeoutMs、onFail）照叶子的写法读进 Step，执行器统一处理。
+	// 公共字段（title、note、timeoutMs、onFail）照叶子的写法读进 Step，执行器统一处理。
 	FGameTestStep& Step = OutNode.Step;
 	Step.Action = OutNode.Action;
+	InJson.TryGetStringField(TEXT("title"), Step.Title);
 	InJson.TryGetStringField(TEXT("note"), Step.Note);
 	if (InJson.TryGetNumberField(TEXT("timeoutMs"), Step.TimeoutMs) && Step.TimeoutMs <= 0)
 	{

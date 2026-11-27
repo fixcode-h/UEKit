@@ -38,7 +38,7 @@ namespace
 		for (const auto& Pair : InParams.Values)
 		{
 			const FString PairKey = GAMETEST_JSON_KEY(Pair.Key);
-			if (PairKey == TEXT("target") || PairKey == TEXT("action") || PairKey == TEXT("note")
+			if (PairKey == TEXT("target") || PairKey == TEXT("action") || PairKey == TEXT("note") || PairKey == TEXT("title")
 				|| PairKey == TEXT("timeoutMs") || PairKey == TEXT("onFail"))
 			{
 				continue;

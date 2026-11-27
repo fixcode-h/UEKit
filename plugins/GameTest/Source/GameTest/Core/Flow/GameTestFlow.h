@@ -84,6 +84,13 @@ public:
 	/** run 被取消或失败收尾：没跑的步骤记跳过、还开着的块记失败并收拾作用域。 */
 	void Abort(const FString& InReason, double InNowSeconds);
 
+	/**
+	 * 转去跑收尾段（2.7.0，场景的 teardown）：还没跑的步骤记跳过、开着的块收掉，再压入收尾段。
+	 * 没有收尾段、已经在跑或跑过时返回 false。主流程跑完、失败和第一次按停止都走这里。
+	 */
+	bool BeginTeardown(const FString& InReason, double InNowSeconds);
+	bool IsInTeardown() const { return bInTeardown; }
+
 	bool IsFinished() const { return bFinished; }
 	bool HasFailed() const { return bFailed; }
 
@@ -161,6 +168,8 @@ private:
 	void PropagateFailure(int32 InFrame, const FString& InMessage, double InNowSeconds, bool bAllowPause = true);
 	void PropagateSignal(EGameTestFlowSignal InSignal, const FString& InMessage, double InNowSeconds);
 	/** 弹到只剩 InKeep 帧（被弹的块记 InStatus，调 Leave）。 */
+	/** 还开着的块记失败（调 Leave 收拾作用域），没轮到的步骤记跳过 */
+	void UnwindAll(const FString& InReason, double InNowSeconds);
 	void UnwindTo(int32 InKeep, EGameTestStepStatus InStatus, const FString& InMessage, double InNowSeconds);
 	void TickBlock(int32 InFrame, double InNowSeconds, bool& bOutWait);
 	void FinishGuard(int32 InFrame, double InNowSeconds);
@@ -202,6 +211,8 @@ private:
 	FString StartError;
 	bool bFinished = false;
 	bool bFailed = false;
+	/** 正在跑收尾段：这里的失败只记警告，不改整次 run 的结论，也不再转一次收尾 */
+	bool bInTeardown = false;
 	bool bPaused = false;
 	/** gt.debug pause：下一个节点前停。 */
 	bool bPauseRequested = false;

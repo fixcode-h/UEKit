@@ -27,6 +27,11 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 		// 前置步骤的 index 是它在前置步骤里的序号：面板按这个字段把它们和场景步骤分开显示。
 		Json->SetBoolField(TEXT("setup"), true);
 	}
+	if (Step.bTeardown)
+	{
+		// 收尾段的 index 是它在收尾段里的序号，面板按这个字段单独显示。
+		Json->SetBoolField(TEXT("teardown"), true);
+	}
 	Json->SetStringField(TEXT("action"), Step.Action.ToString());
 	Json->SetStringField(TEXT("status"), GameTestStatus::ToString(Status));
 	// 1.9.0 脚本：id / path 认步骤（块里的步骤没有「第几步」），块的记录标 block，循环里的标轮次。
@@ -55,6 +60,10 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	if (!Step.Target.IsEmpty())
 	{
 		Json->SetStringField(TEXT("target"), Step.Target);
+	}
+	if (!Step.Title.IsEmpty())
+	{
+		Json->SetStringField(TEXT("title"), Step.Title);
 	}
 	if (!Step.Note.IsEmpty())
 	{

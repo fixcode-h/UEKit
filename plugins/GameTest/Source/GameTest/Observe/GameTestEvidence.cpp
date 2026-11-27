@@ -96,9 +96,11 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 	}
 	++CapturedThisRun;
 
-	// Printf 的格式串必须是字面量（新引擎编译期校验），所以两种前缀各写一遍。
+	// Printf 的格式串必须是字面量（新引擎编译期校验），所以几种前缀各写一遍。
 	const FString Dir = FPaths::Combine(InRunDir, TEXT("failures"), InOutRecord.Step.bSetup
 		? FString::Printf(TEXT("setup-%02d"), InOutRecord.Step.Index + 1)
+		: InOutRecord.Step.bTeardown
+		? FString::Printf(TEXT("teardown-%02d"), InOutRecord.Step.Index + 1)
 		: FString::Printf(TEXT("step-%02d"), InOutRecord.Step.Index + 1));
 	IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
 

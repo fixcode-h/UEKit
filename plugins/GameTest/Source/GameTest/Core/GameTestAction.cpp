@@ -272,6 +272,8 @@ const TArray<FString>& GameTestActions::GetCommonParams()
 		TEXT("action"),
 		TEXT("target"),
 		TEXT("note"),
+		// 节点名称（2.6.0）：一句很短的中文，画布节点、运行记录、报告、对话卡片每行先显示它；note 是详细说明
+		TEXT("title"),
 		TEXT("timeoutMs"),
 		TEXT("onFail"),
 		// 录制写的线索（资源路径、类、文字、位置）：只给人看和解析失败时找候选，执行时不读。
@@ -394,6 +396,7 @@ bool GameTestActions::ParseStep(const TSharedPtr<FJsonObject>& InJson, int32 InI
 		CheckRemovedConds(*InJson, ActionText, OutErrors);
 	}
 	GameTestJson::TryGetString(*InJson, TEXT("note"), OutStep.Note);
+	GameTestJson::TryGetString(*InJson, TEXT("title"), OutStep.Title);
 	GameTestJson::TryGetString(*InJson, TEXT("id"), OutStep.Id);
 	if (GameTestJson::TryGetInt(*InJson, TEXT("timeoutMs"), OutStep.TimeoutMs) && OutStep.TimeoutMs <= 0)
 	{
@@ -464,7 +467,8 @@ TSharedPtr<FJsonObject> GameTestActions::DescribeAll()
 	const TSharedPtr<FJsonObject> Common = MakeShared<FJsonObject>();
 	Common->SetStringField(TEXT("action"), TEXT("必填：动作名"));
 	Common->SetStringField(TEXT("target"), TEXT("部件写法 {obj, part?, slate?} 或一个引用"));
-	Common->SetStringField(TEXT("note"), TEXT("写进报告的一句说明"));
+	Common->SetStringField(TEXT("title"), TEXT("节点名称：很短的一句中文，说这一步做什么（画布、运行记录、报告先显示它）"));
+	Common->SetStringField(TEXT("note"), TEXT("详细说明：为什么这样做、要注意什么"));
 	Common->SetStringField(TEXT("timeoutMs"), TEXT("本步超时；缺省用设置里的 DefaultStepTimeoutMs"));
 	Common->SetStringField(TEXT("onFail"), TEXT("stop（默认）、continue 或 retry（配 retries）"));
 	Common->SetStringField(TEXT("id"), TEXT("步骤 id（字母数字下划线，场景内唯一）：报告、断点、from / to 按它认"));
