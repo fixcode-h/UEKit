@@ -56,6 +56,10 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	{
 		Json->SetStringField(TEXT("target"), Step.Target);
 	}
+	if (!Step.Title.IsEmpty())
+	{
+		Json->SetStringField(TEXT("title"), Step.Title);
+	}
 	if (!Step.Note.IsEmpty())
 	{
 		Json->SetStringField(TEXT("note"), Step.Note);

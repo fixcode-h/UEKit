@@ -49,7 +49,7 @@ TEST_CLASS_WITH_FLAGS(GameTestActionTest, "GameTest.Action",
 		FGameTestStep Step;
 		TArray<FString> Errors;
 		const bool bParsed = GameTestActions::ParseStep(
-			ParseStepText(TEXT(R"({"action":"click","target":{"obj":{"class":"WBP_MainMenu"},"part":"BtnStart"},"note":"点开始"})")),
+			ParseStepText(TEXT(R"({"action":"click","target":{"obj":{"class":"WBP_MainMenu"},"part":"BtnStart"},"title":"开始游戏","note":"点开始"})")),
 			3, Step, Errors);
 		ASSERT_THAT(IsTrue(bParsed, FString::Join(Errors, TEXT("；"))));
 
@@ -57,6 +57,8 @@ TEST_CLASS_WITH_FLAGS(GameTestActionTest, "GameTest.Action",
 		// 部件写法在步骤里存成内部的 @@ref: + 紧凑 JSON（GameTestHandlers::TargetText），解析时按对象引用走
 		ASSERT_THAT(IsTrue(Step.Target.StartsWith(TEXT("@@ref:")) && Step.Target.Contains(TEXT("BtnStart")), *Step.Target));
 		ASSERT_THAT(IsTrue(Step.Note == TEXT("点开始"), *Step.Note));
+		// 节点名称（2.6.0）是公共字段：不报 unknown_field，读进 Step.Title 写进记录
+		ASSERT_THAT(IsTrue(Step.Title == TEXT("开始游戏"), *Step.Title));
 		ASSERT_THAT(IsTrue(Step.Index == 3, TEXT("步骤序号要带进记录")));
 		ASSERT_THAT(IsTrue(Step.FailMode == EGameTestFailMode::Stop, TEXT("默认失败即停")));
 	}

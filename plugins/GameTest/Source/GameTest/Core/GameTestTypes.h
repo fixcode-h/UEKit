@@ -48,6 +48,8 @@ struct FGameTestStep
 {
 	FName Action;
 	FString Target;
+	/** 节点名称（2.6.0）：很短的中文，给人看这一步做什么；Note 是详细说明。 */
+	FString Title;
 	FString Note;
 	/** 0 = 没写（用默认）；小于 0 = 写了 0，不限时（用户 2026-11-19：0 表示不限），解析时把写了的 0 换成 -1 */
 	int32 TimeoutMs = 0;

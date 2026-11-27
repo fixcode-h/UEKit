@@ -58,7 +58,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 ## 2. 块和新动作
 
-所有步骤共用的字段：`id`、`note`、`onFail`（`stop` 默认 / `continue` / `retry`）+ `retries`、`timeoutMs`、`skipIf`（统一条件 + 原有 `also` / `verify`）、`guards`（只在这一块里生效）、`expectNoErrors`（这一步 / 这一块执行期间日志里出现 Error、Ensure、Lua 报错就算失败，默认 false）、`disabled`（true 时跳过，报告记 `disabled`）、`hooks`（附带 GM，2.3.0 起，见 2.1）。
+所有步骤共用的字段：`id`、`title`（节点名称，2.6.0 起：很短的一句中文说这一步做什么，画布节点、运行记录、报告、对话卡片先显示它）、`note`（详细说明：为什么这样做、要注意什么）、`onFail`（`stop` 默认 / `continue` / `retry`）+ `retries`、`timeoutMs`、`skipIf`（统一条件 + 原有 `also` / `verify`）、`guards`（只在这一块里生效）、`expectNoErrors`（这一步 / 这一块执行期间日志里出现 Error、Ensure、Lua 报错就算失败，默认 false）、`disabled`（true 时跳过，报告记 `disabled`）、`hooks`（附带 GM，2.3.0 起，见 2.1）。
 
 | `action` | 字段 | 说明 |
 | --- | --- | --- |

@@ -14,7 +14,7 @@ namespace
 	const TSet<FString>& KeptFields()
 	{
 		static const TSet<FString> Fields = {
-			TEXT("action"), TEXT("id"), TEXT("note"), TEXT("hint"), TEXT("onFail"), TEXT("retries"), TEXT("timeoutMs"), TEXT("disabled"),
+			TEXT("action"), TEXT("id"), TEXT("title"), TEXT("note"), TEXT("hint"), TEXT("onFail"), TEXT("retries"), TEXT("timeoutMs"), TEXT("disabled"),
 			TEXT("expectNoErrors"), TEXT("guards"), TEXT("skipIf"), TEXT("cond"), TEXT("expr"), TEXT("expect"), TEXT("until"),
 			TEXT("args"), TEXT("object"), TEXT("with"), TEXT("saveAs"),
 			// v4 的对象引用和部件写法（docs/game-test-ref.md）：`$var`、名字在解析时才认（GameTestRefResolve），不在这里按值替换
