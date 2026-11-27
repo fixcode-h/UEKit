@@ -9,8 +9,8 @@
         "displayName": "UELink",
         "description": "让本机工具连上 UE 进程：控制台、GM、对象属性、DataTable、资源和蓝图读写、日志、性能、Lua；UEKit 的扩展插件也通过它和面板通信。只监听 127.0.0.1，Shipping 不加载。",
         "kind": "base",
-        "version": "2.23.0",
-        "versionCode": 53,
+        "version": "2.24.0",
+        "versionCode": 54,
         "protocol": 2,
         "engineMin": "5.4",
         "engineTested": [
@@ -55,13 +55,13 @@
           "ue_editor",
           "ue_perf"
         ],
-        "tag": "UELink-v2.23.0",
-        "asset": "UELink-2.23.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.23.0/UELink-2.23.0-src.zip",
-        "sha256": "3b5006d279fbe211aea505975054113d1358e7c389b9d4206b73cc35d711231a",
-        "size": 367899,
+        "tag": "UELink-v2.24.0",
+        "asset": "UELink-2.24.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/UELink-v2.24.0/UELink-2.24.0-src.zip",
+        "sha256": "6396be0611011ef058ef49e2f12935887ce2a367f5e531ef0f1d6da8818d9a0a",
+        "size": 370222,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/UELink",
-        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 改进\n- **执行 Lua 的结果展开小的子表** — `lua.exec` 返回表时，不超过 20 项的子表就地展开一层（`depth` 默认 2、最多 3），Agent 不用再改成 print 拼字符串重跑一遍\n- **编辑器截图更稳** — 换图时截编辑器世界直接说「正在加载地图」；焦点不在关卡视口上时退回第一个关卡视口，不再回「这个世界没有视口」"
+        "notes": "> 云端编不了 UE，这一版还没在本地用 UE 完整编译验证过（UE 5.4 / 5.8 都没编过），编译有问题请反馈。\n\n### 改进\n- **开 PIE 默认在选中的视口里玩** — Agent 面板开 PIE 不再弹独立的游戏窗口，和 Play 菜单里勾「选中的视口」一样在当前关卡视口里运行；要独立窗口时 `pie` 带 `window: \"new\"`。关卡视口看不见时自动退回独立窗口并说明\n- **截游戏画面带上界面** — PIE 和游戏进程里截图默认截游戏视口，含 UMG 界面，和玩家看到的一样；PIE 开在关卡视口里时也只截视口，不会截进编辑器。只要场景时带 `ui: false`"
       },
       "prerelease": null,
       "displayName": "UELink",
@@ -128,8 +128,8 @@
         "displayName": "GameTest",
         "description": "用 JSON 场景跑游戏测试：按对象引用（类 + 唯一标识）找界面和对象、点控件、注入输入、等待和断言、截图，支持录制回放。在 Agent 面板的 GameTest 页操作，Agent 用 ue_gametest 工具。",
         "kind": "extension",
-        "version": "2.4.0",
-        "versionCode": 66,
+        "version": "2.5.0",
+        "versionCode": 67,
         "engineMin": "5.4",
         "engineTested": [],
         "requires": {
@@ -176,13 +176,13 @@
         "panelTools": [
           "ue_gametest"
         ],
-        "tag": "GameTest-v2.4.0",
-        "asset": "GameTest-2.4.0-src.zip",
-        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v2.4.0/GameTest-2.4.0-src.zip",
-        "sha256": "9c702b743e9efa9516f73529041d62d4dca960a2b9bfcd784a179fd7165bd0f4",
-        "size": 981820,
+        "tag": "GameTest-v2.5.0",
+        "asset": "GameTest-2.5.0-src.zip",
+        "url": "https://github.com/fixcode-h/UEKit/releases/download/GameTest-v2.5.0/GameTest-2.5.0-src.zip",
+        "sha256": "a145a3874c0e5aab4b2cc0bdb01011f9f12323e9b77adc85e287d825a27a3237",
+        "size": 983545,
         "homepage": "https://github.com/fixcode-h/UEKit/tree/main/plugins/GameTest",
-        "notes": "> 还没在本地用 UE 完整编译验证过（云端编不了 UE），编译有问题请反馈。\n\n### 改进\n- **类下拉打开就有、打字即搜** — `gt.classes` 新增 `all: true`，把整张类表一次交给 Agent 面板。面板在本地建好类树索引并记住，再打开「类」下拉不用再等「读类树…」，搜索也不再每打一个字问一次 UE"
+        "notes": "> 还没在本地用 UE 完整编译验证过（云端编不了 UE），编译有问题请反馈。\n\n### 改进\n- **跑测试默认在选中的视口里开 PIE** — `pie.start` 不再弹独立的游戏窗口，和 Play 菜单勾「选中的视口」一样开在当前关卡视口里；步骤写 `window: \"new\"` 或在运行设置里把「PIE 开在」改成独立窗口可以换回去。关卡视口看不见时自动退回独立窗口并在结果里说明\n- **截图只截游戏视口** — `screenshot` 动作、`Screen.Shot` 接口和失败证据只截游戏视口（含 UMG），PIE 开在关卡视口里时不会把整个编辑器截进去；编号框按视口位置画"
       },
       "prerelease": null,
       "displayName": "GameTest",
@@ -190,5 +190,5 @@
       "kind": "extension"
     }
   ],
-  "updatedAt": "2026-11-25T07:43:30.230Z"
+  "updatedAt": "2026-11-27T07:06:15.533Z"
 }
