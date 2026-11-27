@@ -287,6 +287,7 @@
   - 回包只表示「下一帧开始打开」：加载会卡住编辑器主线程，期间的 HTTP 请求要等加载完才回。客户端接着调 `status`，`last.ok` 为 true 才算打开好；为 false 时 `last.error` 写了现在是哪张图。
   - 为什么不用控制台 `open`：编辑器世界里 `open` 立刻回成功，换没换图、有没有弹保存对话框都不知道。
 - `screenshot`（编辑器世界，2.23.0 起）：`editor.map` 正在打开地图时直接报「编辑器正在加载地图」；没有活动视口（焦点在内容浏览器、细节面板）时用第一个关卡视口。
+- `screenshot {"world"?, "maxWidth"?, "ui"?}`（PIE / 游戏世界，2.24.0 起）：`ui` 默认 true，截游戏视口控件（Slate 截图，含 UMG 界面；PIE 开在选中的视口里时也只截视口），回包多 `ui: true`；截不到（窗口最小化、没在绘制）时退回只读场景像素并带 `note`。`ui: false` 只读视口的场景像素（不含 UMG，2.23 及以前的行为）。
 - `lua.exec {"code", "path"?, "timeoutMs"?, "depth"?: 2}`（`depth` 2.23.0 起）：返回值是表时 `results[i].fields` 列出前 50 项；`depth` ≥ 2 时不超过 20 项的子表在自己那一项里再带 `fields`（同样的结构），最多展开到第 `depth` 层（1–3，默认 2）。更大的子表只给项数 `n`，要看时用 `lua.inspect` 分页。
 
 > 2.4.0 这一批的操作由几个并行的工作包分别加：每个包的新操作放各自的 `*Ops.cpp`（例如 `UELinkSelectionOps.cpp`、`AgentPanelLuaDevOps.cpp`），在这份文档里各写一段，操作表里各加一格，版本统一记在 UELink 的 CHANGELOG `v2.4.0-beta.1` 一节里。

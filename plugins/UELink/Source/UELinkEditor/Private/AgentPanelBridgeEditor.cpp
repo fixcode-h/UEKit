@@ -395,9 +395,11 @@ static void RegisterEditorOps()
 				}
 			}
 		}
-		else if (UGameViewportClient* VC = World->GetGameViewport())
+		else
 		{
-			VP = VC->Viewport;
+			// 2.24：PIE / 游戏世界默认截含 UMG 的游戏视口（UELinkCore 的 AgentPanelCaptureGameView），ui=false 只要场景
+			Out->SetStringField(TEXT("world"), FAgentPanelBridge::WorldId(World));
+			return AgentPanelCaptureGameView(World, Int(A, TEXT("maxWidth"), 1280), Bool(A, TEXT("ui"), true), Out, Error);
 		}
 		Out->SetStringField(TEXT("world"), FAgentPanelBridge::WorldId(World));
 		return AgentPanelCaptureViewport(VP, Int(A, TEXT("maxWidth"), 1280), Out, Error);
