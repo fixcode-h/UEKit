@@ -3,6 +3,7 @@
 #include "Core/GameTestHandlerShared.h"
 
 #include "Core/GameTestJson.h"
+#include "Core/GameTestRunConfig.h"
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
 
@@ -52,6 +53,16 @@ namespace GameTestHandlers
 		GameTestJson::TryGetInt(Params, TEXT("height"), Request.Height);
 		GameTestJson::TryGetString(Params, TEXT("netMode"), Request.NetMode);
 		GameTestJson::TryGetInt(Params, TEXT("players"), Request.Players);
+		// 开在哪：步骤的 window > 运行配置的 pieWindow > 选中的视口（2.5.0，用户 2026-11-27 要默认不弹独立窗口）
+		if (!GameTestJson::TryGetString(Params, TEXT("window"), Request.Window) || Request.Window.IsEmpty())
+		{
+			FGameTestRunConfig RunConfig;
+			FString ConfigError;
+			if (GameTestRunConfig::Load(RunConfig, ConfigError))
+			{
+				Request.Window = RunConfig.PieWindow;
+			}
+		}
 		if (Request.Players < 1)
 		{
 			InContext.Message = TEXT("players 至少为 1");

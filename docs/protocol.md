@@ -278,6 +278,7 @@
 - `editor.spawn {"class", "location"?: [x,y,z], "rotation"?: [pitch,yaw,roll], "scale"?: [x,y,z], "level"?, "label"?, "folder"?, "select"?: true}` → `{"actor": {"path", "name", "label", "class", "level", "location"}, "tx", "dirtied"?}`：在编辑器关卡里放一个 Actor（`GEditor->AddActor`，和从内容浏览器拖进视口同一套）。`class` 写原生类名或蓝图路径；`level` 是已加载关卡的包名或短名，空为当前关卡。包在编辑器事务里，`tx` 交给 `asset.undo` 撤回。PIE 运行中、后台编辑器里拒绝。
 - `editor.destroy {"actors": [Actor 路径]}` → `{"destroyed": [同上的 actor], "missing"?: [没找到的路径], "tx"}`：删掉编辑器关卡里的 Actor（`UEditorActorSubsystem::DestroyActors`），一次最多 100 个，进撤销栈。PIE 里的 Actor 不能用它删。
 - `pie {"action": "start", "map"?}`（2.22.0 起多 `map`）：只在 PIE 里玩这张图（`FRequestPlaySessionParams::GlobalMapOverride`，和 GameTest 的 `pie.start` 一样），编辑器里打开的图不变、没保存的关卡改动不受影响；`map` 的写法和 `editor.map` 一样，回包多 `map`（包名）。
+  - 2.24.0 起多 `window`：`viewport`（默认，开进选中的视口，即关卡编辑器当前活动的关卡视口，和 Play 菜单勾「选中的视口」一样）/ `new`（独立窗口，2.23 及以前的行为）。回包多 `window`（实际开在哪）；要 viewport 但找不到看得见的关卡视口时退回独立窗口，回包多 `note` 说明。多玩家时第一个玩家在视口里，其余照引擎开独立窗口。
 - `editor.map {"action": "status"}` → `{"package", "map", "pie", "dirty"?: [包名], "dirtyCount"?, "loading"?: true, "last"?: {"package", "previous", "ok"?, "ms"?, "error"?}}`（2.22.0 起，只在编辑器进程里有）：编辑器当前打开的地图（包名和短名）、PIE 在不在跑、改了没保存的关卡包（地图包、子关卡、World Partition 的外部 Actor 包，最多列 50 个），以及正在打开 / 上一次打开的结果（`last` 里有 `ok` 表示打开完了）。
 - `editor.map {"action": "open", "map", "unsaved"?: "error"|"discard", "reload"?: false}` → `{"started", "package", "previous", "already"?: true, "discarded"?: [包名]}`：在编辑器里打开地图，和关卡编辑器「打开关卡」同一个入口（`FEditorFileUtils::LoadMap`），加载时压住模态对话框（`GIsRunningUnattendedScript`）。
   - `map` 可以是包名、对象路径、`.umap` 文件路径，也可以只写地图名或路径的结尾（`QuestMain_P_Free`、`QuestMain/QuestMain_P_Free`）：按资源注册表里的 World 找，同名的有几张时报出候选（最多 10 个）。
@@ -286,6 +287,7 @@
   - 回包只表示「下一帧开始打开」：加载会卡住编辑器主线程，期间的 HTTP 请求要等加载完才回。客户端接着调 `status`，`last.ok` 为 true 才算打开好；为 false 时 `last.error` 写了现在是哪张图。
   - 为什么不用控制台 `open`：编辑器世界里 `open` 立刻回成功，换没换图、有没有弹保存对话框都不知道。
 - `screenshot`（编辑器世界，2.23.0 起）：`editor.map` 正在打开地图时直接报「编辑器正在加载地图」；没有活动视口（焦点在内容浏览器、细节面板）时用第一个关卡视口。
+- `screenshot {"world"?, "maxWidth"?, "ui"?}`（PIE / 游戏世界，2.24.0 起）：`ui` 默认 true，截游戏视口控件（Slate 截图，含 UMG 界面；PIE 开在选中的视口里时也只截视口），回包多 `ui: true`；截不到（窗口最小化、没在绘制）时退回只读场景像素并带 `note`。`ui: false` 只读视口的场景像素（不含 UMG，2.23 及以前的行为）。
 - `lua.exec {"code", "path"?, "timeoutMs"?, "depth"?: 2}`（`depth` 2.23.0 起）：返回值是表时 `results[i].fields` 列出前 50 项；`depth` ≥ 2 时不超过 20 项的子表在自己那一项里再带 `fields`（同样的结构），最多展开到第 `depth` 层（1–3，默认 2）。更大的子表只给项数 `n`，要看时用 `lua.inspect` 分页。
 
 > 2.4.0 这一批的操作由几个并行的工作包分别加：每个包的新操作放各自的 `*Ops.cpp`（例如 `UELinkSelectionOps.cpp`、`AgentPanelLuaDevOps.cpp`），在这份文档里各写一段，操作表里各加一格，版本统一记在 UELink 的 CHANGELOG `v2.4.0-beta.1` 一节里。

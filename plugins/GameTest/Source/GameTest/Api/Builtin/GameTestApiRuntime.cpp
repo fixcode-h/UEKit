@@ -93,7 +93,7 @@ namespace GameTestBuiltin
 			});
 		GameTestApis::Add(TEXT("Random.Seed"), TEXT("随机"), TEXT("设随机种子（引擎 FMath、脚本、Lua math.randomseed），让结果可复现"),
 			{ Req(TEXT("n"), TEXT("int")) }, TEXT(""), false, &Seed);
-		GameTestApis::Add(TEXT("Screen.Shot"), TEXT("截图"), TEXT("截游戏窗口，返回相对项目根的路径（同 screenshot 动作）"),
+		GameTestApis::Add(TEXT("Screen.Shot"), TEXT("截图"), TEXT("截游戏视口（含 UMG，不含编辑器界面），返回相对项目根的路径（同 screenshot 动作）"),
 			{ Opt(TEXT("name"), TEXT("string")) }, TEXT("string"), false, &Shot);
 	}
 }

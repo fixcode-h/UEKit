@@ -119,7 +119,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `ping` | — | 主模块 | 通道连通性检查：回显世界、PIE 与编辑器状态，不改变任何东西 |
 | `mark` | `text` | 主模块 | 只把一句说明写进报告，不做任何操作（给 AI 写自己的判断） |
 | `editor.ensure` | `assetsLoaded`, `noModal` | 主模块（仅编辑器） | 编辑器就绪门禁：等资产加载完、没有模态框，之后才允许动编辑器 |
-| `pie.start` | `map`, `width`, `height`, `netMode`, `players` | 主模块（仅编辑器） | 启动 PIE（默认新窗口 + 固定分辨率）；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来；PIE 已经在跑同一张地图（单人）时沿用当前会话，不报错 |
+| `pie.start` | `map`, `width`, `height`, `netMode`, `players`, `window` | 主模块（仅编辑器） | 启动 PIE：`window` = `viewport`（默认，开进选中的视口，即关卡编辑器当前活动的关卡视口，2.5.0 起；运行配置 `pieWindow` 可改默认）/ `new`（独立窗口 + `width`×`height`）；找不到看得见的关卡视口时退回独立窗口；netMode=listenServer 可开监听服务器会话（players 为玩家窗口总数，至少 1），并等到全部世界跑起来；PIE 已经在跑同一张地图（单人）时沿用当前会话，不报错 |
 | `pie.stop` | — | 主模块（仅编辑器） | 退出 PIE。请求只是入队，用 wait until=pieStopped 等它真的结束 |
 | `level.load` | `map` | 主模块（仅编辑器） | 在编辑器里加载关卡（PIE 之前切换起始地图用它） |
 | `widget.add` | `class`, `zOrder` | 主模块 | 按类路径创建 UUserWidget 并加进视口——测试靶子不必依赖真实游戏流程 |
@@ -288,6 +288,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
   "uiWaitTimeoutMs": 0,
   "uiStepGapMs": 1000,
   "clickVia": "code",
+  "pieWindow": "viewport",
   "randomSeed": 42,
   "setup": [
     { "action": "console", "command": "gm.ResetGuide" }
@@ -305,6 +306,8 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 `uiStepGapMs`（1.2.6 起，毫秒，0–60000，没写按 1000）是**相邻两个 UI 操作之间至少隔多久**：UI 操作指写了 `target` 的 `click`、`drag`、`wheel`、`type`、`select`、`scroll`、`set`、`key`，从上一个 UI 操作结束（成功或失败）算到下一个开始，中间的 `wait`、`assert` 等步骤用掉的时间也算进去，不够再补。和录制时的手速无关（录的场景 `stepDelayMs` 是 0），也和 `stepDelayMs` 叠加取较晚的那个。`0` 表示不隔。
 
 `clickVia`（1.2.0-beta.7 起）是 `click` 没写 `via` 时的点击方式，`code`（默认）或 `pointer`，场景顶层的 `clickVia` 优先。
+
+`pieWindow`（2.5.0 起）是 `pie.start` 没写 `window` 时 PIE 开在哪：`viewport`（默认，选中的视口）或 `new`（独立窗口）。
 
 `setup`（1.2.5 起）是**前置步骤**：写法和场景里的步骤一样，从场景文件跑（`gt.run scenario=…`、批量）时先跑这几步再跑场景，用来放清引导、重置任务、发道具这类 GM 指令，让每次回放从同一个存档状态开始。场景顶层写 `"setup": false` 的不跑（专门测新号、测引导的场景）；直接给 `steps` 的临时运行（面板「从这一步开始运行」、Agent 试一步）不跑。报告里前置步骤带 `setup: true`，`index` 是它在前置步骤里的序号，不占场景的步骤序号；失败证据放 `failures/setup-NN/`，历史和批量里前置步骤失败记成第 0 步。前置步骤写错时整次运行不开始。
 

@@ -25,6 +25,12 @@ struct FGameTestPieRequest
 
 	/** 玩家窗口数；listenServer 下至少 1（映射到引擎的 `PlayNumberOfClients`，1 = 只有主机）。 */
 	int32 Players = 1;
+
+	/**
+	 * 开在哪（2.5.0）：`viewport`（缺省，选中的视口 = 关卡编辑器当前活动的关卡视口）或 `new`（独立窗口，Width / Height 只对它有效）。
+	 * 找不到看得见的关卡视口时退回独立窗口。
+	 */
+	FString Window;
 };
 
 /**

@@ -118,7 +118,7 @@ FString GameTestRunConfig::GetPath()
 const TArray<FString>& GameTestRunConfig::KnownFields()
 {
 	static const TArray<FString> Fields = {
-		TEXT("uiWaitTimeoutMs"), TEXT("uiStepGapMs"), TEXT("clickVia"), TEXT("randomSeed"), TEXT("move"), TEXT("skipIf"), TEXT("setup"),
+		TEXT("uiWaitTimeoutMs"), TEXT("uiStepGapMs"), TEXT("clickVia"), TEXT("pieWindow"), TEXT("randomSeed"), TEXT("move"), TEXT("skipIf"), TEXT("setup"),
 		TEXT("identRules"), TEXT("closeRules"), TEXT("refDefaults"), TEXT("allowDestroy"), TEXT("guards"), TEXT("allowLuaInvoke"), TEXT("allowLuaInCond"), TEXT("maxCallDepth"), TEXT("blockers"),
 	};
 	return Fields;
@@ -222,6 +222,13 @@ bool GameTestRunConfig::FromJson(const FJsonObject& InJson, FGameTestRunConfig& 
 		return false;
 	}
 
+	if (GameTestJson::TryGetString(InJson, TEXT("pieWindow"), OutConfig.PieWindow) && !OutConfig.PieWindow.IsEmpty()
+		&& OutConfig.PieWindow != TEXT("viewport") && OutConfig.PieWindow != TEXT("new"))
+	{
+		OutError = TEXT("pieWindow 只能是 viewport（选中的视口，默认）或 new（独立窗口）");
+		return false;
+	}
+
 	int32 Seed = 0;
 	if (InJson.HasField(TEXT("randomSeed")))
 	{
@@ -294,6 +301,10 @@ TSharedPtr<FJsonObject> GameTestRunConfig::ToJson(const FGameTestRunConfig& InCo
 	if (!InConfig.ClickVia.IsEmpty())
 	{
 		Json->SetStringField(TEXT("clickVia"), InConfig.ClickVia);
+	}
+	if (!InConfig.PieWindow.IsEmpty())
+	{
+		Json->SetStringField(TEXT("pieWindow"), InConfig.PieWindow);
 	}
 	if (InConfig.RandomSeed.IsSet())
 	{

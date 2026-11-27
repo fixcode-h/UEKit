@@ -318,7 +318,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | 等待 | `Wait.Seconds(n)`、`Wait.Frames(n)`、`Wait.Until(cond, timeoutMs)`、`Wait.Loading(timeoutMs?)` | | `Loading`：等地图、流送关卡加载完，且没有异步加载中的包（`IsAsyncLoading`） |
 | 性能 | `Perf.Fps()` → float、`Perf.FrameMs()` → float、`Perf.MemoryMB()` → float | ✓ | 冒烟检查用 |
 | 随机 | `Random.Seed(n)` | | `FMath::RandInit` + Lua `math.randomseed`（有 Lua 时），让结果可复现 |
-| 截图 | `Screen.Shot(name?)` → path | | 同 `screenshot` 动作 |
+| 截图 | `Screen.Shot(name?)` → path | | 同 `screenshot` 动作：只截游戏视口（含 UMG），2.5.0 起 PIE 开在选中的视口里也不会截进编辑器界面 |
 
 现有动作（`click`、`key`、`type`、`move`、`drag`、`wait`、`assert`、`screenshot`、`console`、`gm`…）保持原样；面板把它们和接口一起列在节点面板里。
 
