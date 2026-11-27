@@ -121,7 +121,7 @@ Release 说明会列出「上一版以来改了这个插件目录的提交」，
 - 所有开发都在 `dev` 上做，不在 `main` 上直接改、提交或推送。误在 `main` 上改了，先切回 `dev`，不用 `git checkout .`、`git reset --hard` 清掉别人的改动。
 - 推送前先 `git fetch origin && git merge origin/dev`，不用 rebase（含 `git pull --rebase`），除非用户明确要求。
 - 合并到 `main` 走 `dev` → `main` 的 PR（已有未合并的就复用），检查通过后普通合并（merge commit），**合 main 前先问用户**。PR 冲突、检查失败或分支保护拦截时停下来报告，不绕过检查、不直接往 `main` 推。
-- 推到 `dev` 和每个 PR 都跑「检查」（`.github/workflows/ci.yml`：check + package）；发往 `main` 的 PR 还会检查改过的插件是不是升了版本。
+- 推到 `dev` 和每个 PR 都跑「检查」（`.github/workflows/ci.yml`：check + package）；`dev` → `main` 的 PR 不重跑 check（推 `dev` 时那次的结果按提交显示在 PR 上），只出包并检查改过的插件是不是升了版本。
 
 ## 文档地图
 
