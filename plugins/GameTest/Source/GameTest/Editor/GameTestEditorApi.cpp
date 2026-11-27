@@ -13,6 +13,10 @@
 #include "Engine/World.h"
 #include "FileHelpers.h"
 #include "Framework/Application/SlateApplication.h"
+#include "IAssetViewport.h"
+#include "LevelEditor.h"
+#include "Modules/ModuleManager.h"
+#include "PlayInEditorDataTypes.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "Widgets/SWindow.h"
 #endif
@@ -146,6 +150,36 @@ bool GameTestEditor::IsPieRunning()
 #endif
 }
 
+#if WITH_EDITOR
+namespace GameTestEditorDetail
+{
+	/**
+	 * PIE 开进选中的视口：和 Play 菜单勾「选中的视口」一样，把关卡编辑器当前活动的关卡视口给 DestinationSlateViewport。
+	 * UELink 2.24 的 pie 操作也是这几行（UELinkPieViewport.cpp），那边是 UELinkEditor 的私有函数、GameTest 只依赖 UELinkCore，
+	 * 为这几行让 GameTest 多依赖一个编辑器模块不值。找不到看得见的视口时返回 false，调用方退回独立窗口。
+	 */
+	bool PieIntoSelectedViewport(FRequestPlaySessionParams& InOutParams)
+	{
+		if (!FSlateApplication::IsInitialized())
+		{
+			return false;
+		}
+		FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>(TEXT("LevelEditor"));
+		if (LevelEditor == nullptr)
+		{
+			return false;
+		}
+		const TSharedPtr<IAssetViewport> Viewport = LevelEditor->GetFirstActiveViewport();
+		if (!Viewport.IsValid() || !FSlateApplication::Get().FindWidgetWindow(Viewport->AsWidget()).IsValid())
+		{
+			return false;
+		}
+		InOutParams.DestinationSlateViewport = TWeakPtr<IAssetViewport>(Viewport);
+		return true;
+	}
+}
+#endif
+
 bool GameTestEditor::StartPIE(const FGameTestPieRequest& InRequest, UObject*& OutKeepAlive, FString& OutMessage)
 {
 	OutKeepAlive = nullptr;
@@ -180,6 +214,13 @@ bool GameTestEditor::StartPIE(const FGameTestPieRequest& InRequest, UObject*& Ou
 	if (InRequest.Players < 1)
 	{
 		OutMessage = TEXT("players 至少为 1");
+		return false;
+	}
+
+	const bool bWantViewport = InRequest.Window.IsEmpty() || InRequest.Window.Equals(TEXT("viewport"), ESearchCase::IgnoreCase);
+	if (!bWantViewport && !InRequest.Window.Equals(TEXT("new"), ESearchCase::IgnoreCase))
+	{
+		OutMessage = FString::Printf(TEXT("window 只能是 viewport（选中的视口，默认）或 new（独立窗口），收到 '%s'"), *InRequest.Window);
 		return false;
 	}
 
@@ -219,11 +260,15 @@ bool GameTestEditor::StartPIE(const FGameTestPieRequest& InRequest, UObject*& Ou
 		Params.GlobalMapOverride = InRequest.Map;
 	}
 
+	const bool bInViewport = bWantViewport && GameTestEditorDetail::PieIntoSelectedViewport(Params);
+
 	OutKeepAlive = PlaySettings;
 	GEditor->RequestPlaySession(Params);
 
-	OutMessage = FString::Printf(TEXT("已请求启动 PIE（浮动窗口 %dx%d%s%s）"),
-		PlaySettings->NewWindowWidth, PlaySettings->NewWindowHeight,
+	const FString Where = bInViewport ? FString(TEXT("选中的视口"))
+		: FString::Printf(TEXT("%s独立窗口 %dx%d"), bWantViewport ? TEXT("没找到看得见的关卡视口，开在") : TEXT(""), PlaySettings->NewWindowWidth, PlaySettings->NewWindowHeight);
+	OutMessage = FString::Printf(TEXT("已请求启动 PIE（%s%s%s）"),
+		*Where,
 		bListenServer ? *FString::Printf(TEXT("，监听服务器 %d 名玩家"), InRequest.Players) : TEXT(""),
 		InRequest.Map.IsEmpty() ? TEXT("，用当前关卡") : *FString::Printf(TEXT("，地图 %s"), *InRequest.Map));
 	return true;

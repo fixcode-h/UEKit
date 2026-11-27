@@ -14,7 +14,7 @@ struct FGameTestGuardDef;
  * 不放 UE 的 Config —— 面板 GameTest 页「运行设置」读写它（`gt.config`）。
  *
  * ```json
- * { "uiWaitTimeoutMs": 0, "uiStepGapMs": 1000, "clickVia": "code", "randomSeed": 42,
+ * { "uiWaitTimeoutMs": 0, "uiStepGapMs": 1000, "clickVia": "code", "pieWindow": "viewport", "randomSeed": 42,
  *   "setup": [ { "action": "console", "command": "gm.ResetGuide" } ],
  *   "move": { "fallback": "none", "teleportCommand": "gm.Goto {x} {y} {z}", "hotkeys": true },
  *   "guards": [ { "id": "b1", "when": { "obj": { "class": "WBP_Notice" }, "prop": ":onScreen" },
@@ -42,6 +42,8 @@ struct GAMETEST_API FGameTestRunConfig
 	int32 UiStepGapMs = -1;
 	/** click 没写 via 时的点击方式：code / pointer；空表示默认（code）。 */
 	FString ClickVia;
+	/** pie.start 没写 window 时开在哪：viewport（选中的视口）/ new（独立窗口）；空表示默认（viewport）。2.5.0 */
+	FString PieWindow;
 	/** 全局守护（`guards` 原文，已校验）；没写时为空。 */
 	TSharedPtr<FJsonValue> Guards;
 	/** 解析好的全局守护（开跑时直接用）。 */

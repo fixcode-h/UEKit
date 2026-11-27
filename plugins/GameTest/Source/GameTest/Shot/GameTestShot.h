@@ -28,8 +28,8 @@ public:
 	static FString ToProjectRelative(const FString& InAbsolutePath);
 
 	/**
-	 * 截当前游戏窗口。
-	 * @param InAnnotateNodes 非空时按控件的窗口坐标画编号框，图例写进 OutPayload 的 boxes。
+	 * 截当前游戏视口（含 UMG；2.5.0 起只截视口，PIE 开在选中的视口里时不会把整个编辑器截进来）。
+	 * @param InAnnotateNodes 非空时按控件在视口里的位置画编号框，图例写进 OutPayload 的 boxes。
 	 */
 	static bool CaptureGameWindow(UWorld* InWorld, const FString& InAbsolutePath, const TArray<TSharedPtr<FGameTestWidgetNode>>* InAnnotateNodes, FString& OutMessage, TSharedPtr<FJsonObject>& OutPayload);
 };

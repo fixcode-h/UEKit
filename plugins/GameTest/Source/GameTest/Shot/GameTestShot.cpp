@@ -14,6 +14,7 @@
 #include "ImageUtils.h"
 #include "ImageCore.h"
 #include "Misc/Paths.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
 namespace
@@ -172,9 +173,14 @@ bool GameTestShot::CaptureGameWindow(UWorld* InWorld, const FString& InAbsoluteP
 		return false;
 	}
 
+	// 2.5.0：只截游戏视口（含 UMG），不截整个窗口。PIE 开在选中的视口里时窗口是编辑器主窗口，截窗口会把整个编辑器截进来；
+	// 独立窗口时视口铺满客户区，和以前截窗口一样。TakeScreenshot 给控件时按控件在窗口里的区域裁。
+	const TSharedPtr<SWidget> ViewportWidget = StaticCastSharedPtr<SWidget>(ViewportClient->GetGameViewportWidget());
+	const TSharedRef<SWidget> ShotWidget = ViewportWidget.IsValid() ? ViewportWidget.ToSharedRef() : StaticCastSharedRef<SWidget>(Window.ToSharedRef());
+
 	TArray<FColor> Pixels;
 	FIntVector Size = FIntVector::ZeroValue;
-	if (!FSlateApplication::Get().TakeScreenshot(Window.ToSharedRef(), Pixels, Size))
+	if (!FSlateApplication::Get().TakeScreenshot(ShotWidget, Pixels, Size))
 	{
 		OutMessage = TEXT("TakeScreenshot 失败（窗口不可绘？）");
 		return false;
@@ -191,8 +197,11 @@ bool GameTestShot::CaptureGameWindow(UWorld* InWorld, const FString& InAbsoluteP
 	TArray<TSharedPtr<FJsonValue>> Boxes;
 	if (InAnnotateNodes != nullptr && InAnnotateNodes->Num() > 0)
 	{
-		const FVector2D WindowPosition = Window->GetPositionInScreen();
-		const FVector2D WindowSize = Window->GetSizeInScreen();
+		// 截图原点是视口控件的左上角（屏幕绝对坐标，和控件快照的 Position 同一坐标系）；没有视口控件时退回窗口
+		const FGeometry& ShotGeometry = ShotWidget->GetCachedGeometry();
+		const bool bUseViewport = ViewportWidget.IsValid() && ShotGeometry.GetAbsoluteSize().X > 1.0f;
+		const FVector2D WindowPosition = bUseViewport ? FVector2D(ShotGeometry.GetAbsolutePosition()) : Window->GetPositionInScreen();
+		const FVector2D WindowSize = bUseViewport ? FVector2D(ShotGeometry.GetAbsoluteSize()) : Window->GetSizeInScreen();
 		const float Scale = WindowSize.X > 1.0 ? static_cast<float>(PixelSize.X) / static_cast<float>(WindowSize.X) : 1.0f;
 
 		TArray<FIntRect> Rects;
