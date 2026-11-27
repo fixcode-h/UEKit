@@ -61,6 +61,11 @@ TSharedPtr<FJsonObject> GameTestHistory::MakeEntry(const FGameTestReport& InRepo
 	Entry->SetNumberField(TEXT("durationMs"), FMath::RoundToDouble(InReport.DurationMs));
 	Entry->SetNumberField(TEXT("total"), InReport.Steps.Num());
 	Entry->SetNumberField(TEXT("failed"), InReport.CountByStatus(EGameTestStepStatus::Failed));
+	if (InReport.Outcome == TEXT("blocked"))
+	{
+		// 前置不满足（2.8.0）：历史里和测试失败分开显示
+		Entry->SetStringField(TEXT("outcome"), InReport.Outcome);
+	}
 	if (InReport.Revision > 0)
 	{
 		Entry->SetNumberField(TEXT("revision"), InReport.Revision);

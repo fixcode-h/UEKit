@@ -145,6 +145,7 @@ FGameTestFlow::FGameTestFlow(const TSharedRef<const FGameTestScript>& InScript, 
 	if (Script->Setup.Nodes.Num() > 0)
 	{
 		PushList(Script->Setup);
+		bSetupDone = false;
 	}
 }
 
@@ -206,6 +207,8 @@ EGameTestFlowNext FGameTestFlow::Next(double InNowSeconds, FGameTestFlowLeaf& Ou
 		FFrame& Frame = Frames[Top];
 		if (Frame.Index >= Frame.List->Nodes.Num())
 		{
+			// 执行前那串跑完了：之后的失败算测试失败，不再算前置不满足
+			bSetupDone = bSetupDone || Frame.List == &Script->Setup;
 			Frames.Pop();
 			if (Frames.Num() > 0 && Frames.Last().Kind == EFrameKind::Block)
 			{
@@ -649,10 +652,13 @@ void FGameTestFlow::Fail(const FString& InMessage, double InNowSeconds)
 		Record.StartedAt = InNowSeconds;
 		Record.FinishedAt = InNowSeconds;
 		Record.Iter = CurrentIter();
+		Record.Calls = CurrentCalls();
 		Report.Steps.Add(MoveTemp(Record));
 	}
 	bFailed = true;
-	if (!BeginTeardown(InMessage, InNowSeconds))
+	// 执行前（setup）里失败：测试还没开始，结论记前置不满足；执行段没跑的步骤也照这个原因记跳过
+	bBlocked = !bSetupDone;
+	if (!BeginTeardown(bBlocked ? FString::Printf(TEXT("前置不满足：%s"), *InMessage) : InMessage, InNowSeconds))
 	{
 		bFinished = true;
 	}
@@ -711,6 +717,7 @@ void FGameTestFlow::UnwindAll(const FString& InReason, double InNowSeconds)
 				Record.Status = EGameTestStepStatus::Skipped;
 				Record.Message = InReason;
 				Record.Iter = CurrentIter();
+				Record.Calls = CurrentCalls();
 				Report.Steps.Add(MoveTemp(Record));
 			}
 			Frames.Pop();
@@ -1057,6 +1064,7 @@ void FGameTestFlow::AddRecord(const FGameTestNode& InNode, EGameTestStepStatus I
 	Record.bBlock = bInBlock;
 	Record.Iter = CurrentIter();
 	Record.bWarn = (InNode.bHookNote || bInTeardown) && InStatus == EGameTestStepStatus::Failed;
+	Record.Calls = CurrentCalls();
 	Report.Steps.Add(MoveTemp(Record));
 }
 
@@ -1109,6 +1117,17 @@ void FGameTestFlow::Emit(const TCHAR* InPhase, const FGameTestNode* InNode, cons
 	if (InIter >= 0)
 	{
 		Event->SetNumberField(TEXT("iter"), InIter);
+	}
+	// 子脚本里的步骤：面板按它把这一步挂到对应的 call 下面（2.8.0）
+	const TArray<FString> Calls = CurrentCalls();
+	if (Calls.Num() > 0)
+	{
+		TArray<TSharedPtr<FJsonValue>> Values;
+		for (const FString& Call : Calls)
+		{
+			Values.Add(MakeShared<FJsonValueString>(Call));
+		}
+		Event->SetArrayField(TEXT("calls"), Values);
 	}
 	if (!InGuard.IsEmpty())
 	{

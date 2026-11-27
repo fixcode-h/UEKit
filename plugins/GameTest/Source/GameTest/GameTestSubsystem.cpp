@@ -282,6 +282,12 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 		}
 		if (Flow != nullptr)
 		{
+			// 三段各自的进度（2.8.0）：面板显示「执行 第 3/5 步」，planned / total 留给旧面板
+			if (bBusy)
+			{
+				Snapshot->SetStringField(TEXT("phase"), Flow->GetPhase());
+			}
+			Snapshot->SetObjectField(TEXT("phases"), Flow->PhaseCounts());
 			const TSharedPtr<FJsonObject> Guards = Flow->GuardCounts();
 			if (Guards.IsValid() && Guards->Values.Num() > 0)
 			{

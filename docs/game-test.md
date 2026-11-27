@@ -428,7 +428,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
 | `gt.scenarios` | `query`、`offset`、`limit`（默认 200） | `scenarios: [{name, relativePath, _note, steps, revision, tags, parseError?}]`、`total` |
 | `gt.run` | `scenario`（相对场景根）或 `steps` + `name`、`stepDelayMs`、`ignoreSkipIf`（1.7.0 起，全部照做）；批量：`tag`（场景的 `tags` 里有它的全部场景）或 `scenarios`（路径数组），可带 `name` | 单个：`runId`、`steps`、`scenario`、`finished`；批量：`batchId`、`scenarios`（个数）。都在后台跑 |
 | `gt.step` | `step: {action, ...}`、`objects?`（2.1.0：名字 → 引用或来源字符串，步骤里可以写名字和 `{"$obj": 名}`） | 这一步的结果：`ok`、`status`、`message`、`payload` |
-| `gt.job` | `steps`（只回最后几步，默认 50） | 当前 / 最近一次 run：`status`、`busy`、`total`（已完成）、`planned`、`failed`、`steps`；批量运行时多 `batch`（见下） |
+| `gt.job` | `steps`（只回最后几步，默认 50） | 当前 / 最近一次 run：`status`、`busy`、`total`（已完成）、`planned`、`failed`、`steps`；2.8.0 起多 `phase`（跑着时：`setup` / `steps` / `teardown`）、`phases`（`{setup|steps|teardown: {done, total}}`，只数该段顶层节点，同一节点只算一次）、`outcome`（`passed` / `failed` / `blocked`）；批量运行时多 `batch`（见下） |
 | `gt.runs` | — | 本次会话最近的 run 摘要（含 `outputDir`） |
 | `gt.report` | `runId` | 完整报告（每步的状态、消息、payload、耗时；跑的是场景文件时有 `scenario`；失败的步骤 `payload.evidence` 是失败证据的路径） |
 | `gt.stop` | — | 取消当前 run；批量运行中时整批取消（没轮到的标 `skipped`） |
@@ -477,7 +477,7 @@ Slate 段写成 `类型[text=子串][序号]`（后两个可选），多段用 `
             { "scenario": "smoke/bag.json", "status": "pending" }] }
 ```
 
-`status`：`pending`、`running`、`passed`、`failed`（带 `failedStep`、`message`）、`error`（没能开始，例如解析失败）、`skipped`（被取消）。批量运行时作业的 `busy` 一直为真（两个场景之间也是），`gt.step` 和单独的 `gt.run` 会被拒绝。
+`status`：`pending`、`running`、`passed`、`failed`（带 `failedStep`、`message`）、`blocked`（2.8.0，执行前没通过，带 `message`；汇总 `blocked` 计数）、`error`（没能开始，例如解析失败）、`skipped`（被取消）。批量运行时作业的 `busy` 一直为真（两个场景之间也是），`gt.step` 和单独的 `gt.run` 会被拒绝。
 
 ### 运行历史（1.2.0 起）
 

@@ -102,6 +102,11 @@ struct GAMETEST_API FGameTestStepRecord
 	int32 Iter = -1;
 	/** 附带 GM 出错只记一笔（2.3.0）：状态照样是 Failed，但不算整次 run 失败，面板标黄。 */
 	bool bWarn = false;
+	/**
+	 * 在哪个 call 里跑的（2.8.0）：外层到内层每个 call 步骤的 id（没写 id 用路径），主脚本自己的步骤为空。
+	 * 子脚本里的路径是相对子脚本的（`steps.0`），只看 path 会和主脚本的步骤撞上；面板按它把子脚本的步骤挂到那个 call 下面分级显示。
+	 */
+	TArray<FString> Calls;
 
 	TSharedPtr<FJsonObject> ToJson() const;
 };
@@ -130,6 +135,14 @@ struct GAMETEST_API FGameTestReport
 	double DurationMs = 0.0;
 
 	bool bSucceeded = false;
+	/**
+	 * 结论（2.8.0）：passed / failed / blocked。blocked = 执行前（setup，含运行配置的前置）没通过，测试本身没开始：
+	 * 要补前置（配置、资源、环境），不是改测试脚本。bSucceeded 仍是 false，旧面板只看它会显示成失败。
+	 */
+	FString Outcome;
+	/** blocked 时没通过的那一步（名称，没写名称用标签）和原因。 */
+	FString BlockedStep;
+	FString BlockedReason;
 	TArray<FGameTestStepRecord> Steps;
 	/** 守护触发次数 `{id: 次数}`（1.9.0）；没触发过为空。 */
 	TSharedPtr<FJsonObject> Guards;

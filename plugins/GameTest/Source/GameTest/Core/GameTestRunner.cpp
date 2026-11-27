@@ -544,7 +544,7 @@ void FGameTestRunner::FinishRun()
 	// 没轮到执行的步骤如实标成跳过、还开着的块记失败，而不是从报告里消失。
 	if (Flow.IsValid())
 	{
-		Flow->Abort(TEXT("未执行（前一步失败或整次 run 被取消）"), FPlatformTime::Seconds());
+		Flow->Abort(Flow->IsBlocked() ? TEXT("未执行（前置不满足）") : TEXT("未执行（前一步失败或整次 run 被取消）"), FPlatformTime::Seconds());
 		const TSharedPtr<FJsonObject> Guards = Flow->GuardCounts();
 		Report.Guards = Guards.IsValid() && Guards->Values.Num() > 0 ? Guards : nullptr;
 	}
@@ -554,6 +554,7 @@ void FGameTestRunner::FinishRun()
 	Report.DurationMs = (FPlatformTime::Seconds() - StartedAtSeconds) * 1000.0;
 	Report.bSucceeded = Report.CountByStatus(EGameTestStepStatus::Failed) == 0
 		&& Report.CountByStatus(EGameTestStepStatus::Skipped) == 0;
+	FillOutcome(Flow.IsValid() && Flow->IsBlocked());
 
 	bActive = false;
 	bStepInFlight = false;
@@ -568,6 +569,33 @@ void FGameTestRunner::FinishRun()
 		const FGameTestOnFinished Callback = MoveTemp(OnFinished);
 		OnFinished = nullptr;
 		Callback(Report);
+	}
+}
+
+void FGameTestRunner::FillOutcome(bool bInBlocked)
+{
+	// 结论三种（2.8.0）：执行前没通过是 blocked「前置不满足」，要补前置而不是改脚本
+	Report.BlockedStep.Reset();
+	Report.BlockedReason.Reset();
+	if (Report.bSucceeded)
+	{
+		Report.Outcome = TEXT("passed");
+		return;
+	}
+	if (!bInBlocked)
+	{
+		Report.Outcome = TEXT("failed");
+		return;
+	}
+	Report.Outcome = TEXT("blocked");
+	for (const FGameTestStepRecord& Record : Report.Steps)
+	{
+		if (Record.Status == EGameTestStepStatus::Failed && !Record.bWarn)
+		{
+			Report.BlockedStep = Record.Step.Title.IsEmpty() ? Record.Step.Label() : Record.Step.Title;
+			Report.BlockedReason = Record.Message;
+			break;
+		}
 	}
 }
 

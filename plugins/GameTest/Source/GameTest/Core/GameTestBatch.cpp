@@ -88,7 +88,8 @@ void FGameTestBatch::OnRunFinished(const FGameTestReport& InReport)
 	Item.RunId = InReport.RunId;
 	Item.Name = InReport.Name;
 	Item.DurationMs = InReport.DurationMs;
-	Item.Status = InReport.bSucceeded ? TEXT("passed") : TEXT("failed");
+	// 执行前没通过（2.8.0）单独记 blocked：不算测试失败，汇总里单独计数
+	Item.Status = InReport.bSucceeded ? TEXT("passed") : InReport.Outcome == TEXT("blocked") ? TEXT("blocked") : TEXT("failed");
 	for (const FGameTestStepRecord& Record : InReport.Steps)
 	{
 		if (Record.Status == EGameTestStepStatus::Failed && !Record.bWarn)
@@ -172,6 +173,10 @@ TSharedPtr<FJsonObject> FGameTestBatch::ToJson() const
 	Json->SetNumberField(TEXT("current"), Current);
 	Json->SetNumberField(TEXT("passed"), Count(TEXT("passed")));
 	Json->SetNumberField(TEXT("failed"), Count(TEXT("failed")) + Count(TEXT("error")));
+	if (const int32 Blocked = Count(TEXT("blocked")))
+	{
+		Json->SetNumberField(TEXT("blocked"), Blocked);
+	}
 	Json->SetNumberField(TEXT("skipped"), Count(TEXT("skipped")));
 
 	TArray<TSharedPtr<FJsonValue>> Values;

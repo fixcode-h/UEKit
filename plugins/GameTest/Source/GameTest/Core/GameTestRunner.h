@@ -245,6 +245,8 @@ private:
 	void RecordTouch(const FGameTestStepContext& InContext);
 
 	void FinishRun();
+	/** 报告的 outcome / blockedStep / blockedReason（2.8.0）。 */
+	void FillOutcome(bool bInBlocked);
 
 	/** 守护打断了正在等的这一步：收尾、不记录，守护处理完由 Flow 决定重做、跳过还是失败。 */
 	void AbortStepForGuard();

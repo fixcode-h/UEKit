@@ -93,6 +93,16 @@ public:
 
 	bool IsFinished() const { return bFinished; }
 	bool HasFailed() const { return bFailed; }
+	/** 失败发生在执行前（setup）里（2.8.0）：结论记 blocked「前置不满足」。 */
+	bool IsBlocked() const { return bBlocked; }
+	/** 现在跑到哪一段：setup / steps / teardown（gt.job 的 phase）。 */
+	const TCHAR* GetPhase() const;
+	/**
+	 * 三段各自的进度（2.8.0，gt.job 的 phases）：`{setup: {done, total}, steps: …, teardown: …}`。
+	 * 只数这一段顶层的节点（块算一步，call 进去的子脚本步骤不算），重做、循环重复的同一步只算一次，
+	 * 所以不会出现「第 9/8 步」。
+	 */
+	TSharedPtr<FJsonObject> PhaseCounts() const;
 
 	//~ 调试 ---------------------------------------------------------------
 	void Pause();
@@ -185,6 +195,8 @@ private:
 	/** Poll 一遍守护，有要处理的就开始处理。`bOutPending`：有守护在稳住。 */
 	bool TryStartGuard(bool bWaiting, const TArray<FString>& InTargets, const FGameTestNode* InInterrupted, int32 InInterruptedFrame, bool bInBlock, double InNowSeconds, bool& bOutPending);
 	int32 CurrentIter() const;
+	/** 开着的 call 块，外层到内层（记录的 calls）。 */
+	TArray<FString> CurrentCalls() const;
 	int32 ListDepth() const;
 
 	//~ 记录、推送
@@ -213,6 +225,9 @@ private:
 	bool bFailed = false;
 	/** 正在跑收尾段：这里的失败只记警告，不改整次 run 的结论，也不再转一次收尾 */
 	bool bInTeardown = false;
+	/** 执行前（setup）的那串已经跑完；没有 setup 时一开始就是 true。 */
+	bool bSetupDone = true;
+	bool bBlocked = false;
 	bool bPaused = false;
 	/** gt.debug pause：下一个节点前停。 */
 	bool bPauseRequested = false;

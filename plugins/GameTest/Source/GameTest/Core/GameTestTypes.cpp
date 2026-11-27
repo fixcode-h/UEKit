@@ -55,6 +55,15 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	{
 		Json->SetBoolField(TEXT("warn"), true);
 	}
+	if (Calls.Num() > 0)
+	{
+		TArray<TSharedPtr<FJsonValue>> Values;
+		for (const FString& Call : Calls)
+		{
+			Values.Add(MakeShared<FJsonValueString>(Call));
+		}
+		Json->SetArrayField(TEXT("calls"), Values);
+	}
 	Json->SetStringField(TEXT("message"), Message);
 
 	if (!Step.Target.IsEmpty())
@@ -103,6 +112,15 @@ TSharedPtr<FJsonObject> FGameTestReport::ToJson() const
 	}
 	Json->SetNumberField(TEXT("revision"), Revision);
 	Json->SetBoolField(TEXT("succeeded"), bSucceeded);
+	if (!Outcome.IsEmpty())
+	{
+		Json->SetStringField(TEXT("outcome"), Outcome);
+	}
+	if (!BlockedStep.IsEmpty())
+	{
+		Json->SetStringField(TEXT("blockedStep"), BlockedStep);
+		Json->SetStringField(TEXT("blockedReason"), BlockedReason);
+	}
 	Json->SetStringField(TEXT("startedAtUtc"), StartedAtUtc);
 	Json->SetStringField(TEXT("finishedAtUtc"), FinishedAtUtc);
 	Json->SetNumberField(TEXT("durationMs"), DurationMs);
