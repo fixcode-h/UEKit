@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestLogTap.h"
+#include "Core/GameTestClock.h"
 
 #include "Misc/OutputDeviceRedirector.h"
 
@@ -98,7 +99,7 @@ void FGameTestLogTap::Serialize(const TCHAR* InData, ELogVerbosity::Type InVerbo
 	if (InCategory == GameTestCategory || (Level != ELogVerbosity::NoLogging && Level <= ELogVerbosity::Warning))
 	{
 		FImportantLine Entry;
-		Entry.Time = FPlatformTime::Seconds();
+		Entry.Time = GameTestClock::Now();
 		Entry.Line = Line;
 		if (Important.Num() < ImportantCapacity)
 		{

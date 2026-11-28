@@ -84,6 +84,10 @@ TSharedPtr<FJsonObject> FGameTestStepRecord::ToJson() const
 	}
 
 	Json->SetNumberField(TEXT("durationMs"), (FinishedAt - StartedAt) * 1000.0);
+	if (PausedMs >= 1.0)
+	{
+		Json->SetNumberField(TEXT("pausedMs"), FMath::RoundToDouble(PausedMs));
+	}
 	return Json;
 }
 

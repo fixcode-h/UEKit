@@ -4,6 +4,7 @@
 // 参数构造和调用复用 GameTestReflectCall（= UELink ue.call 同一份代码），Lua 走 UELink 的 lua.call。
 
 #include "Api/Builtin/GameTestApiArgs.h"
+#include "Core/GameTestClock.h"
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestRunner.h"
 #include "Core/Script/GameTestFlowContext.h"
@@ -68,7 +69,7 @@ namespace GameTestInvokeLocal
 		{
 			return FGameTestValue::Unresolved(TEXT("运行配置关掉了步骤调 Lua（_settings.json 的 allowLuaInvoke）"), TEXT("lua_disabled"));
 		}
-		const double Start = FPlatformTime::Seconds();
+		const double Start = GameTestClock::Now();
 		TArray<FGameTestLuaValue> Results;
 		FString Error;
 		const TArray<TSharedPtr<FJsonValue>> Args = PositionalJson(InArgs);
@@ -84,7 +85,7 @@ namespace GameTestInvokeLocal
 		Invoke->SetStringField(TEXT("returned"), Value.ToDisplay(500));
 		// 带类型的返回值（对象、数组、Lua 表）：面板「输出」按它画成可展开的树，returned 留给旧客户端和报告
 		Invoke->SetField(TEXT("value"), Value.ToTypedJson());
-		Invoke->SetNumberField(TEXT("ms"), FMath::RoundToInt((FPlatformTime::Seconds() - Start) * 1000.0));
+		Invoke->SetNumberField(TEXT("ms"), FMath::RoundToInt((GameTestClock::Now() - Start) * 1000.0));
 		OutPayload->SetObjectField(TEXT("invoke"), Invoke);
 		return Value;
 	}

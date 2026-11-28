@@ -4,6 +4,7 @@
 // 不改游戏的控件；每帧按控件此刻的几何重画（控件在动画、列表在滚也跟得住）。租约同 gt.pick：60 秒没再调就自动清。
 
 #include "Integration/Ref/GameTestRpcRef.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
@@ -135,7 +136,7 @@ namespace GameTestRpcHighlightImpl
 	bool Tick(float)
 	{
 		FState& S = State();
-		const double Now = FPlatformTime::Seconds();
+		const double Now = GameTestClock::Now();
 		const bool bViewportGone = !S.Viewport.IsValid() || (GEngine != nullptr && GEngine->GameViewport != S.Viewport.Get());
 		if (bViewportGone || Now > S.LeaseUntil || (S.ExpiresAt > 0.0 && Now > S.ExpiresAt))
 		{
@@ -253,7 +254,7 @@ bool GameTestRpcRef::Highlight(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr
 		Viewport->AddViewportWidgetContent(S.Overlay.ToSharedRef(), OverlayZOrder);
 		S.Viewport = Viewport;
 	}
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	double Ms = 0.0;
 	InArgs->TryGetNumberField(TEXT("ms"), Ms);
 	S.ExpiresAt = Ms > 0.0 ? Now + Ms / 1000.0 : 0.0;

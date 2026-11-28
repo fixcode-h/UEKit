@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestRunner.h"
+#include "Core/GameTestClock.h"
 #include "Observe/Ref/GameTestRefAmbient.h"
 
 #include "Api/GameTestProjectApis.h"
@@ -38,7 +39,7 @@ bool FGameTestRunner::StartRun(const FGameTestRunRequest& InRequest, const FGame
 	Report.Scenario = InRequest.Scenario;
 	Report.Revision = InRequest.Revision;
 	Report.StartedAtUtc = FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
-	StartedAtSeconds = FPlatformTime::Seconds();
+	StartedAtSeconds = GameTestClock::Now();
 
 	CurrentRecord = FGameTestStepRecord();
 	bHaveNextLeaf = false;
@@ -273,6 +274,7 @@ void FGameTestRunner::StartCurrentStep(double InNowSeconds)
 	CurrentRecord = FGameTestStepRecord();
 	CurrentRecord.Step = Step;
 	CurrentRecord.StartedAt = InNowSeconds;
+	CurrentRecord.PausedAtStart = GameTestClock::PausedSeconds();
 	CurrentRecord.Iter = NextLeaf.Iter;
 	PendingPredicate = nullptr;
 	PendingFailure.Reset();
@@ -416,6 +418,7 @@ void FGameTestRunner::CompleteCurrentStep(EGameTestStepStatus InStatus, const FS
 	CurrentRecord.Status = InStatus;
 	CurrentRecord.Message = InMessage;
 	CurrentRecord.FinishedAt = InNowSeconds;
+	CurrentRecord.PausedMs = (GameTestClock::PausedSeconds() - CurrentRecord.PausedAtStart) * 1000.0;
 	bTouchedSucceeded = (InStatus == EGameTestStepStatus::Succeeded || InStatus == EGameTestStepStatus::Already);
 	SkipGate.Reset();
 	bVerifying = false;
@@ -516,12 +519,12 @@ void FGameTestRunner::Cancel(const FString& InReason)
 	{
 		bCancelling = true;
 		CompleteCurrentStep(EGameTestStepStatus::Failed,
-			FString::Printf(TEXT("已取消：%s"), *InReason), FPlatformTime::Seconds());
+			FString::Printf(TEXT("已取消：%s"), *InReason), GameTestClock::Now());
 	}
 
 	// 场景有收尾段（2.7.0）：第一次停止先跑完收尾段把状态恢复，再停；收尾段里再按一次停止就立刻结束。
 	// 正在执行的那一步上面已经记了「已取消」，这次 run 照样算失败。
-	if (bActive && Flow.IsValid() && !Flow->IsInTeardown() && Flow->BeginTeardown(FString::Printf(TEXT("已取消：%s"), *InReason), FPlatformTime::Seconds()))
+	if (bActive && Flow.IsValid() && !Flow->IsInTeardown() && Flow->BeginTeardown(FString::Printf(TEXT("已取消：%s"), *InReason), GameTestClock::Now()))
 	{
 		bCancelling = false;
 		bHaveNextLeaf = false;
@@ -544,14 +547,14 @@ void FGameTestRunner::FinishRun()
 	// 没轮到执行的步骤如实标成跳过、还开着的块记失败，而不是从报告里消失。
 	if (Flow.IsValid())
 	{
-		Flow->Abort(Flow->IsBlocked() ? TEXT("未执行（前置不满足）") : TEXT("未执行（前一步失败或整次 run 被取消）"), FPlatformTime::Seconds());
+		Flow->Abort(Flow->IsBlocked() ? TEXT("未执行（前置不满足）") : TEXT("未执行（前一步失败或整次 run 被取消）"), GameTestClock::Now());
 		const TSharedPtr<FJsonObject> Guards = Flow->GuardCounts();
 		Report.Guards = Guards.IsValid() && Guards->Values.Num() > 0 ? Guards : nullptr;
 	}
 	bHaveNextLeaf = false;
 
 	Report.FinishedAtUtc = FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
-	Report.DurationMs = (FPlatformTime::Seconds() - StartedAtSeconds) * 1000.0;
+	Report.DurationMs = (GameTestClock::Now() - StartedAtSeconds) * 1000.0;
 	Report.bSucceeded = Report.CountByStatus(EGameTestStepStatus::Failed) == 0
 		&& Report.CountByStatus(EGameTestStepStatus::Skipped) == 0;
 	FillOutcome(Flow.IsValid() && Flow->IsBlocked());

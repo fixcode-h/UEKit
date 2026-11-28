@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestHandlerShared.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestJson.h"
 #include "Input/GameTestHandlerWatch.h"
@@ -214,7 +215,7 @@ namespace GameTestPointerDetail
 				// 记下谁挡着、挡了多久；目标信息也先填好，挡久了调用方可以改用代码点击。
 				if (PrevBlockedBy != Hit.TopDescription)
 				{
-					InOutState.BlockedSince = FPlatformTime::Seconds();
+					InOutState.BlockedSince = GameTestClock::Now();
 				}
 				InOutState.BlockedBy = Hit.TopDescription;
 				OutTarget.Slate = Slate;
@@ -386,7 +387,7 @@ namespace GameTestPointerDetail
 				{
 					// 引导遮罩这类只留一个洞的界面挡住了真实鼠标：挡够久就改用代码点击（调按钮的委托，不受遮挡影响）。
 					if (!bExplicitPointer && !State->Wait.BlockedBy.IsEmpty() && State->Target.Slate.IsValid()
-						&& FPlatformTime::Seconds() - State->Wait.BlockedSince >= PointerBlockedFallbackSeconds)
+						&& GameTestClock::Now() - State->Wait.BlockedSince >= PointerBlockedFallbackSeconds)
 					{
 						const FString Fallback = FString::Printf(TEXT("真实鼠标的点击点被 %s 挡住 %.1f 秒，改用代码点击"),
 							*State->Wait.BlockedBy, PointerBlockedFallbackSeconds);

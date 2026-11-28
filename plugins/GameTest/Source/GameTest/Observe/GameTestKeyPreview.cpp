@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestKeyPreview.h"
+#include "Core/GameTestClock.h"
 
 #include "Components/Widget.h"
 #include "Containers/Ticker.h"
@@ -141,7 +142,7 @@ void GameTestKeyPreview::Show(const TArray<UWidget*>& InWidgets, double InSecond
 		];
 	Viewport->AddViewportWidgetContent(Holder->Overlay.ToSharedRef(), PreviewZOrder);
 	Holder->Viewport = Viewport;
-	Holder->ExpiresAt = FPlatformTime::Seconds() + FMath::Clamp(InSeconds, 0.5, 30.0);
+	Holder->ExpiresAt = GameTestClock::Now() + FMath::Clamp(InSeconds, 0.5, 30.0);
 	// 游戏暂停时世界不 tick，用核心 ticker 计时和重画
 	Holder->Ticker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
 	{
@@ -149,7 +150,7 @@ void GameTestKeyPreview::Show(const TArray<UWidget*>& InWidgets, double InSecond
 		{
 			return false;
 		}
-		if (FPlatformTime::Seconds() > Holder->ExpiresAt || !Holder->Viewport.IsValid())
+		if (GameTestClock::Now() > Holder->ExpiresAt || !Holder->Viewport.IsValid())
 		{
 			// Clear 里会摘掉这个 ticker；返回 false 也让 ticker 自己不再调
 			Holder->Ticker.Reset();

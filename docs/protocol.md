@@ -24,6 +24,7 @@
   "port": 30110,               // HTTP 端口（旧字段）；HTTP 服务没起来时（-NoAgentPanel 等）没有这个字段
   "http": 30110,               // HTTP 端口；同上
   "stream": 51234,             // 推送通道端口；只有编辑器进程有
+  "alivePort": 51300,          // 2.25 起：心跳端口，见下；拿不到端口时没有这个字段
   "protocol": 2,               // 推送通道协议号
   "features": ["log", "tests", "liveCoding"],
   "token": "…",                // 本次启动随机生成，HTTP 和推送通道都用它
@@ -39,6 +40,10 @@
   - 编辑器在同步加载、编着色器时游戏线程卡住，HTTP 和推送通道都暂时不回应（连接可能超时，也可能被直接拒绝），只要 `pid` 还活着就当「忙」，不要判成启动失败。
   - `editor.ready` → `{"ready", "readyAt"?, "readySeconds"?, "waiting"?: "mainFrame|assetRegistry|asyncLoading", "seconds", "mainFrame", "assetsLoading", "asyncLoading", "shadersLeft", "assetsCompiling"}`；只在编辑器进程里有。
 
+- **心跳**（2.25 起，名片有 `alivePort`）：HTTP 和推送通道都由游戏线程驱动，游戏线程卡住时只会超时。心跳端口在单独的监听线程上应答，不经过游戏线程：连 `127.0.0.1:<alivePort>`（不用发东西、不要令牌，只回进程号和帧号），收到一行 `{"ok": true, "pid", "frame", "lastTickAgoMs"}` 后对方断开。`lastTickAgoMs` 是游戏线程上次走一帧到现在的毫秒数（-1 表示还没走过）。客户端在 `/rpc` 超时后再问一次心跳（等 500 毫秒左右）：
+  - 回了、`lastTickAgoMs` 很大：**游戏线程卡住**（死循环、长加载、模态对话框），进程还在，等它回来；
+  - 连上了但一直不回，或连不上而 `pid` 还活着：**整个进程停住**（被调试器停在断点上，监听线程也停了）；
+  - `pid` 不在了：已经退出。
 - 进程退出时删名片；客户端读到名片后还要确认 `pid` 还活着（崩溃时名片会留下）。
 - 名片只写在 `Saved/UELink/instances/`。2.0 的兼容层（同一张名片再写一份到 `Saved/AgentPanel/instances/`、推送通道端口写到 `Saved/UEToVSLink/port.txt`）在 2.1 去掉了：客户端要 Agent 面板 UE 插件 0.11.0、UEToVS 0.6.0 及以上。
 - 同一项目开着几个编辑器时，推送通道的客户端连 `startedAt` 最新的那个。

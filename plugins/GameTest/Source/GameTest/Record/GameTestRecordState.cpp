@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Record/GameTestRecordState.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestAction.h"
 #include "Core/GameTestJson.h"
@@ -211,7 +212,7 @@ void FGameTestRecordState::OnClick(const TSharedRef<FJsonObject>& InStep)
 	FPending Pending = MoveTemp(Pressing.GetValue());
 	Pressing.Reset();
 	Pending.Step = InStep;
-	Pending.ReleasedAt = FPlatformTime::Seconds();
+	Pending.ReleasedAt = GameTestClock::Now();
 	Watching = MoveTemp(Pending);
 }
 

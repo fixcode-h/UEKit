@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Record/GameTestRecordToolbar.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestWorld.h"
 #include "Record/GameTestRecorder.h"
@@ -88,7 +89,7 @@ namespace GameTestRecordToolbarDetail
 				{
 					const FLinearColor Base = InState->bMoving ? MoveColor : RecordColor;
 					// 1.6 秒一个来回，亮度在 55%–100% 之间：动得看得见，又不至于晃眼。
-					const float Pulse = 0.775f + 0.225f * FMath::Sin(float(FPlatformTime::Seconds()) * 3.9f);
+					const float Pulse = 0.775f + 0.225f * FMath::Sin(float(GameTestClock::Now()) * 3.9f);
 					return FSlateColor(Base.CopyWithNewOpacity(Pulse));
 				})
 			];

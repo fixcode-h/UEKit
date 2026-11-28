@@ -5,6 +5,7 @@
 // 关闭方式本身在注册表里（Operate/Close/GameTestClose*.cpp），这里只管顺序、核对和报告。
 
 #include "Core/GameTestHandlerShared.h"
+#include "Core/GameTestClock.h"
 #include "Core/GameTestRunner.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Dom/JsonObject.h"
@@ -171,11 +172,11 @@ namespace GameTestObjCloseImpl
 				return false;
 			}
 			FGameTestCloseRun Run(InStep, Flow, Result.Get(), *How);
-			const double Start = FPlatformTime::Seconds();
+			const double Start = GameTestClock::Now();
 			const bool bDone = Closer->Close(Run);
 			if (!bDone)
 			{
-				AddLog(InState, By, false, FPlatformTime::Seconds() - Start, Run.Message);
+				AddLog(InState, By, false, GameTestClock::Now() - Start, Run.Message);
 				++InState.Index;
 				return false;
 			}
@@ -242,7 +243,7 @@ namespace GameTestHandlers
 		Params.TryGetStringField(TEXT("verify"), State->Verify);
 		State->VerifyMs = Flow.Options.CloseVerifyMs;
 		Params.TryGetNumberField(TEXT("verifyMs"), State->VerifyMs);
-		State->PhaseStart = FPlatformTime::Seconds();
+		State->PhaseStart = GameTestClock::Now();
 
 		// 对象还没出现时和点击的自动等待同一个上限；核对另有 verifyMs
 		InContext.DefaultTimeoutMs = InContext.UiWaitDefault();

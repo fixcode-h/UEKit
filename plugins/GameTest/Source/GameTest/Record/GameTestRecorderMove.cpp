@@ -4,6 +4,7 @@
 // 录移动期间只记角色的轨迹，别的操作不写步骤；结束时写一条 move（回放见 Operate/GameTestMove.cpp）。
 
 #include "Record/GameTestRecorder.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestTrajectory.h"
 #include "Core/GameTestWorld.h"
@@ -324,7 +325,7 @@ bool FGameTestRecorder::BeginMove(FString& OutError)
 		return false;
 	}
 
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	FlushTyping();
 	AddGapWait(Now, /*bInUiStep=*/false);
 
@@ -378,7 +379,7 @@ bool FGameTestRecorder::EndMove(bool bInAuto, FString& OutError)
 	FGameTestMoveSegment& Segment = *MoveSegment;
 	APawn* Pawn = Segment.Pawn.Get();
 	UWorld* World = Segment.World.Get();
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	const FVector End = Pawn->GetActorLocation();
 	if (FVector::Dist(Segment.Points.Last(), End) > 1.0)
 	{
@@ -494,7 +495,7 @@ void FGameTestRecorder::CancelMove(const FString& InWhy)
 		}
 	}
 	MoveSegment.Reset();
-	LastEventAt = FPlatformTime::Seconds();
+	LastEventAt = GameTestClock::Now();
 	SetNotice(InWhy);
 	UE_LOG(LogGameTest, Display, TEXT("录制：%s"), *InWhy);
 	Broadcast(TEXT("quick"));
@@ -515,7 +516,7 @@ bool FGameTestRecorder::AddHereStep(FString& OutError)
 		return false;
 	}
 	FlushTyping();
-	AddGapWait(FPlatformTime::Seconds(), /*bInUiStep=*/false);
+	AddGapWait(GameTestClock::Now(), /*bInUiStep=*/false);
 	const TSharedRef<FJsonObject> Step = GameTestRecorderMoveDetail::MakeStep(TEXT("move"));
 	Step->SetField(TEXT("to"), GameTestTrajectory::PointToJson(Pawn->GetActorLocation()));
 	GameTestRecorderMoveDetail::SetFacing(*Step, *Pawn);
@@ -544,7 +545,7 @@ bool FGameTestRecorder::AddNearStep(double InRadius, FString& OutError)
 		return false;
 	}
 	FlushTyping();
-	AddGapWait(FPlatformTime::Seconds(), /*bInUiStep=*/false);
+	AddGapWait(GameTestClock::Now(), /*bInUiStep=*/false);
 	// 用已有的 wait until=actorNear：按角色的类找（单机只有一个），检查前面的操作确实把角色带到了这里。
 	const TSharedRef<FJsonObject> Step = GameTestRecorderMoveDetail::MakeStep(TEXT("wait"));
 	Step->SetStringField(TEXT("until"), TEXT("actorNear"));
@@ -609,7 +610,7 @@ void FGameTestRecorder::TickMove()
 	{
 		return;
 	}
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	if (MoveSegment.IsValid())
 	{
 		FString Why;
@@ -633,7 +634,7 @@ void FGameTestRecorder::TickMove()
 void FGameTestRecorder::SetNotice(const FString& InNotice)
 {
 	Notice = InNotice;
-	NoticeAt = FPlatformTime::Seconds();
+	NoticeAt = GameTestClock::Now();
 }
 
 void FGameTestRecorder::SyncToolbar()
@@ -652,7 +653,7 @@ void FGameTestRecorder::SyncToolbar()
 	State.bPickArmed = PickArmed != EPick::None;
 	State.PickHint = DescribePickArmed();
 	State.Notice = Notice;
-	const double Seconds = FPlatformTime::Seconds() - StartedAt;
+	const double Seconds = GameTestClock::Now() - StartedAt;
 	State.Status = State.bMoving
 		? FString::Printf(TEXT("正在录移动 · 已走 %.1f 米 · 其他操作暂不记录"), MoveSegment->Meters)
 		: FString::Printf(TEXT("录制中 %02d:%02d · %d 步"), int32(Seconds) / 60, int32(Seconds) % 60, Steps.Num());
@@ -684,7 +685,7 @@ void FGameTestRecorder::DescribeQuick(FJsonObject& OutStatus) const
 	{
 		const TSharedRef<FJsonObject> Moving = MakeShared<FJsonObject>();
 		Moving->SetNumberField(TEXT("meters"), FMath::RoundToDouble(MoveSegment->Meters * 10.0) / 10.0);
-		Moving->SetNumberField(TEXT("seconds"), FMath::RoundToDouble((FPlatformTime::Seconds() - MoveSegment->StartedAt) * 10.0) / 10.0);
+		Moving->SetNumberField(TEXT("seconds"), FMath::RoundToDouble((GameTestClock::Now() - MoveSegment->StartedAt) * 10.0) / 10.0);
 		Moving->SetNumberField(TEXT("points"), MoveSegment->Points.Num());
 		OutStatus.SetObjectField(TEXT("moving"), Moving);
 	}
