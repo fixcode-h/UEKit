@@ -6,6 +6,7 @@
 #include "Core/GameTestRunConfig.h"
 #include "Core/GameTestWorld.h"
 #include "Editor/GameTestEditorApi.h"
+#include "AgentPanelBridge.h"
 
 #include "Dom/JsonObject.h"
 
@@ -134,11 +135,92 @@ namespace GameTestHandlers
 			return StepFailed;
 		}
 
-		if (!GameTestEditor::LoadLevel(Map, InContext.Message))
+		FString Unsaved = TEXT("error");
+		GameTestJson::TryGetString(*InContext.Step->Params, TEXT("unsaved"), Unsaved);
+
+		// 2.9.0：走 UELink 的 editor.map（和关卡编辑器「打开关卡」同一个入口，压住加载中的对话框）。
+		// 以前直接 LoadMap：当前关卡有没保存的改动时弹「要不要保存」，没人点，游戏线程卡在对话框里，面板看着像断开了
+		FAgentPanelBridge& Bridge = FAgentPanelBridge::Get();
+		if (!Bridge.HasOp(TEXT("editor.map")))
 		{
+			// 旧 UELink（2.22 以前）没有 editor.map：照旧直接加载
+			return GameTestEditor::LoadLevel(Map, InContext.Message) ? StepSucceeded : StepFailed;
+		}
+		TSharedPtr<FJsonObject> Args = MakeShared<FJsonObject>();
+		Args->SetStringField(TEXT("action"), TEXT("open"));
+		Args->SetStringField(TEXT("map"), Map);
+		Args->SetStringField(TEXT("unsaved"), Unsaved == TEXT("discard") ? TEXT("discard") : TEXT("error"));
+		TSharedPtr<FJsonObject> Out;
+		FString Error;
+		if (!Bridge.CallOp(TEXT("editor.map"), Args, Out, Error))
+		{
+			InContext.Message = Error;
 			return StepFailed;
 		}
+		if (!Out.IsValid())
+		{
+			Out = MakeShared<FJsonObject>();
+		}
+		FString Package = Map;
+		Out->TryGetStringField(TEXT("package"), Package);
+		InContext.Payload->SetStringField(TEXT("map"), Package);
+		bool bAlready = false;
+		if (Out->TryGetBoolField(TEXT("already"), bAlready) && bAlready)
+		{
+			InContext.Message = FString::Printf(TEXT("编辑器已经是 %s"), *Package);
+			return StepSucceeded;
+		}
+		const TArray<TSharedPtr<FJsonValue>>* Discarded = nullptr;
+		if (Out->TryGetArrayField(TEXT("discarded"), Discarded) && Discarded != nullptr)
+		{
+			InContext.Payload->SetArrayField(TEXT("discarded"), *Discarded);
+		}
 
-		return StepSucceeded;
+		// editor.map 下一帧才真正加载（加载本身卡住游戏线程，GameTestClock 把这段算作被打断，不占超时）：之后按 status 的 last 判成败
+		InContext.DefaultTimeoutMs = 120000;
+		InContext.PendingFailure = MakeShared<FString>();
+		const TSharedPtr<FString> Failure = InContext.PendingFailure;
+		const TSharedPtr<FJsonObject> Payload = InContext.Payload;
+		InContext.Message = FString::Printf(TEXT("正在打开 %s"), *Package);
+		InContext.PendingPredicate = [Failure, Payload, Package](double)
+		{
+			TSharedPtr<FJsonObject> Status = MakeShared<FJsonObject>();
+			Status->SetStringField(TEXT("action"), TEXT("status"));
+			TSharedPtr<FJsonObject> Now;
+			FString StatusError;
+			if (!FAgentPanelBridge::Get().CallOp(TEXT("editor.map"), Status, Now, StatusError))
+			{
+				*Failure = StatusError;
+				return true;
+			}
+			if (!Now.IsValid())
+			{
+				return false;
+			}
+			const TSharedPtr<FJsonObject>* Last = nullptr;
+			if (!Now->TryGetObjectField(TEXT("last"), Last) || Last == nullptr || !Last->IsValid())
+			{
+				return false;
+			}
+			bool bOk = false;
+			if (!(*Last)->TryGetBoolField(TEXT("ok"), bOk))
+			{
+				// 还没加载完
+				return false;
+			}
+			double Ms = 0.0;
+			if ((*Last)->TryGetNumberField(TEXT("ms"), Ms))
+			{
+				Payload->SetNumberField(TEXT("loadMs"), Ms);
+			}
+			if (!bOk)
+			{
+				FString Why;
+				(*Last)->TryGetStringField(TEXT("error"), Why);
+				*Failure = Why.IsEmpty() ? FString::Printf(TEXT("没打开 %s"), *Package) : Why;
+			}
+			return true;
+		};
+		return StepPending;
 	}
 }

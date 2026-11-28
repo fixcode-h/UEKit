@@ -4,6 +4,7 @@
 // 步骤的 timeoutMs 管总超时；接口自己的 timeoutMs 参数到了按失败算（写清在等什么）。
 
 #include "Api/Builtin/GameTestApiArgs.h"
+#include "Core/GameTestClock.h"
 #include "Api/Builtin/GameTestApiLoading.h"
 #include "Api/GameTestApi.h"
 #include "Core/GameTestWorld.h"
@@ -30,7 +31,7 @@ namespace
 			GA::ArgError(C, 0, TEXT("n"), TEXT("要不小于 0 的秒数"));
 			return EState::Failed;
 		}
-		const double Until = FPlatformTime::Seconds() + Amount;
+		const double Until = GameTestClock::Now() + Amount;
 		FCall* Call = &C;
 		C.Poll = [Call, Until](double InNow)
 		{
@@ -65,7 +66,7 @@ namespace
 			GA::ArgError(C, 0, TEXT("timeoutMs"), TEXT("要毫秒数"));
 			return EState::Failed;
 		}
-		const double Deadline = TimeoutMs > 0.0 ? FPlatformTime::Seconds() + TimeoutMs / 1000.0 : 0.0;
+		const double Deadline = TimeoutMs > 0.0 ? GameTestClock::Now() + TimeoutMs / 1000.0 : 0.0;
 		FCall* Call = &C;
 		auto Check = [Call, Deadline](double InNow)
 		{
@@ -80,7 +81,7 @@ namespace
 			}
 			return EState::Pending;
 		};
-		const EState Now = Check(FPlatformTime::Seconds());
+		const EState Now = Check(GameTestClock::Now());
 		if (Now == EState::Pending)
 		{
 			C.Poll = Check;
@@ -106,7 +107,7 @@ namespace
 		// 和 if / waitUntil 块同一套「稳住」规则：成立要持续 settleMs 才算，不被一闪而过的状态骗
 		const TSharedRef<FGameTestCondWatch> Watch = MakeShared<FGameTestCondWatch>();
 		Watch->Start(Cond, X, false);
-		const double Deadline = TimeoutMs > 0.0 ? FPlatformTime::Seconds() + TimeoutMs / 1000.0 : 0.0;
+		const double Deadline = TimeoutMs > 0.0 ? GameTestClock::Now() + TimeoutMs / 1000.0 : 0.0;
 		FCall* Call = &C;
 		FCtx* Context = &X;
 		auto Check = [Call, Context, Watch, Deadline](double InNow)
@@ -125,7 +126,7 @@ namespace
 			}
 			return EState::Pending;
 		};
-		const EState Now = Check(FPlatformTime::Seconds());
+		const EState Now = Check(GameTestClock::Now());
 		if (Now == EState::Pending)
 		{
 			C.Poll = Check;

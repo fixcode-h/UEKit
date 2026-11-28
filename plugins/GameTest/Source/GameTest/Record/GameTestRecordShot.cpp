@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Record/GameTestRecordShot.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestWorld.h"
 #include "Observe/GameTestSelectorWriter.h"
@@ -445,7 +446,7 @@ void FGameTestRecordShots::OnUiPress(const TSharedPtr<SWidget>& InSlate, const F
 	FPendingOpened Pending;
 	Pending.Hint = InHint;
 	Pending.Before = TopScreens();
-	Pending.PressedAt = FPlatformTime::Seconds();
+	Pending.PressedAt = GameTestClock::Now();
 	PendingOpened = MoveTemp(Pending);
 
 	TArray<FColor> Pixels;

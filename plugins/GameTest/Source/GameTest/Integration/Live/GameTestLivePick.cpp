@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/Live/GameTestLive.h"
+#include "Core/GameTestClock.h"
 #include "Core/Script/GameTestFlowContext.h"
 #include "Observe/Ref/GameTestRefFor.h"
 
@@ -306,7 +307,7 @@ bool GameTestLive::Pick(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJsonO
 	InArgs->TryGetNumberField(TEXT("maxWidth"), MaxWidth);
 	InArgs->TryGetNumberField(TEXT("quality"), Quality);
 
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	State.bFrames = bFrames;
 	State.FrameInterval = 1.0 / FMath::Clamp(Fps, 0.5, 10.0);
 	State.MaxWidth = FMath::Clamp(MaxWidth, 160, 1920);

@@ -4,6 +4,7 @@
 // gt.resolve 的 conds / exprs（这一刻的条件和表达式值）。只是把请求转给执行器（FGameTestFlow）和统一条件，不另写判断。
 
 #include "Integration/GameTestRpcScript.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/Expr/GameTestExpr.h"
 #include "Core/Flow/Blocks/GameTestBlock.h"
@@ -200,7 +201,7 @@ namespace GameTestRpcScript
 			Temp.Context.World = GameTestWorld::FindGameWorld();
 			Temp.Context.Handles = Subsystem->GetHandles();
 			Temp.Context.ScenarioRoot = UGameTestSettings::ResolveScenarioRootDir();
-			Temp.Context.NowSeconds = FPlatformTime::Seconds();
+			Temp.Context.NowSeconds = GameTestClock::Now();
 			Temp.bPushed = Temp.Context.PushScript(FString());
 			Context = &Temp.Context;
 		}

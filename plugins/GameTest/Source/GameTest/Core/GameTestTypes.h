@@ -96,6 +96,9 @@ struct GAMETEST_API FGameTestStepRecord
 	TSharedPtr<FJsonObject> Payload;
 	double StartedAt = 0.0;
 	double FinishedAt = 0.0;
+	/** 这一步执行期间游戏线程被打断（断点、同步加载）的时长（2.9.0，GameTestClock）：不算进超时，报告里写 pausedMs */
+	double PausedAtStart = 0.0;
+	double PausedMs = 0.0;
 	/** 这条是块（if、loop、call…）的记录（1.9.0）：块结束时记一条，块里的步骤各自另有记录，按 path 挂在它下面。 */
 	bool bBlock = false;
 	/** 在循环的第几轮里执行的（从 0）；不在循环里为 -1。 */

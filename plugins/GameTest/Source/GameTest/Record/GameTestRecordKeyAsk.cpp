@@ -7,6 +7,7 @@
 // 改某一步时可以把这次录制里同一列表已录的步骤一起改掉。跨录制靠规则（_settings.json 的 itemKeys）。
 
 #include "Record/GameTestRecorder.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestRunConfig.h"
 #include "Core/GameTestWorld.h"
@@ -321,7 +322,7 @@ void FGameTestRecorder::BeginAsk(const TSharedRef<FJsonObject>& InStep, const TS
 	FKeyAsk Ask;
 	Ask.Step = InStep;
 	Ask.Site = InSite;
-	Ask.StartedAt = FPlatformTime::Seconds();
+	Ask.StartedAt = GameTestClock::Now();
 
 	// 世界停住、UI 照常画；游戏原本就停着的不动它（继续时也不替它解开）
 	if (UWorld* World = GameTestWorld::FindGameWorld())
@@ -344,7 +345,7 @@ void FGameTestRecorder::EndAsk()
 	{
 		return;
 	}
-	const double Paused = FPlatformTime::Seconds() - KeyAsk->StartedAt;
+	const double Paused = GameTestClock::Now() - KeyAsk->StartedAt;
 	if (UWorld* World = KeyAsk->PausedWorld.Get())
 	{
 		UGameplayStatics::SetGamePaused(World, false);
@@ -382,7 +383,7 @@ void FGameTestRecorder::TickAsk()
 	}
 	// 提示过几秒会自己消失：等着的时候一直续上
 	SetNotice(GameTestRecordKeyAskDetail::AskNotice);
-	if (AskTimeoutSeconds > 0.0 && FPlatformTime::Seconds() - KeyAsk->StartedAt >= AskTimeoutSeconds)
+	if (AskTimeoutSeconds > 0.0 && GameTestClock::Now() - KeyAsk->StartedAt >= AskTimeoutSeconds)
 	{
 		UE_LOG(LogGameTest, Display, TEXT("录制：%.0f 秒没选，这一步先按自动挑的写（待定），游戏继续"), AskTimeoutSeconds);
 		EndAsk();
@@ -412,7 +413,7 @@ void FGameTestRecorder::DescribeAsk(FJsonObject& OutStatus) const
 	FString Target;
 	Step->TryGetStringField(TEXT("target"), Target);
 	Ask->SetStringField(TEXT("selector"), Target);
-	Ask->SetNumberField(TEXT("pausedSec"), FMath::RoundToInt(FPlatformTime::Seconds() - KeyAsk->StartedAt));
+	Ask->SetNumberField(TEXT("pausedSec"), FMath::RoundToInt(GameTestClock::Now() - KeyAsk->StartedAt));
 	Ask->SetBoolField(TEXT("gamePaused"), KeyAsk->PausedWorld.IsValid());
 	if (const UWidget* Container = Site.Container.Get())
 	{

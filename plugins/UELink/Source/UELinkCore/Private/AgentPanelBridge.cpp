@@ -6,6 +6,7 @@
 #include "AgentPanelLuaOps.h"
 #include "UELinkJobOps.h"
 #include "UELinkBatch.h"
+#include "UELinkHeartbeat.h"
 #include "Async/Async.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -584,6 +585,12 @@ bool FAgentPanelBridge::Start(const FString& InKind)
 			return true;
 		}));
 	Http.StartAllListeners();
+	// 心跳端口（2.25.0）：游戏线程卡住时面板靠它分清卡住和断开，拿不到就不写，旧面板也不读
+	const int32 AlivePort = UELinkHeartbeat::Start();
+	if (AlivePort > 0)
+	{
+		CardExtra.Add(TEXT("alivePort"), MakeShared<FJsonValueNumber>(AlivePort));
+	}
 	Alive->store(true);
 	LastRequest = FPlatformTime::Seconds();
 	WriteCard();
@@ -598,6 +605,7 @@ void FAgentPanelBridge::Stop()
 		IFileManager::Get().Delete(*File, false, true, true);
 	}
 	CardFiles.Reset();
+	UELinkHeartbeat::Stop();
 	FAgentPanelLog::Get().Detach();
 	// 还没回的异步操作不再回：连接跟着服务一起没了
 	Alive->store(false);

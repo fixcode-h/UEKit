@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestHandlerShared.h"
+#include "Core/GameTestClock.h"
 #include "GameTestCompat.h"
 
 #include "Core/GameTestJson.h"
@@ -185,10 +186,10 @@ namespace GameTestHandlers
 				return StepFailed;
 			}
 
-			const double StartTime = FPlatformTime::Seconds();
+			const double StartTime = GameTestClock::Now();
 			InContext.PendingPredicate = [StartTime, Seconds](double)
 			{
-				return FPlatformTime::Seconds() - StartTime >= Seconds;
+				return GameTestClock::Now() - StartTime >= Seconds;
 			};
 			InContext.Message = FString::Printf(TEXT("等待 %.2f 秒"), Seconds);
 			return StepPending;

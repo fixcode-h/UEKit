@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Operate/GameTestAutoScroll.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestHandlerShared.h"
 #include "GameTest.h"
@@ -290,7 +291,7 @@ bool GameTestAutoScroll::ScanForMissing(const FString& InTarget, TMap<FString, T
 {
 	using namespace GameTestAutoScrollDetail;
 	using namespace GameTestAutoScrollScan;
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	if (InOutState.MissingSince < 0.0)
 	{
 		InOutState.MissingSince = Now;

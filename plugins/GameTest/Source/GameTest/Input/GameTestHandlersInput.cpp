@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Core/GameTestHandlerShared.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestJson.h"
 #include "Core/GameTestWorld.h"
@@ -121,7 +122,7 @@ namespace GameTestHandlers
 		HoldMs = FMath::Max(HoldMs, 0);
 		const FKey HeldKey = Key;
 		const uint64 PressedFrame = GFrameCounter;
-		const double ReleaseAt = FPlatformTime::Seconds() + HoldMs / 1000.0;
+		const double ReleaseAt = GameTestClock::Now() + HoldMs / 1000.0;
 		const TWeakPtr<SWidget> FocusWeak = Focus;
 		InContext.Payload->SetNumberField(TEXT("holdMs"), HoldMs);
 		InContext.Message = HoldMs > 0
@@ -142,7 +143,7 @@ namespace GameTestHandlers
 		};
 		InContext.PendingPredicate = [HeldKey, PressedFrame, ReleaseAt, FocusWeak, bReleased](double)
 		{
-			if (GFrameCounter <= PressedFrame + 1 || FPlatformTime::Seconds() < ReleaseAt)
+			if (GFrameCounter <= PressedFrame + 1 || GameTestClock::Now() < ReleaseAt)
 			{
 				return false;
 			}

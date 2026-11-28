@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Record/GameTestRecorder.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestHooks.h"
 #include "Core/GameTestJson.h"
@@ -235,7 +236,7 @@ bool FGameTestRecorder::Start(const FString& InName, bool bInStartPie, bool bInK
 	bPickActive = false;
 	bTruncated = false;
 	bKeepPace = bInKeepPace;
-	StartedAt = FPlatformTime::Seconds();
+	StartedAt = GameTestClock::Now();
 	LastEventAt = 0.0;
 	MoveSegment.Reset();
 	PickArmed = EPick::None;
@@ -297,7 +298,7 @@ bool FGameTestRecorder::Mark(const FString& InText, bool bInScreenshot, FString&
 
 	OnTick();
 	FlushTyping();
-	AddGapWait(FPlatformTime::Seconds(), /*bInUiStep=*/false);
+	AddGapWait(GameTestClock::Now(), /*bInUiStep=*/false);
 
 	const TSharedRef<FJsonObject> Step = GameTestRecorderDetail::MakeStep(TEXT("mark"));
 	Step->SetStringField(TEXT("text"), InText.IsEmpty() ? TEXT("检查点") : InText);
@@ -366,7 +367,7 @@ bool FGameTestRecorder::Stop(bool bInSave, TSharedPtr<FJsonObject>& OutResult, F
 	OutResult = MakeShared<FJsonObject>();
 	OutResult->SetStringField(TEXT("name"), Name);
 	OutResult->SetNumberField(TEXT("steps"), Steps.Num());
-	OutResult->SetNumberField(TEXT("seconds"), FMath::RoundToInt((FPlatformTime::Seconds() - StartedAt) * 10.0) / 10.0);
+	OutResult->SetNumberField(TEXT("seconds"), FMath::RoundToInt((GameTestClock::Now() - StartedAt) * 10.0) / 10.0);
 	if (bTruncated)
 	{
 		OutResult->SetBoolField(TEXT("truncated"), true);
@@ -508,7 +509,7 @@ TSharedRef<FJsonObject> FGameTestRecorder::DescribeStatus(int32 InLastSteps) con
 		Status->SetObjectField(TEXT("insert"), Insert);
 	}
 	Status->SetNumberField(TEXT("steps"), Steps.Num());
-	Status->SetNumberField(TEXT("seconds"), FMath::RoundToInt((FPlatformTime::Seconds() - StartedAt) * 10.0) / 10.0);
+	Status->SetNumberField(TEXT("seconds"), FMath::RoundToInt((GameTestClock::Now() - StartedAt) * 10.0) / 10.0);
 	Status->SetBoolField(TEXT("keepPace"), bKeepPace);
 	if (bTruncated)
 	{
@@ -595,7 +596,7 @@ bool FGameTestRecorder::OnMouseButton(const FKey& InButton, bool bInDown, const 
 	FRawEvent Event;
 	Event.Key = InButton.GetFName();
 	Event.Position = InScreenPosition;
-	Event.Time = FPlatformTime::Seconds();
+	Event.Time = GameTestClock::Now();
 	Event.Frame = GFrameCounter;
 	Event.HitLeaf = Leaf;
 
@@ -628,7 +629,7 @@ void FGameTestRecorder::OnKey(const FKey& InKey, bool bInDown)
 	FRawEvent Event;
 	Event.Kind = bInDown ? ERawKind::KeyDown : ERawKind::KeyUp;
 	Event.Key = InKey.GetFName();
-	Event.Time = FPlatformTime::Seconds();
+	Event.Time = GameTestClock::Now();
 	Event.Frame = GFrameCounter;
 	Queue.Add(Event);
 }
@@ -654,7 +655,7 @@ void FGameTestRecorder::OnWheel(float InDelta, const FVector2D& InScreenPosition
 	Event.Kind = ERawKind::Wheel;
 	Event.Position = InScreenPosition;
 	Event.Delta = InDelta;
-	Event.Time = FPlatformTime::Seconds();
+	Event.Time = GameTestClock::Now();
 	Event.Frame = GFrameCounter;
 	Event.HitLeaf = Leaf;
 	Queue.Add(Event);
@@ -677,7 +678,7 @@ void FGameTestRecorder::OnHandled(GameTestHandlerWatch::EKind InKind, const Game
 			FRawEvent Event;
 			Event.Kind = ERawKind::Char;
 			Event.Character = InRecord.Character;
-			Event.Time = FPlatformTime::Seconds();
+			Event.Time = GameTestClock::Now();
 			Event.Frame = GFrameCounter;
 			Event.Handler = InRecord.Handler;
 			Event.bHasHandler = true;
@@ -732,7 +733,7 @@ void FGameTestRecorder::OnTick()
 	TickMove();
 	if (bRecording)
 	{
-		const double Now = FPlatformTime::Seconds();
+		const double Now = GameTestClock::Now();
 		Shots.Tick(Now);
 		const FString StateNotice = StateWatch.Tick(Now, [this](const TSharedPtr<FJsonObject>& InStep) { return IndexOfStep(InStep); });
 		if (!StateNotice.IsEmpty())

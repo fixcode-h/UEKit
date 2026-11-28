@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/Live/GameTestLive.h"
+#include "Core/GameTestClock.h"
 
 #include "Containers/Ticker.h"
 #include "HAL/PlatformTime.h"
@@ -22,7 +23,7 @@ namespace GameTestLiveDetail
 		{
 			return true;
 		}
-		const double Now = FPlatformTime::Seconds();
+		const double Now = GameTestClock::Now();
 		const bool bPick = GameTestLive::PickTick(Now);
 		const bool bWatch = GameTestLive::WatchTick(Now);
 		if (!bPick && !bWatch)

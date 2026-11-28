@@ -137,8 +137,8 @@ namespace
 			{ TEXT("pie.stop"), TEXT(""), false, true,
 				TEXT("退出 PIE。请求只是入队，用 wait until=pieStopped 等它真的结束"),
 				&GameTestHandlers::HandlePieStop },
-			{ TEXT("level.load"), TEXT("map"), false, true,
-				TEXT("在编辑器里加载关卡（PIE 之前切换起始地图用它）"),
+			{ TEXT("level.load"), TEXT("map,unsaved"), false, true,
+				TEXT("在编辑器里打开关卡（PIE 之前切换起始地图用它）：走 UELink editor.map，不弹保存对话框；当前关卡有没保存的改动时按 unsaved（error 默认 / discard）处理，等加载完"),
 				&GameTestHandlers::HandleLevelLoad },
 			{ TEXT("widget.add"), TEXT("class,zOrder"), false, false,
 				TEXT("按类路径创建 UUserWidget 并加进视口——测试靶子不必依赖真实游戏流程"),
@@ -218,6 +218,12 @@ namespace
 			{ TEXT("api"), TEXT("api,args,saveAs,expect,client"), false, false,
 				TEXT("调接口库里的接口（gt.api 列出全部）：args 按参数名给，cond 类型的参数原样传；要等待的接口（Wait.*）在这一步里跨帧等到完成；返回值存 saveAs，expect 是对返回值的统一条件"),
 				&GameTestHandlers::HandleApi },
+			{ TEXT("lua"), TEXT("code,args,lib,saveAs,expect"), false, false,
+				TEXT("Lua 代码节点（2.9.0）：code 是写在节点里的 Lua（不落成文件），args 的每一项在代码里直接当变量用（值在外层求，可写 $变量、= 表达式），lib 是面板展开时写进的函数库（代码里 fn.名字(...) 调）；return 的值存 saveAs，expect 是对它的统一条件。在沙箱环境里跑：读得到全局，写全局不污染 _G。默认 2 秒超时（timeoutMs 最多 10000）"),
+				&GameTestHandlers::HandleLua },
+			{ TEXT("luafn"), TEXT("fn,args,lib,saveAs,expect"), false, false,
+				TEXT("脚本函数节点（2.9.0）：调面板函数库里的函数 fn，args 按参数名给，lib 由面板展开时写进；返回值存 saveAs，expect 是对它的统一条件"),
+				&GameTestHandlers::HandleLuaFn },
 		};
 	}
 

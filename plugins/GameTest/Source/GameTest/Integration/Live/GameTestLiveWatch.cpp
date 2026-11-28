@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Integration/Live/GameTestLive.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestJson.h"
 #include "AgentPanelBridge.h"
@@ -177,7 +178,7 @@ bool GameTestLive::Watch(const TSharedPtr<FJsonObject>& InArgs, TSharedPtr<FJson
 	{
 		All.RemoveAt(0);
 	}
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	FWatch& Added = All.AddDefaulted_GetRef();
 	Added.Id = Id;
 	Added.Items = MoveTemp(Items);

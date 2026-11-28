@@ -268,7 +268,7 @@ private:
 	/** 下一步最早能开始的时刻（`StepDelayMs`）；只在"上一步成功且还有下一步"时被推后。 */
 	double NextStepNotBefore = 0.0;
 
-	/** 本次 run 的起跑时刻（`FPlatformTime::Seconds()`），用来算报告的墙钟耗时。 */
+	/** 本次 run 的起跑时刻（`GameTestClock::Now()`），用来算报告的墙钟耗时。 */
 	double StartedAtSeconds = 0.0;
 
 	/** 刚碰过的控件与它的成败（高亮层读）。 */

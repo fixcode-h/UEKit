@@ -67,7 +67,7 @@ public:
 	FString ScenarioRoot;
 	/** 本次 run 的产物目录。 */
 	FString OutputDir;
-	/** 当前时刻（`FPlatformTime::Seconds()`），执行器每帧更新。 */
+	/** 当前时刻（`GameTestClock::Now()`），执行器每帧更新。 */
 	double NowSeconds = 0.0;
 	/** run 开始的时刻和那时的日志序号：`Log.*` 的 `since` 省略时从这里算。 */
 	double RunStartedAt = 0.0;

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "GameTestSubsystem.h"
+#include "Core/GameTestClock.h"
 #include "Observe/Compare/GameTestCompareRegistry.h"
 #include "Observe/Ref/GameTestState.h"
 #include "Operate/Close/GameTestCloser.h"
@@ -231,7 +232,7 @@ bool UGameTestSubsystem::Tick(float InDeltaSeconds)
 		return true;
 	}
 
-	const double Now = FPlatformTime::Seconds();
+	const double Now = GameTestClock::Now();
 	++TickCount;
 	Runner->Tick(Now);
 	LogFinishedSteps();
@@ -644,7 +645,7 @@ bool UGameTestSubsystem::StartRunOnGameThread(const FGameTestScenarioRun& InRun,
 	CurrentRunId = OutRunId;
 
 	// 立刻推进一次：同步步骤不需要等下一帧，调用方一次调用就能拿到结果。
-	Runner->Tick(FPlatformTime::Seconds());
+	Runner->Tick(GameTestClock::Now());
 	bOutAlreadyFinished = !Runner->IsBusy();
 	return true;
 }

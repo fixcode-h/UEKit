@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Operate/GameTestMove.h"
+#include "Core/GameTestClock.h"
 #include "GameTestCompat.h"
 
 #include "Core/GameTestHandlerShared.h"
@@ -678,7 +679,7 @@ namespace GameTestMoveDetail
 			ReleaseDrive();
 			if (APawn* PawnPtr = Pawn.Get())
 			{
-				WritePayload(*PawnPtr, FPlatformTime::Seconds());
+				WritePayload(*PawnPtr, GameTestClock::Now());
 			}
 			*Failure = InMessage;
 			bDone = true;

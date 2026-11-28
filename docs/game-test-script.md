@@ -95,6 +95,9 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 | `return` | `cond?`, `value?` | 结束当前脚本（被 `call` 时回到调用处） |
 | `fail` | `message`（可用表达式） | 主动失败 |
 | `gm.run`（2.3.0） | `gm: {kind, name}`、`args`、`run` | 执行一条 Agent 面板的 GM（C++ / Lua / 控制台 / 自定义 GM / 宏）：`run` 里一般是 `api Gm.Run`、`api Gm.Lua`、`console`、`obj.call`。GameTest 不读面板的 gm.json：面板存盘、运行前按 GM 库把它展开成步骤写进 `run`，这里只跑 `run`；`gm` 记是哪条（报告带 `payload.gm`）。`args` 在外层求值（可写 `$变量`、`= 表达式`），`run` 里按 `$参数名` 用，出了这一步看不到。缺 `run` 加载时报 `bad_type`。（`gm` 这个名字是控制台 GM 命令的叶子动作，所以叫 `gm.run`） |
+| `obj.do`（2.9.0） | `obj`、`part?`、`each?`、`ops`、`run` | 对象调用：对同一个对象依次调几个函数、读写几个字段（`ops`：`[{kind: "call", function, args, saveAs?, expect?} / {kind: "get", prop, saveAs} / {kind: "set", prop, value}]`）。和 `gm.run` 一样，面板存盘、运行前把 `ops` 展开成 `obj.call` / `obj.set` / `set` 步骤写进 `run`，这里只跑 `run`；缺 `run` 加载时报 `bad_type`。只调项目实际的业务接口，不为测试另写接口 |
+| `lua`（2.9.0） | `code`、`args?`、`lib?`、`saveAs?`、`expect?` | 跑一段写在节点里的 Lua（第 6.1 节）。代码存在脚本 JSON 里，**不存成 .lua 文件** |
+| `luafn`（2.9.0） | `fn`、`args?`、`lib`、`saveAs?`、`expect?` | 调面板函数库里的一个函数（第 6.1 节） |
 | `obj.close`（2.0.0 起，取代 `widget.close` / `widget.call`） | `obj`, `how`, `verify`, `verifyMs` | 关界面 / 对象，见 game-test-ref.md 5.2 |
 | `obj.find` / `obj.wait` / `obj.set`（2.0.0 起） | 见 game-test-ref.md 5.3 | |
 | `assert` | `expr` / `cond` | `cond` 是统一条件；`expr` 是表达式（2.0.0 起按控件写的判断字段删掉） |
@@ -264,6 +267,26 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 报告：`payload.invoke: {object, function, args, returned, ms}`（值超长截到 500 字）。
 - 实现：参数打包和 `ProcessEvent` 复用 UELink 调函数（`ue.call`）同一份代码。
 
+### 6.1 Lua 代码节点和函数库（`lua` / `luafn`，2.9.0）
+
+测试用的 Lua **只写在节点里或面板的函数库里**，不往游戏项目里加 .lua 文件，也不存成 .lua 文件（用户 2026-11-28 定）。能用「执行 GM」「对象调用」做到的先用它们，最后才写 Lua。
+
+```json
+{ "action": "lua", "code": "local Bag = require('Game.Bag.BagModule')\nreturn Bag.GetCount(itemId)",
+  "args": { "itemId": "$itemId" }, "saveAs": "count", "expect": { "gte": 1 } }
+{ "action": "luafn", "fn": "背包.加物品", "args": { "itemId": 1001, "count": 3 },
+  "lib": { "背包.加物品": { "params": ["itemId", "count"], "body": "return require('Game.Bag.BagModule').Add(itemId, count)" } } }
+```
+
+- `code`：一段 Lua。可以写成表达式（`a + 1`）或语句（最后 `return` 结果）；可以 `require` 项目已有模块。`args` 的每一项在外层求值（可写 `$变量`、`= 表达式`）后成为代码里的同名局部变量。
+- 运行环境：每次一个新表当环境（读不到的名字回落到 `_G`），给代码的全局赋值不会留在游戏里；`gt.log(...)` 写输出、`gt.fail(消息)` 让这一步失败；`fn["库.名字"](...)` 调函数库里的函数。
+- 函数库：面板把函数存在文档根的 `AgentPanel/UE/gametest-lua.json`（一组 `库.名字` → 参数名 + 函数体，不许有类结构）。GameTest 不读这个文件：面板存盘、运行前把这一步用到的函数写进 `lib`（`{名字: {params: [参数名], body: "函数体"}}`；`lua` 节点用到 `fn[...]` 时也带）。`luafn` 的 `args` 按参数名给（对象），没给的参数是 nil。
+- 报错位置：节点里的代码叫 `GameTest:#<步骤 id>`，函数库叫 `GameTest:库.<名字>`，Lua 报错和日志里按这个找。
+- 返回：返回值在 Lua 里转成 JSON 再带回来（表转成数组 / 对象，函数、userdata 转成文字），`saveAs` 存它，`expect` 对它判断；输出在 `payload.output`。返回值太大（超过 UELink `lua.exec` 的上限）报 `lua_result_too_big`。
+- 时限：默认 2 秒，`timeoutMs` 最多 10 秒；超时、语法错、运行错都报 `lua_error`（`payload.luaError` 是 Lua 的原话）。
+- 开关：`_settings.json` `allowLuaInvoke` 为 false 时报 `lua_disabled`。只在游戏或编辑器世界里跑，没有世界报 `engine_unavailable`。
+- 实现：经 UELink 的 `lua.exec`（不改 UELink），GameTest 把代码包一层：建环境、`load` 时设好代码块名字、把返回值编成 JSON。
+
 ## 7. 对象定位器（2.0.0 起换成对象引用）
 
 > 2.0.0：`objects` 的值、`gt.vars scope=object` 的参数都是对象引用（game-test-ref.md 第 1 节：`class` + `in` + `ident` + `many` + `near`）。`key` → `ident: [{prop: "@.路径", op: "eq", value}]`（2.1.0 路径写法），`component` → 另起一个 `in: {obj: Actor 引用}` 的组件引用，`in: "world" / "widgets"` → 按类自动（UUserWidget 在屏上找，Actor 在世界里找）。下面是 1.x 的写法，留作迁移参考。
@@ -344,42 +367,23 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 现有动作（`click`、`key`、`type`、`move`、`drag`、`wait`、`assert`、`screenshot`、`console`、`gm`…）保持原样；面板把它们和接口一起列在节点面板里。
 
-### 8.2 项目接口
+### 8.2 项目接口（2.9.0 起停用）
 
-| 写在哪 | 认什么 |
-| --- | --- |
-| C++ | `_settings.json` `api.cpp` 列的文件夹（相对项目根，默认 `Source/**/GameTestApi`）下头文件里的 `UBlueprintFunctionLibrary` 子类的 `static` + `BlueprintCallable` / `BlueprintPure` 函数。`BlueprintPure` 算只读。注释是说明，`Category` 是分类，`DisplayName` 是显示名 |
-| Lua | `api.lua` 列的文件夹（相对 Lua 脚本根，默认 `GameTestApi`）下的模块，模块表上的函数。EmmyLua 注释：`---@param 名 类型 说明`、`---@return 类型 说明`、`---@readonly`（只读）、函数上面的普通注释是说明 |
-| 蓝图 | 不认 |
+2.9.0 起不再认项目接口：不许为了测试专门写 C++ / Lua 接口（`Source/**/GameTestApi`、`GameTestApi/*.lua`），测试调项目实际的业务接口（用户 2026-11-28 定）。
 
-- 接口名：C++ `项目.<类名去掉前后缀>.<函数名>`（`UQuestTestLibrary::AcceptQuest` → `项目.QuestTest.AcceptQuest`），Lua `项目.<模块名>.<函数名>`。`DisplayName` 只是显示，不改名字。
-- 扫描：编辑器启动、编译、Live Coding 后，GameTestEditor 扫 C++ 部分（按类元数据 `ModuleRelativePath` 过滤文件夹）；Lua 部分由面板扫。两边写进场景根的 `_api.json`（生成物，进版本库，不手改），按 `src` 分段，谁写谁那一段：
-
-```json
-{ "kind": "gametest-api", "version": 1,
-  "cpp": { "scannedAt": "…", "folders": ["Source/Demo/GameTestApi"],
-           "items": [ { "name": "项目.QuestTest.AcceptQuest", "class": "/Script/Demo.QuestTestLibrary", "function": "AcceptQuest",
-                        "category": "任务", "display": "接任务", "note": "…", "readOnly": false, "file": "Source/Demo/GameTestApi/QuestTestLibrary.h", "line": 21,
-                        "args": [ { "name": "QuestId", "type": "int32" } ], "returns": "bool" } ],
-           "rejected": [ { "class": "…", "function": "…", "why": "参数 OnDone：OnDone 是委托，脚本里给不了" } ] },
-  "lua": { "scannedAt": "…", "folders": ["GameTestApi"], "items": [ { "name": "项目.QuestApi.Finish", "module": "GameTestApi.QuestApi", "function": "Finish", … } ], "rejected": [] },
-  "renamed": { "旧名": "新名" } }
-```
-
-- 运行时按 `class` + `function` 反射调用、按 `module` + `function` 调 Lua；打包的游戏里也能用。`renamed` 里的旧名调用时报「改用 …」。
-- `WorldContext` 参数自动填；参数类型不在第 6 节支持范围里的进 `rejected`（UObject 参数支持，调用时传能重找的对象）。
-- `args` 每项：`{name, type, constructible, object?, out?, auto?, why?}`——`object: true` 是 UObject 参数（第 6 节的对象写法），`out: true` 是输出参数（不用给，调完进返回值），`auto: "world"` 是自动填的世界参数。`gt.vars` 的函数参数用同一个格式。
-- 接口名重了（两个类去掉 `Library` 后缀后同名）时后一个进 `rejected`。扫描结果和原来一样（不比 `scannedAt`）时不写文件，免得每次开编辑器都留一个只改了时间的差异。
+- 编辑器启动、编译后不再自动扫 C++ 项目接口；`gt.api.scan` 只留给面板迁移时列出旧接口。
+- 场景根的 `_api.json` 里还有接口时，`gt.api` 的 `loadError` 说明已停用、怎么改；脚本里调 `项目.*` 接口报 `api_missing`。
+- 改法：能用 GM 的用「执行 GM」；业务对象上的函数用「对象调用」（`obj.do`）；都不行再写节点内 Lua（`lua`）或面板函数库（`luafn`）。面板 UE 插件的「迁出测试接口」把旧的 Lua 接口搬进函数库。
 
 ## 9. 运行配置新增（`_settings.json`）
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
 | `guards` | `[]` | 全局守护 |
-| `api` | `{"cpp": ["Source/**/GameTestApi"], "lua": ["GameTestApi"]}` | 项目接口文件夹 |
+| `api` | — | 项目接口文件夹，2.9.0 起不再用（见 8.2） |
 | `objectKeys` | — | 1.x：对象定位的默认标识。2.0.0 起读到报 `settings_old`，换成 `identRules` |
 | `identRules` / `closeRules` / `refDefaults` / `allowDestroy` | — | 2.0.0 起，见 game-test-ref.md 第 6 节 |
-| `allowLuaInvoke` | `true` | 步骤能调 Lua 函数 |
+| `allowLuaInvoke` | `true` | 步骤能调 Lua 函数、跑 `lua` / `luafn` 节点 |
 | `allowLuaInCond` | `false` | 条件、表达式能调 Lua 函数 |
 | `maxCallDepth` | `8` | `call` 最多嵌套 |
 | `blockers` | — | 已废弃，见 5.1 |
@@ -426,7 +430,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 
 `unknown_field`、`unknown_action`、`bad_type`、`dup_id`、`call_missing`、`call_cycle`、`call_depth`、`var_undefined`、`param_missing`、
 `expr_syntax`、`expr_type`、`expr_not_readonly`、`path_missing`、`unresolved`、`fn_missing`、`fn_not_callable`、`arg_missing`、`arg_type`、`arg_object`（对象参数来源不可重找）、
-`api_missing`、`api_renamed`、`gm_failed`（2.3.0）、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
+`api_missing`、`api_renamed`、`gm_failed`（2.3.0）、`lua_error` / `lua_result_too_big` / `luafn_missing`（2.9.0）、`selector_missing`、`object_not_found`、`object_ambiguous`、`guard_max`、`guard_stuck`、`lua_disabled`、`blockers_removed`、`schema_too_new`。
 2.0.0 新增和改名的见 game-test-ref.md 第 10 节（`selector_missing` 换成 `part_missing`，`object_not_found` / `object_ambiguous` 改名 `ref_not_found` / `ref_ambiguous`）。
 
 ## 13. 版本
@@ -436,6 +440,7 @@ GameTest（C++）、面板 UE 插件（`agent-plugins` 的 `ue/`：编辑页、�
 - 面板 UE 插件按 `gt.health.version` 判断：低于 1.9.0 时编辑页只读、提示升级。
 - GameTest 2.0.0：对象引用（schemaVersion 4），见 [game-test-ref.md](game-test-ref.md)。
 - GameTest 2.3.0：`gm.run`、`hooks`（附带 GM）、接口 `Gm.Run` / `Gm.Lua`、记录的 `warn` 和报告的 `warned`。面板低于 2.3.0 时「执行 GM」节点和附带 GM 只能编辑、提示升级后再跑。
+- GameTest 2.9.0：`obj.do`（对象调用）、`lua` / `luafn`（节点内 Lua、函数库），项目接口停用。面板低于 2.9.0 时这三种节点只能编辑、提示升级后再跑。
 - GameTest 1.10.0：`gt.pick`、`gt.watch`（从游戏里抓控件、此刻的结果实时推送）；`gt.inspect` 多 `widgetClass`、`kind`、`rect`、`screen`、`screenClass`。低于 1.10.0 时面板的「从游戏里抓」提示升级，条件的此刻结果退回「现在核对」问一次。
 
 ## 14. 代码结构（扩展点）

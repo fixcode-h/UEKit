@@ -4,6 +4,7 @@
 // UE 类 = 已加载的 UClass + 资产注册表里的蓝图（编辑器里，不加载资产）；lua: true 时是 Lua 类（package.loaded 的模块按元表继承）。
 
 #include "Integration/Ref/GameTestRpcRef.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/Script/GameTestFlowContext.h"
 #include "Observe/Checks/GameTestWidgetProbe.h"
@@ -81,7 +82,7 @@ namespace GameTestRpcClassesImpl
 		const FNodesCache& Cache = CacheFor(bInLua);
 		// 存的时候有世界、世界后来销毁了（弱指针失效）：不能当成「都没有世界」复用，作废重建（UEKit #92 评审）
 		const bool bSameWorld = Cache.bHasWorld ? Cache.World.IsValid() && Cache.World.Get() == InWorld : InWorld == nullptr;
-		if (Cache.At < 0.0 || !bSameWorld || FPlatformTime::Seconds() - Cache.At > CacheSeconds)
+		if (Cache.At < 0.0 || !bSameWorld || GameTestClock::Now() - Cache.At > CacheSeconds)
 		{
 			return nullptr;
 		}
@@ -94,7 +95,7 @@ namespace GameTestRpcClassesImpl
 		Cache.Nodes = InNodes;
 		Cache.World = InWorld;
 		Cache.bHasWorld = InWorld != nullptr;
-		Cache.At = FPlatformTime::Seconds();
+		Cache.At = GameTestClock::Now();
 	}
 
 	/** 类在树里的名字：蓝图生成类去掉 `_C`（和引用的 class 写法一致）。 */

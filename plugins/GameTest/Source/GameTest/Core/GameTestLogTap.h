@@ -32,7 +32,7 @@ public:
 	/**
 	 * 「要紧的行」：LogGameTest 的行和任何类别的警告 / 错误，单独存一个小环（最多 ImportantCapacity 行）。
 	 * 项目里有类别每帧刷屏时（UnLua 打印之类），大环里 1000 行只够一两秒，失败前每一步做了什么早被冲掉了；
-	 * 要紧的行另存，证据里才看得到。返回 InFromTime（`FPlatformTime::Seconds()`）之后的。
+	 * 要紧的行另存，证据里才看得到。返回 InFromTime（`GameTestClock::Now()`）之后的。
 	 */
 	TArray<FString> ImportantSince(double InFromTime) const;
 

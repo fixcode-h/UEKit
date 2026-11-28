@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Observe/GameTestEvidence.h"
+#include "Core/GameTestClock.h"
 
 #include "Core/GameTestHandlerShared.h"
 #include "Core/GameTestJson.h"
@@ -85,7 +86,7 @@ FGameTestEvidence::FGameTestEvidence(FGameTestLogTap& InLogTap)
 void FGameTestEvidence::BeginRun()
 {
 	CapturedThisRun = 0;
-	RunStartedAt = FPlatformTime::Seconds();
+	RunStartedAt = GameTestClock::Now();
 }
 
 void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString& InRunDir, TMap<FString, TWeakObjectPtr<UWidget>>* InHandles)
@@ -180,7 +181,7 @@ void FGameTestEvidence::Capture(FGameTestStepRecord& InOutRecord, const FString&
 		Pending.FailSeq = LogTap.GetSeq();
 		Pending.Before = LogTap.Range(Pending.FailSeq > RawLogLines ? Pending.FailSeq - RawLogLines : 0, Pending.FailSeq);
 		Pending.ImportantFrom = RunStartedAt;
-		Pending.Deadline = FPlatformTime::Seconds() + EvidenceLogWaitSeconds;
+		Pending.Deadline = GameTestClock::Now() + EvidenceLogWaitSeconds;
 		WriteLog(Pending, /*bInFinal=*/false);
 		PendingLogs.Add(MoveTemp(Pending));
 		Evidence->SetStringField(TEXT("log"), GameTestShot::ToProjectRelative(PendingLogs.Last().Path));
