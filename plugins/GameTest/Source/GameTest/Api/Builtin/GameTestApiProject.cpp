@@ -191,17 +191,13 @@ FString GameTestProjectApis::Reload()
 	{
 		return Error;
 	}
-	for (const FGameTestProjectApi& Item : Items)
+	// 2.9.0 起不再认项目接口（为测试专门写的 C++ 蓝图函数库、Lua 模块，用户 2026-11-28 定）：
+	// 测试只调项目真实的业务接口（obj.call / 执行 GM），自己写的 Lua 放 Lua 代码节点或面板函数库。文件里还有条目时只提示，不登记
+	if (Items.Num() > 0)
 	{
-		// 项目接口不能顶掉自带接口：名字都以「项目.」开头，正常撞不上；撞上了跳过，自带的行为不能被一个文件改掉
-		const IGameTestApi* Existing = GameTestApis::Get().Find(FName(*Item.Name));
-		if (Existing != nullptr && Existing->GetDesc().Src == TEXT("builtin"))
-		{
-			continue;
-		}
-		GameTestApis::Get().Register(MakeShared<FProjectApi>(Item));
+		return FString::Printf(TEXT("%s 里还有 %d 个项目接口，2.9.0 起不再支持（不许为测试专门写接口）：改用对象调用调项目真实的业务接口、执行 GM，或 Lua 代码节点 / 函数库；面板的「迁出测试接口」能一次换掉"),
+			*Path, Items.Num());
 	}
-	GameTestApis::GetRenamed() = MoveTemp(Renamed);
 	return FString();
 }
 

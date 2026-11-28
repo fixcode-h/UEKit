@@ -6,6 +6,7 @@
 #include "Core/GameTestRunner.h"
 
 class FJsonObject;
+struct FGameTestValue;
 struct FGameTestWidgetNode;
 
 /**
@@ -148,6 +149,11 @@ namespace GameTestHandlers
 
 	// 脚本化的叶子（Operate/GameTestHandlersScript.cpp）：调接口库
 	EGameTestStepStatus HandleApi(FGameTestStepContext& InContext);
+	/** 调完拿到返回值后的收尾：saveAs、expect（api、lua、luafn 共用）。 */
+	EGameTestStepStatus FinishScriptResult(FGameTestStepContext& InContext, const FString& InName, const FGameTestValue& InResult);
+	// Lua 代码节点、脚本函数节点（Operate/GameTestHandlersLua.cpp，2.9.0）
+	EGameTestStepStatus HandleLua(FGameTestStepContext& InContext);
+	EGameTestStepStatus HandleLuaFn(FGameTestStepContext& InContext);
 	/** 步骤写了 cond 或 expr（assert 的统一条件写法）。 */
 	bool HasScriptCond(const FJsonObject& InParams);
 	/** assert 的 cond / expr：没写返回 false；写了返回 true，结论在 bOutHolds，消息写进 InContext。 */

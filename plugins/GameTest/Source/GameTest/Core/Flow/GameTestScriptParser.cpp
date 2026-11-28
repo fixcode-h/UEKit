@@ -40,6 +40,8 @@ namespace
 			TEXT("expect"), TEXT("until"), TEXT("onFail"),
 			// 写引用、部件、判断项、关闭方式的字段由 GameTestRefCheck 检查（$var 是对象，不是填值）
 			TEXT("target"), TEXT("toTarget"), TEXT("obj"), TEXT("prop"), TEXT("op"), TEXT("how"),
+			// Lua 代码节点（2.9.0）：代码、函数库是原文，不是填值（Lua 里的 $、= 开头不是变量和表达式）
+			TEXT("code"), TEXT("lib"), TEXT("fn"),
 		};
 		return Fields;
 	}

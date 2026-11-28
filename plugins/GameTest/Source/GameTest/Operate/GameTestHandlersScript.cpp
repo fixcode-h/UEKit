@@ -217,6 +217,11 @@ namespace GameTestHandlers
 		return StepPending;
 	}
 
+	EGameTestStepStatus FinishScriptResult(FGameTestStepContext& InContext, const FString& InName, const FGameTestValue& InResult)
+	{
+		return GameTestScriptLeafLocal::FinishApi(InContext, InName, InResult);
+	}
+
 	bool HasScriptCond(const FJsonObject& InParams)
 	{
 		return InParams.HasField(TEXT("cond")) || InParams.HasField(TEXT("expr"));
